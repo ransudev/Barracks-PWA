@@ -1,0 +1,60 @@
+import type { Service } from "@/app/types/domain";
+
+export const services: Service[] = [
+  {
+    id: "haircut",
+    name: "Haircut",
+    description: "Standard haircut with styling",
+    duration: "20 min",
+    price: 25,
+    active: true,
+  },
+  {
+    id: "beard-trim",
+    name: "Beard Trim",
+    description: "Beard shaping and hot towel finish",
+    duration: "15 min",
+    price: 15,
+    active: true,
+  },
+  {
+    id: "haircut-beard",
+    name: "Haircut + Beard Trim",
+    description: "Cut, shape, and finish",
+    duration: "35 min",
+    price: 35,
+    active: true,
+  },
+  {
+    id: "full-service",
+    name: "Full Service",
+    description: "Haircut, beard, and facial massage",
+    duration: "45 min",
+    price: 50,
+    active: true,
+  },
+  {
+    id: "haircut-color",
+    name: "Haircut + Color",
+    description: "Haircut with professional coloring",
+    duration: "60 min",
+    price: 85,
+    active: true,
+  },
+  {
+    id: "beard-style",
+    name: "Beard Styling",
+    description: "Professional beard styling",
+    duration: "15 min",
+    price: 20,
+    active: true,
+  },
+  {
+    id: "kids-haircut",
+    name: "Kids Haircut",
+    description: "Haircut for children under 12",
+    duration: "20 min",
+    price: 15,
+    active: false,
+  },
+];
