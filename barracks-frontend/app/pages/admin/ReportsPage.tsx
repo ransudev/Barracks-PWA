@@ -8,6 +8,7 @@ import { formatCurrency } from "@/app/utils/format";
 import {
   Avatar,
   Button,
+  EmptyState,
   MetricCard,
   Modal,
   PageHeader,
@@ -26,6 +27,7 @@ export function ReportsPage({
 }) {
   const [range, setRange] = useState("This month");
   const [ledgerOpen, setLedgerOpen] = useState(false);
+  const totalRevenue = transactions.reduce((total, transaction) => total + transaction.amount, 0);
 
   function exportReport() {
     const filename =
@@ -79,28 +81,25 @@ export function ReportsPage({
       <div className="metrics-grid metrics-grid--four">
         <MetricCard
           label="Total revenue"
-          value="$12,485"
-          change="+13% vs last period"
+          value={formatCurrency(totalRevenue)}
           icon="wallet"
           accent="green"
         />
         <MetricCard
           label="Total transactions"
-          value="312"
-          change="+24 vs last period"
+          value={String(transactions.length)}
           icon="creditCard"
           accent="blue"
         />
         <MetricCard
           label="Customers served"
-          value="48"
-          change="+12 vs last period"
+          value={String(customers.length)}
           icon="users"
           accent="violet"
         />
         <MetricCard
           label="Commission paid"
-          value="$3,745"
+          value={formatCurrency(0)}
           icon="spark"
           accent="amber"
         />
@@ -110,7 +109,7 @@ export function ReportsPage({
         <Panel>
           <SectionHeading title="Revenue by service" />
           <div className="report-bars">
-            {revenueByService.map((item) => (
+            {revenueByService.length ? revenueByService.map((item) => (
               <div className="report-bar" key={item.label}>
                 <div className="report-bar__head">
                   <span>{item.label}</span>
@@ -121,13 +120,13 @@ export function ReportsPage({
                 </div>
                 <ProgressBar value={item.percent * 2.8} tone={item.tone} />
               </div>
-            ))}
+            )) : <EmptyState title="No service revenue" description="Service revenue will appear when transactions are connected." />}
           </div>
         </Panel>
         <Panel>
           <SectionHeading title="Top customers" />
           <div className="top-customers">
-            {customers.slice(0, 5).map((customer, index) => (
+            {customers.length ? customers.slice(0, 5).map((customer, index) => (
               <div key={customer.id}>
                 <span className={"rank rank--" + (index + 1)}>{index + 1}</span>
                 <Avatar
@@ -139,9 +138,9 @@ export function ReportsPage({
                   <strong>{customer.name}</strong>
                   <small>{customer.visits} visits</small>
                 </span>
-                <strong>{formatCurrency(topCustomerValues[index])}</strong>
+                <strong>{formatCurrency(topCustomerValues[index] ?? 0)}</strong>
               </div>
-            ))}
+            )) : <EmptyState title="No customer data" description="Customer rankings will appear when customer data is connected." />}
           </div>
         </Panel>
       </div>
@@ -167,7 +166,7 @@ export function ReportsPage({
             <span>Barber</span>
             <span>Amount</span>
           </div>
-          {transactions.map((transaction) => (
+          {transactions.length ? transactions.map((transaction) => (
             <div key={transaction.id}>
               <span>{transaction.date}</span>
               <strong>{transaction.customer}</strong>
@@ -177,7 +176,7 @@ export function ReportsPage({
                 {formatCurrency(transaction.amount)}
               </strong>
             </div>
-          ))}
+          )) : <EmptyState title="No transactions" description="Transactions will appear when the payment service is connected." />}
         </div>
       </Panel>
 

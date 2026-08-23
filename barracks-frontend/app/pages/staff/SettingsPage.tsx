@@ -22,9 +22,9 @@ export function StaffSettingsPage({
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [soundNotifications, setSoundNotifications] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(false);
-  const [name, setName] = useState("Jules Mendoza");
-  const [email, setEmail] = useState("jules@barracks.ph");
-  const [role, setRole] = useState("Front desk");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState("Staff");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -77,7 +77,7 @@ export function StaffSettingsPage({
             <Avatar initials="JM" tone="blue" size="lg" />
             <div>
               <strong>{name}</strong>
-              <small>Front desk · Shop floor</small>
+              <small>{role} · Shop floor</small>
               <button
                 className="link-button"
                 type="button"
@@ -177,7 +177,7 @@ export function StaffSettingsPage({
             </span>
             <span>
               <small>Last updated</small>
-              <strong>April 14, 2026</strong>
+              <strong>Not available</strong>
             </span>
             <span>
               <small>Environment</small>

@@ -3,12 +3,14 @@
 import { barbers } from "@/app/data/barbers";
 import { bookings } from "@/app/data/bookings";
 import { queueEntries } from "@/app/data/queue";
+import { transactions } from "@/app/data/transactions";
 import type { ViewId } from "@/app/types/domain";
 import { formatCurrency } from "@/app/utils/format";
 import {
   Avatar,
   Badge,
   Button,
+  EmptyState,
   MetricCard,
   PageHeader,
   Panel,
@@ -21,10 +23,12 @@ type StaffDashboardProps = {
 };
 
 export function StaffDashboard({ go }: StaffDashboardProps) {
+  const revenue = transactions.reduce((total, transaction) => total + transaction.amount, 0);
+
   return (
     <>
       <PageHeader
-        title="Good afternoon, Jules."
+        title="Shop floor dashboard"
         action={
           <Button icon="plus" onClick={() => go("queue")}>
             Add to queue
@@ -34,27 +38,25 @@ export function StaffDashboard({ go }: StaffDashboardProps) {
       <div className="metrics-grid metrics-grid--four">
         <MetricCard
           label="Customers in queue"
-          value="5"
-          change="+2 from yesterday"
+          value={String(queueEntries.length)}
           icon="queue"
           accent="blue"
         />
         <MetricCard
           label="Today’s bookings"
-          value="12"
+          value={String(bookings.length)}
           icon="calendar"
           accent="violet"
         />
         <MetricCard
           label="Active barbers"
-          value="3"
+          value={String(barbers.filter((barber) => barber.status !== "Off today").length)}
           icon="scissors"
           accent="green"
         />
         <MetricCard
           label="Today’s revenue"
-          value="$485"
-          change="+15% from yesterday"
+          value={formatCurrency(revenue)}
           icon="wallet"
           accent="amber"
         />
@@ -75,7 +77,7 @@ export function StaffDashboard({ go }: StaffDashboardProps) {
             }
           />
           <div className="queue-preview__list">
-            {queueEntries.slice(0, 3).map((entry) => (
+            {queueEntries.length ? queueEntries.slice(0, 3).map((entry) => (
               <button
                 className="queue-preview__row"
                 type="button"
@@ -105,7 +107,7 @@ export function StaffDashboard({ go }: StaffDashboardProps) {
                 <span className="queue-preview__wait">{entry.wait}</span>
                 <Icon name="chevronRight" size={15} />
               </button>
-            ))}
+            )) : <EmptyState title="Queue is empty" description="Queue entries will appear when connected to the backend." />}
           </div>
         </Panel>
 
@@ -123,7 +125,7 @@ export function StaffDashboard({ go }: StaffDashboardProps) {
             }
           />
           <div className="schedule-list">
-            {bookings
+            {bookings.length ? bookings
               .filter((booking) => booking.status === "Upcoming")
               .slice(0, 3)
               .map((booking, index) => (
@@ -150,7 +152,7 @@ export function StaffDashboard({ go }: StaffDashboardProps) {
                     {formatCurrency(booking.price)}
                   </span>
                 </button>
-              ))}
+              )) : <EmptyState title="No upcoming bookings" description="Bookings will appear when connected to the backend." />}
           </div>
         </Panel>
       </div>
@@ -189,7 +191,7 @@ export function StaffDashboard({ go }: StaffDashboardProps) {
         <Panel>
           <SectionHeading title="Barber availability" />
           <div className="availability-list">
-            {barbers.slice(0, 3).map((barber) => (
+            {barbers.length ? barbers.slice(0, 3).map((barber) => (
               <div className="availability-row" key={barber.id}>
                 <Avatar
                   initials={barber.initials}
@@ -206,7 +208,7 @@ export function StaffDashboard({ go }: StaffDashboardProps) {
                   {barber.status}
                 </Badge>
               </div>
-            ))}
+            )) : <EmptyState title="No barber profiles" description="Barber availability will appear when the roster is connected." />}
           </div>
         </Panel>
       </div>

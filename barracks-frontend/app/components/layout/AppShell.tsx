@@ -4,7 +4,6 @@ import { useState, type ReactNode } from "react";
 import { adminNavigation, staffNavigation } from "@/app/constants/navigation";
 import {
   Avatar,
-  Badge,
   IconButton,
   Logo,
   SearchInput,
@@ -95,7 +94,6 @@ function Sidebar({
           >
             <Icon name={item.icon} size={18} />
             <span>{item.label}</span>
-            {item.id === "queue" && <span className="sidebar__count">5</span>}
           </button>
         ))}
 
@@ -134,13 +132,13 @@ function Sidebar({
           onClick={() => go(settingsView)}
         >
           <Avatar
-            initials={isAdmin ? "AD" : "JM"}
+            initials={isAdmin ? "AD" : "ST"}
             tone={isAdmin ? "violet" : "blue"}
             size="sm"
           />
           <span>
-            <strong>{isAdmin ? "Avery Dela Cruz" : "Jules Mendoza"}</strong>
-            <small>{isAdmin ? "Administrator" : "Front desk"}</small>
+              <strong>{isAdmin ? "Admin account" : "Staff account"}</strong>
+            <small>{isAdmin ? "Administrator" : "Staff"}</small>
           </span>
           <Icon name="more" size={17} />
         </button>
@@ -169,7 +167,7 @@ function Topbar({
         <span>{isAdmin ? "Management" : "Shop floor"}</span>
         <Icon name="chevronRight" size={13} />
         <strong>
-          {isAdmin ? "Business overview" : "Tuesday, April 14, 2026"}
+          {isAdmin ? "Business overview" : "Operations"}
         </strong>
       </div>
 
@@ -191,40 +189,14 @@ function Topbar({
               setProfileOpen(false);
             }}
           />
-          <span className="notification-dot" />
-          {notificationsOpen && (
-            <div className="popover notification-popover">
-              <div className="popover__header">
-                <strong>Notifications</strong>
-                <Badge tone="info">3 new</Badge>
-              </div>
-              <div className="notification-item">
-                <span className="notification-item__icon notification-item__icon--red">
-                  <Icon name="box" size={15} />
-                </span>
-                <span>
-                  <strong>Low stock alert</strong>
-                  <small>Hair Clippers Oil is below minimum.</small>
-                </span>
-              </div>
-              <div className="notification-item">
-                <span className="notification-item__icon notification-item__icon--blue">
-                  <Icon name="calendar" size={15} />
-                </span>
-                <span>
-                  <strong>Next booking in 18 min</strong>
-                  <small>Emma Wilson · Haircut</small>
-                </span>
-              </div>
-              <div className="notification-item">
-                <span className="notification-item__icon notification-item__icon--green">
-                  <Icon name="checkCircle" size={15} />
-                </span>
-                <span>
-                  <strong>Daily close is ready</strong>
-                  <small>Yesterday’s numbers were reconciled.</small>
-                </span>
-              </div>
+        {notificationsOpen && (
+          <div className="popover notification-popover">
+            <div className="popover__header">
+              <strong>Notifications</strong>
+            </div>
+            <div className="notification-item">
+              <span>No notifications yet.</span>
+            </div>
               <button
                 className="popover__footer"
                 type="button"
@@ -254,7 +226,7 @@ function Topbar({
               size="sm"
             />
             <span>
-              <strong>{isAdmin ? "Avery" : "Jules"}</strong>
+              <strong>{isAdmin ? "Admin" : "Staff"}</strong>
               <small>{isAdmin ? "Admin" : "Staff"}</small>
             </span>
             <Icon name="chevronDown" size={14} />
@@ -263,15 +235,15 @@ function Topbar({
             <div className="popover profile-popover">
               <div className="profile-popover__identity">
                 <Avatar
-                  initials={isAdmin ? "AD" : "JM"}
+              initials={isAdmin ? "AD" : "ST"}
                   tone={isAdmin ? "violet" : "blue"}
                   size="md"
                 />
                 <span>
                   <strong>
-                    {isAdmin ? "Avery Dela Cruz" : "Jules Mendoza"}
+                    {isAdmin ? "Admin account" : "Staff account"}
                   </strong>
-                  <small>{isAdmin ? "Administrator" : "Front desk"}</small>
+                    <small>{isAdmin ? "Administrator" : "Staff"}</small>
                 </span>
               </div>
               <button

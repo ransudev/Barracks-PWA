@@ -16,11 +16,11 @@ import type { InventoryItem, QueueEntry, ViewId } from "@/app/types/domain";
 export default function Home() {
   const [view, setView] = useState<ViewId>("landing");
   const [queue, setQueue] = usePersistentState<QueueEntry[]>(
-    "barracks-queue",
+    "barracks-queue-v2",
     queueEntries,
   );
   const [stock, setStock] = usePersistentState<InventoryItem[]>(
-    "barracks-inventory",
+    "barracks-inventory-v2",
     inventory,
   );
   const [search, setSearch] = useState("");

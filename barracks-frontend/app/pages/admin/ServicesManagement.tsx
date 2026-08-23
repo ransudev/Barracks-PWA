@@ -23,7 +23,7 @@ export function ServicesManagement({
   onToast: (message: string) => void;
 }) {
   const [items, setItems] = usePersistentState<Service[]>(
-    "barracks-services",
+    "barracks-services-v2",
     initialServices,
   );
   const [modalOpen, setModalOpen] = useState(false);
@@ -33,8 +33,8 @@ export function ServicesManagement({
   const [newService, setNewService] = useState({
     name: "",
     description: "",
-    duration: "30 min",
-    price: "35",
+    duration: "",
+    price: "",
   });
 
   function addService(event: FormEvent) {
@@ -47,7 +47,7 @@ export function ServicesManagement({
     const created: Service = {
       id: createSlug(newService.name),
       name: newService.name,
-      description: newService.description || "A considered service at Barracks",
+      description: newService.description,
       duration: newService.duration,
       price: Number(newService.price),
       active: true,
@@ -57,8 +57,8 @@ export function ServicesManagement({
     setNewService({
       name: "",
       description: "",
-      duration: "30 min",
-      price: "35",
+      duration: "",
+      price: "",
     });
     setModalOpen(false);
     onToast(created.name + " added to services");
@@ -112,15 +112,13 @@ export function ServicesManagement({
         />
         <MetricCard
           label="Average price"
-          value={formatCurrency(
-            items.reduce((total, item) => total + item.price, 0) / items.length,
-          )}
+          value={formatCurrency(items.length ? items.reduce((total, item) => total + item.price, 0) / items.length : 0)}
           icon="wallet"
           accent="green"
         />
         <MetricCard
           label="Most popular"
-          value="Haircut"
+          value="—"
           icon="star"
           accent="amber"
         />

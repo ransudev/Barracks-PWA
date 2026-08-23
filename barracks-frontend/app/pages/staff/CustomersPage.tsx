@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { customers as initialCustomers } from "@/app/data/customers";
+import { services } from "@/app/data/services";
 import { transactions } from "@/app/data/transactions";
 import type { Customer } from "@/app/types/domain";
 import { createInitials, createSlug, formatCurrency } from "@/app/utils/format";
@@ -27,17 +28,17 @@ export function CustomersPage({
   onToast: (message: string) => void;
 }) {
   const [items, setItems] = usePersistentState<Customer[]>(
-    "barracks-customers",
+    "barracks-customers-v2",
     initialCustomers,
   );
   const [search, setSearch] = useState("");
-  const [selectedId, setSelectedId] = useState(initialCustomers[0].id);
+  const [selectedId, setSelectedId] = useState(initialCustomers[0]?.id ?? "");
   const [editing, setEditing] = useState<Customer | null>(null);
   const [bookingOpen, setBookingOpen] = useState(false);
   const [booking, setBooking] = useState({
-    date: "2026-04-15",
-    time: "10:00",
-    service: "Haircut",
+    date: "",
+    time: "",
+    service: "",
   });
   const [newCustomer, setNewCustomer] = useState({
     name: "",
@@ -64,8 +65,8 @@ export function CustomersPage({
       id: createSlug(newCustomer.name),
       name: newCustomer.name,
       initials: createInitials(newCustomer.name),
-      phone: newCustomer.phone || "+63 900 000 0000",
-      email: newCustomer.email || "No email provided",
+      phone: newCustomer.phone,
+      email: newCustomer.email,
       visits: 0,
       points: 0,
       preferredBarber: "Not set",
@@ -289,13 +290,13 @@ export function CustomersPage({
       <div className="metrics-grid metrics-grid--four">
         <MetricCard
           label="Total loyalty points"
-          value="1,970"
+          value={String(items.reduce((total, customer) => total + customer.points, 0))}
           icon="spark"
           accent="amber"
         />
         <MetricCard
           label="Average per customer"
-          value="328"
+          value={items.length ? String(Math.round(items.reduce((total, customer) => total + customer.points, 0) / items.length)) : "0"}
           icon="chart"
           accent="blue"
         />
@@ -307,8 +308,7 @@ export function CustomersPage({
         />
         <MetricCard
           label="Active this month"
-          value="42"
-          change="+8%"
+          value="0"
           icon="checkCircle"
           accent="green"
         />
@@ -399,10 +399,7 @@ export function CustomersPage({
               setBooking({ ...booking, service: event.target.value })
             }
           >
-            <option>Haircut</option>
-            <option>Beard Trim</option>
-            <option>Haircut + Beard Trim</option>
-            <option>Full Service</option>
+            {services.map((service) => <option key={service.id}>{service.name}</option>)}
           </SelectField>
           <div className="modal-actions">
             <Button

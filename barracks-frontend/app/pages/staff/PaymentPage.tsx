@@ -11,6 +11,7 @@ import { usePersistentState } from "@/app/hooks/usePersistentState";
 import {
   Avatar,
   Button,
+  EmptyState,
   MetricCard,
   Modal,
   PageHeader,
@@ -25,12 +26,12 @@ export function PaymentPage({
 }: {
   onToast: (message: string) => void;
 }) {
-  const [customerId, setCustomerId] = useState(customers[0].id);
-  const [serviceId, setServiceId] = useState(services[0].id);
-  const [barberId, setBarberId] = useState(barbers[0].id);
+  const [customerId, setCustomerId] = useState(customers[0]?.id ?? "");
+  const [serviceId, setServiceId] = useState(services[0]?.id ?? "");
+  const [barberId, setBarberId] = useState(barbers[0]?.id ?? "");
   const [method, setMethod] = useState("Card");
   const [recent, setRecent] = usePersistentState(
-    "barracks-transactions",
+    "barracks-transactions-v2",
     initialTransactions,
   );
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -48,6 +49,10 @@ export function PaymentPage({
   const averageTransaction = recent.length ? revenue / recent.length : 0;
 
   function completePayment() {
+    if (!selectedCustomer || !selectedService || !selectedBarber) {
+      onToast("Payment options are not available yet");
+      return;
+    }
     setRecent((list) => [
       {
         id: "TX-" + (8242 + list.length),
@@ -74,6 +79,18 @@ export function PaymentPage({
     { id: "Mobile", icon: "mobile" },
   ];
 
+  if (!selectedCustomer || !selectedService || !selectedBarber) {
+    return (
+      <>
+        <PageHeader title="Process payment" />
+        <EmptyState
+          title="Payment workspace is empty"
+          description="Customers, services, and barbers will appear when connected to the backend."
+        />
+      </>
+    );
+  }
+
   return (
     <>
       <PageHeader
@@ -95,7 +112,6 @@ export function PaymentPage({
         <MetricCard
           label="Today’s revenue"
           value={formatCurrency(revenue)}
-          change="+15% from yesterday"
           icon="wallet"
           accent="green"
         />
@@ -113,7 +129,7 @@ export function PaymentPage({
         />
         <MetricCard
           label="Commission due"
-          value="$145.50"
+          value={formatCurrency(0)}
           icon="spark"
           accent="amber"
         />

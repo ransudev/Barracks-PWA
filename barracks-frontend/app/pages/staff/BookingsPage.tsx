@@ -31,7 +31,7 @@ export function BookingsPage({
   onToast: (message: string) => void;
 }) {
   const [items, setItems] = usePersistentState<Booking[]>(
-    "barracks-bookings",
+    "barracks-bookings-v2",
     initialBookings,
   );
   const [tab, setTab] = useState("today");
@@ -43,12 +43,12 @@ export function BookingsPage({
   const [filterBarber, setFilterBarber] = useState("All barbers");
   const [filterService, setFilterService] = useState("All services");
   const [draft, setDraft] = useState({
-    customer: customers[0].name,
-    service: services[0].name,
-    barber: barbers[0].name,
-    time: "10:00",
+    customer: customers[0]?.name ?? "",
+    service: services[0]?.name ?? "",
+    barber: barbers[0]?.name ?? "",
+    time: "",
     meridiem: "AM",
-    price: String(services[0].price),
+    price: "",
   });
 
   const counts = {
@@ -93,11 +93,15 @@ export function BookingsPage({
 
   function openNewBooking() {
     const service = services[0];
+    if (!service || !customers[0] || !barbers[0]) {
+      onToast("Booking options are not available yet");
+      return;
+    }
     setDraft({
       customer: customers[0].name,
       service: service.name,
       barber: barbers[0].name,
-      time: "10:00",
+      time: "",
       meridiem: "AM",
       price: String(service.price),
     });
@@ -187,7 +191,7 @@ export function BookingsPage({
         <MetricCard
           label="Completed"
           value={String(counts.completed)}
-          change="75% of day"
+          change={items.length ? Math.round((counts.completed / items.length) * 100) + "% of current records" : undefined}
           icon="checkCircle"
           accent="green"
         />
@@ -286,7 +290,7 @@ export function BookingsPage({
         open={Boolean(selected)}
         title="Booking detail"
         description={
-          selected ? selected.id + " · Tuesday, April 14, 2026" : undefined
+          selected ? selected.id : undefined
         }
         onClose={() => setSelected(null)}
       >

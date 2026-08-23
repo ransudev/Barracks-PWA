@@ -26,14 +26,14 @@ export function BarbersManagement({
   onToast: (message: string) => void;
 }) {
   const [items, setItems] = usePersistentState<Barber[]>(
-    "barracks-barbers",
+    "barracks-barbers-v2",
     initialBarbers,
   );
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Barber | null>(null);
   const [scheduleBarber, setScheduleBarber] = useState<Barber | null>(null);
   const [commissionModalOpen, setCommissionModalOpen] = useState(false);
-  const [commissionRate, setCommissionRate] = useState("30");
+  const [commissionRate, setCommissionRate] = useState("");
   const [newBarber, setNewBarber] = useState({ name: "", specialty: "" });
 
   function addBarber(event: FormEvent) {
@@ -56,7 +56,7 @@ export function BarbersManagement({
       commission: 0,
       rating: 0,
       customers: 0,
-      memberSince: "Apr 2026",
+      memberSince: new Date().toLocaleDateString(undefined, { month: "short", year: "numeric" }),
     };
 
     setItems((list) => [...list, created]);
@@ -128,20 +128,19 @@ export function BarbersManagement({
         />
         <MetricCard
           label="This week’s revenue"
-          value="$2,485"
-          change="+12%"
+          value={formatCurrency(items.reduce((total, barber) => total + barber.revenue, 0))}
           icon="wallet"
           accent="green"
         />
         <MetricCard
           label="Commission rate"
-          value="30%"
+          value={commissionRate ? commissionRate + "%" : "—"}
           icon="spark"
           accent="amber"
         />
         <MetricCard
           label="Total commission"
-          value="$745.50"
+          value={formatCurrency(items.reduce((total, barber) => total + barber.commission, 0))}
           icon="chart"
           accent="violet"
         />
@@ -195,7 +194,7 @@ export function BarbersManagement({
                   </strong>
                 </span>
                 <span>
-                  <small>Commission (30%)</small>
+                  <small>Commission</small>
                   <strong className="text-amber">
                     {formatCurrency(barber.commission)}
                   </strong>

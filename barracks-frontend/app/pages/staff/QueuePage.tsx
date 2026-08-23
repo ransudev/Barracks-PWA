@@ -16,6 +16,7 @@ import {
   Avatar,
   Badge,
   Button,
+  EmptyState,
   MetricCard,
   Modal,
   PageHeader,
@@ -38,8 +39,8 @@ export function QueuePage({ queue, setQueue, onToast }: QueuePageProps) {
   const [commissionOpen, setCommissionOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("All statuses");
   const [draft, setDraft] = useState({
-    customer: customers[0].name,
-    service: services[0].name,
+    customer: customers[0]?.name ?? "",
+    service: services[0]?.name ?? "",
     barber: "Unassigned",
     status: "Waiting" as QueueEntry["status"],
   });
@@ -64,6 +65,10 @@ export function QueuePage({ queue, setQueue, onToast }: QueuePageProps) {
 
   function addToQueue(event: FormEvent) {
     event.preventDefault();
+    if (!draft.customer || !draft.service) {
+      onToast("Customer and service data are not available yet");
+      return;
+    }
     const customer = customers.find((item) => item.name === draft.customer);
     const nextId = Math.max(0, ...queue.map((item) => item.id)) + 1;
     const created: QueueEntry = {
@@ -183,7 +188,7 @@ export function QueuePage({ queue, setQueue, onToast }: QueuePageProps) {
             <span>Wait</span>
             <span>Action</span>
           </div>
-          {visibleQueue.map((entry) => (
+          {visibleQueue.length ? visibleQueue.map((entry) => (
             <div
               className={
                 "queue-table__row " +
@@ -255,7 +260,7 @@ export function QueuePage({ queue, setQueue, onToast }: QueuePageProps) {
                 </button>
               </span>
             </div>
-          ))}
+          )) : <EmptyState title="Queue is empty" description="Queue entries will appear when connected to the backend." />}
         </div>
       </Panel>
 
@@ -263,7 +268,7 @@ export function QueuePage({ queue, setQueue, onToast }: QueuePageProps) {
         <Panel>
           <SectionHeading title="Barber availability" />
           <div className="barber-status-grid">
-            {barbers.slice(0, 3).map((barber) => (
+            {barbers.length ? barbers.slice(0, 3).map((barber) => (
               <div className="barber-status-card" key={barber.id}>
                 <div className="barber-status-card__head">
                   <Avatar
@@ -294,7 +299,7 @@ export function QueuePage({ queue, setQueue, onToast }: QueuePageProps) {
                   </span>
                 </div>
               </div>
-            ))}
+            )) : <EmptyState title="No barber availability" description="Barber profiles will appear when the roster is connected." />}
           </div>
         </Panel>
 
@@ -318,7 +323,7 @@ export function QueuePage({ queue, setQueue, onToast }: QueuePageProps) {
               <span>Revenue</span>
               <span>Commission</span>
             </div>
-            {barbers.slice(0, 3).map((barber) => (
+            {barbers.length ? barbers.slice(0, 3).map((barber) => (
               <div key={barber.id}>
                 <span className="table-person">
                   <Avatar
@@ -334,12 +339,12 @@ export function QueuePage({ queue, setQueue, onToast }: QueuePageProps) {
                   {formatCurrency(barber.commission)}
                 </strong>
               </div>
-            ))}
+            )) : <EmptyState title="No commission data" description="Commission totals will appear when transactions are connected." />}
             <div className="commission-total">
               <strong>Total</strong>
-              <strong>105</strong>
-              <strong>{formatCurrency(2485)}</strong>
-              <strong className="text-amber">{formatCurrency(745.5)}</strong>
+              <strong>{barbers.reduce((total, barber) => total + barber.services, 0)}</strong>
+              <strong>{formatCurrency(barbers.reduce((total, barber) => total + barber.revenue, 0))}</strong>
+              <strong className="text-amber">{formatCurrency(barbers.reduce((total, barber) => total + barber.commission, 0))}</strong>
             </div>
           </div>
         </Panel>

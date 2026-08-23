@@ -15,14 +15,14 @@ type AuthMode = "login" | "signup";
 export function LoginPage({ go, onToast }: LoginPageProps) {
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [showPassword, setShowPassword] = useState(false);
-  const [email, setEmail] = useState("jules@barracks.ph");
-  const [password, setPassword] = useState("barracks123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [signupName, setSignupName] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [error, setError] = useState("");
   const [recoveryOpen, setRecoveryOpen] = useState(false);
-  const [recoveryEmail, setRecoveryEmail] = useState("jules@barracks.ph");
+  const [recoveryEmail, setRecoveryEmail] = useState("");
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -35,7 +35,7 @@ export function LoginPage({ go, onToast }: LoginPageProps) {
       return;
     }
     setError("");
-    onToast("Signed in as Jules Mendoza");
+    onToast("Signed in");
     go("staff-dashboard");
   }
 
@@ -57,36 +57,8 @@ export function LoginPage({ go, onToast }: LoginPageProps) {
       return;
     }
 
-    const initials = name
-      .split(/\s+/)
-      .map((part) => part[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase();
-
-    try {
-      window.localStorage.setItem(
-        "barracks-customer-profile",
-        JSON.stringify({
-          id: "customer-" + Date.now(),
-          name,
-          initials,
-          phone: "",
-          email: accountEmail,
-          visits: 0,
-          points: 0,
-          preferredBarber: "No preference yet",
-          lastVisit: "New customer",
-          tone: "slate",
-        }),
-      );
-    } catch {
-      // Keep the signup flow usable when browser storage is unavailable.
-    }
-
     setError("");
-    onToast("Customer account created");
-    go("customer");
+    onToast("Customer signup is not connected yet");
   }
 
   function switchAuthMode(nextMode: AuthMode) {

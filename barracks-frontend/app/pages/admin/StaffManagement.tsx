@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { staff as fallbackStaff } from "@/app/data/staff";
 import { apiRequest, readApiBody, type ApiRole, type ApiUser } from "@/app/lib/api";
 import type { StaffMember } from "@/app/types/domain";
 import { createInitials } from "@/app/utils/format";
@@ -68,10 +67,11 @@ export function StaffManagement({
 }: {
   onToast: (message: string) => void;
 }) {
-  const [items, setItems] = useState<StaffMember[]>(fallbackStaff);
+  const [items, setItems] = useState<StaffMember[]>([]);
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [newUser, setNewUser] = useState({
@@ -96,10 +96,14 @@ export function StaffManagement({
 
         if (!cancelled) {
           setItems(body.users.map(toStaffMember));
+          setLoadError("");
         }
       } catch (error) {
         if (!cancelled) {
-          onToast(error instanceof Error ? error.message : "Unable to load user accounts");
+          const message = error instanceof Error ? error.message : "Unable to load user accounts";
+          setItems([]);
+          setLoadError(message);
+          onToast(message);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -210,6 +214,8 @@ export function StaffManagement({
           </div>
           {loading ? (
             <div className="staff-table__empty">Loading user accounts…</div>
+          ) : loadError ? (
+            <div className="staff-table__empty">{loadError}</div>
           ) : filtered.length ? (
             filtered.map((item) => (
               <div className="staff-table__row" key={item.id}>

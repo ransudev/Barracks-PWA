@@ -12,6 +12,7 @@ import {
   Avatar,
   Badge,
   Button,
+  EmptyState,
   Logo,
   PageHeader,
   Panel,
@@ -28,22 +29,24 @@ type CustomerProfileProps = {
   onToast: (message: string) => void;
 };
 
+type CustomerNextVisit = {
+  id: string;
+  day: string;
+  date: string;
+  time: string;
+  service: string;
+  barber: string;
+  status: string;
+};
+
 export function CustomerProfile({ go, onToast }: CustomerProfileProps) {
   const [customer, setCustomer] = usePersistentState(
-    "barracks-customer-profile",
-    customers[0],
+    "barracks-customer-profile-v2",
+    customers[0] ?? null,
   );
-  const [nextVisit, setNextVisit] = usePersistentState(
-    "barracks-customer-next-visit",
-    {
-      id: "BK-1050",
-      day: "Tuesday",
-      date: "April 14, 2026",
-      time: "2:30 PM",
-      service: "Haircut",
-      barber: "Kai Mercer",
-      status: "Confirmed",
-    },
+  const [nextVisit, setNextVisit] = usePersistentState<CustomerNextVisit | null>(
+    "barracks-customer-next-visit-v2",
+    null,
   );
   const [bookingOpen, setBookingOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -51,21 +54,25 @@ export function CustomerProfile({ go, onToast }: CustomerProfileProps) {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileDraft, setProfileDraft] = useState({
-    name: customer.name,
-    email: customer.email,
-    phone: customer.phone,
+    name: customer?.name ?? "",
+    email: customer?.email ?? "",
+    phone: customer?.phone ?? "",
   });
   const [bookingDraft, setBookingDraft] = useState({
-    date: "2026-04-21",
-    time: "10:00",
-    service: services[0].name,
-    barber: barbers[0].name,
+    date: "",
+    time: "",
+    service: services[0]?.name ?? "",
+    barber: barbers[0]?.name ?? "",
   });
 
   function openBooking() {
+    if (!services[0] || !barbers[0]) {
+      onToast("Booking options are not available yet");
+      return;
+    }
     setBookingDraft({
-      date: "2026-04-21",
-      time: "10:00",
+      date: "",
+      time: "",
       service: services[0].name,
       barber: barbers[0].name,
     });
@@ -98,6 +105,7 @@ export function CustomerProfile({ go, onToast }: CustomerProfileProps) {
 
   function saveProfile(event: FormEvent) {
     event.preventDefault();
+    if (!customer) return;
     if (!profileDraft.name.trim() || !profileDraft.email.includes("@")) {
       onToast("Enter a valid name and email address");
       return;
@@ -119,12 +127,30 @@ export function CustomerProfile({ go, onToast }: CustomerProfileProps) {
   }
 
   function openProfile() {
+    if (!customer) return;
     setProfileDraft({
       name: customer.name,
       email: customer.email,
       phone: customer.phone,
     });
     setProfileOpen(true);
+  }
+
+  if (!customer || !nextVisit) {
+    return (
+      <div className="customer-page">
+        <header className="customer-topbar">
+          <Logo onClick={() => go("landing")} />
+          <button type="button" onClick={() => go("login")}>Staff sign in</button>
+        </header>
+        <main className="customer-content">
+          <EmptyState
+            title="Customer profile unavailable"
+            description="Customer and appointment data will appear when connected to the backend."
+          />
+        </main>
+      </div>
+    );
   }
 
   return (

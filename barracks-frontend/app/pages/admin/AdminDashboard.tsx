@@ -1,13 +1,17 @@
 "use client";
 
 import { barbers } from "@/app/data/barbers";
+import { bookings } from "@/app/data/bookings";
+import { customers } from "@/app/data/customers";
 import { revenueByDay } from "@/app/data/reports";
+import { transactions } from "@/app/data/transactions";
 import type { ViewId } from "@/app/types/domain";
 import { formatCurrency } from "@/app/utils/format";
 import { downloadCsv } from "@/app/utils/download";
 import {
   Avatar,
   Button,
+  EmptyState,
   MetricCard,
   PageHeader,
   Panel,
@@ -22,15 +26,18 @@ type AdminDashboardProps = {
 };
 
 export function AdminDashboard({ go, onToast }: AdminDashboardProps) {
+  const totalRevenue = transactions.reduce((total, transaction) => total + transaction.amount, 0);
+  const activeBarbers = barbers.filter((barber) => barber.status !== "Off today").length;
+
   function exportSummary() {
     downloadCsv(
       "barracks-daily-summary.csv",
       ["Metric", "Value"],
       [
-        ["Total revenue", "$2,485"],
-        ["Total customers", "156"],
-        ["Active staff", "5"],
-        ["Bookings today", "18"],
+        ["Total revenue", formatCurrency(totalRevenue)],
+        ["Total customers", String(customers.length)],
+        ["Active staff", String(activeBarbers)],
+        ["Bookings today", String(bookings.length)],
       ],
     );
     onToast("Daily summary exported");
@@ -49,27 +56,25 @@ export function AdminDashboard({ go, onToast }: AdminDashboardProps) {
       <div className="metrics-grid metrics-grid--four">
         <MetricCard
           label="Total revenue"
-          value="$2,485"
-          change="+12% from last week"
+          value={formatCurrency(totalRevenue)}
           icon="wallet"
           accent="green"
         />
         <MetricCard
           label="Total customers"
-          value="156"
-          change="+8 new this week"
+          value={String(customers.length)}
           icon="users"
           accent="blue"
         />
         <MetricCard
           label="Active staff"
-          value="5"
+          value={String(activeBarbers)}
           icon="briefcase"
           accent="violet"
         />
         <MetricCard
           label="Bookings today"
-          value="18"
+          value={String(bookings.length)}
           icon="calendar"
           accent="amber"
         />
@@ -95,7 +100,7 @@ export function AdminDashboard({ go, onToast }: AdminDashboardProps) {
               <span>$0</span>
             </div>
             <div className="chart-columns">
-              {revenueByDay.map((day) => (
+              {revenueByDay.length ? revenueByDay.map((day) => (
                 <div className="chart-column" key={day.day}>
                   <div className="chart-column__bar-wrap">
                     <span
@@ -110,7 +115,7 @@ export function AdminDashboard({ go, onToast }: AdminDashboardProps) {
                   </div>
                   <small>{day.day}</small>
                 </div>
-              ))}
+              )) : <EmptyState title="No revenue data" description="Revenue trends will appear when transactions are connected." />}
             </div>
           </div>
         </Panel>
@@ -129,7 +134,7 @@ export function AdminDashboard({ go, onToast }: AdminDashboardProps) {
             }
           />
           <div className="performance-list">
-            {barbers.slice(0, 4).map((barber, index) => (
+            {barbers.length ? barbers.slice(0, 4).map((barber) => (
               <div className="performance-row" key={barber.id}>
                 <div className="performance-row__head">
                   <span>
@@ -140,14 +145,14 @@ export function AdminDashboard({ go, onToast }: AdminDashboardProps) {
                     />
                     <strong>{barber.name}</strong>
                   </span>
-                  <strong>{formatCurrency([895, 720, 540, 330][index])}</strong>
+                  <strong>{formatCurrency(barber.revenue)}</strong>
                 </div>
                 <ProgressBar
-                  value={[100, 80, 60, 37][index]}
+                  value={barbers.length ? (barber.revenue / Math.max(...barbers.map((item) => item.revenue), 1)) * 100 : 0}
                   tone={barber.tone}
                 />
               </div>
-            ))}
+            )) : <EmptyState title="No barber data" description="Barber performance will appear when the roster is connected." />}
           </div>
         </Panel>
       </div>
@@ -194,38 +199,7 @@ export function AdminDashboard({ go, onToast }: AdminDashboardProps) {
       <div className="dashboard-lower-grid">
         <Panel>
           <SectionHeading title="Today’s activity" />
-          <div className="activity-list">
-            <div className="activity-row">
-              <span className="activity-row__icon activity-row__icon--green">
-                <Icon name="check" size={15} />
-              </span>
-              <span>
-                <strong>12 bookings completed</strong>
-                <small>3 services remain on the book</small>
-              </span>
-              <strong>12 / 18</strong>
-            </div>
-            <div className="activity-row">
-              <span className="activity-row__icon activity-row__icon--blue">
-                <Icon name="users" size={15} />
-              </span>
-              <span>
-                <strong>42 customers served</strong>
-                <small>8% ahead of the same day last week</small>
-              </span>
-              <strong>42</strong>
-            </div>
-            <div className="activity-row">
-              <span className="activity-row__icon activity-row__icon--amber">
-                <Icon name="spark" size={15} />
-              </span>
-              <span>
-                <strong>$745.50 in commissions</strong>
-                <small>30% of tracked service revenue</small>
-              </span>
-              <strong>$745</strong>
-            </div>
-          </div>
+          <EmptyState title="No activity yet" description="Activity will appear when operational data is connected." />
         </Panel>
       </div>
     </>
