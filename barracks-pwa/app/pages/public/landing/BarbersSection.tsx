@@ -3,15 +3,15 @@ import { Button } from "@/app/components/ui";
 import { Icon } from "@/app/components/ui/icons";
 import {
   landingBarberImages,
+  landingBarberPlaceholderImage,
   landingBarbers,
-  landingEditorialImages,
 } from "@/app/data/landing";
 import type { ViewId } from "@/app/types/domain";
 
 const featuredBarbers = [landingBarbers[0], landingBarbers[4], landingBarbers[9]];
 
 function imageForBarber(id: string) {
-  return landingBarberImages[id] ?? landingEditorialImages.detail;
+  return landingBarberImages[id] ?? landingBarberPlaceholderImage;
 }
 
 export function BarbersSection({ go }: { go: (view: ViewId) => void }) {

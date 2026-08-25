@@ -14,7 +14,15 @@ export const createUserSchema = z
   })
   .strict();
 
+export const loginSchema = z
+  .object({
+    email: z.string().trim().toLowerCase().email("Enter a valid email address").max(320),
+    password: z.string().min(1, "Password is required").max(128),
+  })
+  .strict();
+
 export type CreateUserInput = z.infer<typeof createUserSchema>;
+export type LoginInput = z.infer<typeof loginSchema>;
 export type UserRole = z.infer<typeof userRoleSchema>;
 
 export type ValidationErrors = Record<string, string[]>;

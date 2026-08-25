@@ -4,15 +4,22 @@ import { useState, type FormEvent } from "react";
 import type { ViewId } from "@/app/types/domain";
 import { Button, Logo, Modal, TextField } from "@/app/components/ui";
 import { Icon } from "@/app/components/ui/icons";
+import {
+  apiRequest,
+  readApiBody,
+  type ApiErrorBody,
+  type ApiUser,
+} from "@/app/lib/api";
 
 type LoginPageProps = {
   go: (view: ViewId) => void;
   onToast: (message: string) => void;
+  onLogin: (user: ApiUser) => void;
 };
 
 type AuthMode = "login" | "signup";
 
-export function LoginPage({ go, onToast }: LoginPageProps) {
+export function LoginPage({ go, onToast, onLogin }: LoginPageProps) {
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
@@ -21,10 +28,11 @@ export function LoginPage({ go, onToast }: LoginPageProps) {
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [recoveryOpen, setRecoveryOpen] = useState(false);
   const [recoveryEmail, setRecoveryEmail] = useState("");
 
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
     if (!email.includes("@")) {
       setError("Enter a valid email address.");
@@ -34,9 +42,38 @@ export function LoginPage({ go, onToast }: LoginPageProps) {
       setError("Password must be at least 8 characters.");
       return;
     }
+
     setError("");
-    onToast("Signed in");
-    go("staff-dashboard");
+    setSubmitting(true);
+
+    try {
+      const response = await apiRequest("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
+      const body = await readApiBody<
+        | ({ success: true; user: ApiUser })
+        | ApiErrorBody
+      >(response);
+
+      if (!response.ok || !body || !body.success) {
+        const errorBody = body && !body.success ? body : null;
+        const validationMessage = errorBody?.errors
+          ? Object.values(errorBody.errors).flat().join(" ")
+          : undefined;
+        throw new Error(
+          validationMessage ?? errorBody?.message ?? "Unable to sign in",
+        );
+      }
+
+      onLogin(body.user);
+    } catch (submitError) {
+      setError(
+        submitError instanceof Error ? submitError.message : "Unable to sign in",
+      );
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function submitSignup(event: FormEvent) {
@@ -171,8 +208,9 @@ export function LoginPage({ go, onToast }: LoginPageProps) {
                 size="lg"
                 iconAfter="arrowRight"
                 className="login-submit"
+                disabled={submitting}
               >
-                Continue to workspace
+                {submitting ? "Signing in…" : "Continue to workspace"}
               </Button>
             </form>
           ) : (

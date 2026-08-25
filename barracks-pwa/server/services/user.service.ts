@@ -13,6 +13,10 @@ type UserRow = {
   updated_at: Date | string;
 };
 
+type AuthenticatedUserRow = UserRow & {
+  password_hash: string;
+};
+
 export type PublicUser = {
   id: number;
   firstName: string;
@@ -21,6 +25,11 @@ export type PublicUser = {
   role: UserRole;
   createdAt: string;
   updatedAt: string;
+};
+
+export type AuthenticatedUser = {
+  user: PublicUser;
+  passwordHash: string;
 };
 
 export type CreateUserResult =
@@ -61,6 +70,39 @@ function toPublicUser(row: UserRow): PublicUser {
 export async function listUsers(db: Pool): Promise<PublicUser[]> {
   const result = await db.query<UserRow>(`${userSelect} ORDER BY u.created_at DESC, u.id DESC`);
   return result.rows.map(toPublicUser);
+}
+
+export async function findUserByEmail(
+  db: Pool,
+  email: string,
+): Promise<AuthenticatedUser | null> {
+  const result = await db.query<AuthenticatedUserRow>(
+    `
+      SELECT
+        u.id,
+        u.first_name,
+        u.last_name,
+        u.email,
+        u.password_hash,
+        r.name AS role,
+        r.description AS role_description,
+        u.created_at,
+        u.updated_at
+      FROM users u
+      INNER JOIN roles r ON r.id = u.role_id
+      WHERE LOWER(u.email) = LOWER($1)
+      LIMIT 1
+    `,
+    [email],
+  );
+  const row = result.rows[0];
+
+  return row
+    ? {
+        user: toPublicUser(row),
+        passwordHash: row.password_hash,
+      }
+    : null;
 }
 
 export async function findUserById(db: Pool, id: number): Promise<PublicUser | null> {

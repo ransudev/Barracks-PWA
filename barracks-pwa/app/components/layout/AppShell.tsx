@@ -9,7 +9,9 @@ import {
   SearchInput,
 } from "@/app/components/ui";
 import { Icon } from "@/app/components/ui/icons";
+import type { ApiUser } from "@/app/lib/api";
 import type { ShellArea, ViewId } from "@/app/types/domain";
+import { createInitials } from "@/app/utils/format";
 
 type AppShellProps = {
   area: ShellArea;
@@ -18,14 +20,27 @@ type AppShellProps = {
   search: string;
   setSearch: (value: string) => void;
   onToast: (message: string) => void;
+  currentUser: ApiUser;
+  onSignOut: () => void;
   children: ReactNode;
 };
+
+function displayName(user: ApiUser): string {
+  return `${user.firstName} ${user.lastName}`.trim() || "Account";
+}
+
+function roleLabel(user: ApiUser): string {
+  if (user.role === "front_desk") return "Front Desk";
+  return user.role === "administrator" ? "Administrator" : "Barber";
+}
 
 function Sidebar({
   area,
   active,
   go,
   onToast,
+  currentUser,
+  onSignOut,
   collapsed,
   onToggle,
 }: Omit<AppShellProps, "children" | "search" | "setSearch"> & {
@@ -35,6 +50,9 @@ function Sidebar({
   const isAdmin = area === "admin";
   const navigation = isAdmin ? adminNavigation : staffNavigation;
   const settingsView = isAdmin ? "admin-settings" : "staff-settings";
+  const name = displayName(currentUser);
+  const initials = createInitials(name);
+  const role = roleLabel(currentUser);
 
   return (
     <aside
@@ -117,8 +135,7 @@ function Sidebar({
           aria-label="Sign out"
           title="Sign out"
           onClick={() => {
-            go("landing");
-            onToast("Signed out");
+            void onSignOut();
           }}
         >
           <Icon name="logOut" size={17} />
@@ -132,13 +149,13 @@ function Sidebar({
           onClick={() => go(settingsView)}
         >
           <Avatar
-            initials={isAdmin ? "AD" : "ST"}
+            initials={initials}
             tone={isAdmin ? "violet" : "blue"}
             size="sm"
           />
           <span>
-              <strong>{isAdmin ? "Admin account" : "Staff account"}</strong>
-            <small>{isAdmin ? "Administrator" : "Staff"}</small>
+            <strong>{name}</strong>
+            <small>{role}</small>
           </span>
           <Icon name="more" size={17} />
         </button>
@@ -153,10 +170,15 @@ function Topbar({
   search,
   setSearch,
   onToast,
+  currentUser,
+  onSignOut,
 }: Omit<AppShellProps, "children" | "active">) {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const isAdmin = area === "admin";
+  const name = displayName(currentUser);
+  const initials = createInitials(name);
+  const role = roleLabel(currentUser);
 
   return (
     <header className="topbar">
@@ -221,13 +243,13 @@ function Topbar({
             }}
           >
             <Avatar
-              initials={isAdmin ? "AD" : "JM"}
+              initials={initials}
               tone={isAdmin ? "violet" : "blue"}
               size="sm"
             />
             <span>
-              <strong>{isAdmin ? "Admin" : "Staff"}</strong>
-              <small>{isAdmin ? "Admin" : "Staff"}</small>
+              <strong>{name}</strong>
+              <small>{role}</small>
             </span>
             <Icon name="chevronDown" size={14} />
           </button>
@@ -235,15 +257,13 @@ function Topbar({
             <div className="popover profile-popover">
               <div className="profile-popover__identity">
                 <Avatar
-              initials={isAdmin ? "AD" : "ST"}
+                  initials={initials}
                   tone={isAdmin ? "violet" : "blue"}
                   size="md"
                 />
                 <span>
-                  <strong>
-                    {isAdmin ? "Admin account" : "Staff account"}
-                  </strong>
-                    <small>{isAdmin ? "Administrator" : "Staff"}</small>
+                  <strong>{name}</strong>
+                  <small>{role}</small>
                 </span>
               </div>
               <button
@@ -268,8 +288,7 @@ function Topbar({
                 className="is-danger"
                 type="button"
                 onClick={() => {
-                  go("landing");
-                  onToast("Signed out");
+                  void onSignOut();
                 }}
               >
                 <Icon name="logOut" size={15} />
@@ -290,6 +309,8 @@ export function AppShell({
   search,
   setSearch,
   onToast,
+  currentUser,
+  onSignOut,
   children,
 }: AppShellProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -303,6 +324,8 @@ export function AppShell({
         active={active}
         go={go}
         onToast={onToast}
+        currentUser={currentUser}
+        onSignOut={onSignOut}
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed((value) => !value)}
       />
@@ -313,6 +336,8 @@ export function AppShell({
           search={search}
           setSearch={setSearch}
           onToast={onToast}
+          currentUser={currentUser}
+          onSignOut={onSignOut}
         />
         <main className="app-content">{children}</main>
       </div>

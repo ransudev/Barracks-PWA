@@ -5,10 +5,10 @@ import { findUserById } from "@/server/services/user.service";
 export const runtime = "nodejs";
 
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const authorizationResponse = requireAdministrator(request);
+  const authorizationResponse = await requireAdministrator();
 
   if (authorizationResponse) {
     return authorizationResponse;

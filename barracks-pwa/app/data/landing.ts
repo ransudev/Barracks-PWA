@@ -4,50 +4,16 @@ export const landingHours = {
 };
 
 export const landingContact = {
-  phone: "+63 956 542 6212",
+  phone: "(+63) 956 542 6212",
+  phoneHref: "+639565426212",
   localPhone: "0956 542 6212",
   email: "barracksdvo@gmail.com",
-  instagram: "@barracksdvo",
+  socialHandle: "@BARRACKSBARBERS",
+  instagramUrl: "https://www.instagram.com/BARRACKSBARBERS",
+  facebookUrl: "https://www.facebook.com/BARRACKSBARBERS",
+  gcash: "0915 333 2236",
+  hashtag: "#WEAREBARRACKS",
 };
-
-export const landingServices = [
-  {
-    id: "haircut-grooming",
-    number: "01",
-    name: "Haircut & Grooming",
-    description:
-      "Consultation, haircut, shampoo + rinse, complimentary massage with hot towel, and grooming.",
-    duration: "45 min",
-    price: "₱300 / ₱400",
-    priceNote: "Barber / Senior Barber",
-    image:
-      "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?auto=format&fit=crop&w=1200&q=85",
-  },
-  {
-    id: "barracks-premium",
-    number: "02",
-    name: "Barracks Premium",
-    description:
-      "A more complete grooming experience involving a haircut plus shave or line-up. Ask about availability.",
-    duration: "Up to 1 hr 15 min",
-    price: "Confirm at booking",
-    priceNote: "Select barber pricing",
-    image:
-      "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=1200&q=85",
-  },
-  {
-    id: "beard-shave",
-    number: "03",
-    name: "Straight Razor Shave / Beard Trim",
-    description:
-      "Traditional beard grooming and straight-razor or hot-towel shaving services where available.",
-    duration: "Ask at booking",
-    price: "Confirm at booking",
-    priceNote: "Branch availability",
-    image:
-      "https://images.unsplash.com/photo-1621605815971-fbc98d665033?auto=format&fit=crop&w=1200&q=85",
-  },
-];
 
 export const landingEditorialImages = {
   tools:
@@ -60,15 +26,186 @@ export const landingEditorialImages = {
     "https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=1400&q=85",
 };
 
+type LandingMenuPrice = {
+  amount: string;
+  label?: string;
+};
+
+export type LandingMenuItem = {
+  id: string;
+  name: string;
+  duration?: string;
+  prices: LandingMenuPrice[];
+};
+
+type LandingMenuGroup = {
+  id: string;
+  name: string;
+  items: LandingMenuItem[];
+};
+
+export type LandingServiceSection = {
+  id: string;
+  number: string;
+  name: string;
+  description: string;
+  duration: string;
+  items?: LandingMenuItem[];
+  groups?: LandingMenuGroup[];
+};
+
+export const landingServices: LandingServiceSection[] = [
+  {
+    id: "cut-and-shave",
+    number: "01",
+    name: "Cut & Shave",
+    description: "Core Barracks cuts and shave services, with Junior and Senior Barber pricing.",
+    duration: "30—75 mins",
+    items: [
+      {
+        id: "barracks-basic",
+        name: "Barracks Basic",
+        duration: "45 mins",
+        prices: [
+          { label: "Junior Barber", amount: "₱300" },
+          { label: "Senior Barber", amount: "₱400" },
+        ],
+      },
+      {
+        id: "signature-shave",
+        name: "Signature Shave",
+        duration: "30 mins",
+        prices: [
+          { label: "Junior Barber", amount: "₱300" },
+          { label: "Senior Barber", amount: "₱350" },
+        ],
+      },
+      {
+        id: "barracks-premium",
+        name: "Barracks Premium",
+        duration: "75 mins",
+        prices: [
+          { label: "Junior Barber", amount: "₱550" },
+          { label: "Senior Barber", amount: "₱700" },
+        ],
+      },
+    ],
+  },
+  {
+    id: "hair-dye-services",
+    number: "02",
+    name: "Hair Dye Services",
+    description: "Professional colour services for a refreshed, well-finished look.",
+    duration: "MENU",
+    items: [
+      { id: "regular-hair-dye", name: "Regular Hair Dye", prices: [{ amount: "₱500 / ₱750*" }] },
+      { id: "majicover", name: "Majicover by L'Oréal", prices: [{ amount: "₱800" }] },
+      { id: "inoa", name: "INOA by L'Oréal", prices: [{ amount: "₱1,200" }] },
+    ],
+  },
+  {
+    id: "hair-and-scalp-care",
+    number: "03",
+    name: "Hair & Scalp Care",
+    description: "Scalp, hair spa, and repair services by L'Oréal for a complete care ritual.",
+    duration: "MENU",
+    groups: [
+      {
+        id: "jacinto-care",
+        name: "The Jacinto Care",
+        items: [
+          { id: "scalp-advanced", name: "L'Oréal Scalp Advanced", prices: [{ amount: "₱1,250 / ₱1,500" }] },
+          { id: "scalp-advanced-a", name: "L'Oréal Scalp Advanced-A", prices: [{ amount: "₱700 / ₱1,000" }] },
+          { id: "scalp-advanced-b", name: "L'Oréal Scalp Advanced-B", prices: [{ amount: "₱800 / ₱1,100" }] },
+        ],
+      },
+      {
+        id: "bonifacio-blow-out",
+        name: "Bonifacio Blow-Out",
+        items: [
+          { id: "hair-spa", name: "L'Oréal Hair Spa", prices: [{ amount: "₱1,250 / ₱1,500" }] },
+          { id: "hair-spa-a", name: "L'Oréal Hair Spa-A", prices: [{ amount: "₱700 / ₱1,000" }] },
+          { id: "hair-spa-b", name: "L'Oréal Hair Spa-B", prices: [{ amount: "₱800 / ₱1,100" }] },
+        ],
+      },
+      {
+        id: "lunas-luxury",
+        name: "Lunas Luxury",
+        items: [
+          { id: "absolut-repair-molecular", name: "Absolut Repair Molecular", prices: [{ amount: "₱1,700 / ₱2,000" }] },
+        ],
+      },
+    ],
+  },
+  {
+    id: "other-services",
+    number: "04",
+    name: "Other Services",
+    description: "Facial care, massage, and treatment services for the rest of your ritual.",
+    duration: "MENU",
+    items: [
+      { id: "facial-care", name: "Facial Care Service", prices: [{ amount: "₱300 / ₱550*" }] },
+      { id: "upper-body-massage", name: "Upper Body Massage", prices: [{ amount: "₱400" }] },
+      { id: "hair-treatment", name: "Hair Treatment", prices: [{ amount: "₱550 / ₱800*" }] },
+    ],
+  },
+  {
+    id: "barracks-products",
+    number: "05",
+    name: "Barracks Products",
+    description: "Barracks grooming essentials, gift items, and tools to take the finish home.",
+    duration: "PRODUCTS",
+    items: [
+      { id: "amore-pomade", name: "Amore Pomade", prices: [{ amount: "₱250" }] },
+      { id: "bravo-hair-tonic", name: "Bravo Hair Tonic", prices: [{ amount: "₱250" }] },
+      { id: "chief-sea-salt", name: "Chief Sea Salt", prices: [{ amount: "₱250" }] },
+      { id: "delta-styling-powder", name: "Delta Styling Powder", prices: [{ amount: "₱250" }] },
+      { id: "elite-cream-pomade", name: "Elite Cream Pomade", prices: [{ amount: "₱300" }] },
+      { id: "frost-massage-gel", name: "Frost Massage Gel", prices: [{ amount: "₱200" }] },
+      { id: "generals-grooming-kit", name: "Generals' Grooming Kit", prices: [{ amount: "₱1,150" }] },
+      { id: "gift-vouchers", name: "Gift Vouchers", prices: [{ amount: "₱300 / ₱500" }] },
+      { id: "wooden-comb", name: "Barracks Wooden Comb", prices: [{ amount: "₱200" }] },
+      { id: "car-decals", name: "Barracks Car Decals", prices: [{ amount: "₱150" }] },
+    ],
+  },
+  {
+    id: "retrobee",
+    number: "06",
+    name: "Retrobee",
+    description: "Styling staples for hold, texture, and the Barracks finish.",
+    duration: "PRODUCTS",
+    items: [
+      { id: "strong-pomade", name: "Strong Pomade", prices: [{ amount: "₱320 / ₱370" }] },
+      { id: "beach-clay", name: "Beach Clay", prices: [{ amount: "₱320 / ₱370" }] },
+      { id: "barber-wax", name: "Barber Wax", prices: [{ amount: "₱320 / ₱370" }] },
+      { id: "slick-pomade-red", name: "Slick Pomade Red", prices: [{ amount: "₱320 / ₱370" }] },
+      { id: "slick-pomade-blue", name: "Slick Pomade Blue", prices: [{ amount: "₱320 / ₱370" }] },
+    ],
+  },
+  {
+    id: "loreal-pro",
+    number: "07",
+    name: "L'Oréal Pro",
+    description: "Professional care products for scalp health, repair, and growth support.",
+    duration: "PRODUCTS",
+    items: [
+      { id: "anti-dandruff-serum", name: "Anti-Dandruff Serum", prices: [{ amount: "₱500" }] },
+      { id: "scalp-hydrate", name: "Scalp Hydrate", prices: [{ amount: "₱500" }] },
+      { id: "arm-mask", name: "Arm Mask", prices: [{ amount: "₱1,650" }] },
+      { id: "serioxyl-spray", name: "Serioxyl Spray", prices: [{ amount: "₱2,150" }] },
+      { id: "serioxyl-shampoo", name: "Serioxyl Shampoo", prices: [{ amount: "₱650" }] },
+      { id: "aminexil-serum", name: "Aminexil Serum", prices: [{ amount: "₱550" }] },
+    ],
+  },
+];
+
+export const landingBarberPlaceholderImage = "/barber-placeholder.png";
+
 export const landingBarberImages: Record<string, string> = {
-  rodsky:
-    "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=1000&q=85",
-  ernie:
-    "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=1000&q=85",
-  judy:
-    "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=1000&q=85",
-  kent:
-    "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=1000&q=85",
+  rodsky: landingBarberPlaceholderImage,
+  ernie: landingBarberPlaceholderImage,
+  judy: landingBarberPlaceholderImage,
+  kent: landingBarberPlaceholderImage,
 };
 
 export const landingBarbers = [

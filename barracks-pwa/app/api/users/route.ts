@@ -9,7 +9,7 @@ import { createUser, listUsers } from "@/server/services/user.service";
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  const authorizationResponse = requireAdministrator(request);
+  const authorizationResponse = await requireAdministrator();
 
   if (authorizationResponse) {
     return authorizationResponse;
@@ -86,8 +86,8 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET(request: Request) {
-  const authorizationResponse = requireAdministrator(request);
+export async function GET() {
+  const authorizationResponse = await requireAdministrator();
 
   if (authorizationResponse) {
     return authorizationResponse;

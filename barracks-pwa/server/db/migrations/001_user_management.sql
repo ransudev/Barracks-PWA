@@ -29,3 +29,14 @@ CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_unique
 
 CREATE INDEX IF NOT EXISTS users_role_id_idx
   ON users (role_id);
+
+CREATE TABLE IF NOT EXISTS sessions (
+  id BIGSERIAL PRIMARY KEY,
+  token_hash VARCHAR(64) NOT NULL UNIQUE,
+  user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS sessions_expires_at_idx
+  ON sessions (expires_at);

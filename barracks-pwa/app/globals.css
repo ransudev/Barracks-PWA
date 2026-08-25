@@ -883,9 +883,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .landing-hero__media { position: relative; min-height: 570px; }
 .hero-image-frame, .hero-detail-frame { position: absolute; overflow: hidden; border: 1px solid var(--line-strong); background: var(--surface); }
 .hero-image-frame { top: 0; right: 0; bottom: 0; left: 9%; }
-.hero-image-frame::after, .editorial-gallery__image::after, .service-card__image::after, .barber-feature__image::after, .barber-list__image::after, .studio-image::after { position: absolute; inset: 0; background: rgba(13, 15, 15, .13); content: ""; pointer-events: none; transition: background .3s ease; }
-.hero-image-frame img, .hero-detail-frame img, .editorial-gallery__image img, .service-card__image img, .barber-feature__image img, .barber-list__image img, .studio-image img { object-fit: cover; filter: saturate(.78) contrast(1.05); transition: transform .7s cubic-bezier(.2,.75,.2,1), filter .3s ease; }
-.hero-image-frame:hover img, .hero-detail-frame:hover img, .editorial-gallery__image:hover img, .service-card:hover img, .barber-feature:hover img, .barber-list__item:hover img, .studio-image:hover img { filter: saturate(.94) contrast(1.04); transform: scale(1.035); }
+.hero-image-frame::after, .editorial-gallery__image::after, .barber-feature__image::after, .barber-list__image::after, .studio-image::after { position: absolute; inset: 0; background: rgba(13, 15, 15, .13); content: ""; pointer-events: none; transition: background .3s ease; }
+.hero-image-frame img, .hero-detail-frame img, .editorial-gallery__image img, .barber-feature__image img, .barber-list__image img, .studio-image img { object-fit: cover; filter: saturate(.78) contrast(1.05); transition: transform .7s cubic-bezier(.2,.75,.2,1), filter .3s ease; }
+.hero-image-frame:hover img, .hero-detail-frame:hover img, .editorial-gallery__image:hover img, .barber-feature:hover img, .barber-list__item:hover img, .studio-image:hover img { filter: saturate(.94) contrast(1.04); transform: scale(1.035); }
 .hero-image-frame__caption { position: absolute; right: 19px; bottom: 17px; left: 19px; z-index: 1; align-items: center; display: flex; justify-content: space-between; color: rgba(242, 240, 234, .78); font-family: var(--font-geist-mono), monospace; font-size: 9px; letter-spacing: .08em; }
 .hero-detail-frame { right: auto; bottom: 42px; left: 0; width: 184px; height: 218px; border: 8px solid var(--ink); }
 .hero-detail-frame span { position: absolute; right: 11px; bottom: 11px; z-index: 1; color: var(--text); font-family: var(--font-geist-mono), monospace; font-size: 8px; letter-spacing: .08em; }
@@ -913,9 +913,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .service-card-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 17px; }
 .service-card { overflow: hidden; border: 1px solid var(--line); background: var(--surface); transition: border-color .25s ease, transform .25s ease, background .25s ease; }
 .service-card:hover { border-color: var(--line-strong); background: var(--surface-raised); transform: translateY(-4px); }
-.service-card__image { position: relative; height: 292px; overflow: hidden; border-bottom: 1px solid var(--line); }
-.service-card__image > span:first-of-type { position: absolute; top: 14px; left: 15px; z-index: 1; color: var(--text); font-family: var(--font-geist-mono), monospace; font-size: 9px; }
-.service-card__duration { position: absolute; right: 15px; bottom: 14px; z-index: 1; color: var(--text); font-family: var(--font-geist-mono), monospace; font-size: 9px; }
 .service-card__body { min-height: 197px; display: flex; flex-direction: column; justify-content: space-between; padding: 22px 21px 20px; }
 .service-card h3 { margin: 0; color: var(--text); font-family: "Iowan Old Style", "Baskerville", "Times New Roman", serif; font-size: 28px; font-weight: 700; letter-spacing: -.045em; }
 .service-card p { max-width: 275px; margin: 8px 0 0; color: var(--text-muted); font-size: 11px; line-height: 1.55; }
@@ -987,7 +984,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .landing-hero h1 { font-size: clamp(58px, 7.5vw, 78px); }
   .landing-hero__lead { font-size: 13px; }
   .editorial-gallery { grid-template-columns: 1fr .8fr 1fr; }
-  .service-card__image { height: 230px; }
   .service-card__body { padding-right: 15px; padding-left: 15px; }
   .service-card h3 { font-size: 23px; }
   .public-footer__main { gap: 27px; }
@@ -1018,7 +1014,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .landing-section-head h2 { font-size: 48px; }
   .landing-section-head > p { text-align: left; }
   .service-card-grid { grid-template-columns: 1fr; gap: 13px; }
-  .service-card__image { height: 238px; }
   .service-card__body { min-height: 165px; }
   .service-ledger-note { grid-template-columns: 22px minmax(0, 1fr); }
   .service-ledger-note button { grid-column: 2; justify-self: start; }
@@ -1384,11 +1379,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 .public-site .public-nav__links a {
-  padding: 27px 0 23px;
+  align-items: center;
+  display: inline-flex;
+  height: 32px;
+  padding: 0;
 }
 
 .public-site .public-nav__links a::after {
-  bottom: 18px;
+  bottom: 4px;
   background: var(--public-blue);
 }
 
@@ -1397,10 +1395,25 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   color: var(--public-ink);
 }
 
+.public-site .public-nav__links,
+.public-site .public-nav__actions {
+  align-items: center;
+  height: 32px;
+}
 .public-site .public-nav__actions { gap: 16px; }
 .public-site .public-header .logo-lockup { color: var(--public-ink); }
 .public-site .public-header .logo-subtitle { color: var(--public-muted); }
-.public-site .public-nav__login { color: var(--public-ink-soft); font-size: 10px; font-weight: 550; }
+.public-site .public-nav__login {
+  align-items: center;
+  display: inline-flex;
+  height: 32px;
+  justify-content: center;
+  padding: 0;
+  color: var(--public-ink-soft);
+  font-size: 10px;
+  font-weight: 550;
+  line-height: 14.5px;
+}
 .public-site .public-nav__login:hover { color: var(--public-blue); }
 .public-site .public-nav__book {
   min-width: 0;
@@ -1563,11 +1576,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   box-shadow: none;
 }
 .public-site .service-card:hover { background: transparent; transform: none; }
-.public-site .service-card__image { height: 278px; border: 0; border-radius: 0; }
-.public-site .service-card__image::after { background: rgba(13, 15, 15, .12); }
-.public-site .service-card__image img { filter: grayscale(.76) contrast(1.08) saturate(.54); }
-.public-site .service-card__image > span:first-of-type,
-.public-site .service-card__duration { color: rgba(242, 240, 234, .78); font-size: 8px; }
 .public-site .service-card__body {
   min-height: 178px;
   padding: 19px 19px 18px;
@@ -1717,6 +1725,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .public-site .landing-final-cta__action .button:hover { background: transparent; border-color: var(--public-white); color: var(--public-white); }
 
 .public-site .public-footer {
+  display: block;
   max-width: none;
   min-height: 0;
   padding: 58px max(28px, calc((100vw - 1184px) / 2)) 20px;
@@ -1724,7 +1733,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   background: var(--barracks-near-black);
   color: rgba(242, 240, 234, .62);
 }
-.public-site .public-footer__main { grid-template-columns: 1fr 1fr 1fr; gap: 34px; width: 100%; padding-bottom: 48px; }
+.public-site .public-footer__main { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 34px; width: 100%; padding-bottom: 48px; }
 .public-site .public-footer__brand { align-self: center; justify-self: center; text-align: center; }
 .public-site .public-footer .logo-lockup { color: var(--public-white); }
 .public-site .public-footer .logo-subtitle { color: rgba(242, 240, 234, .48); }
@@ -1806,7 +1815,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .public-site .landing-section-head h2 { font-size: clamp(39px, 11vw, 50px); }
   .public-site .landing-section-head > p { margin: 0; text-align: left; }
   .public-site .service-card-grid { grid-template-columns: 1fr; gap: 14px; }
-  .public-site .service-card__image { height: 258px; }
   .public-site .service-card__body { min-height: 161px; }
 
   .public-site .landing-barbers { padding: 64px 18px 72px; }
@@ -2072,6 +2080,87 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   color: var(--public-ink);
 }
 
+.public-site .service-slideshow__toolbar { align-items: center; display: flex; justify-content: space-between; gap: 24px; margin-bottom: 14px; }
+.public-site .service-slideshow__current { align-items: baseline; display: flex; gap: 12px; }
+.public-site .service-slideshow__current > span { color: var(--public-muted); font-family: var(--font-geist-mono), monospace; font-size: 8px; letter-spacing: .1em; }
+.public-site .service-slideshow__current strong { color: var(--public-white); font-family: "Iowan Old Style", "Baskerville", "Times New Roman", serif; font-size: 21px; font-weight: 400; letter-spacing: -.02em; }
+.public-site .service-slideshow__controls { display: flex; gap: 6px; }
+.public-site .service-slideshow__controls button {
+  align-items: center;
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--public-line);
+  background: transparent;
+  color: var(--public-white);
+}
+.public-site .service-slideshow__controls button:hover,
+.public-site .service-slideshow__controls button:focus-visible { border-color: var(--public-white); background: var(--public-white); color: var(--public-ink); }
+.public-site .service-slideshow__viewport { overflow: hidden; }
+.public-site .service-card--menu { min-height: 100%; }
+.public-site .service-card--menu .service-card__body { min-height: 0; }
+.public-site .service-card--slide-in { animation: service-card-slide-in .28s cubic-bezier(.16, 1, .3, 1); }
+.public-site .service-card__heading { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: baseline; }
+.public-site .service-card__heading > span,
+.public-site .service-card__heading > small { color: var(--public-muted); font-family: var(--font-geist-mono), monospace; font-size: 8px; letter-spacing: .08em; }
+.public-site .service-card__heading > small { text-align: right; text-transform: uppercase; }
+.public-site .service-card--menu .service-card__menu {
+  margin-top: 20px;
+  border-top: 1px solid var(--public-line);
+}
+.public-site .service-card__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--public-line);
+}
+.public-site .service-card__item-name,
+.public-site .service-card__item-prices,
+.public-site .service-card__price {
+  display: flex;
+  flex-direction: column;
+}
+.public-site .service-card__item-name { gap: 4px; }
+.public-site .service-card__item-name strong { color: var(--public-white); font-size: 11px; font-weight: 550; line-height: 1.3; }
+.public-site .service-card__item-name small,
+.public-site .service-card__price small { color: var(--public-muted); font-size: 8px; line-height: 1.25; }
+.public-site .service-card__item-prices { align-items: flex-end; gap: 6px 12px; text-align: right; }
+.public-site .service-card__price { align-items: flex-end; gap: 2px; }
+.public-site .service-card__price strong { color: var(--public-white); font-family: var(--font-geist-mono), monospace; font-size: 10px; font-weight: 500; white-space: nowrap; }
+.public-site .service-card__group + .service-card__group { margin-top: 18px; }
+.public-site .service-card__group h4 { margin: 0; padding-bottom: 7px; color: var(--public-muted); font-family: var(--font-geist-mono), monospace; font-size: 8px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
+.public-site .service-card--menu .service-card__footer { justify-content: flex-end; margin-top: 20px; }
+.public-site .service-slideshow__indicators { align-items: center; display: flex; justify-content: center; gap: 5px; margin-top: 14px; }
+.public-site .service-slideshow__indicators button { width: 25px; height: 20px; padding: 0; background: transparent; }
+.public-site .service-slideshow__indicators button span { display: block; width: 100%; height: 1px; background: var(--public-line); transition: width .22s ease, background .22s ease; }
+.public-site .service-slideshow__indicators button:hover span,
+.public-site .service-slideshow__indicators button:focus-visible span { background: var(--public-muted); }
+.public-site .service-slideshow__indicators button.is-active span { width: 100%; background: var(--public-white); }
+
+@keyframes service-card-slide-in {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@media (max-width: 760px) {
+  .public-site .service-slideshow__toolbar { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .public-site .service-slideshow__controls { align-self: flex-end; margin-top: -46px; }
+  .public-site .service-slideshow__current { gap: 8px; }
+  .public-site .service-card__item { gap: 10px; }
+  .public-site .service-card__item-prices { gap: 6px; }
+  .public-site .service-slideshow__indicators { gap: 4px; }
+  .public-site .service-slideshow__indicators button { width: 19px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .public-site .service-card--slide-in,
+  .public-site .service-slideshow__indicators button span { animation: none; transition: none; }
+}
+
 .public-site .landing-branches,
 .public-site .landing-studio {
   background: var(--public-paper-deep);
@@ -2144,7 +2233,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 .public-site .landing-hero__media img,
 .public-site .editorial-gallery__image img,
-.public-site .service-card__image img,
 .public-site .barber-feature__image img,
 .public-site .barber-list__image img,
 .public-site .studio-image img {
@@ -2313,4 +2401,112 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 .login-aside__mark small {
   color: var(--text-soft);
+}
+
+/* Public readability floor: keep the editorial display scale, but make
+   supporting copy, controls, prices, and metadata easier to read. */
+.public-site .public-nav__links a,
+.public-site .public-nav__login,
+.public-site .public-nav__book,
+.public-site .landing-hero .editorial-link,
+.public-site .landing-hero__actions .button,
+.public-site .landing-final-cta__action .button,
+.public-site .service-card--menu .button,
+.public-site .barber-feature__meta .button,
+.public-site .branch-card__actions a,
+.public-site .branch-card__actions .button,
+.public-site .studio-copy .editorial-link,
+.public-site .public-footer__column a,
+.public-site .public-footer__column button {
+  font-size: 12px;
+}
+
+.public-site .hero-notation,
+.public-site .landing-hero__facts small,
+.public-site .service-slideshow__current > span,
+.public-site .service-card__heading > span,
+.public-site .service-card__heading > small,
+.public-site .service-card__item-name small,
+.public-site .service-card__price small,
+.public-site .service-card__group h4,
+.public-site .barber-feature__dayoff,
+.public-site .barber-list__status,
+.public-site .barber-roster-note,
+.public-site .branch-card__top,
+.public-site .branch-card__landmark,
+.public-site .branch-card__meta span,
+.public-site .studio-image__label,
+.public-site .studio-details span,
+.public-site .public-footer__column > span:first-child {
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.public-site .landing-hero__lead,
+.public-site .landing-section-head > p,
+.public-site .service-card p,
+.public-site .barber-feature__meta p,
+.public-site .barber-list__meta p,
+.public-site .branch-card > p,
+.public-site .studio-copy > p,
+.public-site .landing-final-cta__action p {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.public-site .landing-hero__facts strong {
+  font-size: 11px;
+}
+
+.public-site .service-card__item-name strong {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.public-site .service-card__price strong {
+  font-size: 12px;
+}
+
+.public-site .branch-card__meta strong,
+.public-site .studio-details strong {
+  font-size: 12px;
+}
+
+.public-site .public-footer__brand p,
+.public-site .public-footer__column {
+  font-size: 12px;
+}
+
+.public-site .public-footer__bottom {
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+@media (max-width: 760px) {
+  .public-site .landing-hero__lead,
+  .public-site .landing-section-head > p,
+  .public-site .service-card p,
+  .public-site .barber-feature__meta p,
+  .public-site .barber-list__meta p,
+  .public-site .branch-card > p,
+  .public-site .studio-copy > p,
+  .public-site .landing-final-cta__action p {
+    font-size: 14px;
+  }
+
+  .public-site .public-footer__column,
+  .public-site .public-footer__brand p {
+    font-size: 12px;
+  }
+}
+
+/* Keep the menu-like service cards compact on wide screens so names and
+   prices remain part of the same visual group. */
+.public-site .service-slideshow {
+  width: min(100%, 960px);
+  margin-inline: auto;
+}
+
+.public-site .landing-final-cta__contact {
+  white-space: nowrap;
 }

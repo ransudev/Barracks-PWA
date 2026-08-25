@@ -1,36 +1,115 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
 import { Button } from "@/app/components/ui";
-import { landingServices } from "@/app/data/landing";
+import { Icon } from "@/app/components/ui/icons";
+import { landingServices, type LandingMenuItem, type LandingServiceSection } from "@/app/data/landing";
 import type { ViewId } from "@/app/types/domain";
 
+function MenuItem({ item }: { item: LandingMenuItem }) {
+  return (
+    <div className="service-card__item">
+      <div className="service-card__item-name">
+        <strong>{item.name}</strong>
+        {item.duration ? <small>{item.duration}</small> : null}
+      </div>
+      <div className="service-card__item-prices">
+        {item.prices.map((price, index) => (
+          <span className="service-card__price" key={`${item.id}-${index}`}>
+            {price.label ? <small>{price.label}</small> : null}
+            <strong>{price.amount}</strong>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MenuRows({ service }: { service: LandingServiceSection }) {
+  if (service.groups) {
+    return service.groups.map((group) => (
+      <section className="service-card__group" key={group.id}>
+        <h4>{group.name}</h4>
+        <div>{group.items.map((item) => <MenuItem item={item} key={item.id} />)}</div>
+      </section>
+    ));
+  }
+
+  return service.items?.map((item) => <MenuItem item={item} key={item.id} />);
+}
+
 export function ServicesSection({ go }: { go: (view: ViewId) => void }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const activeService = landingServices[activeIndex];
+
+  const moveTo = (index: number) => {
+    setActiveIndex((index + landingServices.length) % landingServices.length);
+  };
+
   return (
     <section className="landing-services" id="services">
       <div className="landing-section-head">
         <div>
           <h2>Services</h2>
         </div>
-        <p>Every appointment starts with a consultation<br />and ends with a complete grooming finish.</p>
+        <p>Browse the current services, care menu, and products<br />from Barracks Barbers &amp; Shaves.</p>
       </div>
-      <div className="service-card-grid">
-        {landingServices.map((service) => (
-          <article className="service-card" key={service.id}>
-            <div className="service-card__image">
-              <Image src={service.image} alt={`${service.name} at Barracks`} fill sizes="(max-width: 760px) 100vw, 33vw" />
-              <span>{service.number}</span>
-              <span className="service-card__duration">{service.duration}</span>
-            </div>
+      <div className="service-slideshow" aria-label="Barracks services slideshow">
+        <div className="service-slideshow__toolbar">
+          <div className="service-slideshow__current" aria-live="polite">
+            <span>{activeService.number} / {String(landingServices.length).padStart(2, "0")}</span>
+            <strong>{activeService.name}</strong>
+          </div>
+          <div className="service-slideshow__controls">
+            <button type="button" aria-label="Previous service" onClick={() => moveTo(activeIndex - 1)}>
+              <Icon name="chevronLeft" size={16} />
+            </button>
+            <button type="button" aria-label="Next service" onClick={() => moveTo(activeIndex + 1)}>
+              <Icon name="chevronRight" size={16} />
+            </button>
+          </div>
+        </div>
+
+        <div className="service-slideshow__viewport">
+          <article
+            className="service-card service-card--menu service-card--slide-in"
+            key={activeService.id}
+            aria-label={`${activeService.name}, slide ${activeIndex + 1} of ${landingServices.length}`}
+            role="group"
+          >
             <div className="service-card__body">
-              <div><h3>{service.name}</h3><p>{service.description}</p></div>
+              <div>
+                <div className="service-card__heading">
+                  <span>{activeService.number}</span>
+                  <h3>{activeService.name}</h3>
+                  <small>{activeService.duration}</small>
+                </div>
+                <p>{activeService.description}</p>
+                <div className="service-card__menu">{MenuRows({ service: activeService })}</div>
+              </div>
               <div className="service-card__footer">
-                <span className="service-card__pricing"><strong>{service.price}</strong><small>{service.priceNote}</small></span>
                 <Button variant="secondary" size="sm" iconAfter="arrowRight" onClick={() => go("customer")}>
                   Book Service
                 </Button>
               </div>
             </div>
           </article>
-        ))}
+        </div>
+
+        <div className="service-slideshow__indicators" aria-label="Choose a service category">
+          {landingServices.map((service, index) => (
+            <button
+              type="button"
+              className={index === activeIndex ? "is-active" : ""}
+              aria-label={`Show ${service.name}`}
+              aria-current={index === activeIndex ? "step" : undefined}
+              onClick={() => moveTo(index)}
+              key={service.id}
+            >
+              <span aria-hidden="true" />
+            </button>
+          ))}
+        </div>
       </div>
     </section>
   );

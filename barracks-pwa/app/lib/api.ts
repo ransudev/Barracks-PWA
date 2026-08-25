@@ -10,6 +10,12 @@ export type ApiUser = {
   updatedAt: string;
 };
 
+export type ApiErrorBody = {
+  success: false;
+  message?: string;
+  errors?: Record<string, string[]>;
+};
+
 export async function apiRequest(
   path: string,
   init: RequestInit = {},
@@ -22,6 +28,7 @@ export async function apiRequest(
 
   return fetch(path, {
     ...init,
+    credentials: "same-origin",
     headers,
   });
 }

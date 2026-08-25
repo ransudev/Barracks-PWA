@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AppShell } from "@/app/components/layout/AppShell";
 import { LoginPage } from "@/app/pages/auth/LoginPage";
 import { CustomerProfile } from "@/app/pages/customer/CustomerProfile";
@@ -12,9 +12,15 @@ import { queueEntries } from "@/app/data/queue";
 import { isAdminView } from "@/app/utils/view";
 import { usePersistentState } from "@/app/hooks/usePersistentState";
 import type { InventoryItem, QueueEntry, ViewId } from "@/app/types/domain";
+import {
+  apiRequest,
+  readApiBody,
+  type ApiUser,
+} from "@/app/lib/api";
 
 export default function Home() {
   const [view, setView] = useState<ViewId>("landing");
+  const [currentUser, setCurrentUser] = useState<ApiUser | null>(null);
   const [queue, setQueue] = usePersistentState<QueueEntry[]>(
     "barracks-queue-v2",
     queueEntries,
@@ -26,7 +32,54 @@ export default function Home() {
   const [search, setSearch] = useState("");
   const [toast, setToast] = useState("");
 
+  const onToast = useCallback((message: string) => {
+    setToast(message);
+
+    if (typeof window !== "undefined") {
+      window.setTimeout(() => setToast(""), 2800);
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSession() {
+      try {
+        const response = await apiRequest("/api/auth/me");
+        const body = await readApiBody<{
+          success: boolean;
+          user?: ApiUser;
+        }>(response);
+
+        if (!cancelled && response.ok && body?.success && body.user) {
+          setCurrentUser(body.user);
+        }
+      } catch {
+        // The public landing page remains usable when the database is unavailable.
+      }
+    }
+
+    void loadSession();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   function go(nextView: ViewId) {
+    const isWorkspaceView = !["landing", "login", "customer"].includes(nextView);
+
+    if (isWorkspaceView && !currentUser) {
+      setView("login");
+      setSearch("");
+      onToast("Sign in to access the workspace");
+      return;
+    }
+
+    if (isAdminView(nextView) && currentUser?.role !== "administrator") {
+      onToast("Administrator access is required");
+      return;
+    }
+
     setView(nextView);
     setSearch("");
 
@@ -35,13 +88,31 @@ export default function Home() {
     }
   }
 
-  const onToast = useCallback((message: string) => {
-    setToast(message);
+  function handleLogin(user: ApiUser) {
+    setCurrentUser(user);
+    setSearch("");
+    setView(user.role === "administrator" ? "admin-dashboard" : "staff-dashboard");
+    onToast(`Signed in as ${user.firstName} ${user.lastName}`);
+  }
 
-    if (typeof window !== "undefined") {
-      window.setTimeout(() => setToast(""), 2800);
+  async function handleSignOut() {
+    let message = "Signed out";
+
+    try {
+      const response = await apiRequest("/api/auth/logout", { method: "POST" });
+
+      if (!response.ok) {
+        throw new Error("Unable to sign out");
+      }
+    } catch (error) {
+      message = error instanceof Error ? error.message : "Unable to sign out";
+    } finally {
+      setCurrentUser(null);
+      setView("landing");
+      setSearch("");
+      onToast(message);
     }
-  }, []);
+  }
 
   if (view === "landing") {
     return (
@@ -55,7 +126,7 @@ export default function Home() {
   if (view === "login") {
     return (
       <>
-        <LoginPage go={go} onToast={onToast} />
+        <LoginPage go={go} onToast={onToast} onLogin={handleLogin} />
         <Toast message={toast} onClose={() => setToast("")} />
       </>
     );
@@ -65,6 +136,15 @@ export default function Home() {
     return (
       <>
         <CustomerProfile go={go} onToast={onToast} />
+        <Toast message={toast} onClose={() => setToast("")} />
+      </>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <>
+        <LoginPage go={go} onToast={onToast} onLogin={handleLogin} />
         <Toast message={toast} onClose={() => setToast("")} />
       </>
     );
@@ -81,6 +161,8 @@ export default function Home() {
         search={search}
         setSearch={setSearch}
         onToast={onToast}
+        currentUser={currentUser}
+        onSignOut={handleSignOut}
       >
         <PageRouter
           view={view}

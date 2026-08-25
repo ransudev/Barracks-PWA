@@ -28,7 +28,20 @@ type CreateUserResponse = {
   success: boolean;
   user?: ApiUser;
   message?: string;
+  errors?: Record<string, string[]>;
 };
+
+function responseMessage(
+  body: { message?: string; errors?: Record<string, string[]> } | null,
+  fallback: string,
+): string {
+  if (body?.errors) {
+    const validationMessage = Object.values(body.errors).flat().join(" ");
+    if (validationMessage) return validationMessage;
+  }
+
+  return body?.message ?? fallback;
+}
 
 const roleLabels: Record<ApiRole, StaffMember["role"]> = {
   administrator: "Administrator",
@@ -146,7 +159,7 @@ export function StaffManagement({
       const body = await readApiBody<CreateUserResponse>(response);
 
       if (!response.ok || !body?.success || !body.user) {
-        throw new Error(body?.message ?? "Unable to create user account");
+        throw new Error(responseMessage(body, "Unable to create user account"));
       }
 
       const created = toStaffMember(body.user);

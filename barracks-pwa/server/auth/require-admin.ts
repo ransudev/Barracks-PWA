@@ -1,41 +1,32 @@
-import { timingSafeEqual } from "node:crypto";
+import { getCurrentUser } from "@/server/auth/session";
 
-function matchesSecret(received: string, configured: string): boolean {
-  const receivedBuffer = Buffer.from(received);
-  const configuredBuffer = Buffer.from(configured);
+export async function requireAdministrator(): Promise<Response | null> {
+  let user;
 
-  if (receivedBuffer.length !== configuredBuffer.length) {
-    return false;
-  }
-
-  return timingSafeEqual(receivedBuffer, configuredBuffer);
-}
-
-function getPresentedToken(request: Request): string | undefined {
-  const headerToken = request.headers.get("X-Admin-Token") ?? undefined;
-  const authorization = request.headers.get("Authorization") ?? undefined;
-
-  if (headerToken) return headerToken;
-  if (!authorization?.startsWith("Bearer ")) return undefined;
-  return authorization.slice("Bearer ".length).trim();
-}
-
-export function requireAdministrator(request: Request): Response | null {
-  const configuredToken = process.env.ADMIN_API_TOKEN;
-
-  if (!configuredToken) {
+  try {
+    user = await getCurrentUser();
+  } catch (error) {
+    console.error("Unable to authenticate request", error);
     return Response.json(
       {
         success: false,
-        message: "Administrator authorization is not configured",
+        message: "Unable to authenticate request",
       },
-      { status: 503 },
+      { status: 500 },
     );
   }
 
-  const presentedToken = getPresentedToken(request);
+  if (!user) {
+    return Response.json(
+      {
+        success: false,
+        message: "Authentication is required",
+      },
+      { status: 401 },
+    );
+  }
 
-  if (!presentedToken || !matchesSecret(presentedToken, configuredToken)) {
+  if (user.role !== "administrator") {
     return Response.json(
       {
         success: false,
