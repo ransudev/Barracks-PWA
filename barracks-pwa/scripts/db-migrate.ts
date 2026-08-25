@@ -1,9 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { pool } from "./pool.js";
+import { pool } from "../server/db/pool";
 
 const migrationPath = fileURLToPath(
-  new URL("./migrations/001_user_management.sql", import.meta.url),
+  new URL("../server/db/migrations/001_user_management.sql", import.meta.url),
 );
 
 async function migrate() {

@@ -1,5 +1,4 @@
 import { timingSafeEqual } from "node:crypto";
-import type { MiddlewareHandler } from "hono";
 
 function matchesSecret(received: string, configured: string): boolean {
   const receivedBuffer = Buffer.from(received);
@@ -12,39 +11,39 @@ function matchesSecret(received: string, configured: string): boolean {
   return timingSafeEqual(receivedBuffer, configuredBuffer);
 }
 
-function getPresentedToken(authorization: string | undefined, headerToken: string | undefined) {
+function getPresentedToken(request: Request): string | undefined {
+  const headerToken = request.headers.get("X-Admin-Token") ?? undefined;
+  const authorization = request.headers.get("Authorization") ?? undefined;
+
   if (headerToken) return headerToken;
   if (!authorization?.startsWith("Bearer ")) return undefined;
   return authorization.slice("Bearer ".length).trim();
 }
 
-export const requireAdministrator: MiddlewareHandler = async (c, next) => {
+export function requireAdministrator(request: Request): Response | null {
   const configuredToken = process.env.ADMIN_API_TOKEN;
 
   if (!configuredToken) {
-    return c.json(
+    return Response.json(
       {
         success: false,
         message: "Administrator authorization is not configured",
       },
-      503,
+      { status: 503 },
     );
   }
 
-  const presentedToken = getPresentedToken(
-    c.req.header("Authorization"),
-    c.req.header("X-Admin-Token"),
-  );
+  const presentedToken = getPresentedToken(request);
 
   if (!presentedToken || !matchesSecret(presentedToken, configuredToken)) {
-    return c.json(
+    return Response.json(
       {
         success: false,
         message: "Administrator access is required",
       },
-      403,
+      { status: 403 },
     );
   }
 
-  await next();
-};
+  return null;
+}

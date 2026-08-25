@@ -1,6 +1,6 @@
 import type { Pool } from "pg";
-import { hashPassword } from "./password.service.js";
-import type { CreateUserInput, UserRole } from "../schemas/user.schema.js";
+import { hashPassword } from "@/server/services/password.service";
+import type { CreateUserInput, UserRole } from "@/server/schemas/user.schema";
 
 type UserRow = {
   id: number;
