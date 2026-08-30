@@ -1,8 +1,7 @@
-export const userRoles = ["administrator", "barber", "front_desk"] as const;
+export const userRoles = ["administrator", "front_desk", "customer"] as const;
 
 export const roleOptions = [
   { value: "administrator", label: "Administrator" },
-  { value: "barber", label: "Barber" },
   { value: "front_desk", label: "Front Desk" },
 ] as const;
 

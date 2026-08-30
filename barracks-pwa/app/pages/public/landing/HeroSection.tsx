@@ -17,7 +17,7 @@ export function HeroSection({ go }: { go: (view: ViewId) => void }) {
           craftsmanship, personal consultation, and a complete chair ritual.
         </p>
         <div className="landing-hero__actions">
-          <Button size="md" icon="calendar" onClick={() => go("customer")}>
+          <Button size="md" icon="calendar" onClick={() => go("customer-dashboard")}>
             Book Appointment
           </Button>
         </div>

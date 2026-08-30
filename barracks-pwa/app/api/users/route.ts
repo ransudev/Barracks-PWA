@@ -1,7 +1,7 @@
 import { requireAdministrator } from "@/server/auth/require-admin";
 import { pool } from "@/server/db/pool";
 import {
-  createUserSchema,
+  createStaffUserSchema,
   formatValidationErrors,
 } from "@/server/schemas/user.schema";
 import { createUser, listUsers } from "@/server/services/user.service";
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const parsed = createUserSchema.safeParse(body);
+  const parsed = createStaffUserSchema.safeParse(body);
 
   if (!parsed.success) {
     return Response.json(

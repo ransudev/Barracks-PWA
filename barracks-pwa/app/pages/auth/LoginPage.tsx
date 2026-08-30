@@ -27,6 +27,7 @@ export function LoginPage({ go, onToast, onLogin }: LoginPageProps) {
   const [signupName, setSignupName] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
+  const [signupPhone, setSignupPhone] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [recoveryOpen, setRecoveryOpen] = useState(false);
@@ -76,7 +77,7 @@ export function LoginPage({ go, onToast, onLogin }: LoginPageProps) {
     }
   }
 
-  function submitSignup(event: FormEvent) {
+  async function submitSignup(event: FormEvent) {
     event.preventDefault();
     const name = signupName.trim();
     const accountEmail = signupEmail.trim();
@@ -94,8 +95,35 @@ export function LoginPage({ go, onToast, onLogin }: LoginPageProps) {
       return;
     }
 
+    const nameParts = name.split(/\s+/);
+    const firstName = nameParts.shift() ?? "";
+    const lastName = nameParts.join(" ") || "Customer";
     setError("");
-    onToast("Customer signup is not connected yet");
+    setSubmitting(true);
+
+    try {
+      const response = await apiRequest("/api/auth/signup", {
+        method: "POST",
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          email: accountEmail,
+          password: signupPassword,
+          phone: signupPhone,
+          preferredBarberId: null,
+        }),
+      });
+      const body = await readApiBody<{ success: boolean; user?: ApiUser; message?: string; errors?: Record<string, string[]> }>(response);
+      if (!response.ok || !body?.success || !body.user) {
+        const validationMessage = body?.errors ? Object.values(body.errors).flat().join(" ") : undefined;
+        throw new Error(validationMessage ?? body?.message ?? "Unable to create customer account");
+      }
+      onLogin(body.user);
+    } catch (signupError) {
+      setError(signupError instanceof Error ? signupError.message : "Unable to create customer account");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function switchAuthMode(nextMode: AuthMode) {
@@ -213,6 +241,13 @@ export function LoginPage({ go, onToast, onLogin }: LoginPageProps) {
                 type="email"
                 icon="mail"
               />
+              <TextField
+                label="Phone number"
+                value={signupPhone}
+                onChange={(event) => setSignupPhone(event.target.value)}
+                icon="phone"
+                placeholder="+63 917 000 0000"
+              />
               <label className="field">
                 <span className="field__label">Password</span>
                 <span className="input-wrap">
@@ -256,7 +291,7 @@ export function LoginPage({ go, onToast, onLogin }: LoginPageProps) {
             <button
               type="button"
               className="link-button"
-              onClick={() => switchAuthMode(authMode === "login" ? "signup" : "login")}
+                onClick={() => switchAuthMode(authMode === "login" ? "signup" : "login")}
             >
               {authMode === "login" ? "Register" : "Sign in"}
             </button>

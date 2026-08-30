@@ -70,7 +70,7 @@ Make sure PostgreSQL is running and the database in `DATABASE_URL` exists. Then 
 npm run db:migrate
 ```
 
-This creates the `roles`, `users`, and `sessions` tables, seeds the supported roles, and creates the required indexes.
+This creates the account/session tables plus the sprint tables for `barbers`, `customers`, and `inventory_items`, seeds the supported roles, and creates the required indexes.
 
 ## 4. Create the initial administrator
 
@@ -82,7 +82,17 @@ npm run db:seed-admin
 
 The script creates the administrator using the `INITIAL_ADMIN_*` values. Running it again with the same administrator email is safe and makes no changes.
 
-## 5. Start the development server
+## 5. Seed local showcase data
+
+To populate the sprint views with repeatable local demo records, run:
+
+```bash
+npm run db:seed-demo
+```
+
+This adds four barbers, six inventory items, four customer profiles, and one Front Desk account. It does not create bookings or transactions. The demo logins are `demo.frontdesk@barracks.local` / `frontdesk123` and `demo.customer.ana@barracks.local` / `customer123`.
+
+## 6. Start the development server
 
 Start Next.js in development mode:
 

@@ -10,7 +10,7 @@ export function FinalCta({ go }: { go: (view: ViewId) => void }) {
         <p>
           Book via <span className="landing-final-cta__contact">{landingContact.phone}</span>. Check your email for confirmation after booking. A 10-minute waiting-time extension is provided.
         </p>
-        <Button size="lg" icon="calendar" onClick={() => go("customer")}>Book an Appointment</Button>
+        <Button size="lg" icon="calendar" onClick={() => go("customer-dashboard")}>Book an Appointment</Button>
       </div>
     </section>
   );

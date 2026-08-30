@@ -1,13 +1,9 @@
 "use client";
 
-import {
-  useState,
-  type Dispatch,
-  type FormEvent,
-  type SetStateAction,
-} from "react";
-import { createSlug, formatCurrency } from "@/app/utils/format";
-import type { InventoryItem } from "@/app/types/domain";
+import { useEffect, useState, type FormEvent } from "react";
+import type { ApiInventoryItem } from "@/app/lib/api";
+import { apiRequest, readApiBody } from "@/app/lib/api";
+import { formatCurrency } from "@/app/utils/format";
 import {
   Badge,
   Button,
@@ -23,394 +19,165 @@ import {
 } from "@/app/components/ui";
 import { Icon } from "@/app/components/ui/icons";
 
-type InventoryPageProps = {
-  items: InventoryItem[];
-  setItems: Dispatch<SetStateAction<InventoryItem[]>>;
-  onToast: (message: string) => void;
-  admin?: boolean;
+type ItemForm = {
+  name: string;
+  category: ApiInventoryItem["category"];
+  quantity: string;
+  minimumStock: string;
+  unitCost: string;
 };
 
-export function InventoryPage({
-  items,
-  setItems,
-  onToast,
-  admin = false,
-}: InventoryPageProps) {
+const emptyForm: ItemForm = {
+  name: "",
+  category: "Supplies",
+  quantity: "0",
+  minimumStock: "10",
+  unitCost: "0",
+};
+
+function stockStatus(item: ApiInventoryItem) {
+  if (item.quantity === 0) return "Out of stock";
+  return item.quantity <= item.minimumStock ? "Low stock" : "In stock";
+}
+
+function statusTone(item: ApiInventoryItem): "danger" | "warning" | "success" {
+  return item.quantity === 0 ? "danger" : item.quantity <= item.minimumStock ? "warning" : "success";
+}
+
+export function InventoryPage({ onToast, admin = false }: { onToast: (message: string) => void; admin?: boolean }) {
+  const [items, setItems] = useState<ApiInventoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All categories");
   const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState<InventoryItem | null>(null);
-  const [newItem, setNewItem] = useState({
-    name: "",
-    category: "Supplies",
-    minimum: "10",
-    current: "0",
-    unitCost: "10",
-  });
+  const [editing, setEditing] = useState<ApiInventoryItem | null>(null);
+  const [form, setForm] = useState<ItemForm>(emptyForm);
+  const [submitting, setSubmitting] = useState(false);
 
-  const filtered = items.filter(
-    (item) =>
-      (item.name + " " + item.category)
-        .toLowerCase()
-        .includes(search.toLowerCase()) &&
-      (category === "All categories" || item.category === category),
-  );
-  const lowStock = items.filter((item) => item.current <= item.minimum);
-  const outOfStock = items.filter((item) => item.current === 0);
-
-  function addItem(event: FormEvent) {
-    event.preventDefault();
-    if (!newItem.name.trim()) {
-      onToast("Add an item name first");
-      return;
+  useEffect(() => {
+    async function load() {
+      try {
+        const response = await apiRequest("/api/inventory");
+        const body = await readApiBody<{ success: boolean; items?: ApiInventoryItem[]; message?: string }>(response);
+        if (!response.ok || !body?.success || !body.items) throw new Error(body?.message ?? "Unable to load inventory");
+        setItems(body.items);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unable to load inventory";
+        setLoadError(message);
+        onToast(message);
+      } finally {
+        setLoading(false);
+      }
     }
+    void load();
+  }, [onToast]);
 
-    const created: InventoryItem = {
-      id: createSlug(newItem.name),
-      name: newItem.name,
-      category: newItem.category as InventoryItem["category"],
-      current: Number(newItem.current),
-      minimum: Number(newItem.minimum),
-      maximum: Math.max(50, Number(newItem.minimum) * 4),
-      unitCost: Number(newItem.unitCost),
-    };
+  const filtered = items.filter((item) =>
+    `${item.name} ${item.category}`.toLowerCase().includes(search.toLowerCase()) &&
+    (category === "All categories" || item.category === category),
+  );
+  const lowStock = items.filter((item) => item.quantity > 0 && item.quantity <= item.minimumStock);
+  const outOfStock = items.filter((item) => item.quantity === 0);
 
-    setItems((list) => [created, ...list]);
-    setNewItem({
-      name: "",
-      category: "Supplies",
-      minimum: "10",
-      current: "0",
-      unitCost: "10",
-    });
-    setModalOpen(false);
-    onToast(created.name + " added to inventory");
+  function openCreate() {
+    setEditing(null);
+    setForm(emptyForm);
+    setModalOpen(true);
   }
 
-  function saveItem(event: FormEvent) {
-    event.preventDefault();
-    if (!editing?.name.trim()) {
-      onToast("Add an item name first");
-      return;
-    }
-    const current = Number(editing.current);
-    const minimum = Number(editing.minimum);
-    const unitCost = Number(editing.unitCost);
-    if (
-      !Number.isFinite(current) ||
-      !Number.isFinite(minimum) ||
-      !Number.isFinite(unitCost) ||
-      current < 0 ||
-      minimum < 0 ||
-      unitCost < 0
-    ) {
-      onToast("Enter valid inventory values");
-      return;
-    }
+  function openEdit(item: ApiInventoryItem) {
+    setEditing(item);
+    setForm({
+      name: item.name,
+      category: item.category,
+      quantity: String(item.quantity),
+      minimumStock: String(item.minimumStock),
+      unitCost: String(item.unitCost),
+    });
+    setModalOpen(true);
+  }
 
-    setItems((list) =>
-      list.map((item) =>
-        item.id === editing.id
-          ? {
-              ...editing,
-              name: editing.name.trim(),
-              current,
-              minimum,
-              maximum: Math.max(editing.maximum, minimum * 4),
-              unitCost,
-            }
-          : item,
-      ),
-    );
-    onToast(editing.name + " updated");
-    setEditing(null);
+  async function saveItem(event: FormEvent) {
+    event.preventDefault();
+    setSubmitting(true);
+    try {
+      const payload = {
+        name: form.name,
+        category: form.category,
+        quantity: Number(form.quantity),
+        minimumStock: Number(form.minimumStock),
+        unitCost: Number(form.unitCost),
+      };
+      const response = await apiRequest(editing ? `/api/inventory/${editing.id}` : "/api/inventory", {
+        method: editing ? "PUT" : "POST",
+        body: JSON.stringify(payload),
+      });
+      const body = await readApiBody<{ success: boolean; item?: ApiInventoryItem; message?: string }>(response);
+      if (!response.ok || !body?.success || !body.item) throw new Error(body?.message ?? "Unable to save inventory item");
+      const savedItem = body.item;
+      setItems((current) => editing ? current.map((item) => item.id === savedItem.id ? savedItem : item) : [savedItem, ...current]);
+      setModalOpen(false);
+      onToast(`${savedItem.name} ${editing ? "updated" : "added to inventory"}`);
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : "Unable to save inventory item");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function deleteItem(item: ApiInventoryItem) {
+    if (!window.confirm(`Delete ${item.name} from inventory?`)) return;
+    const response = await apiRequest(`/api/inventory/${item.id}`, { method: "DELETE" });
+    const body = await readApiBody<{ success: boolean; message?: string }>(response);
+    if (!response.ok || !body?.success) {
+      onToast(body?.message ?? "Unable to delete inventory item");
+      return;
+    }
+    setItems((current) => current.filter((entry) => entry.id !== item.id));
+    setModalOpen(false);
+    onToast(`${item.name} removed from inventory`);
   }
 
   return (
     <>
-      <PageHeader
-        title={admin ? "Inventory management" : "Inventory"}
-        action={
-          <Button icon="plus" onClick={() => setModalOpen(true)}>
-            Add item
-          </Button>
-        }
-      />
+      <PageHeader title={admin ? "Inventory management" : "Inventory"} action={<Button icon="plus" onClick={openCreate}>Add item</Button>} />
       <div className="metrics-grid metrics-grid--four">
-        <MetricCard
-          label="Total items"
-          value={String(items.length)}
-          icon="box"
-          accent="blue"
-        />
-        <MetricCard
-          label="Low stock"
-          value={String(lowStock.length)}
-          change="Needs attention"
-          changeTone="warning"
-          icon="info"
-          accent="red"
-        />
-        <MetricCard
-          label="Out of stock"
-          value={String(outOfStock.length)}
-          icon="x"
-          accent="amber"
-        />
-        <MetricCard
-          label="Inventory value"
-          value={formatCurrency(
-            items.reduce(
-              (total, item) => total + item.current * item.unitCost,
-              0,
-            ),
-          )}
-          icon="wallet"
-          accent="green"
-        />
+        <MetricCard label="Total items" value={String(items.length)} icon="box" accent="blue" />
+        <MetricCard label="In stock" value={String(items.filter((item) => item.quantity > item.minimumStock).length)} icon="check" accent="green" />
+        <MetricCard label="Low stock" value={String(lowStock.length)} icon="info" accent="amber" />
+        <MetricCard label="Out of stock" value={String(outOfStock.length)} icon="x" accent="red" />
       </div>
 
-      {lowStock.length > 0 && (
-        <div className="alert-banner">
-          <span className="alert-banner__icon">
-            <Icon name="info" size={17} />
-          </span>
-          <span>
-            <strong>Low stock needs a look.</strong>
-            <small>
-              {lowStock.map((item) => item.name).join(", ")} are below their
-              minimum level.
-            </small>
-          </span>
-          <button
-            className="link-button"
-            type="button"
-            onClick={() => setCategory("All categories")}
-          >
-            Review items <Icon name="arrowRight" size={14} />
-          </button>
-        </div>
-      )}
+      {(lowStock.length > 0 || outOfStock.length > 0) && <div className="alert-banner"><span className="alert-banner__icon"><Icon name="info" size={17} /></span><span><strong>Stock needs attention.</strong><small>{[...outOfStock, ...lowStock].map((item) => item.name).join(", ")}</small></span></div>}
 
       <Panel className="inventory-panel">
-        <SectionHeading
-          title="Stock levels"
-          action={
-            <div className="panel-toolbar">
-              <SearchInput
-                value={search}
-                onChange={setSearch}
-                placeholder="Search stock"
-              />
-              <SelectField
-                value={category}
-                onChange={(event) => setCategory(event.target.value)}
-              >
-                <option>All categories</option>
-                <option>Supplies</option>
-                <option>Equipment</option>
-                <option>Products</option>
-              </SelectField>
-            </div>
-          }
-        />
+        <SectionHeading title="Stock levels" action={<div className="panel-toolbar"><SearchInput value={search} onChange={setSearch} placeholder="Search stock" /><SelectField value={category} onChange={(event) => setCategory(event.target.value)}><option>All categories</option><option>Supplies</option><option>Equipment</option><option>Products</option></SelectField></div>} />
         <div className="inventory-table">
-          <div className="inventory-table__head">
-            <span>Item</span>
-            <span>Category</span>
-            <span>Current</span>
-            <span>Min level</span>
-            <span>Stock status</span>
-            <span>Actions</span>
-          </div>
-          {filtered.map((item) => {
-            const isLow = item.current <= item.minimum;
-            const isOut = item.current === 0;
-
-            return (
-              <div className="inventory-table__row" key={item.id}>
-                <span>
-                  <strong>{item.name}</strong>
-                  <small>{formatCurrency(item.unitCost)} / unit</small>
-                </span>
-                <span>{item.category}</span>
-                <span className={isLow ? "text-red" : "text-strong"}>
-                  {item.current}
-                </span>
-                <span>{item.minimum}</span>
-                <span>
-                  <Badge tone={isOut || isLow ? "danger" : "success"}>
-                    {isOut ? "Out of stock" : isLow ? "Low stock" : "In stock"}
-                  </Badge>
-                </span>
-                <span className="row-actions">
-                  <button
-                    className="row-action"
-                    type="button"
-                    onClick={() => setEditing({ ...item })}
-                  >
-                    <Icon name="edit" size={14} />
-                    Edit
-                  </button>
-                </span>
-              </div>
-            );
-          })}
+          <div className="inventory-table__head"><span>Item</span><span>Category</span><span>Current</span><span>Min level</span><span>Stock status</span><span>Actions</span></div>
+          {loading ? <div className="staff-table__empty">Loading inventory…</div> : loadError ? <div className="staff-table__empty">{loadError}</div> : filtered.map((item) => <div className="inventory-table__row" key={item.id}>
+            <span><strong>{item.name}</strong><small>{formatCurrency(item.unitCost)} / unit</small></span>
+            <span>{item.category}</span>
+            <span className={item.quantity <= item.minimumStock ? "text-red" : "text-strong"}>{item.quantity}</span>
+            <span>{item.minimumStock}</span>
+            <span><Badge tone={statusTone(item)}>{stockStatus(item)}</Badge></span>
+            <span className="row-actions"><button className="row-action" type="button" onClick={() => openEdit(item)}><Icon name="edit" size={14} /> Edit</button></span>
+          </div>)}
         </div>
-        {filtered.length === 0 && (
-          <EmptyState
-            icon="box"
-            title="No stock matches"
-            description="Try a different item name or category."
-          />
-        )}
+        {!loading && !loadError && filtered.length === 0 && <EmptyState icon="box" title="No stock matches" description="Try a different item name or category." />}
       </Panel>
 
-      <Modal
-        open={modalOpen}
-        title="Add inventory item"
-        description="Create a new stock record for the back room."
-        onClose={() => setModalOpen(false)}
-      >
-        <form className="modal-form" onSubmit={addItem}>
-          <TextField
-            label="Item name"
-            value={newItem.name}
-            onChange={(event) =>
-              setNewItem({ ...newItem, name: event.target.value })
-            }
-            placeholder="e.g. Neck strips"
-          />
+      <Modal open={modalOpen} title={editing ? "Edit inventory item" : "Add inventory item"} description="Keep quantities and minimum levels current for the shop team." onClose={() => !submitting && setModalOpen(false)}>
+        <form className="modal-form" onSubmit={saveItem}>
+          <TextField label="Item name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="e.g. Neck strips" />
           <div className="form-grid form-grid--three">
-            <SelectField
-              label="Category"
-              value={newItem.category}
-              onChange={(event) =>
-                setNewItem({ ...newItem, category: event.target.value })
-              }
-            >
-              <option>Supplies</option>
-              <option>Equipment</option>
-              <option>Products</option>
-            </SelectField>
-            <TextField
-              label="Current stock"
-              type="number"
-              value={newItem.current}
-              onChange={(event) =>
-                setNewItem({ ...newItem, current: event.target.value })
-              }
-            />
-            <TextField
-              label="Min level"
-              type="number"
-              value={newItem.minimum}
-              onChange={(event) =>
-                setNewItem({ ...newItem, minimum: event.target.value })
-              }
-            />
+            <SelectField label="Category" value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value as ItemForm["category"] })}><option>Supplies</option><option>Equipment</option><option>Products</option></SelectField>
+            <TextField label="Quantity" type="number" min="0" value={form.quantity} onChange={(event) => setForm({ ...form, quantity: event.target.value })} />
+            <TextField label="Minimum stock" type="number" min="0" value={form.minimumStock} onChange={(event) => setForm({ ...form, minimumStock: event.target.value })} />
           </div>
-          <TextField
-            label="Unit cost"
-            type="number"
-            value={newItem.unitCost}
-            onChange={(event) =>
-              setNewItem({ ...newItem, unitCost: event.target.value })
-            }
-          />
-          <div className="modal-actions">
-            <Button
-              variant="secondary"
-              type="button"
-              onClick={() => setModalOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" icon="plus">
-              Add item
-            </Button>
-          </div>
+          <TextField label="Unit cost" type="number" min="0" step="0.01" value={form.unitCost} onChange={(event) => setForm({ ...form, unitCost: event.target.value })} />
+          <div className="modal-actions"><Button variant="secondary" type="button" onClick={() => setModalOpen(false)}>Cancel</Button>{editing && <Button variant="danger" type="button" onClick={() => void deleteItem(editing)}>Delete</Button>}<Button type="submit" icon="check" disabled={submitting}>{submitting ? "Saving…" : "Save item"}</Button></div>
         </form>
-      </Modal>
-
-      <Modal
-        open={Boolean(editing)}
-        title="Edit inventory item"
-        onClose={() => setEditing(null)}
-      >
-        {editing && (
-          <form className="modal-form" onSubmit={saveItem}>
-            <TextField
-              label="Item name"
-              value={editing.name}
-              onChange={(event) =>
-                setEditing({ ...editing, name: event.target.value })
-              }
-            />
-            <div className="form-grid form-grid--three">
-              <SelectField
-                label="Category"
-                value={editing.category}
-                onChange={(event) =>
-                  setEditing({
-                    ...editing,
-                    category: event.target.value as InventoryItem["category"],
-                  })
-                }
-              >
-                <option>Supplies</option>
-                <option>Equipment</option>
-                <option>Products</option>
-              </SelectField>
-              <TextField
-                label="Current stock"
-                type="number"
-                min="0"
-                value={String(editing.current)}
-                onChange={(event) =>
-                  setEditing({
-                    ...editing,
-                    current: Number(event.target.value),
-                  })
-                }
-              />
-              <TextField
-                label="Min level"
-                type="number"
-                min="0"
-                value={String(editing.minimum)}
-                onChange={(event) =>
-                  setEditing({
-                    ...editing,
-                    minimum: Number(event.target.value),
-                  })
-                }
-              />
-            </div>
-            <TextField
-              label="Unit cost"
-              type="number"
-              min="0"
-              step="0.01"
-              value={String(editing.unitCost)}
-              onChange={(event) =>
-                setEditing({ ...editing, unitCost: Number(event.target.value) })
-              }
-            />
-            <div className="modal-actions">
-              <Button
-                variant="secondary"
-                type="button"
-                onClick={() => setEditing(null)}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" icon="check">
-                Save changes
-              </Button>
-            </div>
-          </form>
-        )}
       </Modal>
     </>
   );

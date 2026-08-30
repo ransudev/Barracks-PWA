@@ -3,7 +3,8 @@ export type Tone = "blue" | "green" | "amber" | "violet" | "red" | "slate";
 export type ViewId =
   | "landing"
   | "login"
-  | "customer"
+  | "customer-dashboard"
+  | "customer-profile"
   | "staff-dashboard"
   | "queue"
   | "bookings"
@@ -14,6 +15,7 @@ export type ViewId =
   | "admin-dashboard"
   | "staff-management"
   | "barbers"
+  | "barber-profile"
   | "services"
   | "reports"
   | "admin-inventory"
@@ -108,7 +110,7 @@ export type StaffMember = {
   id: string;
   name: string;
   initials: string;
-  role: "Administrator" | "Front Desk" | "Barber";
+  role: "Administrator" | "Front Desk";
   email: string;
   phone: string;
   status: "Active" | "On leave" | "Disabled";

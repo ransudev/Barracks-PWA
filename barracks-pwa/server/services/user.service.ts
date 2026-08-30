@@ -68,7 +68,11 @@ function toPublicUser(row: UserRow): PublicUser {
 }
 
 export async function listUsers(db: Pool): Promise<PublicUser[]> {
-  const result = await db.query<UserRow>(`${userSelect} ORDER BY u.created_at DESC, u.id DESC`);
+  const result = await db.query<UserRow>(
+    `${userSelect}
+      WHERE r.name IN ('administrator', 'front_desk')
+      ORDER BY u.created_at DESC, u.id DESC`,
+  );
   return result.rows.map(toPublicUser);
 }
 

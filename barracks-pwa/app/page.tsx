@@ -3,15 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { AppShell } from "@/app/components/layout/AppShell";
 import { LoginPage } from "@/app/pages/auth/LoginPage";
+import { CustomerDashboard } from "@/app/pages/customer/CustomerDashboard";
 import { CustomerProfile } from "@/app/pages/customer/CustomerProfile";
 import { LandingPage } from "@/app/pages/public/LandingPage";
 import { PageRouter } from "@/app/pages/PageRouter";
 import { Toast } from "@/app/components/ui";
-import { inventory } from "@/app/data/inventory";
-import { queueEntries } from "@/app/data/queue";
-import { isAdminView } from "@/app/utils/view";
-import { usePersistentState } from "@/app/hooks/usePersistentState";
-import type { InventoryItem, QueueEntry, ViewId } from "@/app/types/domain";
+import type { ViewId } from "@/app/types/domain";
+import { isAdminView, requiresAdministrator } from "@/app/utils/view";
 import {
   apiRequest,
   readApiBody,
@@ -21,14 +19,6 @@ import {
 export default function Home() {
   const [view, setView] = useState<ViewId>("landing");
   const [currentUser, setCurrentUser] = useState<ApiUser | null>(null);
-  const [queue, setQueue] = usePersistentState<QueueEntry[]>(
-    "barracks-queue-v2",
-    queueEntries,
-  );
-  const [stock, setStock] = usePersistentState<InventoryItem[]>(
-    "barracks-inventory-v2",
-    inventory,
-  );
   const [search, setSearch] = useState("");
   const [toast, setToast] = useState("");
 
@@ -66,16 +56,24 @@ export default function Home() {
   }, []);
 
   function go(nextView: ViewId) {
-    const isWorkspaceView = !["landing", "login", "customer"].includes(nextView);
+    const isCustomerView = ["customer-dashboard", "customer-profile"].includes(nextView);
+    const isWorkspaceView = !["landing", "login", "customer-dashboard", "customer-profile"].includes(nextView);
 
-    if (isWorkspaceView && !currentUser) {
+    if (isCustomerView && (!currentUser || currentUser.role !== "customer")) {
+      setView("login");
+      setSearch("");
+      onToast("Sign in with a customer account to continue");
+      return;
+    }
+
+    if (isWorkspaceView && (!currentUser || currentUser.role === "customer")) {
       setView("login");
       setSearch("");
       onToast("Sign in to access the workspace");
       return;
     }
 
-    if (isAdminView(nextView) && currentUser?.role !== "administrator") {
+    if (requiresAdministrator(nextView) && currentUser?.role !== "administrator") {
       onToast("Administrator access is required");
       return;
     }
@@ -91,7 +89,7 @@ export default function Home() {
   function handleLogin(user: ApiUser) {
     setCurrentUser(user);
     setSearch("");
-    setView(user.role === "administrator" ? "admin-dashboard" : "staff-dashboard");
+    setView(user.role === "administrator" ? "admin-dashboard" : user.role === "customer" ? "customer-dashboard" : "staff-dashboard");
     onToast(`Signed in as ${user.firstName} ${user.lastName}`);
   }
 
@@ -132,10 +130,19 @@ export default function Home() {
     );
   }
 
-  if (view === "customer") {
+  if (view === "customer-dashboard" && currentUser?.role === "customer") {
     return (
       <>
-        <CustomerProfile go={go} onToast={onToast} />
+        <CustomerDashboard go={go} onToast={onToast} onSignOut={handleSignOut} user={currentUser} />
+        <Toast message={toast} onClose={() => setToast("")} />
+      </>
+    );
+  }
+
+  if (view === "customer-profile" && currentUser?.role === "customer") {
+    return (
+      <>
+        <CustomerProfile go={go} onToast={onToast} onSignOut={handleSignOut} user={currentUser} />
         <Toast message={toast} onClose={() => setToast("")} />
       </>
     );
@@ -150,7 +157,7 @@ export default function Home() {
     );
   }
 
-  const admin = isAdminView(view);
+  const admin = currentUser.role === "administrator" && isAdminView(view);
 
   return (
     <>
@@ -167,10 +174,6 @@ export default function Home() {
         <PageRouter
           view={view}
           go={go}
-          queue={queue}
-          setQueue={setQueue}
-          stock={stock}
-          setStock={setStock}
           onToast={onToast}
         />
       </AppShell>

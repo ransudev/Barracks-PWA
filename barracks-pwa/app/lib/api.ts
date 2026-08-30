@@ -1,4 +1,4 @@
-export type ApiRole = "administrator" | "barber" | "front_desk";
+export type ApiRole = "administrator" | "front_desk" | "customer";
 
 export type ApiUser = {
   id: number;
@@ -6,6 +6,42 @@ export type ApiUser = {
   lastName: string;
   email: string;
   role: ApiRole;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ApiBarber = {
+  id: number;
+  firstName: string;
+  lastName: string;
+  specialty: string;
+  status: "available" | "busy" | "unavailable";
+  commissionRate: number | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ApiInventoryItem = {
+  id: number;
+  name: string;
+  category: "Supplies" | "Equipment" | "Products";
+  quantity: number;
+  minimumStock: number;
+  unitCost: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ApiCustomer = {
+  id: number;
+  userId: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  preferredBarberId: number | null;
+  preferredBarberName: string | null;
+  loyaltyPoints: number;
   createdAt: string;
   updatedAt: string;
 };

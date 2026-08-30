@@ -31,7 +31,8 @@ function displayName(user: ApiUser): string {
 
 function roleLabel(user: ApiUser): string {
   if (user.role === "front_desk") return "Front Desk";
-  return user.role === "administrator" ? "Administrator" : "Barber";
+  if (user.role === "customer") return "Customer";
+  return "Administrator";
 }
 
 function Sidebar({
@@ -39,6 +40,7 @@ function Sidebar({
   active,
   go,
   onToast,
+  currentUser,
   onSignOut,
   collapsed,
   onToggle,
@@ -46,9 +48,9 @@ function Sidebar({
   collapsed: boolean;
   onToggle: () => void;
 }) {
-  const isAdmin = area === "admin";
-  const navigation = isAdmin ? adminNavigation : staffNavigation;
-  const settingsView = isAdmin ? "admin-settings" : "staff-settings";
+  const isManagement = area === "admin";
+  const canSwitchWorkspace = currentUser.role === "administrator";
+  const navigation = isManagement ? adminNavigation : staffNavigation;
 
   return (
     <aside
@@ -67,49 +69,51 @@ function Sidebar({
         />
       </div>
 
-      <div className="sidebar__workspace">
-        <span className="sidebar__label">Workspace</span>
-        <div className="workspace-switcher" role="group" aria-label="Choose workspace">
-          <button
-            className={`workspace-option ${isAdmin ? "is-active" : ""}`}
-            type="button"
-            aria-pressed={isAdmin}
-            title="Management · Business view"
-            onClick={() => {
-              if (!isAdmin) {
-                go("admin-dashboard");
-                onToast("Switched to management");
-              }
-            }}
-          >
-            <span className="workspace-option__mark">
-              <Icon name="chart" size={15} />
-            </span>
-            <span className="workspace-option__label">Management</span>
-          </button>
-          <button
-            className={`workspace-option ${!isAdmin ? "is-active" : ""}`}
-            type="button"
-            aria-pressed={!isAdmin}
-            title="Shop floor · Live operations"
-            onClick={() => {
-              if (isAdmin) {
-                go("staff-dashboard");
-                onToast("Switched to shop floor");
-              }
-            }}
-          >
-            <span className="workspace-option__mark">
-              <Icon name="scissors" size={15} />
-            </span>
-            <span className="workspace-option__label">Shop floor</span>
-          </button>
+      {canSwitchWorkspace && (
+        <div className="sidebar__workspace">
+          <span className="sidebar__label">Workspace</span>
+          <div className="workspace-switcher" role="group" aria-label="Choose workspace">
+            <button
+              className={`workspace-option ${isManagement ? "is-active" : ""}`}
+              type="button"
+              aria-pressed={isManagement}
+              title="Management · Business view"
+              onClick={() => {
+                if (!isManagement) {
+                  go("admin-dashboard");
+                  onToast("Switched to management");
+                }
+              }}
+            >
+              <span className="workspace-option__mark">
+                <Icon name="chart" size={15} />
+              </span>
+              <span className="workspace-option__label">Management</span>
+            </button>
+            <button
+              className={`workspace-option ${!isManagement ? "is-active" : ""}`}
+              type="button"
+              aria-pressed={!isManagement}
+              title="Shop floor · Live operations"
+              onClick={() => {
+                if (isManagement) {
+                  go("staff-dashboard");
+                  onToast("Switched to shop floor");
+                }
+              }}
+            >
+              <span className="workspace-option__mark">
+                <Icon name="scissors" size={15} />
+              </span>
+              <span className="workspace-option__label">Shop floor</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       <nav
         className="sidebar__nav"
-        aria-label={`${isAdmin ? "Management" : "Staff"} navigation`}
+        aria-label={`${isManagement ? "Management" : "Staff"} navigation`}
       >
         <span className="sidebar__label">Navigate</span>
         {navigation.map((item) => (
@@ -126,17 +130,6 @@ function Sidebar({
           </button>
         ))}
 
-        <span className="sidebar__label sidebar__label--spaced">System</span>
-        <button
-          className={`sidebar__link ${active === settingsView ? "is-active" : ""}`}
-          type="button"
-          aria-label="Settings"
-          title="Settings"
-          onClick={() => go(settingsView)}
-        >
-          <Icon name="settings" size={18} />
-          <span>Settings</span>
-        </button>
       </nav>
 
       <div className="sidebar__footer">
@@ -168,7 +161,8 @@ function Topbar({
 }: Omit<AppShellProps, "children" | "active">) {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const isAdmin = area === "admin";
+  const isManagement = area === "admin";
+  const canSwitchWorkspace = currentUser.role === "administrator";
   const name = displayName(currentUser);
   const initials = createInitials(name);
   const role = roleLabel(currentUser);
@@ -179,10 +173,10 @@ function Topbar({
         <Logo compact onClick={() => go("landing")} />
       </div>
       <div className="topbar__context">
-        <span>{isAdmin ? "Management" : "Shop floor"}</span>
+        <span>{isManagement ? "Management" : "Shop floor"}</span>
         <Icon name="chevronRight" size={13} />
         <strong>
-          {isAdmin ? "Business overview" : "Operations"}
+          {isManagement ? "Business overview" : "Operations"}
         </strong>
       </div>
 
@@ -237,7 +231,7 @@ function Topbar({
           >
             <Avatar
               initials={initials}
-              tone={isAdmin ? "violet" : "blue"}
+              tone={isManagement ? "violet" : "blue"}
               size="sm"
             />
             <span>
@@ -251,7 +245,7 @@ function Topbar({
               <div className="profile-popover__identity">
                 <Avatar
                   initials={initials}
-                  tone={isAdmin ? "violet" : "blue"}
+                  tone={isManagement ? "violet" : "blue"}
                   size="md"
                 />
                 <span>
@@ -259,24 +253,15 @@ function Topbar({
                   <small>{role}</small>
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={() =>
-                  go(isAdmin ? "admin-settings" : "staff-settings")
-                }
-              >
-                <Icon name="settings" size={15} />
-                Account settings
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  go(isAdmin ? "staff-dashboard" : "admin-dashboard")
-                }
-              >
-                <Icon name="refresh" size={15} />
-                Switch workspace
-              </button>
+              {canSwitchWorkspace && (
+                <button
+                  type="button"
+                  onClick={() => go(isManagement ? "staff-dashboard" : "admin-dashboard")}
+                >
+                  <Icon name="refresh" size={15} />
+                  Switch workspace
+                </button>
+              )}
               <button
                 className="is-danger"
                 type="button"

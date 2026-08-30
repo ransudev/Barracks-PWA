@@ -46,8 +46,8 @@ function responseMessage(
 
 const roleLabels: Record<ApiRole, StaffMember["role"]> = {
   administrator: "Administrator",
-  barber: "Barber",
   front_desk: "Front Desk",
+  customer: "Front Desk",
 };
 
 function toStaffMember(user: ApiUser): StaffMember {
@@ -66,13 +66,12 @@ function toStaffMember(user: ApiUser): StaffMember {
     phone: "—",
     status: "Active",
     joined,
-    tone: user.role === "administrator" ? "violet" : user.role === "barber" ? "green" : "blue",
+    tone: user.role === "administrator" ? "violet" : "blue",
   };
 }
 
 function roleTone(role: StaffMember["role"]): "neutral" | "info" | "purple" {
   if (role === "Administrator") return "purple";
-  if (role === "Barber") return "info";
   return "neutral";
 }
 
@@ -194,9 +193,9 @@ export function StaffManagement({
           accent="blue"
         />
         <MetricCard
-          label="Barbers"
-          value={String(items.filter((item) => item.role === "Barber").length)}
-          icon="scissors"
+          label="Front desk"
+          value={String(items.filter((item) => item.role === "Front Desk").length)}
+          icon="users"
           accent="green"
         />
         <MetricCard

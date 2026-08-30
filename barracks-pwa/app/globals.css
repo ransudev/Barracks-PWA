@@ -71,7 +71,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .logo-word { font-family: "Iowan Old Style", "Baskerville", "Times New Roman", serif; font-size: 25px; font-weight: 900; letter-spacing: .14em; line-height: .85; transform: scaleY(1.05); transform-origin: left center; }
 .logo-subtitle { padding-left: 3px; color: var(--text-muted); font-size: 7px; font-weight: 700; letter-spacing: .36em; line-height: 1.6; }
 .logo-lockup--compact .logo-word { font-size: 18px; }
-.button { align-items: center; display: inline-flex; justify-content: center; gap: 9px; border: 1px solid transparent; border-radius: 8px; font-weight: 700; letter-spacing: -.01em; transition: background .2s ease, border-color .2s ease, color .2s ease, transform .2s ease; }
+.button { align-items: center; display: inline-flex; justify-content: center; gap: 9px; border: 1px solid transparent; border-radius: 8px; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; transition: background .2s ease, border-color .2s ease, color .2s ease, transform .2s ease; }
+.button > svg { flex: 0 0 auto; }
 .button:hover { transform: translateY(-1px); }
 .button--sm { min-height: 34px; padding: 0 13px; font-size: 12px; }
 .button--md { min-height: 42px; padding: 0 16px; font-size: 13px; }
@@ -90,6 +91,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .icon-button:hover, .icon-button.is-active { background: var(--surface-raised-2); border-color: var(--line); color: var(--text); }
 .icon-button--small { width: 28px; height: 28px; }
 .text-button, .link-button { align-items: center; display: inline-flex; gap: 7px; padding: 0; background: transparent; color: var(--text); font-size: 13px; font-weight: 700; transition: color .2s ease; }
+.link-button { flex: 0 0 auto; white-space: nowrap; }
+.link-button svg { flex: 0 0 auto; }
 .text-button:hover, .link-button:hover { color: var(--barracks-off-white); text-decoration: underline; text-underline-offset: 3px; }
 .text-button--muted { color: var(--text-soft); }
 .link-button--danger { color: var(--barracks-red-light); }
@@ -1322,6 +1325,52 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .public-site .public-nav__login { font-weight: 500; }
 .public-site .button { font-weight: 600; letter-spacing: 0; }
 .public-site .editorial-link { font-weight: 600; letter-spacing: 0; }
+
+/* Sprint showcase views */
+.admin-dashboard-low-stock { padding: 0 22px 18px; }
+.admin-dashboard-low-stock > div { align-items: center; display: flex; justify-content: space-between; gap: 16px; min-height: 49px; border-top: 1px solid rgba(176, 176, 171, .58); color: var(--text-soft); font-family: var(--font-geist-mono), monospace; font-size: 11px; }
+.admin-dashboard-low-stock strong, .admin-dashboard-low-stock small { display: block; font-family: var(--font-geist), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.admin-dashboard-low-stock strong { color: var(--text); font-size: 12px; }
+.admin-dashboard-low-stock small { margin-top: 3px; color: var(--text-muted); font-size: 10px; }
+.profile-view-panel { padding-bottom: 22px; }
+.profile-view__select { max-width: 320px; padding: 0 22px; }
+.profile-view__hero { align-items: center; display: flex; gap: 16px; margin: 26px 22px 0; padding: 22px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-raised); }
+.profile-view__hero > div { min-width: 0; flex: 1; }
+.profile-view__hero h2 { margin: 4px 0 3px; color: var(--text); font-family: "Iowan Old Style", "Baskerville", "Times New Roman", serif; font-size: 27px; letter-spacing: -.04em; }
+.profile-view__hero p:not(.profile-view__eyebrow) { margin: 0; color: var(--text-muted); font-size: 11px; }
+.profile-view__eyebrow, .customer-page__eyebrow { margin: 0; color: var(--text-muted); font-family: var(--font-geist-mono), monospace; font-size: 9px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.profile-view__facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 14px 22px 0; padding: 16px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
+.profile-view__facts small, .profile-view__facts strong { display: block; }
+.profile-view__facts small { color: var(--text-muted); font-size: 10px; }
+.profile-view__facts strong { margin-top: 6px; color: var(--text); font-size: 12px; }
+.customer-topbar__links button.is-active { color: var(--text); }
+.customer-profile-page__heading, .customer-dashboard__heading { align-items: flex-end; display: flex; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
+.customer-profile-page__heading h1, .customer-dashboard__heading h1 { margin: 7px 0 6px; color: var(--text); font-family: "Iowan Old Style", "Baskerville", "Times New Roman", serif; font-size: 38px; font-weight: 700; letter-spacing: -.045em; line-height: 1.05; }
+.customer-profile-page__heading > div > p:last-child, .customer-dashboard__heading > div > p:last-child { margin: 0; color: var(--text-muted); font-size: 12px; }
+.customer-profile-card__identity { align-items: center; display: flex; gap: 16px; }
+.customer-profile-card__identity h2 { margin: 0 0 4px; }
+.customer-profile-card__identity p { margin: 0 0 10px; color: var(--text-muted); font-size: 12px; }
+.customer-profile-card__facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 22px; padding: 16px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-raised); }
+.customer-profile-card__facts small, .customer-profile-card__facts strong { display: block; }
+.customer-profile-card__facts small { color: var(--text-muted); font-size: 10px; }
+.customer-profile-card__facts strong { margin-top: 6px; color: var(--text); font-size: 12px; }
+.customer-dashboard__grid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 14px; }
+.customer-summary { align-items: center; display: flex; gap: 13px; padding: 0 22px 22px; }
+.customer-summary > div { min-width: 0; }
+.customer-summary strong, .customer-summary span { display: block; }
+.customer-summary strong { color: var(--text); font-size: 14px; }
+.customer-summary span { margin-top: 4px; overflow: hidden; color: var(--text-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (max-width: 760px) {
+  .profile-view__hero { align-items: flex-start; flex-wrap: wrap; }
+  .profile-view__hero > .badge { margin-left: 92px; }
+  .profile-view__facts, .customer-profile-card__facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .customer-profile-page__heading, .customer-dashboard__heading { align-items: flex-start; flex-direction: column; }
+  .customer-profile-page__heading h1, .customer-dashboard__heading h1 { font-size: 32px; }
+  .customer-dashboard__grid { grid-template-columns: 1fr; }
+  .customer-topbar__links { gap: 13px; font-size: 11px; }
+  .customer-topbar__links > span { display: none; }
+}
 
 @media (max-width: 760px) {
   .public-site .landing-hero h1 { font-size: clamp(37px, 9.8vw, 48px); line-height: 1.05; }

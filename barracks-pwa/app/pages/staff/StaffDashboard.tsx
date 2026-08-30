@@ -1,217 +1,43 @@
 "use client";
 
-import { barbers } from "@/app/data/barbers";
-import { bookings } from "@/app/data/bookings";
-import { queueEntries } from "@/app/data/queue";
-import { transactions } from "@/app/data/transactions";
+import { useEffect, useState } from "react";
 import type { ViewId } from "@/app/types/domain";
-import { formatCurrency } from "@/app/utils/format";
-import {
-  Avatar,
-  Badge,
-  Button,
-  EmptyState,
-  MetricCard,
-  PageHeader,
-  Panel,
-  SectionHeading,
-} from "@/app/components/ui";
+import type { ApiBarber } from "@/app/lib/api";
+import { apiRequest, readApiBody } from "@/app/lib/api";
+import { createInitials } from "@/app/utils/format";
+import { Avatar, Badge, Button, EmptyState, MetricCard, PageHeader, Panel, SectionHeading } from "@/app/components/ui";
 import { Icon } from "@/app/components/ui/icons";
 
-type StaffDashboardProps = {
-  go: (view: ViewId) => void;
-};
+function statusLabel(status: ApiBarber["status"]) {
+  return status === "available" ? "Available" : status === "busy" ? "Busy" : "Unavailable";
+}
 
-export function StaffDashboard({ go }: StaffDashboardProps) {
-  const revenue = transactions.reduce((total, transaction) => total + transaction.amount, 0);
+export function StaffDashboard({ go, onToast }: { go: (view: ViewId) => void; onToast: (message: string) => void }) {
+  const [barbers, setBarbers] = useState<ApiBarber[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  return (
-    <>
-      <PageHeader
-        title="Shop floor dashboard"
-        action={
-          <Button icon="plus" onClick={() => go("queue")}>
-            Add to queue
-          </Button>
-        }
-      />
-      <div className="metrics-grid metrics-grid--four">
-        <MetricCard
-          label="Customers in queue"
-          value={String(queueEntries.length)}
-          icon="queue"
-          accent="blue"
-        />
-        <MetricCard
-          label="Today’s bookings"
-          value={String(bookings.length)}
-          icon="calendar"
-          accent="violet"
-        />
-        <MetricCard
-          label="Active barbers"
-          value={String(barbers.filter((barber) => barber.status !== "Off today").length)}
-          icon="scissors"
-          accent="green"
-        />
-        <MetricCard
-          label="Today’s revenue"
-          value={formatCurrency(revenue)}
-          icon="wallet"
-          accent="amber"
-        />
-      </div>
+  useEffect(() => {
+    async function load() {
+      try {
+        const response = await apiRequest("/api/barbers");
+        const body = await readApiBody<{ success: boolean; barbers?: ApiBarber[]; message?: string }>(response);
+        if (!response.ok || !body?.success || !body.barbers) throw new Error(body?.message ?? "Unable to load barber dashboard");
+        setBarbers(body.barbers);
+      } catch (error) {
+        onToast(error instanceof Error ? error.message : "Unable to load barber dashboard");
+      } finally {
+        setLoading(false);
+      }
+    }
+    void load();
+  }, [onToast]);
 
-      <div className="dashboard-grid dashboard-grid--wide">
-        <Panel className="queue-preview">
-          <SectionHeading
-            title="Live queue"
-            action={
-              <button
-                className="link-button"
-                type="button"
-                onClick={() => go("queue")}
-              >
-                Open queue <Icon name="arrowRight" size={14} />
-              </button>
-            }
-          />
-          <div className="queue-preview__list">
-            {queueEntries.length ? queueEntries.slice(0, 3).map((entry) => (
-              <button
-                className="queue-preview__row"
-                type="button"
-                key={entry.id}
-                onClick={() => go("queue")}
-              >
-                <span className="queue-number">
-                  {String(entry.id).padStart(2, "0")}
-                </span>
-                <Avatar initials={entry.initials} tone={entry.tone} size="sm" />
-                <span className="queue-preview__name">
-                  <strong>{entry.customer}</strong>
-                  <small>{entry.service}</small>
-                </span>
-                <span
-                  className={
-                    "queue-stage queue-stage--" +
-                    (entry.status === "In chair"
-                      ? "active"
-                      : entry.status === "Ready"
-                        ? "ready"
-                        : "waiting")
-                  }
-                >
-                  {entry.status}
-                </span>
-                <span className="queue-preview__wait">{entry.wait}</span>
-                <Icon name="chevronRight" size={15} />
-              </button>
-            )) : <EmptyState title="Queue is empty" description="Queue entries will appear when connected to the backend." />}
-          </div>
-        </Panel>
+  const available = barbers.filter((barber) => barber.status === "available").length;
+  const unavailable = barbers.length - available;
 
-        <Panel className="schedule-preview">
-          <SectionHeading
-            title="Next on the book"
-            action={
-              <button
-                className="link-button"
-                type="button"
-                onClick={() => go("bookings")}
-              >
-                All bookings <Icon name="arrowRight" size={14} />
-              </button>
-            }
-          />
-          <div className="schedule-list">
-            {bookings.length ? bookings
-              .filter((booking) => booking.status === "Upcoming")
-              .slice(0, 3)
-              .map((booking, index) => (
-                <button
-                  className={
-                    "schedule-row " + (index === 0 ? "is-priority" : "")
-                  }
-                  type="button"
-                  key={booking.id}
-                  onClick={() => go("bookings")}
-                >
-                  <span className="schedule-row__time">
-                    <strong>{booking.time}</strong>
-                    <small>{booking.meridiem}</small>
-                  </span>
-                  <span className="schedule-row__line" />
-                  <span>
-                    <strong>{booking.customer}</strong>
-                    <small>
-                      {booking.service} · {booking.barber}
-                    </small>
-                  </span>
-                  <span className="schedule-row__price">
-                    {formatCurrency(booking.price)}
-                  </span>
-                </button>
-              )) : <EmptyState title="No upcoming bookings" description="Bookings will appear when connected to the backend." />}
-          </div>
-        </Panel>
-      </div>
-
-      <div className="quick-actions">
-        <button type="button" onClick={() => go("customers")}>
-          <span className="quick-actions__icon quick-actions__icon--blue">
-            <Icon name="userPlus" size={18} />
-          </span>
-          <span>
-            <strong>Register customer</strong>
-          </span>
-          <Icon name="arrowRight" size={16} />
-        </button>
-        <button type="button" onClick={() => go("payment")}>
-          <span className="quick-actions__icon quick-actions__icon--green">
-            <Icon name="wallet" size={18} />
-          </span>
-          <span>
-            <strong>Process payment</strong>
-          </span>
-          <Icon name="arrowRight" size={16} />
-        </button>
-        <button type="button" onClick={() => go("inventory")}>
-          <span className="quick-actions__icon quick-actions__icon--red">
-            <Icon name="box" size={18} />
-          </span>
-          <span>
-            <strong>Inventory alert</strong>
-          </span>
-          <Icon name="arrowRight" size={16} />
-        </button>
-      </div>
-
-      <div className="dashboard-lower-grid">
-        <Panel>
-          <SectionHeading title="Barber availability" />
-          <div className="availability-list">
-            {barbers.length ? barbers.slice(0, 3).map((barber) => (
-              <div className="availability-row" key={barber.id}>
-                <Avatar
-                  initials={barber.initials}
-                  tone={barber.tone}
-                  size="sm"
-                />
-                <span>
-                  <strong>{barber.name}</strong>
-                  <small>{barber.specialty}</small>
-                </span>
-                <Badge
-                  tone={barber.status === "On floor" ? "success" : "warning"}
-                >
-                  {barber.status}
-                </Badge>
-              </div>
-            )) : <EmptyState title="No barber profiles" description="Barber availability will appear when the roster is connected." />}
-          </div>
-        </Panel>
-      </div>
-    </>
-  );
+  return <>
+    <PageHeader title="Barber dashboard" action={<Button icon="plus" onClick={() => go("barbers")}>Manage roster</Button>} />
+    <div className="metrics-grid metrics-grid--three"><MetricCard label="Total barbers" value={String(barbers.length)} icon="scissors" accent="blue" /><MetricCard label="Available now" value={String(available)} icon="check" accent="green" /><MetricCard label="Busy or unavailable" value={String(unavailable)} icon="clock" accent="amber" /></div>
+    <Panel className="barber-dashboard-panel"><SectionHeading title="Live barber overview" action={<button className="link-button" type="button" onClick={() => go("barber-profile")}>Open profile view <Icon name="arrowRight" size={14} /></button>} /><div className="barber-status-grid">{loading ? <div className="staff-table__empty">Loading barber profiles…</div> : barbers.length ? barbers.map((barber) => <button className="barber-status-card" type="button" key={barber.id} onClick={() => go("barber-profile")}><div className="barber-status-card__head"><Avatar initials={createInitials(`${barber.firstName} ${barber.lastName}`)} tone="slate" size="md" /><Badge tone={barber.status === "available" ? "success" : barber.status === "busy" ? "warning" : "neutral"}>{statusLabel(barber.status)}</Badge></div><strong>{barber.firstName} {barber.lastName}</strong><span>{barber.specialty}</span><div className="barber-status-card__stats"><span><small>Status</small><strong>{statusLabel(barber.status)}</strong></span><span><small>Commission</small><strong>{barber.commissionRate === null ? "—" : `${barber.commissionRate}%`}</strong></span></div></button>) : <EmptyState icon="scissors" title="No barber profiles" description="Add barber records from the roster to populate this overview." />}</div></Panel>
+  </>;
 }

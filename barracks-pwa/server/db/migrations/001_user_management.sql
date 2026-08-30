@@ -8,8 +8,8 @@ CREATE TABLE IF NOT EXISTS roles (
 INSERT INTO roles (name, description)
 VALUES
   ('administrator', 'Can manage user accounts and access management features.'),
-  ('barber', 'Can access barber work features assigned to the barber role.'),
-  ('front_desk', 'Can access front-desk work features assigned to the front desk role.')
+  ('front_desk', 'Can manage customers, barbers, and inventory for shop operations.'),
+  ('customer', 'Can view and update their own customer profile.')
 ON CONFLICT (name) DO UPDATE
 SET description = EXCLUDED.description;
 
@@ -29,6 +29,55 @@ CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_unique
 
 CREATE INDEX IF NOT EXISTS users_role_id_idx
   ON users (role_id);
+
+-- Existing prototype barber accounts are staff records now, not login identities.
+UPDATE users
+SET role_id = (SELECT id FROM roles WHERE name = 'front_desk')
+WHERE role_id = (SELECT id FROM roles WHERE name = 'barber');
+
+DELETE FROM roles WHERE name = 'barber';
+
+CREATE TABLE IF NOT EXISTS barbers (
+  id SERIAL PRIMARY KEY,
+  first_name VARCHAR(100) NOT NULL,
+  last_name VARCHAR(100) NOT NULL,
+  specialty VARCHAR(160) NOT NULL DEFAULT 'Cuts + styling',
+  status VARCHAR(20) NOT NULL DEFAULT 'available'
+    CHECK (status IN ('available', 'busy', 'unavailable')),
+  commission_rate NUMERIC(5, 2),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS barbers_status_idx ON barbers (status);
+
+CREATE TABLE IF NOT EXISTS customers (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL UNIQUE REFERENCES users (id) ON DELETE CASCADE,
+  phone VARCHAR(40) NOT NULL DEFAULT '',
+  preferred_barber_id INTEGER REFERENCES barbers (id) ON DELETE SET NULL,
+  loyalty_points INTEGER NOT NULL DEFAULT 0 CHECK (loyalty_points >= 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS customers_preferred_barber_idx
+  ON customers (preferred_barber_id);
+
+CREATE TABLE IF NOT EXISTS inventory_items (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(160) NOT NULL,
+  category VARCHAR(40) NOT NULL
+    CHECK (category IN ('Supplies', 'Equipment', 'Products')),
+  quantity INTEGER NOT NULL DEFAULT 0 CHECK (quantity >= 0),
+  minimum_stock INTEGER NOT NULL DEFAULT 0 CHECK (minimum_stock >= 0),
+  unit_cost NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (unit_cost >= 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS inventory_items_category_idx
+  ON inventory_items (category);
 
 CREATE TABLE IF NOT EXISTS sessions (
   id BIGSERIAL PRIMARY KEY,

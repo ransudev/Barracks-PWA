@@ -82,7 +82,7 @@ export function ServicesSection({ go }: { go: (view: ViewId) => void }) {
                 <div className="service-card__menu">{MenuRows({ service: activeService })}</div>
               </div>
               <div className="service-card__footer">
-                <Button variant="secondary" size="sm" iconAfter="arrowRight" onClick={() => go("customer")}>
+                <Button variant="secondary" size="sm" iconAfter="arrowRight" onClick={() => go("customer-dashboard")}>
                   Book Service
                 </Button>
               </div>
