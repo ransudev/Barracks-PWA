@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { apiRequest, readApiBody, type ApiRole, type ApiUser } from "@/app/lib/api";
+import { roleOptions } from "@/app/constants/roles";
 import type { StaffMember } from "@/app/types/domain";
 import { createInitials } from "@/app/utils/format";
 import {
@@ -312,9 +313,11 @@ export function StaffManagement({
               setNewUser({ ...newUser, role: event.target.value as ApiRole })
             }
           >
-            <option value="front_desk">Front Desk</option>
-            <option value="barber">Barber</option>
-            <option value="administrator">Administrator</option>
+              {roleOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
           </SelectField>
           {formError && <p className="form-error">{formError}</p>}
           <div className="modal-actions">

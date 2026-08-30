@@ -11,19 +11,17 @@ export const landingContact = {
   socialHandle: "@BARRACKSBARBERS",
   instagramUrl: "https://www.instagram.com/BARRACKSBARBERS",
   facebookUrl: "https://www.facebook.com/BARRACKSBARBERS",
-  gcash: "0915 333 2236",
   hashtag: "#WEAREBARRACKS",
 };
 
 export const landingEditorialImages = {
-  tools:
-    "https://images.unsplash.com/photo-1621605815971-fbc98d665033?auto=format&fit=crop&w=1200&q=85",
-  detail:
-    "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=1200&q=85",
-  collageDetail:
-    "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?auto=format&fit=crop&w=1200&q=85",
-  studio:
-    "https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=1400&q=85",
+  // Real Barracks photography: the service shots come from the Barracks
+  // booking page, while the interior shots come from Barracks HQ listings.
+  hero: "/barracks/bajada-styling.jpg",
+  heroCollageLeft: "/barracks/bangkal-interior.jpg",
+  heroCollageRight: "/barracks/bajada-interior.jpg",
+  detail: "/barracks/bangkal-interior.jpg",
+  studio: "/barracks/bangkal-interior.jpg",
 };
 
 type LandingMenuPrice = {
@@ -199,40 +197,12 @@ export const landingServices: LandingServiceSection[] = [
   },
 ];
 
-export const landingBarberPlaceholderImage = "/barber-placeholder.png";
-
-export const landingBarberImages: Record<string, string> = {
-  rodsky: landingBarberPlaceholderImage,
-  ernie: landingBarberPlaceholderImage,
-  judy: landingBarberPlaceholderImage,
-  kent: landingBarberPlaceholderImage,
-};
-
-export const landingBarbers = [
-  { id: "rodsky", name: "Rodsky", role: "Barber", branch: "Bajada HQ", price: "₱300", dayOff: "Tuesday" },
-  { id: "ernie", name: "Ernie", role: "Senior Barber", branch: "Bajada HQ", price: "₱400", dayOff: "Friday" },
-  { id: "ronnie", name: "Ronnie", role: "Senior Barber", branch: "Bajada HQ", price: "₱400", dayOff: "Wednesday" },
-  { id: "tope", name: "Tope", role: "Barber", branch: "Bajada HQ", price: "₱300", dayOff: "Thursday" },
-  { id: "judy", name: "Judy", role: "Senior Barber", branch: "Lanang HQ", price: "₱400", dayOff: "Friday" },
-  { id: "elizer", name: "Elizer", role: "Senior Barber", branch: "Lanang HQ", price: "₱400", dayOff: "Thursday" },
-  { id: "deo", name: "Deo", role: "Barber", branch: "Lanang HQ", price: "₱300", dayOff: "Monday" },
-  { id: "jorlan", name: "Jorlan", role: "Barber", branch: "Lanang HQ", price: "₱300", dayOff: "Tuesday" },
-  { id: "jun", name: "Jun", role: "Barber", branch: "Bangkal HQ", price: "₱300", dayOff: "Friday" },
-  { id: "kent", name: "Kent", role: "Senior Barber", branch: "Bangkal HQ", price: "₱400", dayOff: "Wednesday" },
-  { id: "arth", name: "Arth", role: "Senior Barber", branch: "Bangkal HQ", price: "₱400", dayOff: "Tuesday" },
-  { id: "marcus", name: "Marcus", role: "Barber", branch: "Bangkal HQ", price: "₱300", dayOff: "Thursday" },
-  { id: "aries", name: "Aries", role: "Senior Barber", branch: "Maa HQ", price: "₱400", dayOff: "Monday" },
-  { id: "rex", name: "Rex", role: "Senior Barber", branch: "Maa HQ", price: "₱400", dayOff: "Thursday" },
-  { id: "gemrick", name: "Gemrick", role: "Senior Barber", branch: "Maa HQ", price: "₱400", dayOff: "Tuesday" },
-  { id: "el", name: "El", role: "Senior Barber", branch: "Maa HQ", price: "₱400", dayOff: "Wednesday" },
-];
-
 export const landingBranches = [
   {
     id: "bajada",
     name: "Barracks Bajada HQ",
     address: "Surveyor St., Doña Vicenta Village, 19-B, Bajada, Davao City",
-    landmark: "Established main location",
+    landmark: undefined,
     barbers: "Rodsky, Ernie, Ronnie, Tope",
   },
   {

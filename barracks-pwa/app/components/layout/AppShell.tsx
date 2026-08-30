@@ -39,7 +39,6 @@ function Sidebar({
   active,
   go,
   onToast,
-  currentUser,
   onSignOut,
   collapsed,
   onToggle,
@@ -50,9 +49,6 @@ function Sidebar({
   const isAdmin = area === "admin";
   const navigation = isAdmin ? adminNavigation : staffNavigation;
   const settingsView = isAdmin ? "admin-settings" : "staff-settings";
-  const name = displayName(currentUser);
-  const initials = createInitials(name);
-  const role = roleLabel(currentUser);
 
   return (
     <aside
@@ -73,27 +69,42 @@ function Sidebar({
 
       <div className="sidebar__workspace">
         <span className="sidebar__label">Workspace</span>
-        <button
-          className="workspace-switcher"
-          type="button"
-          aria-label={`Switch to ${isAdmin ? "shop floor" : "management"}`}
-          title={`Switch to ${isAdmin ? "shop floor" : "management"}`}
-          onClick={() => {
-            go(isAdmin ? "staff-dashboard" : "admin-dashboard");
-            onToast(`Switched to ${isAdmin ? "shop floor" : "management"}`);
-          }}
-        >
-          <span
-            className={`workspace-switcher__mark ${isAdmin ? "is-admin" : ""}`}
+        <div className="workspace-switcher" role="group" aria-label="Choose workspace">
+          <button
+            className={`workspace-option ${isAdmin ? "is-active" : ""}`}
+            type="button"
+            aria-pressed={isAdmin}
+            title="Management · Business view"
+            onClick={() => {
+              if (!isAdmin) {
+                go("admin-dashboard");
+                onToast("Switched to management");
+              }
+            }}
           >
-            <Icon name={isAdmin ? "chart" : "scissors"} size={15} />
-          </span>
-          <span>
-            <strong>{isAdmin ? "Management" : "Shop floor"}</strong>
-            <small>{isAdmin ? "Business view" : "Live operations"}</small>
-          </span>
-          <Icon name="chevronDown" size={15} />
-        </button>
+            <span className="workspace-option__mark">
+              <Icon name="chart" size={15} />
+            </span>
+            <span className="workspace-option__label">Management</span>
+          </button>
+          <button
+            className={`workspace-option ${!isAdmin ? "is-active" : ""}`}
+            type="button"
+            aria-pressed={!isAdmin}
+            title="Shop floor · Live operations"
+            onClick={() => {
+              if (isAdmin) {
+                go("staff-dashboard");
+                onToast("Switched to shop floor");
+              }
+            }}
+          >
+            <span className="workspace-option__mark">
+              <Icon name="scissors" size={15} />
+            </span>
+            <span className="workspace-option__label">Shop floor</span>
+          </button>
+        </div>
       </div>
 
       <nav
@@ -140,24 +151,6 @@ function Sidebar({
         >
           <Icon name="logOut" size={17} />
           <span>Sign out</span>
-        </button>
-        <button
-          className="sidebar__profile"
-          type="button"
-          aria-label="Open account settings"
-          title="Open account settings"
-          onClick={() => go(settingsView)}
-        >
-          <Avatar
-            initials={initials}
-            tone={isAdmin ? "violet" : "blue"}
-            size="sm"
-          />
-          <span>
-            <strong>{name}</strong>
-            <small>{role}</small>
-          </span>
-          <Icon name="more" size={17} />
         </button>
       </div>
     </aside>
@@ -227,7 +220,7 @@ function Topbar({
                   onToast("All notifications marked as read");
                 }}
               >
-                Mark all as read <Icon name="arrowRight" size={14} />
+                Mark all as read
               </button>
             </div>
           )}

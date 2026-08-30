@@ -2,16 +2,16 @@
 
 import { useState, type FormEvent } from "react";
 import { customers as initialCustomers } from "@/app/data/customers";
+import { barbers as initialBarbers } from "@/app/data/barbers";
 import { services } from "@/app/data/services";
 import { transactions } from "@/app/data/transactions";
-import type { Customer } from "@/app/types/domain";
+import type { Barber, Customer } from "@/app/types/domain";
 import { createInitials, createSlug, formatCurrency } from "@/app/utils/format";
 import { usePersistentState } from "@/app/hooks/usePersistentState";
 import {
   Avatar,
   Button,
   EmptyState,
-  MetricCard,
   Modal,
   PageHeader,
   Panel,
@@ -30,6 +30,10 @@ export function CustomersPage({
   const [items, setItems] = usePersistentState<Customer[]>(
     "barracks-customers-v2",
     initialCustomers,
+  );
+  const [barbers] = usePersistentState<Barber[]>(
+    "barracks-barbers-v2",
+    initialBarbers,
   );
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState(initialCustomers[0]?.id ?? "");
@@ -113,23 +117,24 @@ export function CustomersPage({
 
   return (
     <>
-      <PageHeader
-        title="Customers"
-        action={
-          <Button
-            icon="userPlus"
-            onClick={() =>
-              document
-                .getElementById("register-customer")
-                ?.scrollIntoView({ behavior: "smooth" })
-            }
-          >
-            Register customer
-          </Button>
-        }
-      />
+      <div className="customers-page">
+        <PageHeader
+          title="Customers"
+          action={
+            <Button
+              icon="userPlus"
+              onClick={() =>
+                document
+                  .getElementById("register-customer")
+                  ?.scrollIntoView({ behavior: "smooth" })
+              }
+            >
+              Register customer
+            </Button>
+          }
+        />
 
-      <div className="customer-workspace">
+        <div className="customer-workspace">
         <Panel className="register-panel" id="register-customer">
           <SectionHeading title="Register new customer" />
           <form onSubmit={addCustomer}>
@@ -212,10 +217,10 @@ export function CustomersPage({
             )}
           </div>
         </Panel>
-      </div>
+        </div>
 
-      {selected && (
-        <Panel className="customer-detail-panel">
+        {selected && (
+          <Panel className="customer-detail-panel">
           <div className="customer-detail__head">
             <div className="table-person">
               <Avatar
@@ -274,47 +279,25 @@ export function CustomersPage({
                 <span>Barber</span>
                 <span>Amount</span>
               </div>
-              {transactions.slice(0, 3).map((transaction) => (
+              {transactions.length ? transactions.slice(0, 3).map((transaction) => (
                 <div key={transaction.id}>
                   <span>{transaction.date}</span>
                   <strong>{transaction.service}</strong>
                   <span>{transaction.barber}</span>
                   <strong>{formatCurrency(transaction.amount)}</strong>
                 </div>
-              ))}
+              )) : (
+                <EmptyState
+                  title="No visits yet"
+                  description="Completed visits will appear here after a payment is recorded."
+                />
+              )}
             </div>
           </div>
-        </Panel>
-      )}
+          </Panel>
+        )}
 
-      <div className="metrics-grid metrics-grid--four">
-        <MetricCard
-          label="Total loyalty points"
-          value={String(items.reduce((total, customer) => total + customer.points, 0))}
-          icon="spark"
-          accent="amber"
-        />
-        <MetricCard
-          label="Average per customer"
-          value={items.length ? String(Math.round(items.reduce((total, customer) => total + customer.points, 0) / items.length)) : "0"}
-          icon="chart"
-          accent="blue"
-        />
-        <MetricCard
-          label="Registered customers"
-          value={String(items.length)}
-          icon="users"
-          accent="violet"
-        />
-        <MetricCard
-          label="Active this month"
-          value="0"
-          icon="checkCircle"
-          accent="green"
-        />
-      </div>
-
-      <Modal
+        <Modal
         open={Boolean(editing)}
         title="Edit customer profile"
         onClose={() => setEditing(null)}
@@ -345,13 +328,20 @@ export function CustomersPage({
               }
               icon="mail"
             />
-            <TextField
+            <SelectField
               label="Preferred barber"
               value={editing.preferredBarber}
               onChange={(event) =>
                 setEditing({ ...editing, preferredBarber: event.target.value })
               }
-            />
+            >
+              <option value="Not set">Not set</option>
+              {barbers.map((barber) => (
+                <option key={barber.id} value={barber.name}>
+                  {barber.name}
+                </option>
+              ))}
+            </SelectField>
             <div className="modal-actions">
               <Button
                 variant="secondary"
@@ -366,9 +356,9 @@ export function CustomersPage({
             </div>
           </form>
         )}
-      </Modal>
+        </Modal>
 
-      <Modal
+        <Modal
         open={bookingOpen}
         title={selected ? "New booking for " + selected.name : "New booking"}
         onClose={() => setBookingOpen(false)}
@@ -414,7 +404,8 @@ export function CustomersPage({
             </Button>
           </div>
         </form>
-      </Modal>
+        </Modal>
+      </div>
     </>
   );
 }

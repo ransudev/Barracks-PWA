@@ -52,14 +52,9 @@ export function ServicesSection({ go }: { go: (view: ViewId) => void }) {
         <div>
           <h2>Services</h2>
         </div>
-        <p>Browse the current services, care menu, and products<br />from Barracks Barbers &amp; Shaves.</p>
       </div>
       <div className="service-slideshow" aria-label="Barracks services slideshow">
         <div className="service-slideshow__toolbar">
-          <div className="service-slideshow__current" aria-live="polite">
-            <span>{activeService.number} / {String(landingServices.length).padStart(2, "0")}</span>
-            <strong>{activeService.name}</strong>
-          </div>
           <div className="service-slideshow__controls">
             <button type="button" aria-label="Previous service" onClick={() => moveTo(activeIndex - 1)}>
               <Icon name="chevronLeft" size={16} />
@@ -80,7 +75,6 @@ export function ServicesSection({ go }: { go: (view: ViewId) => void }) {
             <div className="service-card__body">
               <div>
                 <div className="service-card__heading">
-                  <span>{activeService.number}</span>
                   <h3>{activeService.name}</h3>
                   <small>{activeService.duration}</small>
                 </div>

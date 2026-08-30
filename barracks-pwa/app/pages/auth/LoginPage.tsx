@@ -126,24 +126,9 @@ export function LoginPage({ go, onToast, onLogin }: LoginPageProps) {
         </button>
         <div className="login-aside__brand">
           <Logo />
-          <span className="login-aside__slash" />
-          <span className="login-aside__label">
-            A shop floor
-            <br />
-            with a better memory.
-          </span>
         </div>
         <div className="login-aside__mark">
           <span>B</span>
-          <small>BAR-01 / ACCESS</small>
-        </div>
-        <div className="login-aside__footer">
-          <span>PRIVATE WORKSPACE</span>
-          <strong>
-            Built for the people
-            <br />
-            behind the chair.
-          </strong>
         </div>
       </div>
 

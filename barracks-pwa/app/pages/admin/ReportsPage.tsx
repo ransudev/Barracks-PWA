@@ -176,7 +176,12 @@ export function ReportsPage({
                 {formatCurrency(transaction.amount)}
               </strong>
             </div>
-          )) : <EmptyState title="No transactions" description="Transactions will appear when the payment service is connected." />}
+          )) : (
+            <EmptyState
+              title="No transactions"
+              description="Transactions will appear when the payment service is connected."
+            />
+          )}
         </div>
       </Panel>
 

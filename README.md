@@ -49,6 +49,8 @@ Browser localStorage for selected screens
 
 Those screens do not currently call a backend API.
 
+The current UI refinement pass keeps the shared shell consistent across management and shop-floor workspaces. The internal topbar stays pinned while page content scrolls, management dashboard metrics are grouped into a single segmented card, empty data surfaces use full-width contextual placeholders, and customer editing/history states are explicit. The workspace switcher is a two-option segmented control, staff roles and preferred barbers use centralized dropdown options, and redundant profile/sidebar controls were removed. The public site uses a sticky header with an About dropdown for secondary navigation, a full-viewport split hero with a two-line slogan, monochrome treatment, readable copy contrast, softly feathered photo edges, a wider service menu with larger readable type, a two-image Barracks photography collage, locally bundled Barracks photography sourced from booking and branch listings, clearer branches and service sections, and keeps payment details and staff-login controls off the public landing experience.
+
 ## 2. Project Structure
 
 Relevant source structure:
@@ -406,13 +408,13 @@ Implemented in the current codebase:
 
 - A Next.js App Router application with a client-driven home view at `/`.
 - A public landing page with static content and images.
+- The shared logo uses the original Barracks wordmark and tagline on a transparent background across the public, authentication, and workspace shells, with responsive sizing for full and compact headers.
 - The public landing menu is maintained in `barracks-pwa/app/data/landing.ts`, including grouped services, product pricing, booking contact details, GCash information, social handle, and hashtag.
 - The landing services menu uses a text-first responsive slideshow; service pricing remains visible without relying on service photography, and the public navigation items share a consistent header alignment.
 - Public landing supporting copy, controls, prices, and metadata use an accessibility-focused readable type floor while preserving the existing display headings.
 - The public service slideshow is centered within a compact menu width on larger screens, with centered indicators so service names, prices, and navigation remain visually connected.
 - The public footer keeps its main columns and legal/booking row in a stacked layout so both share the same content grid.
 - The final booking CTA keeps phone and GCash details together when its supporting copy wraps on mobile.
-- Barber portraits use the shared public/barber-placeholder.png silhouette asset until approved Barracks photography is available.
 - Login against the PostgreSQL `users` table.
 - HTTP-only, database-backed sessions with login, logout, and current-user endpoints.
 - Administrator-only user-management authorization.

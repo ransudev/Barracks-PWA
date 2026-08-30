@@ -141,12 +141,11 @@ export function CustomerProfile({ go, onToast }: CustomerProfileProps) {
       <div className="customer-page">
         <header className="customer-topbar">
           <Logo onClick={() => go("landing")} />
-          <button type="button" onClick={() => go("login")}>Staff sign in</button>
         </header>
         <main className="customer-content">
           <EmptyState
-            title="Customer profile unavailable"
-            description="Customer and appointment data will appear when connected to the backend."
+            title="Book an appointment"
+            description="Appointment options will appear when services and barber availability are connected."
           />
         </main>
       </div>
@@ -161,13 +160,6 @@ export function CustomerProfile({ go, onToast }: CustomerProfileProps) {
           <span>Account</span>
           <button type="button" onClick={() => go("landing")}>
             Back to site <Icon name="arrowRight" size={15} />
-          </button>
-          <button
-            className="customer-topbar__staff"
-            type="button"
-            onClick={() => go("login")}
-          >
-            Staff sign in
           </button>
         </div>
       </header>

@@ -53,7 +53,7 @@ export function AdminDashboard({ go, onToast }: AdminDashboardProps) {
           </Button>
         }
       />
-      <div className="metrics-grid metrics-grid--four">
+      <div className="metrics-grid metrics-grid--four metrics-grid--grouped">
         <MetricCard
           label="Total revenue"
           value={formatCurrency(totalRevenue)}
@@ -115,7 +115,14 @@ export function AdminDashboard({ go, onToast }: AdminDashboardProps) {
                   </div>
                   <small>{day.day}</small>
                 </div>
-              )) : <EmptyState title="No revenue data" description="Revenue trends will appear when transactions are connected." />}
+              )) : (
+                <div className="chart-empty">
+                  <EmptyState
+                    title="No revenue data"
+                    description="Revenue trends will appear when transactions are connected."
+                  />
+                </div>
+              )}
             </div>
           </div>
         </Panel>

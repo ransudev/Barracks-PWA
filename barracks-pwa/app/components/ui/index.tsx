@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { ButtonHTMLAttributes, ChangeEvent, ReactNode } from "react";
 import type { Tone } from "@/app/types/domain";
 import { Icon, type IconName } from "./icons";
@@ -19,8 +20,14 @@ export function Logo({
 }) {
   const content = (
     <span className={`logo-lockup ${compact ? "logo-lockup--compact" : ""}`}>
-      <span className="logo-word">BARRACKS</span>
-      {!compact && <span className="logo-subtitle">BARBERS &amp; SHAVES</span>}
+      <Image
+        className="logo-image"
+        src="/barracks/logo-transparent.png"
+        alt={onClick ? "" : "Barracks Barbers & Shaves"}
+        width={994}
+        height={444}
+        sizes={compact ? "92px" : "120px"}
+      />
     </span>
   );
 

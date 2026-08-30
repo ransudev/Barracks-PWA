@@ -10,6 +10,7 @@ import {
   Avatar,
   Badge,
   Button,
+  EmptyState,
   MetricCard,
   Modal,
   PageHeader,
@@ -157,7 +158,7 @@ export function BarbersManagement({
           }
         />
         <div className="barber-management-list">
-          {items.map((barber) => (
+          {items.length ? items.map((barber) => (
             <article className="barber-management-card" key={barber.id}>
               <div className="barber-management-card__intro">
                 <Avatar
@@ -224,7 +225,12 @@ export function BarbersManagement({
                 </button>
               </div>
             </article>
-          ))}
+          )) : (
+            <EmptyState
+              title="No barbers yet"
+              description="Barber profiles will appear when the roster is connected."
+            />
+          )}
         </div>
       </Panel>
 

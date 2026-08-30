@@ -8,6 +8,7 @@ import { usePersistentState } from "@/app/hooks/usePersistentState";
 import {
   Badge,
   Button,
+  EmptyState,
   MetricCard,
   Modal,
   PageHeader,
@@ -147,7 +148,7 @@ export function ServicesManagement({
             <span>Status</span>
             <span>Actions</span>
           </div>
-          {visibleItems.map((service) => (
+          {visibleItems.length ? visibleItems.map((service) => (
             <div className="services-table__row" key={service.id}>
               <span>
                 <strong>{service.name}</strong>
@@ -194,7 +195,12 @@ export function ServicesManagement({
                 </button>
               </span>
             </div>
-          ))}
+          )) : (
+            <EmptyState
+              title={items.length ? "No services match this filter" : "No services yet"}
+              description={items.length ? "Try another filter to see more of the catalog." : "Service options will appear when they are added to the catalog."}
+            />
+          )}
         </div>
       </Panel>
 

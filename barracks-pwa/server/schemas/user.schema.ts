@@ -1,6 +1,5 @@
 import { z } from "zod";
-
-export const userRoles = ["administrator", "barber", "front_desk"] as const;
+import { userRoles } from "@/app/constants/roles";
 
 export const userRoleSchema = z.enum(userRoles);
 

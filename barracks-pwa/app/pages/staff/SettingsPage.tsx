@@ -1,12 +1,14 @@
 "use client";
 
 import { useRef, useState, type ChangeEvent } from "react";
+import { roleLabel, roleOptions, type UserRole } from "@/app/constants/roles";
 import {
   Avatar,
   Badge,
   Button,
   PageHeader,
   Panel,
+  SelectField,
   SectionHeading,
   TextField,
   Toggle,
@@ -24,7 +26,7 @@ export function StaffSettingsPage({
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState("Staff");
+  const [role, setRole] = useState<UserRole>("front_desk");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -77,7 +79,7 @@ export function StaffSettingsPage({
             <Avatar initials="JM" tone="blue" size="lg" />
             <div>
               <strong>{name}</strong>
-              <small>{role} · Shop floor</small>
+              <small>{roleLabel(role)} · Shop floor</small>
               <button
                 className="link-button"
                 type="button"
@@ -106,11 +108,17 @@ export function StaffSettingsPage({
               onChange={(event) => setEmail(event.target.value)}
               type="email"
             />
-            <TextField
+            <SelectField
               label="Role"
               value={role}
-              onChange={(event) => setRole(event.target.value)}
-            />
+              onChange={(event) => setRole(event.target.value as UserRole)}
+            >
+              {roleOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </SelectField>
           </div>
         </Panel>
 
