@@ -1360,6 +1360,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .customer-summary strong, .customer-summary span { display: block; }
 .customer-summary strong { color: var(--text); font-size: 14px; }
 .customer-summary span { margin-top: 4px; overflow: hidden; color: var(--text-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.customer-profile-inline-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0 22px 22px; padding-top: 16px; border-top: 1px solid var(--line); }
+.customer-profile-inline-facts small, .customer-profile-inline-facts strong { display: block; }
+.customer-profile-inline-facts small { color: var(--text-muted); font-size: 10px; }
+.customer-profile-inline-facts strong { margin-top: 6px; overflow: hidden; color: var(--text); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .customer-booking-page__heading { align-items: flex-end; display: flex; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
 .customer-booking-page__heading h1 { margin: 7px 0 6px; color: var(--text); font-family: "Iowan Old Style", "Baskerville", "Times New Roman", serif; font-size: 38px; font-weight: 700; letter-spacing: -.045em; line-height: 1.05; }
 .customer-booking-page__heading p:last-child { max-width: 520px; margin: 0; color: var(--text-muted); font-size: 12px; }
@@ -1379,7 +1383,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @media (max-width: 760px) {
   .profile-view__hero { align-items: flex-start; flex-wrap: wrap; }
   .profile-view__hero > .badge { margin-left: 92px; }
-  .profile-view__facts, .customer-profile-card__facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .profile-view__facts, .customer-profile-card__facts, .customer-profile-inline-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .customer-profile-page__heading, .customer-dashboard__heading, .customer-booking-page__heading { align-items: flex-start; flex-direction: column; }
   .customer-profile-page__heading h1, .customer-dashboard__heading h1, .customer-booking-page__heading h1 { font-size: 32px; }
   .customer-dashboard__grid { grid-template-columns: 1fr; }

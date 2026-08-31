@@ -7,7 +7,7 @@ import type { ApiBarber, ApiUser } from "@/app/lib/api";
 import { apiRequest, readApiBody } from "@/app/lib/api";
 import { services } from "@/app/data/services";
 import type { ViewId } from "@/app/types/domain";
-import { CustomerTopbar } from "@/app/pages/customer/CustomerProfile";
+import { CustomerTopbar } from "@/app/pages/customer/CustomerTopbar";
 
 function futureDate() {
   const date = new Date();

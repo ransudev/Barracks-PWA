@@ -71,7 +71,7 @@ These are local demo credentials only. Do not use them in production.
 7. Use the account menu to switch to Shop floor.
 8. Sign out and sign in as Front Desk. Confirm that the Management selector is not visible.
 9. Open **Customers** to show the seeded customer profiles and preferred barbers.
-10. Sign out and sign in as the demo Customer to show the customer-only dashboard and profile.
+10. Sign out and sign in as the demo Customer to show the unified customer account dashboard, including profile details and appointments.
 11. Open **Book**, choose a service, barber, date, and time, then confirm the appointment.
 12. Sign back in as Front Desk and open **Bookings** to see the saved appointment and mark it completed or cancelled.
 

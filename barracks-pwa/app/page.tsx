@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import { AppShell } from "@/app/components/layout/AppShell";
 import { LoginPage } from "@/app/pages/auth/LoginPage";
 import { CustomerDashboard } from "@/app/pages/customer/CustomerDashboard";
-import { CustomerProfile } from "@/app/pages/customer/CustomerProfile";
 import { CustomerBookingPage } from "@/app/pages/customer/CustomerBookingPage";
 import { LandingPage } from "@/app/pages/public/LandingPage";
 import { PageRouter } from "@/app/pages/PageRouter";
@@ -136,19 +135,10 @@ export default function Home() {
     );
   }
 
-  if (view === "customer-dashboard" && currentUser?.role === "customer") {
+  if ((view === "customer-dashboard" || view === "customer-profile") && currentUser?.role === "customer") {
     return (
       <>
         <CustomerDashboard go={go} onToast={onToast} onSignOut={handleSignOut} user={currentUser} />
-        <Toast message={toast} onClose={() => setToast("")} />
-      </>
-    );
-  }
-
-  if (view === "customer-profile" && currentUser?.role === "customer") {
-    return (
-      <>
-        <CustomerProfile go={go} onToast={onToast} onSignOut={handleSignOut} user={currentUser} />
         <Toast message={toast} onClose={() => setToast("")} />
       </>
     );

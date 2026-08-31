@@ -56,8 +56,7 @@ The home view switches between the seven requested surfaces without introducing 
 - Admin dashboard: database-backed counts and links for the sprint records.
 - Barber profile: selectable barber business record view.
 - Barber dashboard: administrator/front-desk overview of available, busy, and unavailable barbers.
-- Customer profile: authenticated customer's PostgreSQL-backed profile, preferred barber, and loyalty points.
-- Customer dashboard: authenticated customer summary with profile link and intentional empty visit state.
+- Unified customer account: one authenticated dashboard combines profile details, preferred barber, loyalty points, appointment booking, and appointment history.
 - Booking system: customers can book a service, barber, date, and time; staff can view bookings and mark them completed or cancelled.
 - Item profile/inventory: PostgreSQL-backed item CRUD with In Stock, Low Stock, and Out of Stock states.
 
@@ -69,7 +68,7 @@ The only account roles are:
 
 - `administrator`: admin dashboard, staff/front-desk account management, customer management, barber management, inventory management, and all scoped data.
 - `front_desk`: customer, barber, inventory, and barber-dashboard operations in the Shop floor workspace. It cannot see or enter the Management workspace, and it cannot create or manage user accounts.
-- `customer`: login/signup, own customer dashboard, and own customer profile only.
+- `customer`: login/signup, own customer account dashboard, and own booking flow only.
 
 Barbers are business records, not users. They do not have accounts or sessions. Existing prototype `barber` user rows are reassigned to `front_desk` when the migration is run, then the obsolete role is removed.
 
