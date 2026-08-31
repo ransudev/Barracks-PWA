@@ -1357,9 +1357,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .customer-dashboard__grid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 14px; }
 .customer-summary { align-items: center; display: flex; gap: 13px; padding: 0 22px 22px; }
 .customer-summary > div { min-width: 0; }
-.customer-summary strong, .customer-summary span { display: block; }
+.customer-summary > div > strong, .customer-summary > div > span { display: block; }
 .customer-summary strong { color: var(--text); font-size: 14px; }
-.customer-summary span { margin-top: 4px; overflow: hidden; color: var(--text-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.customer-summary > div > span { margin-top: 4px; overflow: hidden; color: var(--text-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .customer-profile-inline-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0 22px 22px; padding-top: 16px; border-top: 1px solid var(--line); }
 .customer-profile-inline-facts small, .customer-profile-inline-facts strong { display: block; }
 .customer-profile-inline-facts small { color: var(--text-muted); font-size: 10px; }
