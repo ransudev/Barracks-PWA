@@ -28,7 +28,6 @@ export const barberSchema = z
   .object({
     firstName: z.string().trim().min(1, "First name is required").max(100),
     lastName: z.string().trim().min(1, "Last name is required").max(100),
-    specialty: z.string().trim().min(1, "Specialty is required").max(160),
     status: barberStatusSchema,
     commissionRate: z.number().min(0).max(100).nullable(),
   })

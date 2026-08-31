@@ -46,10 +46,10 @@ const demoCustomers = [
 ] as const;
 
 const demoBarbers = [
-  { firstName: "Miko", lastName: "Reyes", specialty: "Classic cuts + fades", status: "available", commissionRate: 45 },
-  { firstName: "Paolo", lastName: "Santos", specialty: "Beard shaping + hot towel shaves", status: "busy", commissionRate: 50 },
-  { firstName: "Luis", lastName: "Dela Cruz", specialty: "Modern styling + texture", status: "unavailable", commissionRate: 40 },
-  { firstName: "Andrei", lastName: "Villanueva", specialty: "Traditional cuts + styling", status: "available", commissionRate: 55 },
+  { firstName: "Miko", lastName: "Reyes", status: "available", commissionRate: 45 },
+  { firstName: "Paolo", lastName: "Santos", status: "busy", commissionRate: 50 },
+  { firstName: "Luis", lastName: "Dela Cruz", status: "unavailable", commissionRate: 40 },
+  { firstName: "Andrei", lastName: "Villanueva", status: "available", commissionRate: 55 },
 ] as const;
 
 const demoInventory = [
@@ -160,21 +160,21 @@ async function upsertBarber(
     await client.query(
       `
         UPDATE barbers
-        SET specialty = $1, status = $2, commission_rate = $3, updated_at = NOW()
-        WHERE id = $4
+        SET status = $1, commission_rate = $2, updated_at = NOW()
+        WHERE id = $3
       `,
-      [barber.specialty, barber.status, barber.commissionRate, existing.rows[0].id],
+      [barber.status, barber.commissionRate, existing.rows[0].id],
     );
     return existing.rows[0].id;
   }
 
   const inserted = await client.query<{ id: number }>(
     `
-      INSERT INTO barbers (first_name, last_name, specialty, status, commission_rate)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO barbers (first_name, last_name, status, commission_rate)
+      VALUES ($1, $2, $3, $4)
       RETURNING id
     `,
-    [barber.firstName, barber.lastName, barber.specialty, barber.status, barber.commissionRate],
+    [barber.firstName, barber.lastName, barber.status, barber.commissionRate],
   );
 
   return inserted.rows[0].id;

@@ -214,7 +214,7 @@ The expanded sidebar is approximately `238px` wide. The collapsed sidebar is app
 
 | Type | Main fields | Used by |
 | --- | --- | --- |
-| `Barber` | id, name, initials, specialty, status, services, revenue, commission, rating, customers, memberSince | Dashboard, barber management, bookings, queue |
+| `Barber` | id, name, initials, status, services, revenue, commission, rating, customers, memberSince | Dashboard, barber management, bookings, queue |
 | `Customer` | id, name, initials, phone, email, visits, points, preferredBarber, lastVisit, tone | Customer list/profile, bookings, payment, reports |
 | `QueueEntry` | id, customer, initials, service, barber, status, wait, joined, tone | Staff dashboard and queue |
 | `Booking` | id, time, meridiem, customer, initials, service, barber, price, status, tone | Dashboard, bookings, barber schedule |

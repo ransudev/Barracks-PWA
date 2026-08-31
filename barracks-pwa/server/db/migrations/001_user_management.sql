@@ -41,13 +41,14 @@ CREATE TABLE IF NOT EXISTS barbers (
   id SERIAL PRIMARY KEY,
   first_name VARCHAR(100) NOT NULL,
   last_name VARCHAR(100) NOT NULL,
-  specialty VARCHAR(160) NOT NULL DEFAULT 'Cuts + styling',
   status VARCHAR(20) NOT NULL DEFAULT 'available'
     CHECK (status IN ('available', 'busy', 'unavailable')),
   commission_rate NUMERIC(5, 2),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE barbers DROP COLUMN IF EXISTS specialty;
 
 CREATE INDEX IF NOT EXISTS barbers_status_idx ON barbers (status);
 

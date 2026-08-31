@@ -381,9 +381,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .barber-status-card { min-width: 0; padding: 13px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-raised); text-align: left; }
 .barber-status-card:hover, .barber-status-card.is-selected { border-color: var(--line-strong); background: var(--surface-hover); }
 .barber-status-card__head { align-items: flex-start; display: flex; justify-content: space-between; gap: 10px; }
-.barber-status-card > strong, .barber-status-card > span { display: block; }
+.barber-status-card > strong { display: block; }
 .barber-status-card > strong { margin-top: 12px; color: var(--text); font-size: 12px; }
-.barber-status-card > span { margin-top: 3px; color: var(--text-muted); font-size: 10px; }
 .barber-status-card__stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 16px; padding-top: 11px; border-top: 1px solid var(--line); }
 .barber-status-card__stats small, .barber-status-card__stats strong { display: block; }
 .barber-status-card__stats small { color: var(--text-muted); font-size: 9px; }
@@ -532,9 +531,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .barber-management-card__intro { align-items: flex-start; display: flex; gap: 12px; }
 .barber-management-card__intro > div { min-width: 0; flex: 1; }
 .barber-management-card h3 { margin: 2px 0 2px; color: var(--text); font-size: 14px; }
-.barber-management-card p, .barber-management-card small { margin: 0; color: var(--text-soft); font-size: 11px; }
+.barber-management-card small { margin: 0; color: var(--text-soft); font-size: 11px; }
 .barber-management-card small { display: block; margin-top: 4px; color: var(--text-muted); font-size: 10px; }
-.barber-management-card__stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 17px; padding: 12px; border-radius: 8px; background: var(--surface); }
+.barber-management-card__stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 17px; padding: 12px; border-radius: 8px; background: var(--surface); }
 .barber-management-card__stats small, .barber-management-card__stats strong { display: block; }
 .barber-management-card__stats small { margin: 0; color: var(--text-muted); font-size: 9px; }
 .barber-management-card__stats strong { margin-top: 5px; color: var(--text); font-family: var(--font-geist-mono), monospace; font-size: 12px; }
@@ -1337,9 +1336,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .barber-profile-summary__hero { align-items: center; display: flex; gap: 16px; margin: 4px 22px 0; padding: 22px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-raised); }
 .barber-profile-summary__hero > div { min-width: 0; flex: 1; }
 .barber-profile-summary__hero h2 { margin: 4px 0 3px; color: var(--text); font-family: "Iowan Old Style", "Baskerville", "Times New Roman", serif; font-size: 27px; letter-spacing: -.04em; }
-.barber-profile-summary__hero p:not(.barber-profile-summary__eyebrow) { margin: 0; color: var(--text-muted); font-size: 11px; }
 .barber-profile-summary__eyebrow, .customer-page__eyebrow { margin: 0; color: var(--text-muted); font-family: var(--font-geist-mono), monospace; font-size: 9px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
-.barber-profile-summary__facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 14px 22px 0; padding: 16px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
+.barber-profile-summary__facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 14px 22px 0; padding: 16px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
 .barber-profile-summary__facts small, .barber-profile-summary__facts strong { display: block; }
 .barber-profile-summary__facts small { color: var(--text-muted); font-size: 10px; }
 .barber-profile-summary__facts strong { margin-top: 6px; color: var(--text); font-size: 12px; }

@@ -283,7 +283,6 @@ export function QueuePage({ queue, setQueue, onToast }: QueuePageProps) {
                   </Badge>
                 </div>
                 <strong>{barber.name}</strong>
-                <span>{barber.specialty}</span>
                 <div className="barber-status-card__stats">
                   <span>
                     <small>Served</small>

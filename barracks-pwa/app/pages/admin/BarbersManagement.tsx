@@ -22,7 +22,6 @@ import { Icon } from "@/app/components/ui/icons";
 type BarberForm = {
   firstName: string;
   lastName: string;
-  specialty: string;
   status: ApiBarber["status"];
   commissionRate: string;
 };
@@ -30,7 +29,6 @@ type BarberForm = {
 const emptyForm: BarberForm = {
   firstName: "",
   lastName: "",
-  specialty: "Cuts + styling",
   status: "available",
   commissionRate: "",
 };
@@ -96,7 +94,6 @@ export function BarbersManagement({
     setForm({
       firstName: barber.firstName,
       lastName: barber.lastName,
-      specialty: barber.specialty,
       status: barber.status,
       commissionRate: barber.commissionRate === null ? "" : String(barber.commissionRate),
     });
@@ -110,7 +107,6 @@ export function BarbersManagement({
       const payload = {
         firstName: form.firstName,
         lastName: form.lastName,
-        specialty: form.specialty,
         status: form.status,
         commissionRate: form.commissionRate === "" ? null : Number(form.commissionRate),
       };
@@ -164,13 +160,11 @@ export function BarbersManagement({
                 <Avatar initials={createInitials(displayName(barber))} tone="slate" size="lg" />
                 <div>
                   <h3>{displayName(barber)}</h3>
-                  <p>{barber.specialty}</p>
                   <small>Added {new Date(barber.createdAt).toLocaleDateString(undefined, { month: "short", year: "numeric" })}</small>
                 </div>
                 <Badge tone={statusTone(barber.status)}>{statusLabel(barber.status)}</Badge>
               </div>
               <div className="barber-management-card__stats">
-                <span><small>Specialty</small><strong>{barber.specialty}</strong></span>
                 <span><small>Commission</small><strong>{barber.commissionRate === null ? "Not set" : `${barber.commissionRate}%`}</strong></span>
                 <span><small>Record type</small><strong>Business profile</strong></span>
               </div>
@@ -189,7 +183,6 @@ export function BarbersManagement({
             <TextField label="First name" value={form.firstName} onChange={(event) => setForm({ ...form, firstName: event.target.value })} />
             <TextField label="Last name" value={form.lastName} onChange={(event) => setForm({ ...form, lastName: event.target.value })} />
           </div>
-          <TextField label="Specialty" value={form.specialty} onChange={(event) => setForm({ ...form, specialty: event.target.value })} placeholder="Classic cuts + shaves" />
           <SelectField label="Status" value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as BarberForm["status"] })}>
             <option value="available">Available</option>
             <option value="busy">Busy</option>

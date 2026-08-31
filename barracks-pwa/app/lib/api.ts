@@ -14,7 +14,6 @@ export type ApiBarber = {
   id: number;
   firstName: string;
   lastName: string;
-  specialty: string;
   status: "available" | "busy" | "unavailable";
   commissionRate: number | null;
   createdAt: string;

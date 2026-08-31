@@ -91,7 +91,6 @@ export function StaffDashboard({
                     <Badge tone={statusTone(barber.status)}>{statusLabel(barber.status)}</Badge>
                   </div>
                   <strong>{name}</strong>
-                  <span>{barber.specialty}</span>
                   <div className="barber-status-card__stats">
                     <span><small>Status</small><strong>{statusLabel(barber.status)}</strong></span>
                     <span><small>Commission</small><strong>{barber.commissionRate === null ? "—" : `${barber.commissionRate}%`}</strong></span>
@@ -113,12 +112,10 @@ export function StaffDashboard({
             <div>
               <p className="barber-profile-summary__eyebrow">Business record</p>
               <h2>{displayName(selected)}</h2>
-              <p>{selected.specialty}</p>
             </div>
           </div>
           <div className="barber-profile-summary__facts">
             <div><small>Status</small><strong>{statusLabel(selected.status)}</strong></div>
-            <div><small>Specialty</small><strong>{selected.specialty}</strong></div>
             <div><small>Commission rate</small><strong>{selected.commissionRate === null ? "Not set" : `${selected.commissionRate}%`}</strong></div>
             <div><small>Profile added</small><strong>{formatAdded(selected.createdAt)}</strong></div>
           </div>

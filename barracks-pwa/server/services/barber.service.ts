@@ -5,7 +5,6 @@ type BarberRow = {
   id: number;
   first_name: string;
   last_name: string;
-  specialty: string;
   status: "available" | "busy" | "unavailable";
   commission_rate: number | string | null;
   created_at: Date | string;
@@ -16,7 +15,6 @@ export type BarberRecord = {
   id: number;
   firstName: string;
   lastName: string;
-  specialty: string;
   status: BarberRow["status"];
   commissionRate: number | null;
   createdAt: string;
@@ -24,7 +22,7 @@ export type BarberRecord = {
 };
 
 const barberSelect = `
-  SELECT id, first_name, last_name, specialty, status, commission_rate, created_at, updated_at
+  SELECT id, first_name, last_name, status, commission_rate, created_at, updated_at
   FROM barbers
 `;
 
@@ -37,7 +35,6 @@ function toBarber(row: BarberRow): BarberRecord {
     id: Number(row.id),
     firstName: row.first_name,
     lastName: row.last_name,
-    specialty: row.specialty,
     status: row.status,
     commissionRate: row.commission_rate === null ? null : Number(row.commission_rate),
     createdAt: toIso(row.created_at),
@@ -60,11 +57,11 @@ export async function findBarberById(db: Pool, id: number): Promise<BarberRecord
 export async function createBarber(db: Pool, input: BarberInput): Promise<BarberRecord> {
   const result = await db.query<{ id: number }>(
     `
-      INSERT INTO barbers (first_name, last_name, specialty, status, commission_rate)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO barbers (first_name, last_name, status, commission_rate)
+      VALUES ($1, $2, $3, $4)
       RETURNING id
     `,
-    [input.firstName, input.lastName, input.specialty, input.status, input.commissionRate],
+    [input.firstName, input.lastName, input.status, input.commissionRate],
   );
   return (await findBarberById(db, result.rows[0].id)) as BarberRecord;
 }
@@ -77,12 +74,12 @@ export async function updateBarber(
   const result = await db.query<{ id: number }>(
     `
       UPDATE barbers
-      SET first_name = $1, last_name = $2, specialty = $3, status = $4,
-          commission_rate = $5, updated_at = NOW()
-      WHERE id = $6
+      SET first_name = $1, last_name = $2, status = $3,
+          commission_rate = $4, updated_at = NOW()
+      WHERE id = $5
       RETURNING id
     `,
-    [input.firstName, input.lastName, input.specialty, input.status, input.commissionRate, id],
+    [input.firstName, input.lastName, input.status, input.commissionRate, id],
   );
   return result.rows[0] ? findBarberById(db, id) : null;
 }

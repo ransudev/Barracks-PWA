@@ -27,7 +27,6 @@ export type Barber = {
   id: string;
   name: string;
   initials: string;
-  specialty: string;
   status: "On floor" | "On break" | "Off today";
   tone: Tone;
   services: number;

@@ -118,7 +118,7 @@ The project uses raw parameterized SQL through `pg`; it does not use Prisma, Dri
 The current migration creates:
 
 - `roles`, `users`, and `sessions` for account/session infrastructure.
-- `barbers`: `first_name`, `last_name`, `specialty`, `status`, optional `commission_rate`, timestamps.
+- `barbers`: `first_name`, `last_name`, `status`, optional `commission_rate`, timestamps.
 - `customers`: unique `user_id`, `phone`, nullable `preferred_barber_id`, `loyalty_points`, timestamps.
 - `inventory_items`: `name`, `category`, `quantity`, `minimum_stock`, `unit_cost`, timestamps.
 - `bookings`: customer, barber, service snapshot, price, date, time, status, and timestamps. An active barber/date/time slot is unique.
