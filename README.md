@@ -54,8 +54,7 @@ The home view switches between the seven requested surfaces without introducing 
 
 - Landing page: public marketing page with Login and customer-account actions.
 - Admin dashboard: database-backed counts and links for the sprint records.
-- Barber profile: selectable barber business record view.
-- Barber dashboard: administrator/front-desk overview of available, busy, and unavailable barbers.
+- Unified barber dashboard: administrator/front-desk live roster overview with selectable barber business profile details.
 - Unified customer account: one authenticated dashboard combines profile details, preferred barber, loyalty points, appointment booking, and appointment history.
 - Booking system: customers can book a service, barber, date, and time; staff can view bookings and mark them completed or cancelled.
 - Item profile/inventory: PostgreSQL-backed item CRUD with In Stock, Low Stock, and Out of Stock states.

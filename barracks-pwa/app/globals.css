@@ -378,7 +378,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .row-action--danger { color: var(--barracks-red-light); }
 .queue-bottom-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(390px, .85fr); gap: 14px; margin-top: 14px; }
 .barber-status-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 0 22px 22px; }
-.barber-status-card { min-width: 0; padding: 13px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-raised); }
+.barber-status-card { min-width: 0; padding: 13px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-raised); text-align: left; }
+.barber-status-card:hover, .barber-status-card.is-selected { border-color: var(--line-strong); background: var(--surface-hover); }
 .barber-status-card__head { align-items: flex-start; display: flex; justify-content: space-between; gap: 10px; }
 .barber-status-card > strong, .barber-status-card > span { display: block; }
 .barber-status-card > strong { margin-top: 12px; color: var(--text); font-size: 12px; }
@@ -1332,17 +1333,16 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .admin-dashboard-low-stock strong, .admin-dashboard-low-stock small { display: block; font-family: var(--font-geist), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 .admin-dashboard-low-stock strong { color: var(--text); font-size: 12px; }
 .admin-dashboard-low-stock small { margin-top: 3px; color: var(--text-muted); font-size: 10px; }
-.profile-view-panel { padding-bottom: 22px; }
-.profile-view__select { max-width: 320px; padding: 0 22px; }
-.profile-view__hero { align-items: center; display: flex; gap: 16px; margin: 26px 22px 0; padding: 22px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-raised); }
-.profile-view__hero > div { min-width: 0; flex: 1; }
-.profile-view__hero h2 { margin: 4px 0 3px; color: var(--text); font-family: "Iowan Old Style", "Baskerville", "Times New Roman", serif; font-size: 27px; letter-spacing: -.04em; }
-.profile-view__hero p:not(.profile-view__eyebrow) { margin: 0; color: var(--text-muted); font-size: 11px; }
-.profile-view__eyebrow, .customer-page__eyebrow { margin: 0; color: var(--text-muted); font-family: var(--font-geist-mono), monospace; font-size: 9px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
-.profile-view__facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 14px 22px 0; padding: 16px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
-.profile-view__facts small, .profile-view__facts strong { display: block; }
-.profile-view__facts small { color: var(--text-muted); font-size: 10px; }
-.profile-view__facts strong { margin-top: 6px; color: var(--text); font-size: 12px; }
+.barber-profile-summary-panel { margin-top: 14px; padding-bottom: 22px; }
+.barber-profile-summary__hero { align-items: center; display: flex; gap: 16px; margin: 4px 22px 0; padding: 22px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-raised); }
+.barber-profile-summary__hero > div { min-width: 0; flex: 1; }
+.barber-profile-summary__hero h2 { margin: 4px 0 3px; color: var(--text); font-family: "Iowan Old Style", "Baskerville", "Times New Roman", serif; font-size: 27px; letter-spacing: -.04em; }
+.barber-profile-summary__hero p:not(.barber-profile-summary__eyebrow) { margin: 0; color: var(--text-muted); font-size: 11px; }
+.barber-profile-summary__eyebrow, .customer-page__eyebrow { margin: 0; color: var(--text-muted); font-family: var(--font-geist-mono), monospace; font-size: 9px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.barber-profile-summary__facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 14px 22px 0; padding: 16px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
+.barber-profile-summary__facts small, .barber-profile-summary__facts strong { display: block; }
+.barber-profile-summary__facts small { color: var(--text-muted); font-size: 10px; }
+.barber-profile-summary__facts strong { margin-top: 6px; color: var(--text); font-size: 12px; }
 .customer-topbar__links button.is-active { color: var(--text); }
 .customer-profile-page__heading, .customer-dashboard__heading { align-items: flex-end; display: flex; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
 .customer-profile-page__heading h1, .customer-dashboard__heading h1 { margin: 7px 0 6px; color: var(--text); font-family: "Iowan Old Style", "Baskerville", "Times New Roman", serif; font-size: 38px; font-weight: 700; letter-spacing: -.045em; line-height: 1.05; }
@@ -1381,9 +1381,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .customer-history-panel__empty { margin: 0; padding: 0 22px 22px; color: var(--text-muted); font-size: 12px; }
 
 @media (max-width: 760px) {
-  .profile-view__hero { align-items: flex-start; flex-wrap: wrap; }
-  .profile-view__hero > .badge { margin-left: 92px; }
-  .profile-view__facts, .customer-profile-card__facts, .customer-profile-inline-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .barber-profile-summary__hero { align-items: flex-start; flex-wrap: wrap; }
+  .barber-profile-summary__facts, .customer-profile-card__facts, .customer-profile-inline-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .customer-profile-page__heading, .customer-dashboard__heading, .customer-booking-page__heading { align-items: flex-start; flex-direction: column; }
   .customer-profile-page__heading h1, .customer-dashboard__heading h1, .customer-booking-page__heading h1 { font-size: 32px; }
   .customer-dashboard__grid { grid-template-columns: 1fr; }

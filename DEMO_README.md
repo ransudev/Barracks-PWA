@@ -66,7 +66,7 @@ These are local demo credentials only. Do not use them in production.
 2. Sign in as the Administrator.
 3. Show the Management dashboard and its seeded summary counts.
 4. Open **Staff** to show administrator-only account management.
-5. Open **Barbers** and inspect a barber profile.
+5. Open **Barbers** to inspect and manage the roster; the Shop floor dashboard combines the live overview with selectable barber profile details.
 6. Open **Inventory** and show the In Stock, Low Stock, and Out of Stock states.
 7. Use the account menu to switch to Shop floor.
 8. Sign out and sign in as Front Desk. Confirm that the Management selector is not visible.

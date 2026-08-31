@@ -16,7 +16,6 @@ export type ViewId =
   | "admin-dashboard"
   | "staff-management"
   | "barbers"
-  | "barber-profile"
   | "services"
   | "reports"
   | "admin-inventory"

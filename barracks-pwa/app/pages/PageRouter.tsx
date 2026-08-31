@@ -1,5 +1,4 @@
 import { AdminDashboard } from "@/app/pages/admin/AdminDashboard";
-import { BarberProfile } from "@/app/pages/admin/BarberProfile";
 import { BarbersManagement } from "@/app/pages/admin/BarbersManagement";
 import { StaffManagement } from "@/app/pages/admin/StaffManagement";
 import { InventoryPage } from "@/app/pages/staff/InventoryPage";
@@ -21,9 +20,7 @@ export function PageRouter({ view, go, onToast }: PageRouterProps) {
     case "staff-management":
       return <StaffManagement onToast={onToast} />;
     case "barbers":
-      return <BarbersManagement go={go} onToast={onToast} />;
-    case "barber-profile":
-      return <BarberProfile go={go} onToast={onToast} />;
+      return <BarbersManagement onToast={onToast} />;
     case "customers":
       return <CustomersPage onToast={onToast} />;
     case "bookings":

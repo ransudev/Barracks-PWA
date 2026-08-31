@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import type { ViewId } from "@/app/types/domain";
 import type { ApiBarber } from "@/app/lib/api";
 import { apiRequest, readApiBody } from "@/app/lib/api";
 import { createInitials } from "@/app/utils/format";
@@ -50,10 +49,8 @@ function statusTone(status: ApiBarber["status"]): "success" | "warning" | "neutr
 
 export function BarbersManagement({
   onToast,
-  go,
 }: {
   onToast: (message: string) => void;
-  go: (view: ViewId) => void;
 }) {
   const [items, setItems] = useState<ApiBarber[]>([]);
   const [loading, setLoading] = useState(true);
@@ -159,7 +156,7 @@ export function BarbersManagement({
       </div>
 
       <Panel className="barber-management-panel">
-        <SectionHeading title="Barber roster" action={<Button variant="ghost" size="sm" iconAfter="arrowRight" onClick={() => go("barber-profile")}>Open profile view</Button>} />
+        <SectionHeading title="Barber roster" />
         <div className="barber-management-list">
           {loading ? <div className="staff-table__empty">Loading barber profiles…</div> : loadError ? <div className="staff-table__empty">{loadError}</div> : items.length ? items.map((barber) => (
             <article className="barber-management-card" key={barber.id}>
@@ -179,7 +176,6 @@ export function BarbersManagement({
               </div>
               <div className="barber-management-card__actions">
                 <button className="row-action" type="button" onClick={() => openEdit(barber)}><Icon name="edit" size={14} /> Edit profile</button>
-                <button className="row-action" type="button" onClick={() => go("barber-profile")}>View profile <Icon name="arrowRight" size={14} /></button>
                 <button className="row-action row-action--danger" type="button" onClick={() => void deleteBarber(barber)}>Delete</button>
               </div>
             </article>
