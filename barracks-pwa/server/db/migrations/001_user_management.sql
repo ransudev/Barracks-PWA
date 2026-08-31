@@ -44,11 +44,17 @@ CREATE TABLE IF NOT EXISTS barbers (
   status VARCHAR(20) NOT NULL DEFAULT 'available'
     CHECK (status IN ('available', 'busy', 'unavailable')),
   commission_rate NUMERIC(5, 2),
+  services_done INTEGER NOT NULL DEFAULT 0 CHECK (services_done >= 0),
+  revenue NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (revenue >= 0),
+  rating NUMERIC(2, 1) CHECK (rating >= 0 AND rating <= 5),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 ALTER TABLE barbers DROP COLUMN IF EXISTS specialty;
+ALTER TABLE barbers ADD COLUMN IF NOT EXISTS services_done INTEGER NOT NULL DEFAULT 0 CHECK (services_done >= 0);
+ALTER TABLE barbers ADD COLUMN IF NOT EXISTS revenue NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (revenue >= 0);
+ALTER TABLE barbers ADD COLUMN IF NOT EXISTS rating NUMERIC(2, 1) CHECK (rating >= 0 AND rating <= 5);
 
 CREATE INDEX IF NOT EXISTS barbers_status_idx ON barbers (status);
 

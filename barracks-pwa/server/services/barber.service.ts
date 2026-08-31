@@ -7,6 +7,9 @@ type BarberRow = {
   last_name: string;
   status: "available" | "busy" | "unavailable";
   commission_rate: number | string | null;
+  services_done: number | string;
+  revenue: number | string;
+  rating: number | string | null;
   created_at: Date | string;
   updated_at: Date | string;
 };
@@ -17,12 +20,15 @@ export type BarberRecord = {
   lastName: string;
   status: BarberRow["status"];
   commissionRate: number | null;
+  servicesDone: number;
+  revenue: number;
+  rating: number | null;
   createdAt: string;
   updatedAt: string;
 };
 
 const barberSelect = `
-  SELECT id, first_name, last_name, status, commission_rate, created_at, updated_at
+  SELECT id, first_name, last_name, status, commission_rate, services_done, revenue, rating, created_at, updated_at
   FROM barbers
 `;
 
@@ -37,6 +43,9 @@ function toBarber(row: BarberRow): BarberRecord {
     lastName: row.last_name,
     status: row.status,
     commissionRate: row.commission_rate === null ? null : Number(row.commission_rate),
+    servicesDone: Number(row.services_done),
+    revenue: Number(row.revenue),
+    rating: row.rating === null ? null : Number(row.rating),
     createdAt: toIso(row.created_at),
     updatedAt: toIso(row.updated_at),
   };

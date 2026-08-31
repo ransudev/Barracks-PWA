@@ -533,10 +533,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .barber-management-card h3 { margin: 2px 0 2px; color: var(--text); font-size: 14px; }
 .barber-management-card small { margin: 0; color: var(--text-soft); font-size: 11px; }
 .barber-management-card small { display: block; margin-top: 4px; color: var(--text-muted); font-size: 10px; }
-.barber-management-card__stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 17px; padding: 12px; border-radius: 8px; background: var(--surface); }
+.barber-management-card__stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 17px; padding: 12px; border-radius: 8px; background: var(--surface); }
 .barber-management-card__stats small, .barber-management-card__stats strong { display: block; }
 .barber-management-card__stats small { margin: 0; color: var(--text-muted); font-size: 9px; }
 .barber-management-card__stats strong { margin-top: 5px; color: var(--text); font-family: var(--font-geist-mono), monospace; font-size: 12px; }
+.barber-management-card__stats strong.barber-stat--revenue { color: var(--green); }
+.barber-management-card__stats strong.barber-stat--commission { color: var(--amber); }
+.barber-management-card__stats strong.barber-rating { align-items: center; display: inline-flex; gap: 4px; }
+.barber-rating svg { color: var(--amber); }
 .barber-management-card__actions { display: flex; gap: 18px; margin-top: 13px; }
 .services-table__head, .services-table__row { min-width: 900px; display: grid; grid-template-columns: 1.1fr 1.55fr .65fr .55fr .7fr .9fr; gap: 15px; align-items: center; }
 .services-table__row { min-height: 59px; padding: 0 9px; border-bottom: 1px solid rgba(176, 176, 171, .58); color: var(--text-soft); font-size: 11px; }
@@ -1381,6 +1385,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @media (max-width: 760px) {
   .barber-profile-summary__hero { align-items: flex-start; flex-wrap: wrap; }
   .barber-profile-summary__facts, .customer-profile-card__facts, .customer-profile-inline-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .barber-management-card__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .customer-profile-page__heading, .customer-dashboard__heading, .customer-booking-page__heading { align-items: flex-start; flex-direction: column; }
   .customer-profile-page__heading h1, .customer-dashboard__heading h1, .customer-booking-page__heading h1 { font-size: 32px; }
   .customer-dashboard__grid { grid-template-columns: 1fr; }

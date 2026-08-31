@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import type { ApiBarber } from "@/app/lib/api";
 import { apiRequest, readApiBody } from "@/app/lib/api";
-import { createInitials } from "@/app/utils/format";
+import { createInitials, formatCurrency } from "@/app/utils/format";
 import {
   Avatar,
   Badge,
@@ -45,6 +45,14 @@ function statusTone(status: ApiBarber["status"]): "success" | "warning" | "neutr
   return status === "available" ? "success" : status === "busy" ? "warning" : "neutral";
 }
 
+function formatMemberSince(date: string) {
+  return new Date(date).toLocaleDateString(undefined, { month: "short", year: "numeric" });
+}
+
+function barberCommission(barber: ApiBarber) {
+  return barber.commissionRate === null ? null : barber.revenue * barber.commissionRate / 100;
+}
+
 export function BarbersManagement({
   onToast,
 }: {
@@ -57,6 +65,9 @@ export function BarbersManagement({
   const [editing, setEditing] = useState<ApiBarber | null>(null);
   const [form, setForm] = useState<BarberForm>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
+  const [commissionRateDraft, setCommissionRateDraft] = useState("");
+  const [commissionModalOpen, setCommissionModalOpen] = useState(false);
+  const [commissionSaving, setCommissionSaving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -139,20 +150,69 @@ export function BarbersManagement({
     onToast(`${displayName(barber)} removed from the roster`);
   }
 
-  const available = items.filter((item) => item.status === "available").length;
-  const unavailable = items.filter((item) => item.status !== "available").length;
+  function openCommissionRate() {
+    const rates = [...new Set(items.map((barber) => barber.commissionRate).filter((rate): rate is number => rate !== null))];
+    setCommissionRateDraft(rates.length === 1 ? String(rates[0]) : "");
+    setCommissionModalOpen(true);
+  }
+
+  async function saveCommissionRate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const rate = Number(commissionRateDraft);
+    if (!Number.isFinite(rate) || rate < 0 || rate > 100) {
+      onToast("Enter a commission rate between 0 and 100");
+      return;
+    }
+    if (!items.length) {
+      onToast("Add a barber before setting a commission rate");
+      return;
+    }
+
+    setCommissionSaving(true);
+    try {
+      const responses = await Promise.all(items.map((barber) => apiRequest(`/api/barbers/${barber.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          firstName: barber.firstName,
+          lastName: barber.lastName,
+          status: barber.status,
+          commissionRate: rate,
+        }),
+      })));
+      const bodies = await Promise.all(responses.map((response) => readApiBody<{ success: boolean; barber?: ApiBarber; message?: string }>(response)));
+      const failed = bodies.find((body, index) => !responses[index].ok || !body?.success || !body.barber);
+      if (failed) throw new Error(failed.message ?? "Unable to update commission rate");
+
+      setItems(bodies.map((body) => body!.barber!));
+      setCommissionModalOpen(false);
+      onToast(`Commission rate set to ${rate}%`);
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : "Unable to update commission rate");
+    } finally {
+      setCommissionSaving(false);
+    }
+  }
+
+  const totalRevenue = items.reduce((total, barber) => total + barber.revenue, 0);
+  const totalCommission = items.reduce((total, barber) => total + (barberCommission(barber) ?? 0), 0);
+  const commissionRates = [...new Set(items.map((barber) => barber.commissionRate).filter((rate): rate is number => rate !== null))];
+  const commissionRateLabel = commissionRates.length === 1 ? `${commissionRates[0]}%` : commissionRates.length ? "Mixed" : "—";
 
   return (
     <>
-      <PageHeader title="Barber management" action={<Button icon="plus" onClick={openCreate}>Add barber</Button>} />
-      <div className="metrics-grid metrics-grid--three">
-        <MetricCard label="Total barbers" value={String(items.length)} icon="scissors" accent="blue" />
-        <MetricCard label="Available now" value={String(available)} icon="check" accent="green" />
-        <MetricCard label="Busy or unavailable" value={String(unavailable)} icon="clock" accent="amber" />
+      <PageHeader
+        title="Barber Management"
+        action={<><Button variant="secondary" iconAfter="chevronDown" onClick={openCommissionRate}>Set Commission Rate</Button><Button icon="plus" onClick={openCreate}>Add Barber</Button></>}
+      />
+      <div className="metrics-grid metrics-grid--four">
+        <MetricCard label="Total Barbers" value={String(items.length)} icon="scissors" accent="blue" />
+        <MetricCard label="This Week Revenue" value={formatCurrency(totalRevenue)} icon="wallet" accent="green" />
+        <MetricCard label="Commission Rate" value={commissionRateLabel} icon="chart" accent="amber" />
+        <MetricCard label="Total Commission" value={formatCurrency(totalCommission)} icon="spark" accent="violet" />
       </div>
 
       <Panel className="barber-management-panel">
-        <SectionHeading title="Barber roster" />
+        <SectionHeading title="Barbers" />
         <div className="barber-management-list">
           {loading ? <div className="staff-table__empty">Loading barber profiles…</div> : loadError ? <div className="staff-table__empty">{loadError}</div> : items.length ? items.map((barber) => (
             <article className="barber-management-card" key={barber.id}>
@@ -160,13 +220,15 @@ export function BarbersManagement({
                 <Avatar initials={createInitials(displayName(barber))} tone="slate" size="lg" />
                 <div>
                   <h3>{displayName(barber)}</h3>
-                  <small>Added {new Date(barber.createdAt).toLocaleDateString(undefined, { month: "short", year: "numeric" })}</small>
+                  <small>Member since {formatMemberSince(barber.createdAt)}</small>
                 </div>
                 <Badge tone={statusTone(barber.status)}>{statusLabel(barber.status)}</Badge>
               </div>
               <div className="barber-management-card__stats">
-                <span><small>Commission</small><strong>{barber.commissionRate === null ? "Not set" : `${barber.commissionRate}%`}</strong></span>
-                <span><small>Record type</small><strong>Business profile</strong></span>
+                <span><small>Services Done</small><strong>{barber.servicesDone}</strong></span>
+                <span><small>Revenue</small><strong className="barber-stat--revenue">{formatCurrency(barber.revenue)}</strong></span>
+                <span><small>Commission</small><strong className="barber-stat--commission">{barberCommission(barber) === null ? "—" : formatCurrency(barberCommission(barber) ?? 0)}</strong></span>
+                <span><small>Rating</small><strong className="barber-rating">{barber.rating === null ? "—" : <><span>{barber.rating.toFixed(1)}</span><Icon name="star" size={13} /></>}</strong></span>
               </div>
               <div className="barber-management-card__actions">
                 <button className="row-action" type="button" onClick={() => openEdit(barber)}><Icon name="edit" size={14} /> Edit profile</button>
@@ -192,6 +254,16 @@ export function BarbersManagement({
           <div className="modal-actions">
             <Button variant="secondary" type="button" onClick={() => setModalOpen(false)}>Cancel</Button>
             <Button type="submit" icon="check" disabled={submitting}>{submitting ? "Saving…" : "Save profile"}</Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal open={commissionModalOpen} title="Set Commission Rate" description="Apply one rate to every barber record." onClose={() => !commissionSaving && setCommissionModalOpen(false)}>
+        <form className="modal-form" onSubmit={saveCommissionRate}>
+          <TextField label="Commission rate (%)" type="number" min="0" max="100" step="0.5" value={commissionRateDraft} onChange={(event) => setCommissionRateDraft(event.target.value)} placeholder="e.g. 30" />
+          <div className="modal-actions">
+            <Button variant="secondary" type="button" onClick={() => setCommissionModalOpen(false)}>Cancel</Button>
+            <Button type="submit" icon="check" disabled={commissionSaving}>{commissionSaving ? "Saving…" : "Set rate"}</Button>
           </div>
         </form>
       </Modal>

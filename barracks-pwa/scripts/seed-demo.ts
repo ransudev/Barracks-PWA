@@ -46,10 +46,10 @@ const demoCustomers = [
 ] as const;
 
 const demoBarbers = [
-  { firstName: "Miko", lastName: "Reyes", status: "available", commissionRate: 45 },
-  { firstName: "Paolo", lastName: "Santos", status: "busy", commissionRate: 50 },
-  { firstName: "Luis", lastName: "Dela Cruz", status: "unavailable", commissionRate: 40 },
-  { firstName: "Andrei", lastName: "Villanueva", status: "available", commissionRate: 55 },
+  { firstName: "Miko", lastName: "Reyes", status: "available", commissionRate: 45, servicesDone: 45, revenue: 1245, rating: 4.8 },
+  { firstName: "Paolo", lastName: "Santos", status: "busy", commissionRate: 50, servicesDone: 38, revenue: 890, rating: 4.6 },
+  { firstName: "Luis", lastName: "Dela Cruz", status: "unavailable", commissionRate: 40, servicesDone: 22, revenue: 350, rating: 4.5 },
+  { firstName: "Andrei", lastName: "Villanueva", status: "available", commissionRate: 55, servicesDone: 31, revenue: 720, rating: 4.7 },
 ] as const;
 
 const demoInventory = [
@@ -160,21 +160,22 @@ async function upsertBarber(
     await client.query(
       `
         UPDATE barbers
-        SET status = $1, commission_rate = $2, updated_at = NOW()
-        WHERE id = $3
+        SET status = $1, commission_rate = $2, services_done = $3,
+            revenue = $4, rating = $5, updated_at = NOW()
+        WHERE id = $6
       `,
-      [barber.status, barber.commissionRate, existing.rows[0].id],
+      [barber.status, barber.commissionRate, barber.servicesDone, barber.revenue, barber.rating, existing.rows[0].id],
     );
     return existing.rows[0].id;
   }
 
   const inserted = await client.query<{ id: number }>(
     `
-      INSERT INTO barbers (first_name, last_name, status, commission_rate)
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO barbers (first_name, last_name, status, commission_rate, services_done, revenue, rating)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING id
     `,
-    [barber.firstName, barber.lastName, barber.status, barber.commissionRate],
+    [barber.firstName, barber.lastName, barber.status, barber.commissionRate, barber.servicesDone, barber.revenue, barber.rating],
   );
 
   return inserted.rows[0].id;

@@ -54,7 +54,7 @@ The home view switches between the seven requested surfaces without introducing 
 
 - Landing page: public marketing page with Login and customer-account actions.
 - Admin dashboard: database-backed counts and links for the sprint records.
-- Unified barber dashboard: administrator/front-desk live roster overview with selectable barber business profile details.
+- Unified barber dashboard: administrator/front-desk live roster overview with selectable barber business profile details and performance metrics.
 - Unified customer account: one authenticated dashboard combines profile details, preferred barber, loyalty points, appointment booking, and appointment history.
 - Booking system: customers can book a service, barber, date, and time; staff can view bookings and mark them completed or cancelled.
 - Item profile/inventory: PostgreSQL-backed item CRUD with In Stock, Low Stock, and Out of Stock states.
@@ -118,7 +118,7 @@ The project uses raw parameterized SQL through `pg`; it does not use Prisma, Dri
 The current migration creates:
 
 - `roles`, `users`, and `sessions` for account/session infrastructure.
-- `barbers`: `first_name`, `last_name`, `status`, optional `commission_rate`, timestamps.
+- `barbers`: `first_name`, `last_name`, `status`, optional `commission_rate`, `services_done`, `revenue`, `rating`, timestamps.
 - `customers`: unique `user_id`, `phone`, nullable `preferred_barber_id`, `loyalty_points`, timestamps.
 - `inventory_items`: `name`, `category`, `quantity`, `minimum_stock`, `unit_cost`, timestamps.
 - `bookings`: customer, barber, service snapshot, price, date, time, status, and timestamps. An active barber/date/time slot is unique.
