@@ -44,7 +44,7 @@ export function PublicHeader({ go }: { go: (view: ViewId) => void }) {
           <Button
             size="sm"
             icon="calendar"
-            onClick={() => go("customer-dashboard")}
+            onClick={() => go("customer-booking")}
             className="public-nav__book"
           >
             Book Appointment
@@ -87,7 +87,7 @@ export function PublicHeader({ go }: { go: (view: ViewId) => void }) {
           </div>
           <div className="public-mobile-menu__actions">
             <button type="button" onClick={() => { closeMobileMenu(); go("login"); }}>Login</button>
-            <Button size="sm" icon="calendar" onClick={() => { closeMobileMenu(); go("customer-dashboard"); }}>
+            <Button size="sm" icon="calendar" onClick={() => { closeMobileMenu(); go("customer-booking"); }}>
               Book Appointment
             </Button>
           </div>

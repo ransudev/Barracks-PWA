@@ -3,6 +3,7 @@ import type { NavigationItem, ViewId } from "@/app/types/domain";
 
 export const staffNavigation: Array<NavigationItem & { icon: IconName }> = [
   { id: "staff-dashboard", label: "Barber dashboard", icon: "home" },
+  { id: "bookings", label: "Bookings", icon: "calendar" },
   { id: "customers", label: "Customers", icon: "users" },
   { id: "barbers", label: "Barbers", icon: "scissors" },
   { id: "inventory", label: "Inventory", icon: "box" },

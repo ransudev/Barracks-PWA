@@ -61,6 +61,31 @@ const demoInventory = [
   { name: "Hot towel steamer", category: "Equipment", quantity: 2, minimumStock: 1, unitCost: 6200 },
 ] as const;
 
+const demoBookings = [
+  {
+    demoKey: "demo-ana-basic",
+    customerEmail: "demo.customer.ana@barracks.local",
+    barberName: "Miko Reyes",
+    serviceId: "barracks-basic",
+    serviceName: "Barracks Basic",
+    servicePrice: 300,
+    dayOffset: 1,
+    time: "10:00",
+    status: "upcoming",
+  },
+  {
+    demoKey: "demo-paulo-shave",
+    customerEmail: "demo.customer.paulo@barracks.local",
+    barberName: "Paolo Santos",
+    serviceId: "signature-shave",
+    serviceName: "Signature Shave",
+    servicePrice: 300,
+    dayOffset: 2,
+    time: "14:00",
+    status: "upcoming",
+  },
+] as const;
+
 type DatabaseClient = PoolClient;
 
 async function roleId(client: DatabaseClient, role: string): Promise<number> {
@@ -186,6 +211,57 @@ async function upsertInventory(
   );
 }
 
+async function upsertBooking(
+  client: DatabaseClient,
+  booking: (typeof demoBookings)[number],
+  customerIds: Map<string, number>,
+  barberIds: Map<string, number>,
+): Promise<void> {
+  const customerId = customerIds.get(booking.customerEmail);
+  const barberId = barberIds.get(booking.barberName);
+  if (!customerId || !barberId) throw new Error(`Unable to resolve demo booking ${booking.demoKey}`);
+
+  const existing = await client.query<{ id: number }>(
+    "SELECT id FROM bookings WHERE demo_key = $1 LIMIT 1",
+    [booking.demoKey],
+  );
+  const values = [
+    customerId,
+    barberId,
+    booking.serviceId,
+    booking.serviceName,
+    booking.servicePrice,
+    booking.dayOffset,
+    booking.time,
+    booking.status,
+    booking.demoKey,
+  ];
+
+  if (existing.rows[0]) {
+    await client.query(
+      `
+        UPDATE bookings
+        SET customer_id = $1, barber_id = $2, service_id = $3, service_name = $4,
+            service_price = $5, booking_date = CURRENT_DATE + $6::integer,
+            booking_time = $7, status = $8, updated_at = NOW()
+        WHERE demo_key = $9
+      `,
+      values,
+    );
+    return;
+  }
+
+  await client.query(
+    `
+      INSERT INTO bookings
+        (customer_id, barber_id, service_id, service_name, service_price,
+         booking_date, booking_time, status, demo_key)
+      VALUES ($1, $2, $3, $4, $5, CURRENT_DATE + $6::integer, $7, $8, $9)
+    `,
+    values,
+  );
+}
+
 async function seedDemoData() {
   const client = await pool.connect();
 
@@ -204,6 +280,7 @@ async function seedDemoData() {
       await upsertInventory(client, item);
     }
 
+    const customerIds = new Map<string, number>();
     for (const customer of demoCustomers) {
       const userId = await upsertUser(client, {
         firstName: customer.firstName,
@@ -228,10 +305,19 @@ async function seedDemoData() {
         `,
         [userId, customer.phone, preferredBarberId, customer.loyaltyPoints],
       );
+      const customerRecord = await client.query<{ id: number }>(
+        "SELECT id FROM customers WHERE user_id = $1 LIMIT 1",
+        [userId],
+      );
+      if (customerRecord.rows[0]) customerIds.set(customer.email, customerRecord.rows[0].id);
+    }
+
+    for (const booking of demoBookings) {
+      await upsertBooking(client, booking, customerIds, barberIds);
     }
 
     await client.query("COMMIT");
-    console.log("Demo data seeded: 4 barbers, 6 inventory items, 4 customers, 1 front-desk account");
+    console.log("Demo data seeded: 4 barbers, 6 inventory items, 4 customers, 2 bookings, 1 front-desk account");
     console.log("Front Desk login: demo.frontdesk@barracks.local / frontdesk123");
     console.log("Customer login: demo.customer.ana@barracks.local / customer123");
   } catch (error) {

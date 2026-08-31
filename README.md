@@ -21,7 +21,7 @@ npm run db:seed-admin
 npm run db:seed-demo
 ```
 
-`db:seed-demo` is safe to rerun and populates the sprint views with clearly marked local demo records: four barbers, six inventory items, four customers, and one Front Desk account. It resets only those demo records when rerun.
+`db:seed-demo` is safe to rerun and populates the sprint views with clearly marked local demo records: four barbers, six inventory items, four customers, two bookings, and one Front Desk account. It resets only those demo records when rerun.
 
 Demo logins:
 
@@ -58,9 +58,10 @@ The home view switches between the seven requested surfaces without introducing 
 - Barber dashboard: administrator/front-desk overview of available, busy, and unavailable barbers.
 - Customer profile: authenticated customer's PostgreSQL-backed profile, preferred barber, and loyalty points.
 - Customer dashboard: authenticated customer summary with profile link and intentional empty visit state.
+- Booking system: customers can book a service, barber, date, and time; staff can view bookings and mark them completed or cancelled.
 - Item profile/inventory: PostgreSQL-backed item CRUD with In Stock, Low Stock, and Out of Stock states.
 
-The existing App Router and `PageRouter` patterns remain in place. Bookings, queue, payments, transactions, reports, service management, and real visit history remain outside this sprint.
+The existing App Router and `PageRouter` patterns remain in place. Queue, payments, transactions, reports, service management, and real visit history remain outside this sprint.
 
 ## Roles and access
 
@@ -104,6 +105,12 @@ Inventory:
 - `GET /api/inventory` and `POST /api/inventory` list/create inventory items for administrators/front desk.
 - `GET /api/inventory/:id`, `PUT /api/inventory/:id`, and `DELETE /api/inventory/:id` read/update/delete inventory items for administrators/front desk.
 
+Bookings:
+
+- `GET /api/bookings` lists all bookings for administrators/front desk, or only the authenticated customer's bookings.
+- `POST /api/bookings` creates an upcoming booking. Customers book for themselves; staff can choose a customer.
+- `PATCH /api/bookings/:id` lets administrators/front desk mark a booking completed or cancelled.
+
 All protected routes authenticate with the existing session system. Client components never access PostgreSQL directly.
 
 ## Database
@@ -116,12 +123,13 @@ The current migration creates:
 - `barbers`: `first_name`, `last_name`, `specialty`, `status`, optional `commission_rate`, timestamps.
 - `customers`: unique `user_id`, `phone`, nullable `preferred_barber_id`, `loyalty_points`, timestamps.
 - `inventory_items`: `name`, `category`, `quantity`, `minimum_stock`, `unit_cost`, timestamps.
+- `bookings`: customer, barber, service snapshot, price, date, time, status, and timestamps. An active barber/date/time slot is unique.
 
 The migration is wrapped in a transaction by `scripts/db-migrate.ts`. Passwords are hashed with Node's `crypto.scrypt`; plaintext passwords are never stored or returned.
 
 ## Validation and authorization
 
-`server/schemas/user.schema.ts` validates login and account creation. `server/schemas/sprint.schema.ts` validates customer, barber, and inventory input. Strict schemas reject unknown fields, and route handlers return field-level validation errors as JSON.
+`server/schemas/user.schema.ts` validates login and account creation. `server/schemas/sprint.schema.ts` validates customer, barber, inventory, and booking input. Strict schemas reject unknown fields, and route handlers return field-level validation errors as JSON.
 
 `server/auth/require-admin.ts` protects administrator-only user-management routes. `server/auth/require-role.ts` protects staff resources. Customer profile routes check the authenticated user's role and resolve the customer by `user_id`, so customers cannot select another customer record by ID.
 
@@ -133,4 +141,4 @@ npx tsc --noEmit
 npm run build
 ```
 
-The public landing page remains usable when the database is unavailable. Database-backed workspace screens show explicit loading, error, and empty states until PostgreSQL is configured and migrated.
+The public landing page remains usable when the database is unavailable. Database-backed workspace screens show explicit loading, error, and empty states until PostgreSQL is configured and migrated. Booking options use the small service catalog in `barracks-pwa/app/data/services.ts`; payments, notifications, calendar sync, and email confirmations are not included.

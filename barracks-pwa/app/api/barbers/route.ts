@@ -1,4 +1,4 @@
-import { requireStaff } from "@/server/auth/require-role";
+import { requireRoles, requireStaff } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { barberSchema, formatValidationErrors } from "@/server/schemas/sprint.schema";
 import { createBarber, listBarbers } from "@/server/services/barber.service";
@@ -6,7 +6,7 @@ import { createBarber, listBarbers } from "@/server/services/barber.service";
 export const runtime = "nodejs";
 
 export async function GET() {
-  const authorizationResponse = await requireStaff();
+  const authorizationResponse = await requireRoles(["administrator", "front_desk", "customer"]);
   if (authorizationResponse) return authorizationResponse;
   try {
     return Response.json({ success: true, barbers: await listBarbers(pool) });

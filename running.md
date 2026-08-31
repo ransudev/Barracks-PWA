@@ -90,7 +90,7 @@ To populate the sprint views with repeatable local demo records, run:
 npm run db:seed-demo
 ```
 
-This adds four barbers, six inventory items, four customer profiles, and one Front Desk account. It does not create bookings or transactions. The demo logins are `demo.frontdesk@barracks.local` / `frontdesk123` and `demo.customer.ana@barracks.local` / `customer123`.
+This adds four barbers, six inventory items, four customer profiles, two upcoming bookings, and one Front Desk account. It does not create transactions. The demo logins are `demo.frontdesk@barracks.local` / `frontdesk123` and `demo.customer.ana@barracks.local` / `customer123`.
 
 ## 6. Start the development server
 

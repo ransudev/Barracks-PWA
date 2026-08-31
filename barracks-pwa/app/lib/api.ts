@@ -46,6 +46,25 @@ export type ApiCustomer = {
   updatedAt: string;
 };
 
+export type ApiBookingStatus = "upcoming" | "completed" | "cancelled";
+
+export type ApiBooking = {
+  id: number;
+  date: string;
+  time: string;
+  customerId: number;
+  customerName: string;
+  customerEmail: string;
+  barberId: number;
+  barberName: string;
+  serviceId: string;
+  serviceName: string;
+  price: number;
+  status: ApiBookingStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ApiErrorBody = {
   success: false;
   message?: string;

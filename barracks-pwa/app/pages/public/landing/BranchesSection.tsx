@@ -23,7 +23,7 @@ export function BranchesSection({ go }: { go: (view: ViewId) => void }) {
             {branch.landmark ? <span className="branch-card__landmark">{branch.landmark}</span> : null}
             <div className="branch-card__actions">
               <a href="#contact">View branch <Icon name="arrowRight" size={14} /></a>
-              <Button variant="secondary" size="sm" onClick={() => go("customer-dashboard")}>
+              <Button variant="secondary" size="sm" onClick={() => go("customer-booking")}>
                 Book here
               </Button>
             </div>

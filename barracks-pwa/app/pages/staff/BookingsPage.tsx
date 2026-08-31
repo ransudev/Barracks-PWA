@@ -1,563 +1,169 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { barbers } from "@/app/data/barbers";
-import { bookings as initialBookings } from "@/app/data/bookings";
-import { customers } from "@/app/data/customers";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { BookingForm, type BookingFormValue } from "@/app/components/bookings/BookingForm";
 import { services } from "@/app/data/services";
-import type { Booking } from "@/app/types/domain";
+import type { ApiBarber, ApiBooking, ApiBookingStatus, ApiCustomer } from "@/app/lib/api";
+import { apiRequest, readApiBody } from "@/app/lib/api";
+import { Avatar, Badge, Button, EmptyState, MetricCard, Modal, PageHeader, Panel, SearchInput, SectionHeading, Tabs } from "@/app/components/ui";
 import { createInitials, formatCurrency } from "@/app/utils/format";
-import { usePersistentState } from "@/app/hooks/usePersistentState";
-import {
-  Avatar,
-  Badge,
-  Button,
-  EmptyState,
-  MetricCard,
-  Modal,
-  PageHeader,
-  Panel,
-  SearchInput,
-  SectionHeading,
-  SelectField,
-  Tabs,
-  TextField,
-} from "@/app/components/ui";
-import { Icon } from "@/app/components/ui/icons";
 
-export function BookingsPage({
-  onToast,
-}: {
-  onToast: (message: string) => void;
-}) {
-  const [items, setItems] = usePersistentState<Booking[]>(
-    "barracks-bookings-v2",
-    initialBookings,
-  );
-  const [tab, setTab] = useState("today");
-  const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<Booking | null>(null);
-  const [editing, setEditing] = useState<Booking | null>(null);
-  const [bookingModalOpen, setBookingModalOpen] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [filterBarber, setFilterBarber] = useState("All barbers");
-  const [filterService, setFilterService] = useState("All services");
-  const [draft, setDraft] = useState({
-    customer: customers[0]?.name ?? "",
-    service: services[0]?.name ?? "",
-    barber: barbers[0]?.name ?? "",
-    time: "",
-    meridiem: "AM",
-    price: "",
+function dateString(date = new Date()) {
+  return date.toISOString().slice(0, 10);
+}
+
+function futureDate() {
+  const date = new Date();
+  date.setDate(date.getDate() + 1);
+  return dateString(date);
+}
+
+function formatDate(date: string) {
+  return new Date(`${date}T12:00:00`).toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
   });
+}
+
+function formatTime(time: string) {
+  const [hours, minutes] = time.split(":").map(Number);
+  const meridiem = hours >= 12 ? "PM" : "AM";
+  return `${hours % 12 || 12}:${String(minutes).padStart(2, "0")} ${meridiem}`;
+}
+
+function statusTone(status: ApiBookingStatus): "success" | "warning" | "danger" {
+  return status === "completed" ? "success" : status === "upcoming" ? "warning" : "danger";
+}
+
+function statusLabel(status: ApiBookingStatus) {
+  return status[0].toUpperCase() + status.slice(1);
+}
+
+function emptyForm(customerId = "", barberId = ""): BookingFormValue {
+  return {
+    customerId,
+    serviceId: services[0]?.id ?? "",
+    barberId,
+    date: futureDate(),
+    time: "10:00",
+  };
+}
+
+export function BookingsPage({ onToast }: { onToast: (message: string) => void }) {
+  const [items, setItems] = useState<ApiBooking[]>([]);
+  const [customers, setCustomers] = useState<ApiCustomer[]>([]);
+  const [barbers, setBarbers] = useState<ApiBarber[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState("upcoming");
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<ApiBooking | null>(null);
+  const [bookingModalOpen, setBookingModalOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [draft, setDraft] = useState<BookingFormValue>(emptyForm());
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const [bookingResponse, customerResponse, barberResponse] = await Promise.all([
+          apiRequest("/api/bookings"),
+          apiRequest("/api/customers"),
+          apiRequest("/api/barbers"),
+        ]);
+        const bookingBody = await readApiBody<{ success: boolean; bookings?: ApiBooking[]; message?: string }>(bookingResponse);
+        const customerBody = await readApiBody<{ success: boolean; customers?: ApiCustomer[]; message?: string }>(customerResponse);
+        const barberBody = await readApiBody<{ success: boolean; barbers?: ApiBarber[]; message?: string }>(barberResponse);
+        if (!bookingResponse.ok || !bookingBody?.success) throw new Error(bookingBody?.message ?? "Unable to load bookings");
+        if (!customerResponse.ok || !customerBody?.success) throw new Error(customerBody?.message ?? "Unable to load customers");
+        if (!barberResponse.ok || !barberBody?.success) throw new Error(barberBody?.message ?? "Unable to load barbers");
+        const nextCustomers = customerBody.customers ?? [];
+        const nextBarbers = barberBody.barbers ?? [];
+        setItems(bookingBody.bookings ?? []);
+        setCustomers(nextCustomers);
+        setBarbers(nextBarbers);
+        setDraft(emptyForm(String(nextCustomers[0]?.id ?? ""), String(nextBarbers.find((barber) => barber.status !== "unavailable")?.id ?? "")));
+      } catch (error) {
+        onToast(error instanceof Error ? error.message : "Unable to load bookings");
+      } finally {
+        setLoading(false);
+      }
+    }
+    void load();
+  }, [onToast]);
 
   const counts = {
-    today: items.length,
-    upcoming: items.filter((item) => item.status === "Upcoming").length,
-    completed: items.filter((item) => item.status === "Completed").length,
-    cancelled: items.filter((item) => item.status === "Cancelled").length,
+    today: items.filter((item) => item.date === dateString()).length,
+    upcoming: items.filter((item) => item.status === "upcoming").length,
+    completed: items.filter((item) => item.status === "completed").length,
+    cancelled: items.filter((item) => item.status === "cancelled").length,
   };
 
-  const visible = useMemo(
-    () =>
-      items.filter((item) => {
-        const matchesTab =
-          tab === "today" ||
-          (tab === "upcoming"
-            ? item.status === "Upcoming"
-            : tab === "completed"
-              ? item.status === "Completed"
-              : item.status === "Cancelled");
-        const query = search.toLowerCase();
-        return (
-          matchesTab &&
-          (filterBarber === "All barbers" || item.barber === filterBarber) &&
-          (filterService === "All services" ||
-            item.service === filterService) &&
-          (!query ||
-            (
-              item.customer +
-              " " +
-              item.service +
-              " " +
-              item.barber +
-              " " +
-              item.id
-            )
-              .toLowerCase()
-              .includes(query))
-        );
-      }),
-    [filterBarber, filterService, items, search, tab],
-  );
+  const visible = useMemo(() => {
+    const query = search.toLowerCase().trim();
+    return items.filter((item) => {
+      const matchesTab = tab === "today" ? item.date === dateString() : item.status === tab;
+      const searchable = `${item.customerName} ${item.barberName} ${item.serviceName}`.toLowerCase();
+      return matchesTab && (!query || searchable.includes(query));
+    });
+  }, [items, search, tab]);
 
   function openNewBooking() {
-    const service = services[0];
-    if (!service || !customers[0] || !barbers[0]) {
-      onToast("Booking options are not available yet");
-      return;
-    }
-    setDraft({
-      customer: customers[0].name,
-      service: service.name,
-      barber: barbers[0].name,
-      time: "",
-      meridiem: "AM",
-      price: String(service.price),
-    });
+    setDraft(emptyForm(String(customers[0]?.id ?? ""), String(barbers.find((barber) => barber.status !== "unavailable")?.id ?? "")));
     setBookingModalOpen(true);
   }
 
-  function handleDraftService(name: string) {
-    const service = services.find((item) => item.name === name);
-    setDraft({
-      ...draft,
-      service: name,
-      price: String(service?.price ?? 0),
-    });
-  }
-
-  function addBooking(event: React.FormEvent) {
+  async function createBooking(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!draft.customer || !draft.service || !draft.barber || !draft.time) {
+    if (!draft.customerId || !draft.serviceId || !draft.barberId || !draft.date || !draft.time) {
       onToast("Complete the booking details first");
       return;
     }
-    const service = services.find((item) => item.name === draft.service);
-    const created: Booking = {
-      id: "BK-" + (1054 + items.length),
-      time: draft.time,
-      meridiem: draft.meridiem,
-      customer: draft.customer,
-      initials: createInitials(draft.customer),
-      service: draft.service,
-      barber: draft.barber,
-      price: service?.price ?? Number(draft.price),
-      status: "Upcoming",
-      tone: "slate",
-    };
-    setItems((list) => [created, ...list]);
-    setBookingModalOpen(false);
-    onToast(created.id + " created");
-  }
-
-  function saveBooking(event: React.FormEvent) {
-    event.preventDefault();
-    if (!editing?.customer || !editing.service || !editing.barber) {
-      onToast("Complete the booking details first");
-      return;
+    setSubmitting(true);
+    try {
+      const response = await apiRequest("/api/bookings", {
+        method: "POST",
+        body: JSON.stringify({
+          customerId: Number(draft.customerId),
+          serviceId: draft.serviceId,
+          barberId: Number(draft.barberId),
+          date: draft.date,
+          time: draft.time,
+        }),
+      });
+      const body = await readApiBody<{ success: boolean; booking?: ApiBooking; message?: string }>(response);
+      if (!response.ok || !body?.success || !body.booking) throw new Error(body?.message ?? "Unable to create booking");
+      setItems((current) => [...current, body.booking as ApiBooking].sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)));
+      setBookingModalOpen(false);
+      onToast("Booking created");
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : "Unable to create booking");
+    } finally {
+      setSubmitting(false);
     }
-    setItems((list) =>
-      list.map((item) => (item.id === editing.id ? editing : item)),
-    );
-    onToast(editing.id + " updated");
-    setEditing(null);
   }
 
-  return (
-    <>
-      <PageHeader
-        title="Bookings"
-        action={
-          <Button icon="plus" onClick={openNewBooking}>
-            New booking
-          </Button>
-        }
-      />
-      <div className="booking-tabs-row">
-        <Tabs
-          active={tab}
-          onChange={setTab}
-          items={[
-            { id: "today", label: "Today", count: counts.today },
-            { id: "upcoming", label: "Upcoming", count: counts.upcoming },
-            { id: "completed", label: "Completed", count: counts.completed },
-            { id: "cancelled", label: "Cancelled", count: counts.cancelled },
-          ]}
-        />
-        <SearchInput
-          value={search}
-          onChange={setSearch}
-          placeholder="Search bookings"
-        />
-      </div>
-      <div className="metrics-grid metrics-grid--four">
-        <MetricCard
-          label="Total bookings"
-          value={String(items.length)}
-          icon="calendar"
-          accent="blue"
-        />
-        <MetricCard
-          label="Completed"
-          value={String(counts.completed)}
-          change={items.length ? Math.round((counts.completed / items.length) * 100) + "% of current records" : undefined}
-          icon="checkCircle"
-          accent="green"
-        />
-        <MetricCard
-          label="Remaining"
-          value={String(counts.upcoming)}
-          icon="clock"
-          accent="amber"
-        />
-        <MetricCard
-          label="Cancelled"
-          value={String(counts.cancelled)}
-          icon="x"
-          accent="red"
-        />
-      </div>
+  async function updateStatus(booking: ApiBooking, status: ApiBookingStatus) {
+    try {
+      const response = await apiRequest(`/api/bookings/${booking.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+      const body = await readApiBody<{ success: boolean; booking?: ApiBooking; message?: string }>(response);
+      if (!response.ok || !body?.success || !body.booking) throw new Error(body?.message ?? "Unable to update booking");
+      setItems((current) => current.map((item) => item.id === booking.id ? body.booking as ApiBooking : item));
+      setSelected(null);
+      onToast(`Booking marked ${status}`);
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : "Unable to update booking");
+    }
+  }
 
-      <Panel className="bookings-panel">
-        <SectionHeading
-          title={
-            tab === "today"
-              ? "Today’s schedule"
-              : tab[0].toUpperCase() + tab.slice(1) + " bookings"
-          }
-          action={
-            <Button
-              variant="ghost"
-              size="sm"
-              icon="filter"
-              onClick={() => setFiltersOpen(true)}
-            >
-              Filters
-            </Button>
-          }
-        />
-        <div className="booking-list">
-          {visible.length ? (
-            visible.map((booking) => (
-              <button
-                className={
-                  "booking-row booking-row--" + booking.status.toLowerCase()
-                }
-                type="button"
-                key={booking.id}
-                onClick={() => setSelected(booking)}
-              >
-                <span className="booking-row__time">
-                  <strong>{booking.time}</strong>
-                  <small>{booking.meridiem}</small>
-                </span>
-                <span className="booking-row__customer">
-                  <Avatar
-                    initials={booking.initials}
-                    tone={booking.tone}
-                    size="sm"
-                  />
-                  <span>
-                    <strong>{booking.customer}</strong>
-                    <small>{booking.id}</small>
-                  </span>
-                </span>
-                <span className="booking-row__service">
-                  <strong>{booking.service}</strong>
-                  <small>with {booking.barber}</small>
-                </span>
-                <span>
-                  <Badge
-                    tone={
-                      booking.status === "Completed"
-                        ? "success"
-                        : booking.status === "Upcoming"
-                          ? "warning"
-                          : "danger"
-                    }
-                  >
-                    {booking.status}
-                  </Badge>
-                </span>
-                <strong className="booking-row__price">
-                  {formatCurrency(booking.price)}
-                </strong>
-                <Icon name="chevronRight" size={16} />
-              </button>
-            ))
-          ) : (
-            <EmptyState
-              icon="calendar"
-              title="No bookings found"
-              description="Try a different search or switch to another booking view."
-            />
-          )}
-        </div>
-      </Panel>
-
-      <Modal
-        open={Boolean(selected)}
-        title="Booking detail"
-        description={
-          selected ? selected.id : undefined
-        }
-        onClose={() => setSelected(null)}
-      >
-        <div className="detail-modal">
-          <div className="detail-modal__identity">
-            {selected && (
-              <Avatar
-                initials={selected.initials}
-                tone={selected.tone}
-                size="lg"
-              />
-            )}
-            <div>
-              <strong>{selected?.customer}</strong>
-              <span>{selected?.service}</span>
-            </div>
-            <Badge
-              tone={
-                selected?.status === "Completed"
-                  ? "success"
-                  : selected?.status === "Upcoming"
-                    ? "warning"
-                    : "danger"
-              }
-            >
-              {selected?.status}
-            </Badge>
-          </div>
-          <div className="detail-facts">
-            <span>
-              <small>Time</small>
-              <strong>
-                {selected?.time} {selected?.meridiem}
-              </strong>
-            </span>
-            <span>
-              <small>Barber</small>
-              <strong>{selected?.barber}</strong>
-            </span>
-            <span>
-              <small>Total</small>
-              <strong>{selected && formatCurrency(selected.price)}</strong>
-            </span>
-          </div>
-          <div className="modal-actions">
-            <Button
-              variant="secondary"
-              onClick={() => {
-                if (selected) setEditing({ ...selected });
-                setSelected(null);
-              }}
-            >
-              Edit booking
-            </Button>
-            {selected?.status === "Upcoming" && (
-              <Button
-                variant="danger"
-                onClick={() => {
-                  setItems((list) =>
-                    list.map((item) =>
-                      item.id === selected.id
-                        ? { ...item, status: "Cancelled" }
-                        : item,
-                    ),
-                  );
-                  setSelected(null);
-                  onToast("Booking cancelled");
-                }}
-              >
-                Cancel booking
-              </Button>
-            )}
-          </div>
-        </div>
-      </Modal>
-
-      <Modal
-        open={bookingModalOpen}
-        title="New booking"
-        onClose={() => setBookingModalOpen(false)}
-      >
-        <form className="modal-form" onSubmit={addBooking}>
-          <SelectField
-            label="Customer"
-            value={draft.customer}
-            onChange={(event) =>
-              setDraft({ ...draft, customer: event.target.value })
-            }
-          >
-            {customers.map((customer) => (
-              <option key={customer.id}>{customer.name}</option>
-            ))}
-          </SelectField>
-          <SelectField
-            label="Service"
-            value={draft.service}
-            onChange={(event) => handleDraftService(event.target.value)}
-          >
-            {services
-              .filter((service) => service.active)
-              .map((service) => (
-                <option key={service.id}>{service.name}</option>
-              ))}
-          </SelectField>
-          <SelectField
-            label="Barber"
-            value={draft.barber}
-            onChange={(event) =>
-              setDraft({ ...draft, barber: event.target.value })
-            }
-          >
-            {barbers.map((barber) => (
-              <option key={barber.id}>{barber.name}</option>
-            ))}
-          </SelectField>
-          <div className="form-grid form-grid--two">
-            <TextField
-              label="Time"
-              type="time"
-              value={draft.time}
-              onChange={(event) =>
-                setDraft({ ...draft, time: event.target.value })
-              }
-            />
-            <SelectField
-              label="Period"
-              value={draft.meridiem}
-              onChange={(event) =>
-                setDraft({ ...draft, meridiem: event.target.value })
-              }
-            >
-              <option>AM</option>
-              <option>PM</option>
-            </SelectField>
-          </div>
-          <div className="modal-actions">
-            <Button
-              variant="secondary"
-              type="button"
-              onClick={() => setBookingModalOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" icon="calendar">
-              Create booking
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      <Modal
-        open={Boolean(editing)}
-        title="Edit booking"
-        onClose={() => setEditing(null)}
-      >
-        {editing && (
-          <form className="modal-form" onSubmit={saveBooking}>
-            <SelectField
-              label="Customer"
-              value={editing.customer}
-              onChange={(event) =>
-                setEditing({
-                  ...editing,
-                  customer: event.target.value,
-                  initials: createInitials(event.target.value),
-                })
-              }
-            >
-              {customers.map((customer) => (
-                <option key={customer.id}>{customer.name}</option>
-              ))}
-            </SelectField>
-            <SelectField
-              label="Service"
-              value={editing.service}
-              onChange={(event) =>
-                setEditing({ ...editing, service: event.target.value })
-              }
-            >
-              {services.map((service) => (
-                <option key={service.id}>{service.name}</option>
-              ))}
-            </SelectField>
-            <SelectField
-              label="Barber"
-              value={editing.barber}
-              onChange={(event) =>
-                setEditing({ ...editing, barber: event.target.value })
-              }
-            >
-              {barbers.map((barber) => (
-                <option key={barber.id}>{barber.name}</option>
-              ))}
-            </SelectField>
-            <div className="form-grid form-grid--two">
-              <TextField
-                label="Time"
-                type="time"
-                value={editing.time}
-                onChange={(event) =>
-                  setEditing({ ...editing, time: event.target.value })
-                }
-              />
-              <SelectField
-                label="Status"
-                value={editing.status}
-                onChange={(event) =>
-                  setEditing({
-                    ...editing,
-                    status: event.target.value as Booking["status"],
-                  })
-                }
-              >
-                <option>Upcoming</option>
-                <option>Completed</option>
-                <option>Cancelled</option>
-              </SelectField>
-            </div>
-            <div className="modal-actions">
-              <Button
-                variant="secondary"
-                type="button"
-                onClick={() => setEditing(null)}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" icon="check">
-                Save changes
-              </Button>
-            </div>
-          </form>
-        )}
-      </Modal>
-
-      <Modal
-        open={filtersOpen}
-        title="Filter bookings"
-        onClose={() => setFiltersOpen(false)}
-      >
-        <div className="modal-form">
-          <SelectField
-            label="Barber"
-            value={filterBarber}
-            onChange={(event) => setFilterBarber(event.target.value)}
-          >
-            <option>All barbers</option>
-            {barbers.map((barber) => (
-              <option key={barber.id}>{barber.name}</option>
-            ))}
-          </SelectField>
-          <SelectField
-            label="Service"
-            value={filterService}
-            onChange={(event) => setFilterService(event.target.value)}
-          >
-            <option>All services</option>
-            {services.map((service) => (
-              <option key={service.id}>{service.name}</option>
-            ))}
-          </SelectField>
-          <div className="modal-actions">
-            <Button type="button" onClick={() => setFiltersOpen(false)}>
-              Apply filters
-            </Button>
-          </div>
-        </div>
-      </Modal>
-    </>
-  );
+  return <>
+    <PageHeader title="Bookings" action={<Button icon="plus" disabled={loading || !customers.length || !barbers.length} onClick={openNewBooking}>New booking</Button>} />
+    <div className="booking-tabs-row"><Tabs active={tab} onChange={setTab} items={[{ id: "today", label: "Today", count: counts.today }, { id: "upcoming", label: "Upcoming", count: counts.upcoming }, { id: "completed", label: "Completed", count: counts.completed }, { id: "cancelled", label: "Cancelled", count: counts.cancelled }]} /><SearchInput value={search} onChange={setSearch} placeholder="Search bookings" /></div>
+    <div className="metrics-grid metrics-grid--four"><MetricCard label="All bookings" value={String(items.length)} icon="calendar" accent="blue" /><MetricCard label="Today" value={String(counts.today)} icon="clock" accent="amber" /><MetricCard label="Completed" value={String(counts.completed)} icon="checkCircle" accent="green" /><MetricCard label="Cancelled" value={String(counts.cancelled)} icon="x" accent="red" /></div>
+    <Panel className="bookings-panel"><SectionHeading title={tab === "today" ? "Today’s schedule" : `${statusLabel(tab as ApiBookingStatus)} bookings`} description="Bookings are saved to the local database." /><div className="booking-list">{loading ? <div className="staff-table__empty">Loading bookings…</div> : visible.length ? visible.map((booking) => <button className={`booking-row booking-row--${booking.status}`} type="button" key={booking.id} onClick={() => setSelected(booking)}><span className="booking-row__time"><strong>{formatTime(booking.time)}</strong><small>{formatDate(booking.date)}</small></span><span className="booking-row__customer"><Avatar initials={createInitials(booking.customerName)} tone="slate" size="sm" /><span><strong>{booking.customerName}</strong><small>{booking.customerEmail}</small></span></span><span className="booking-row__service"><strong>{booking.serviceName}</strong><small>with {booking.barberName}</small></span><span><Badge tone={statusTone(booking.status)}>{statusLabel(booking.status)}</Badge></span><strong className="booking-row__price">{formatCurrency(booking.price)}</strong></button>) : <EmptyState icon="calendar" title="No bookings found" description="Create a booking or switch to another view." />}</div></Panel>
+    <Modal open={bookingModalOpen} title="New booking" description="Reserve a time for a customer." onClose={() => !submitting && setBookingModalOpen(false)}><BookingForm value={draft} customers={customers} services={services} barbers={barbers} submitLabel="Create booking" submitting={submitting} onChange={setDraft} onSubmit={createBooking} onCancel={() => setBookingModalOpen(false)} /></Modal>
+    <Modal open={Boolean(selected)} title="Booking details" description={selected ? `Booking #${selected.id}` : undefined} onClose={() => setSelected(null)}>{selected && <div className="detail-modal"><div className="detail-modal__identity"><Avatar initials={createInitials(selected.customerName)} tone="slate" size="lg" /><div><strong>{selected.customerName}</strong><span>{selected.serviceName}</span></div><Badge tone={statusTone(selected.status)}>{statusLabel(selected.status)}</Badge></div><div className="detail-facts"><span><small>When</small><strong>{formatDate(selected.date)} · {formatTime(selected.time)}</strong></span><span><small>Barber</small><strong>{selected.barberName}</strong></span><span><small>Total</small><strong>{formatCurrency(selected.price)}</strong></span></div>{selected.status === "upcoming" && <div className="modal-actions"><Button variant="secondary" onClick={() => void updateStatus(selected, "completed")}>Mark completed</Button><Button variant="danger" onClick={() => void updateStatus(selected, "cancelled")}>Cancel booking</Button></div>}</div>}</Modal>
+  </>;
 }

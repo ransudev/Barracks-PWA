@@ -5,6 +5,7 @@ export type ViewId =
   | "login"
   | "customer-dashboard"
   | "customer-profile"
+  | "customer-booking"
   | "staff-dashboard"
   | "queue"
   | "bookings"

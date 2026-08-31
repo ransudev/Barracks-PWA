@@ -79,6 +79,32 @@ CREATE TABLE IF NOT EXISTS inventory_items (
 CREATE INDEX IF NOT EXISTS inventory_items_category_idx
   ON inventory_items (category);
 
+CREATE TABLE IF NOT EXISTS bookings (
+  id BIGSERIAL PRIMARY KEY,
+  customer_id INTEGER NOT NULL REFERENCES customers (id) ON DELETE CASCADE,
+  barber_id INTEGER NOT NULL REFERENCES barbers (id) ON DELETE RESTRICT,
+  service_id VARCHAR(80) NOT NULL,
+  service_name VARCHAR(160) NOT NULL,
+  service_price NUMERIC(12, 2) NOT NULL CHECK (service_price >= 0),
+  booking_date DATE NOT NULL,
+  booking_time TIME NOT NULL,
+  demo_key VARCHAR(80) UNIQUE,
+  status VARCHAR(20) NOT NULL DEFAULT 'upcoming'
+    CHECK (status IN ('upcoming', 'completed', 'cancelled')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS bookings_customer_date_idx
+  ON bookings (customer_id, booking_date DESC, booking_time DESC);
+
+CREATE INDEX IF NOT EXISTS bookings_date_idx
+  ON bookings (booking_date, booking_time);
+
+CREATE UNIQUE INDEX IF NOT EXISTS bookings_active_barber_slot_unique
+  ON bookings (barber_id, booking_date, booking_time)
+  WHERE status = 'upcoming';
+
 CREATE TABLE IF NOT EXISTS sessions (
   id BIGSERIAL PRIMARY KEY,
   token_hash VARCHAR(64) NOT NULL UNIQUE,

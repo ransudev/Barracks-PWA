@@ -5,6 +5,7 @@ import { StaffManagement } from "@/app/pages/admin/StaffManagement";
 import { InventoryPage } from "@/app/pages/staff/InventoryPage";
 import { CustomersPage } from "@/app/pages/staff/CustomersPage";
 import { StaffDashboard } from "@/app/pages/staff/StaffDashboard";
+import { BookingsPage } from "@/app/pages/staff/BookingsPage";
 import type { ViewId } from "@/app/types/domain";
 
 type PageRouterProps = {
@@ -25,6 +26,8 @@ export function PageRouter({ view, go, onToast }: PageRouterProps) {
       return <BarberProfile go={go} onToast={onToast} />;
     case "customers":
       return <CustomersPage onToast={onToast} />;
+    case "bookings":
+      return <BookingsPage onToast={onToast} />;
     case "inventory":
     case "admin-inventory":
       return <InventoryPage admin={view === "admin-inventory"} onToast={onToast} />;

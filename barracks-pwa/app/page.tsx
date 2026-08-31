@@ -5,6 +5,7 @@ import { AppShell } from "@/app/components/layout/AppShell";
 import { LoginPage } from "@/app/pages/auth/LoginPage";
 import { CustomerDashboard } from "@/app/pages/customer/CustomerDashboard";
 import { CustomerProfile } from "@/app/pages/customer/CustomerProfile";
+import { CustomerBookingPage } from "@/app/pages/customer/CustomerBookingPage";
 import { LandingPage } from "@/app/pages/public/LandingPage";
 import { PageRouter } from "@/app/pages/PageRouter";
 import { Toast } from "@/app/components/ui";
@@ -18,6 +19,7 @@ import {
 
 export default function Home() {
   const [view, setView] = useState<ViewId>("landing");
+  const [pendingView, setPendingView] = useState<ViewId | null>(null);
   const [currentUser, setCurrentUser] = useState<ApiUser | null>(null);
   const [search, setSearch] = useState("");
   const [toast, setToast] = useState("");
@@ -56,10 +58,11 @@ export default function Home() {
   }, []);
 
   function go(nextView: ViewId) {
-    const isCustomerView = ["customer-dashboard", "customer-profile"].includes(nextView);
-    const isWorkspaceView = !["landing", "login", "customer-dashboard", "customer-profile"].includes(nextView);
+    const isCustomerView = ["customer-dashboard", "customer-profile", "customer-booking"].includes(nextView);
+    const isWorkspaceView = !["landing", "login", "customer-dashboard", "customer-profile", "customer-booking"].includes(nextView);
 
     if (isCustomerView && (!currentUser || currentUser.role !== "customer")) {
+      setPendingView(nextView);
       setView("login");
       setSearch("");
       onToast("Sign in with a customer account to continue");
@@ -67,6 +70,7 @@ export default function Home() {
     }
 
     if (isWorkspaceView && (!currentUser || currentUser.role === "customer")) {
+      setPendingView(nextView);
       setView("login");
       setSearch("");
       onToast("Sign in to access the workspace");
@@ -89,7 +93,8 @@ export default function Home() {
   function handleLogin(user: ApiUser) {
     setCurrentUser(user);
     setSearch("");
-    setView(user.role === "administrator" ? "admin-dashboard" : user.role === "customer" ? "customer-dashboard" : "staff-dashboard");
+    setView(pendingView && ((user.role === "customer" && ["customer-dashboard", "customer-profile", "customer-booking"].includes(pendingView)) || (user.role !== "customer" && !["customer-dashboard", "customer-profile", "customer-booking"].includes(pendingView))) ? pendingView : user.role === "administrator" ? "admin-dashboard" : user.role === "customer" ? "customer-dashboard" : "staff-dashboard");
+    setPendingView(null);
     onToast(`Signed in as ${user.firstName} ${user.lastName}`);
   }
 
@@ -107,6 +112,7 @@ export default function Home() {
     } finally {
       setCurrentUser(null);
       setView("landing");
+      setPendingView(null);
       setSearch("");
       onToast(message);
     }
@@ -143,6 +149,15 @@ export default function Home() {
     return (
       <>
         <CustomerProfile go={go} onToast={onToast} onSignOut={handleSignOut} user={currentUser} />
+        <Toast message={toast} onClose={() => setToast("")} />
+      </>
+    );
+  }
+
+  if (view === "customer-booking" && currentUser?.role === "customer") {
+    return (
+      <>
+        <CustomerBookingPage go={go} onToast={onToast} onSignOut={handleSignOut} user={currentUser} />
         <Toast message={toast} onClose={() => setToast("")} />
       </>
     );

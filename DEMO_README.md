@@ -72,15 +72,18 @@ These are local demo credentials only. Do not use them in production.
 8. Sign out and sign in as Front Desk. Confirm that the Management selector is not visible.
 9. Open **Customers** to show the seeded customer profiles and preferred barbers.
 10. Sign out and sign in as the demo Customer to show the customer-only dashboard and profile.
+11. Open **Book**, choose a service, barber, date, and time, then confirm the appointment.
+12. Sign back in as Front Desk and open **Bookings** to see the saved appointment and mark it completed or cancelled.
 
 ## Seeded showcase data
 
 - Four barbers with available, busy, and unavailable statuses.
 - Six inventory items across Supplies, Products, and Equipment.
 - Four customer profiles with phone numbers, preferred barbers, and loyalty points.
+- Two upcoming bookings connected to the seeded customers and barbers.
 - One Front Desk account.
 
-The sprint intentionally leaves bookings, transactions, payments, queue management, and real visit history out of scope. Those areas show intentional empty or unavailable states where applicable.
+The booking flow is intentionally small: one-time appointments with one service, barber, date, and time. Transactions, payments, queue management, and real visit history remain out of scope.
 
 ## Troubleshooting
 
