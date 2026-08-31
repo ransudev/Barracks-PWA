@@ -13,36 +13,40 @@ You also need this project folder on your computer.
 
 ## 1. Open the project folder
 
-Open Terminal and move into the Next.js app folder. Replace the path below if your project is somewhere else:
+Open a command window and move into the Next.js app folder. Replace the example path if your project is somewhere else.
+
+On macOS, open **Terminal** and run:
 
 ```bash
 cd "/Users/your-name/Documents/Barracks Prototype/barracks-pwa"
+ls
 ```
 
-Check that you are in the right folder:
+On Windows, open **PowerShell** and run:
 
-```bash
-ls
+```powershell
+cd "C:\Users\your-name\Documents\Barracks Prototype\barracks-pwa"
+Get-ChildItem
 ```
 
 You should see files such as `package.json` and `.env.example`.
 
 ## 2. Check that Node.js and PostgreSQL are installed
 
-Run:
+Run this in either Terminal or PowerShell:
 
 ```bash
 node --version
 psql --version
 ```
 
-The Node.js version should be `20.9.0` or newer. If either command says `command not found`, install the missing program and open a new Terminal window.
+The Node.js version should be `20.9.0` or newer. If either command is not found, install the missing program and open a new command window.
 
 ## 3. Start PostgreSQL
 
 PostgreSQL must be running before Barracks can use customer, barber, inventory, booking, or login data.
 
-If you installed PostgreSQL with an app, open that app and start the database server. If you use Homebrew on macOS, the command is usually:
+On macOS, if you installed PostgreSQL with an app, open that app and start the database server. If you use Homebrew, the command is usually:
 
 ```bash
 brew services start postgresql
@@ -50,7 +54,15 @@ brew services start postgresql
 
 If your Homebrew installation uses a versioned PostgreSQL service, use the version shown by `brew services list`, for example `postgresql@16`.
 
-Create the local database once:
+On Windows, open **SQL Shell (psql)** or **pgAdmin**, start PostgreSQL, and create a database named `barracks`. In pgAdmin, right-click **Databases**, choose **Create → Database**, enter `barracks`, and save.
+
+You can also create it from PowerShell if the PostgreSQL commands are on your PATH:
+
+```powershell
+createdb -U postgres barracks
+```
+
+On macOS, create the local database once with:
 
 ```bash
 createdb barracks
@@ -60,7 +72,7 @@ If it says the database already exists, that is okay—continue to the next step
 
 ## 4. Install the app packages
 
-Make sure you are still inside `barracks-pwa/`, then run:
+Make sure you are still inside `barracks-pwa/`, then run this in either Terminal or PowerShell:
 
 ```bash
 npm install
@@ -70,10 +82,18 @@ This downloads the packages the app needs. You normally only need to run it once
 
 ## 5. Create your local settings file
 
-Copy the example settings file:
+Copy the example settings file.
+
+On macOS:
 
 ```bash
 cp .env.example .env.local
+```
+
+On Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env.local
 ```
 
 Open `.env.local` in a text editor. Use these local values unless your PostgreSQL setup uses a different username or password:
@@ -91,9 +111,11 @@ INITIAL_ADMIN_PASSWORD=choose-a-long-random-password
 
 Change `INITIAL_ADMIN_PASSWORD` to a password you will remember. Do not share or commit `.env.local`; it contains private database and login settings.
 
-## 6. Load the settings in Terminal
+## 6. Load the settings in your command window
 
-The Next.js app reads `.env.local` automatically, but the database setup scripts need you to load it into the current Terminal window:
+The Next.js app reads `.env.local` automatically. The database setup scripts need you to load the settings into the current command window first.
+
+On macOS, run:
 
 ```bash
 set -a
@@ -101,11 +123,23 @@ source .env.local
 set +a
 ```
 
-Run this again whenever you open a new Terminal window before running a migration or seed command.
+On Windows PowerShell, run:
+
+```powershell
+Get-Content .env.local | ForEach-Object {
+    if ($_ -match '^\s*([^#][^=]*)=(.*)$') {
+        $name = $matches[1].Trim()
+        $value = $matches[2].Trim()
+        Set-Item -Path "Env:$name" -Value $value
+    }
+}
+```
+
+Run the matching command again whenever you open a new command window before running a migration or seed command. Keep that window open while completing the next step.
 
 ## 7. Set up the database
 
-Run these commands one at a time:
+Run these commands one at a time in either Terminal or PowerShell:
 
 ```bash
 npm run db:migrate
@@ -131,7 +165,7 @@ npm run dev
 
 When you see that the server is ready, open [http://localhost:3000](http://localhost:3000) in your browser.
 
-Keep this Terminal window open while using the app. To stop the app, press `Ctrl+C` in that window.
+Keep the command window open while using the app. To stop the app, press `Ctrl+C` in that window.
 
 ## 9. Sign in
 
@@ -158,16 +192,33 @@ See [DEMO_README.md](DEMO_README.md) for the recommended walkthrough.
 
 ## If something goes wrong
 
-### `command not found: node` or `command not found: psql`
+### `command not found: node`, `command not found: psql`, or a Windows command is not recognized
 
-Install the missing program, close Terminal, open it again, and repeat the version check in step 2.
+Install the missing program, close the command window, open it again, and repeat the version check in step 2.
+
+### PowerShell says that `npm.ps1` cannot be loaded
+
+Use `npm.cmd` instead of `npm` in that PowerShell window. For example:
+
+```powershell
+npm.cmd install
+npm.cmd run dev
+```
 
 ### `database "barracks" does not exist`
 
-Start PostgreSQL, then run:
+Start PostgreSQL, then run the command for your computer.
+
+On macOS:
 
 ```bash
 createdb barracks
+```
+
+On Windows, use pgAdmin as described in step 3, or run:
+
+```powershell
+createdb -U postgres barracks
 ```
 
 If your database uses a different name, update the database name at the end of `DATABASE_URL` in `.env.local`.
@@ -178,12 +229,24 @@ PostgreSQL is probably not running. Start it, confirm that `.env.local` has the 
 
 ### A script says an environment variable is required
 
-Load `.env.local` in the same Terminal window:
+Load `.env.local` in the same command window. On macOS:
 
 ```bash
 set -a
 source .env.local
 set +a
+```
+
+On Windows PowerShell, run:
+
+```powershell
+Get-Content .env.local | ForEach-Object {
+    if ($_ -match '^\s*([^#][^=]*)=(.*)$') {
+        $name = $matches[1].Trim()
+        $value = $matches[2].Trim()
+        Set-Item -Path "Env:$name" -Value $value
+    }
+}
 ```
 
 Then run the database command again.
@@ -194,7 +257,7 @@ Check that the migration and administrator seed completed successfully. Use the 
 
 ### Port 3000 is already in use
 
-Start the app on another port:
+Start the app on another port. This command works in both macOS Terminal and Windows PowerShell:
 
 ```bash
 npm run dev -- --port 3001
