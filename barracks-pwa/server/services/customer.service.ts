@@ -79,7 +79,7 @@ function toCustomer(row: CustomerRow): CustomerRecord {
 export async function listCustomers(db: Pool): Promise<CustomerRecord[]> {
   const result = await db.query<CustomerRow>(
     `${customerSelect}
-      INNER JOIN roles r ON r.id = u.role_id AND r.name = 'customer'
+      INNER JOIN roles r ON r.id = u.role_id AND r.name = 'customer' AND u.deleted_at IS NULL
       ORDER BY u.first_name ASC, u.last_name ASC, c.id ASC`,
   );
   return result.rows.map(toCustomer);
@@ -88,7 +88,7 @@ export async function listCustomers(db: Pool): Promise<CustomerRecord[]> {
 export async function findCustomerById(db: Pool, id: number): Promise<CustomerRecord | null> {
   const result = await db.query<CustomerRow>(
     `${customerSelect}
-      INNER JOIN roles r ON r.id = u.role_id AND r.name = 'customer'
+      INNER JOIN roles r ON r.id = u.role_id AND r.name = 'customer' AND u.deleted_at IS NULL
       WHERE c.id = $1
       LIMIT 1`,
     [id],
@@ -102,7 +102,7 @@ export async function findCustomerByUserId(
 ): Promise<CustomerRecord | null> {
   const result = await db.query<CustomerRow>(
     `${customerSelect}
-      INNER JOIN roles r ON r.id = u.role_id AND r.name = 'customer'
+      INNER JOIN roles r ON r.id = u.role_id AND r.name = 'customer' AND u.deleted_at IS NULL
       WHERE c.user_id = $1
       LIMIT 1`,
     [userId],
@@ -120,7 +120,7 @@ export async function createCustomer(
     await client.query("BEGIN");
 
     const existingUser = await client.query<{ id: number }>(
-      "SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1",
+      "SELECT id FROM users WHERE LOWER(email) = LOWER($1) AND deleted_at IS NULL LIMIT 1",
       [input.email],
     );
 
@@ -182,7 +182,7 @@ export async function updateCustomer(
         SELECT c.user_id
         FROM customers c
         INNER JOIN users u ON u.id = c.user_id
-        INNER JOIN roles r ON r.id = u.role_id AND r.name = 'customer'
+        INNER JOIN roles r ON r.id = u.role_id AND r.name = 'customer' AND u.deleted_at IS NULL
         WHERE c.id = $1
         LIMIT 1
       `,

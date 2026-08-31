@@ -32,6 +32,11 @@ type CreateUserResponse = {
   errors?: Record<string, string[]>;
 };
 
+type DeleteUserResponse = {
+  success: boolean;
+  message?: string;
+};
+
 function responseMessage(
   body: { message?: string; errors?: Record<string, string[]> } | null,
   fallback: string,
@@ -175,6 +180,24 @@ export function StaffManagement({
     }
   }
 
+  async function deleteUser(item: StaffMember) {
+    if (!window.confirm(`Delete ${item.name}? The account will be deactivated and its record retained.`)) return;
+
+    try {
+      const response = await apiRequest(`/api/users/${item.id}`, { method: "DELETE" });
+      const body = await readApiBody<DeleteUserResponse>(response);
+
+      if (!response.ok || !body?.success) {
+        throw new Error(body?.message ?? "Unable to delete user account");
+      }
+
+      setItems((list) => list.filter((current) => current.id !== item.id));
+      onToast(`${item.name} deleted; the account record was retained`);
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : "Unable to delete user account");
+    }
+  }
+
   return (
     <>
       <PageHeader
@@ -224,6 +247,7 @@ export function StaffManagement({
             <span>Email</span>
             <span>Status</span>
             <span>Joined</span>
+            <span>Actions</span>
           </div>
           {loading ? (
             <div className="staff-table__empty">Loading user accounts…</div>
@@ -247,6 +271,11 @@ export function StaffManagement({
                   <Badge tone="success">{item.status}</Badge>
                 </span>
                 <span>{item.joined}</span>
+                <span className="row-actions">
+                  <button className="row-action row-action--danger" type="button" onClick={() => void deleteUser(item)}>
+                    Delete
+                  </button>
+                </span>
               </div>
             ))
           ) : (

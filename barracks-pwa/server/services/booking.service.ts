@@ -67,7 +67,7 @@ const bookingSelect = `
     b.updated_at
   FROM bookings b
   INNER JOIN customers c ON c.id = b.customer_id
-  INNER JOIN users cu ON cu.id = c.user_id
+  INNER JOIN users cu ON cu.id = c.user_id AND cu.deleted_at IS NULL
   INNER JOIN barbers br ON br.id = b.barber_id
 `;
 
@@ -134,7 +134,7 @@ export async function createBooking(
       SELECT c.id
       FROM customers c
       INNER JOIN users u ON u.id = c.user_id
-      INNER JOIN roles r ON r.id = u.role_id AND r.name = 'customer'
+      INNER JOIN roles r ON r.id = u.role_id AND r.name = 'customer' AND u.deleted_at IS NULL
       WHERE c.id = $1
       LIMIT 1
     `,

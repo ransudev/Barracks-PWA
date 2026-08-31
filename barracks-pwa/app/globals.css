@@ -498,7 +498,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .inventory-table__row { min-height: 60px; padding: 0 9px; border-bottom: 1px solid rgba(176, 176, 171, .58); color: var(--text-soft); font-size: 11px; }
 .inventory-table__row:last-child { border-bottom: 0; }
 .inventory-table__row:hover { background: rgba(242, 240, 234, .02); }
-.staff-table__head, .staff-table__row { min-width: 760px; display: grid; grid-template-columns: 1.25fr .8fr 1.3fr .75fr .6fr; gap: 15px; align-items: center; }
+.staff-table__head, .staff-table__row { min-width: 860px; display: grid; grid-template-columns: 1.25fr .8fr 1.3fr .75fr .6fr .6fr; gap: 15px; align-items: center; }
 .staff-table__row { min-height: 64px; padding: 0 9px; border-bottom: 1px solid rgba(176, 176, 171, .58); color: var(--text-soft); font-size: 11px; }
 .staff-table__row:last-child { border-bottom: 0; }
 .staff-table__row:hover { background: rgba(242, 240, 234, .02); }

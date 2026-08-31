@@ -234,8 +234,9 @@ All protected routes use the HTTP-only `barracks_session` cookie. JSON errors fo
 - `GET /api/users` — administrator only; lists public administrator/front-desk account records.
 - `POST /api/users` — administrator only; creates an administrator or front-desk account.
 - `GET /api/users/:id` — administrator only; reads one public user record.
+- `DELETE /api/users/:id` — administrator only; soft-deletes the account, revokes its sessions, and keeps the database record.
 
-There are no user update, delete, password-change, password-reset, invitation, or role-management endpoints yet.
+There are no user update, password-change, password-reset, invitation, or role-management endpoints yet. Deleted accounts are excluded from normal account lists, login, and session lookup.
 
 ### Customers
 
@@ -274,7 +275,7 @@ The backend uses raw parameterized SQL through `pg`. It does not use Prisma, Dri
 The current migration creates:
 
 - `roles` — supported role names and descriptions.
-- `users` — account identity, scrypt password hash, role, and timestamps.
+- `users` — account identity, scrypt password hash, role, optional `deleted_at`, and timestamps. Soft-deleted accounts remain stored but cannot sign in.
 - `sessions` — SHA-256 token hash, user, expiration, and creation time.
 - `barbers` — business name, availability status, commission rate, services completed, revenue, rating, and timestamps.
 - `customers` — one profile per customer user, phone, preferred barber, loyalty points, and timestamps.
@@ -359,7 +360,7 @@ The sprint backend is intentionally partial. The main remaining seams are:
 
 - In-memory view switching means modules are not deep-linkable or refresh-persistent.
 - The API does not yet cover queue, services, payments, transactions, reports, settings, or real visit history.
-- There are no user update/delete/password-reset or role-lifecycle APIs.
+- There are no user update/password-reset or role-lifecycle APIs. User deletion is a soft delete; the account row is retained and its sessions are revoked.
 - Dashboard and customer/barber summaries cover the sprint entities but do not yet form a complete reporting model.
 - Inventory has current quantities but no movement ledger, audit trail, or concurrency workflow.
 - There is no payment processor, notification delivery, calendar sync, email confirmation, rate limiting, MFA, or observability layer.

@@ -112,7 +112,13 @@ async function upsertUser(
   },
 ): Promise<number> {
   const existing = await client.query<{ id: number }>(
-    "SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1",
+    `
+      SELECT id
+      FROM users
+      WHERE LOWER(email) = LOWER($1)
+      ORDER BY deleted_at IS NULL DESC, id DESC
+      LIMIT 1
+    `,
     [input.email],
   );
   const passwordHash = await hashPassword(input.password);
@@ -123,7 +129,7 @@ async function upsertUser(
       `
         UPDATE users
         SET first_name = $1, last_name = $2, password_hash = $3,
-            role_id = $4, updated_at = NOW()
+            role_id = $4, deleted_at = NULL, updated_at = NOW()
         WHERE id = $5
       `,
       [input.firstName, input.lastName, passwordHash, selectedRoleId, existing.rows[0].id],

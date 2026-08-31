@@ -43,6 +43,7 @@ async function seedInitialAdministrator() {
         FROM users u
         INNER JOIN roles r ON r.id = u.role_id
         WHERE LOWER(u.email) = LOWER($1)
+          AND u.deleted_at IS NULL
         LIMIT 1
       `,
       [parsed.data.email],
@@ -74,7 +75,7 @@ async function seedInitialAdministrator() {
       `
         INSERT INTO users (first_name, last_name, email, password_hash, role_id)
         VALUES ($1, $2, $3, $4, $5)
-        ON CONFLICT (LOWER(email)) DO NOTHING
+        ON CONFLICT (LOWER(email)) WHERE deleted_at IS NULL DO NOTHING
         RETURNING id
       `,
       [

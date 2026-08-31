@@ -55,6 +55,7 @@ export async function findUserBySessionToken(
       INNER JOIN roles r ON r.id = u.role_id
       WHERE s.token_hash = $1
         AND s.expires_at > NOW()
+        AND u.deleted_at IS NULL
       LIMIT 1
     `,
     [hashSessionToken(token)],

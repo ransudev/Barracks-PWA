@@ -20,12 +20,18 @@ CREATE TABLE IF NOT EXISTS users (
   email VARCHAR(320) NOT NULL,
   password_hash TEXT NOT NULL,
   role_id INTEGER NOT NULL REFERENCES roles (id),
+  deleted_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+
+DROP INDEX IF EXISTS users_email_lower_unique;
+
 CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_unique
-  ON users (LOWER(email));
+  ON users (LOWER(email))
+  WHERE deleted_at IS NULL;
 
 CREATE INDEX IF NOT EXISTS users_role_id_idx
   ON users (role_id);

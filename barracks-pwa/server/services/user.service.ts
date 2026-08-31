@@ -71,6 +71,7 @@ export async function listUsers(db: Pool): Promise<PublicUser[]> {
   const result = await db.query<UserRow>(
     `${userSelect}
       WHERE r.name IN ('administrator', 'front_desk')
+        AND u.deleted_at IS NULL
       ORDER BY u.created_at DESC, u.id DESC`,
   );
   return result.rows.map(toPublicUser);
@@ -95,6 +96,7 @@ export async function findUserByEmail(
       FROM users u
       INNER JOIN roles r ON r.id = u.role_id
       WHERE LOWER(u.email) = LOWER($1)
+        AND u.deleted_at IS NULL
       LIMIT 1
     `,
     [email],
@@ -110,8 +112,42 @@ export async function findUserByEmail(
 }
 
 export async function findUserById(db: Pool, id: number): Promise<PublicUser | null> {
-  const result = await db.query<UserRow>(`${userSelect} WHERE u.id = $1`, [id]);
+  const result = await db.query<UserRow>(
+    `${userSelect} WHERE u.id = $1 AND u.deleted_at IS NULL`,
+    [id],
+  );
   return result.rows[0] ? toPublicUser(result.rows[0]) : null;
+}
+
+export async function softDeleteUser(db: Pool, id: number): Promise<boolean> {
+  const client = await db.connect();
+
+  try {
+    await client.query("BEGIN");
+    const deleted = await client.query<{ id: number }>(
+      `
+        UPDATE users
+        SET deleted_at = NOW(), updated_at = NOW()
+        WHERE id = $1 AND deleted_at IS NULL
+        RETURNING id
+      `,
+      [id],
+    );
+
+    if (!deleted.rowCount) {
+      await client.query("ROLLBACK");
+      return false;
+    }
+
+    await client.query("DELETE FROM sessions WHERE user_id = $1", [id]);
+    await client.query("COMMIT");
+    return true;
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function createUser(
@@ -124,7 +160,7 @@ export async function createUser(
     await client.query("BEGIN");
 
     const existingUser = await client.query<{ id: number }>(
-      "SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1",
+      "SELECT id FROM users WHERE LOWER(email) = LOWER($1) AND deleted_at IS NULL LIMIT 1",
       [input.email],
     );
 
