@@ -1,43 +1,82 @@
-# Running Barracks Locally
+# Run Barracks locally
 
-This guide explains how to install and run the Barracks Next.js application from a fresh checkout.
+This guide is for running Barracks on your own computer. You do not need to understand the code first—follow the steps in order.
 
-Run all commands from the Next.js project directory:
+## What you need
+
+Install these two programs before starting:
+
+- Node.js `20.9.0` or newer: [nodejs.org](https://nodejs.org/)
+- PostgreSQL: [postgresql.org/download](https://www.postgresql.org/download/)
+
+You also need this project folder on your computer.
+
+## 1. Open the project folder
+
+Open Terminal and move into the Next.js app folder. Replace the path below if your project is somewhere else:
 
 ```bash
-cd barracks-pwa
+cd "/Users/your-name/Documents/Barracks Prototype/barracks-pwa"
 ```
 
-## Requirements
+Check that you are in the right folder:
 
-- Node.js `20.9.0` or newer
-- npm
-- PostgreSQL running locally or on an accessible server
-- A PostgreSQL database named `barracks` (or another database name in `DATABASE_URL`)
+```bash
+ls
+```
 
-Check your Node.js version:
+You should see files such as `package.json` and `.env.example`.
+
+## 2. Check that Node.js and PostgreSQL are installed
+
+Run:
 
 ```bash
 node --version
+psql --version
 ```
 
-## 1. Install dependencies
+The Node.js version should be `20.9.0` or newer. If either command says `command not found`, install the missing program and open a new Terminal window.
 
-From `barracks-pwa/`, install the dependencies from the lockfile:
+## 3. Start PostgreSQL
+
+PostgreSQL must be running before Barracks can use customer, barber, inventory, booking, or login data.
+
+If you installed PostgreSQL with an app, open that app and start the database server. If you use Homebrew on macOS, the command is usually:
+
+```bash
+brew services start postgresql
+```
+
+If your Homebrew installation uses a versioned PostgreSQL service, use the version shown by `brew services list`, for example `postgresql@16`.
+
+Create the local database once:
+
+```bash
+createdb barracks
+```
+
+If it says the database already exists, that is okay—continue to the next step.
+
+## 4. Install the app packages
+
+Make sure you are still inside `barracks-pwa/`, then run:
 
 ```bash
 npm install
 ```
 
-## 2. Configure environment variables
+This downloads the packages the app needs. You normally only need to run it once, or after the dependencies change.
 
-Create a local environment file:
+## 5. Create your local settings file
+
+Copy the example settings file:
 
 ```bash
 cp .env.example .env.local
 ```
 
-Open `.env.local` and update the PostgreSQL connection details and initial administrator values:
+Open `.env.local` in a text editor. Use these local values unless your PostgreSQL setup uses a different username or password:
 
 ```text
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/barracks
@@ -50,9 +89,11 @@ INITIAL_ADMIN_EMAIL=admin@example.com
 INITIAL_ADMIN_PASSWORD=choose-a-long-random-password
 ```
 
-Do not commit `.env.local`. Database credentials and the initial administrator password are server-only secrets.
+Change `INITIAL_ADMIN_PASSWORD` to a password you will remember. Do not share or commit `.env.local`; it contains private database and login settings.
 
-The Next.js development server loads `.env.local` automatically. The standalone TypeScript database scripts do not, so export the values before running migrations or the administrator seed:
+## 6. Load the settings in Terminal
+
+The Next.js app reads `.env.local` automatically, but the database setup scripts need you to load it into the current Terminal window:
 
 ```bash
 set -a
@@ -60,95 +101,84 @@ source .env.local
 set +a
 ```
 
-Run that command again in a new terminal session before using the database scripts.
+Run this again whenever you open a new Terminal window before running a migration or seed command.
 
-## 3. Apply the database migration
+## 7. Set up the database
 
-Make sure PostgreSQL is running and the database in `DATABASE_URL` exists. Then run:
+Run these commands one at a time:
 
 ```bash
 npm run db:migrate
-```
-
-This creates the account/session tables plus the sprint tables for `barbers`, `customers`, and `inventory_items`, seeds the supported roles, and creates the required indexes.
-
-## 4. Create the initial administrator
-
-After the migration succeeds, run:
-
-```bash
 npm run db:seed-admin
-```
-
-The script creates the administrator using the `INITIAL_ADMIN_*` values. Running it again with the same administrator email is safe and makes no changes.
-
-## 5. Seed local showcase data
-
-To populate the sprint views with repeatable local demo records, run:
-
-```bash
 npm run db:seed-demo
 ```
 
-This adds four barbers, six inventory items, four customer profiles, two upcoming bookings, and one Front Desk account. It does not create transactions. The demo logins are `demo.frontdesk@barracks.local` / `frontdesk123` and `demo.customer.ana@barracks.local` / `customer123`.
+What they do:
 
-## 6. Start the development server
+- `db:migrate` creates the tables Barracks needs.
+- `db:seed-admin` creates the administrator account from `.env.local`.
+- `db:seed-demo` adds repeatable sample barbers, customers, inventory, bookings, and a Front Desk account.
 
-Start Next.js in development mode:
+The demo seed is safe to run again. It updates the demo records instead of creating duplicates.
+
+## 8. Start Barracks
+
+Run:
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser and sign in with the administrator email and password from `.env.local`.
+When you see that the server is ready, open [http://localhost:3000](http://localhost:3000) in your browser.
 
-The health endpoint can be checked from another terminal:
+Keep this Terminal window open while using the app. To stop the app, press `Ctrl+C` in that window.
+
+## 9. Sign in
+
+Use the administrator email and password from `.env.local`:
+
+```text
+Email: the value of INITIAL_ADMIN_EMAIL
+Password: the value of INITIAL_ADMIN_PASSWORD
+```
+
+You can also try the seeded demo accounts:
+
+```text
+Front Desk
+Email: demo.frontdesk@barracks.local
+Password: frontdesk123
+
+Customer
+Email: demo.customer.ana@barracks.local
+Password: customer123
+```
+
+See [DEMO_README.md](DEMO_README.md) for the recommended walkthrough.
+
+## If something goes wrong
+
+### `command not found: node` or `command not found: psql`
+
+Install the missing program, close Terminal, open it again, and repeat the version check in step 2.
+
+### `database "barracks" does not exist`
+
+Start PostgreSQL, then run:
 
 ```bash
-curl http://localhost:3000/api/health
+createdb barracks
 ```
 
-Expected response:
+If your database uses a different name, update the database name at the end of `DATABASE_URL` in `.env.local`.
 
-```json
-{"success":true,"service":"barracks-backend"}
-```
+### `connection refused` or `ECONNREFUSED`
 
-## Useful commands
+PostgreSQL is probably not running. Start it, confirm that `.env.local` has the right username, password, host, port, and database name, then rerun the failed command.
 
-Run the linter:
+### A script says an environment variable is required
 
-```bash
-npm run lint
-```
-
-Create a production build:
-
-```bash
-npm run build
-```
-
-Start the production build locally:
-
-```bash
-npm run start
-```
-
-Start the development server on another port if `3000` is already in use:
-
-```bash
-npm run dev -- --port 3001
-```
-
-## Common problems
-
-### PostgreSQL connection refused
-
-Make sure PostgreSQL is running, the database exists, and `DATABASE_URL` uses the correct username, password, host, port, and database name.
-
-### Seed script says an environment variable is required
-
-The database scripts do not load `.env.local` automatically. Run this in the same terminal before the script:
+Load `.env.local` in the same Terminal window:
 
 ```bash
 set -a
@@ -156,8 +186,30 @@ source .env.local
 set +a
 ```
 
-Then run `npm run db:seed-admin` again.
+Then run the database command again.
 
 ### Login does not work
 
-Confirm that the migration ran successfully, the administrator seed completed, and that you are using the exact email and password configured in the seed environment variables. The password placeholder in `.env.example` is not a usable password until you replace it.
+Check that the migration and administrator seed completed successfully. Use the exact email and password from `.env.local`. For the demo accounts, use the credentials listed above.
+
+### Port 3000 is already in use
+
+Start the app on another port:
+
+```bash
+npm run dev -- --port 3001
+```
+
+Then open [http://localhost:3001](http://localhost:3001).
+
+## Useful commands
+
+Run these from `barracks-pwa/`:
+
+```bash
+npm run dev          # Start the development server
+npm run lint         # Check code style
+npx tsc --noEmit     # Check TypeScript
+npm run build        # Create a production build
+npm run start        # Serve the production build
+```
