@@ -1,8 +1,13 @@
-# Barracks System Overview
+# Barracks Barbers & Shaves
 
-Barracks Barbers & Shaves is a Next.js App Router PWA prototype in `barracks-pwa/`. It uses the existing React/TypeScript UI, PostgreSQL through `pg`, Zod validation, and a cookie-backed session system.
+Barracks is a Next.js App Router PWA prototype for barbershop operations. The active application lives in `barracks-pwa/` and combines a public landing page, customer booking/account flows, staff operations, administrator management, and a PostgreSQL-backed sprint implementation.
 
-## Run locally
+This is the canonical project guide. It combines the product context, design direction, runtime architecture, codebase map, API contract, database notes, and current limitations in one place. The two supporting documents stay focused on their specific jobs:
+
+- [Running Barracks locally](running.md) covers environment setup, migrations, seeding, and troubleshooting.
+- [Demo guide](DEMO_README.md) covers demo accounts, seeded showcase data, and the recommended walkthrough.
+
+## Quick start
 
 From `barracks-pwa/`:
 
@@ -13,7 +18,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-For database-backed work, provide the variables described in `barracks-pwa/.env.example`, then run:
+For database-backed screens, configure the variables in `barracks-pwa/.env.example`, export them in the shell, then run:
 
 ```bash
 npm run db:migrate
@@ -21,122 +26,357 @@ npm run db:seed-admin
 npm run db:seed-demo
 ```
 
-`db:seed-demo` is safe to rerun and populates the sprint views with clearly marked local demo records: four barbers, six inventory items, four customers, two bookings, and one Front Desk account. It resets only those demo records when rerun.
+The full setup sequence is in [running.md](running.md). The demo seed is repeatable and creates clearly marked local records for four barbers, six inventory items, four customers, two bookings, and one Front Desk account.
 
-Demo logins:
+Demo credentials:
 
 - Front Desk: `demo.frontdesk@barracks.local` / `frontdesk123`
 - Customer: `demo.customer.ana@barracks.local` / `customer123`
 
+## Product and sprint scope
+
+Barracks connects the daily rhythm of a barbershop—bookings, barber availability, customers, inventory, and management oversight—inside one shared product. Staff need fast scanning and low-friction updates on the shop floor; administrators need a wider business view; customers need a simple account and booking path.
+
+The active `sprint-1` experience includes:
+
+- Public landing page with Barracks branding, service information, branches, contact details, and login/customer-account actions.
+- Customer signup, login, profile details, preferred barber, loyalty points, booking, and appointment history.
+- Staff workspace with barber dashboard, bookings, customers, barbers, and inventory.
+- Management workspace with dashboard counts, staff account management, barber management, and inventory.
+- PostgreSQL-backed CRUD for sprint entities and database-backed booking creation/status updates.
+- Role-aware workspace switching between Management and Shop floor.
+
+The home view uses a single Next.js `/` route and switches between the active surfaces with an in-memory `ViewId`. The browser URL does not currently identify an individual module.
+
+Queue management, payments, transactions, service management, reports, calendar sync, notifications, email confirmations, and complete visit history remain outside the active sprint backend. Older prototype page components and seed collections for those areas remain in the repository as reference material, but they are not rendered by the current `PageRouter`.
+
+### Roles and access
+
+There are three account roles:
+
+- `administrator`: can enter Management and Shop floor, manage staff accounts, and access all sprint data.
+- `front_desk`: works in Shop floor and can manage customers, barbers, bookings, and inventory. It cannot enter Management or manage user accounts.
+- `customer`: can access only their own customer dashboard/profile and booking flow.
+
+Barbers are business records, not login identities. They do not have accounts or sessions. The migration reassigns legacy `barber` user rows to `front_desk` and removes the obsolete role.
+
+## Design direction
+
+### North star
+
+The product follows a restrained monochrome Barracks system. The public site feels warm, editorial, and reference-led; the authenticated product feels like a quiet shop-floor ledger. Both use the same neutral material language, while density and interaction patterns differ by context.
+
+Use tonal hierarchy, spacing, rules, and photography before reaching for color. Green, amber, and red are functional status signals only.
+
+### Color system
+
+| Role | Value | Use |
+| --- | --- | --- |
+| Near black | `#0B0D0D` | Public hero, dark sections, application room |
+| Charcoal | `#0F1111` | Sidebar and deep shell surfaces |
+| Dark gray | `#1C1E1F` | Main operational panels and cards |
+| Elevated gray | `#232526` | Controls, popovers, and raised surfaces |
+| Warm off-white | `#F2F0EA` | Primary text and primary actions on dark surfaces |
+| Muted gray | `#B0B0AB` / `#7E807D` | Supporting copy, labels, and metadata |
+| Muted green | `#94A18A` | Healthy/success state |
+| Muted amber | `#B09A76` | Attention/pending state |
+| Muted red | `#C27676` | Error/destructive/risk state |
+
+Do not reintroduce saturated blue or cyan as a brand color, primary action, icon treatment, link treatment, or decorative accent. Every status must have a readable text label and must not rely on color alone.
+
+### Typography
+
+- `Libre Baskerville` is the display face for public editorial headings and meaningful identity moments.
+- `Geist` is the body and interface face for navigation, controls, descriptions, and operational content.
+- `Geist Mono` is for times, prices, compact labels, metadata, and other system-like notation.
+
+Keep serif display styling out of dense tables, forms, and operational copy. Public body text should remain readable and comfortably narrow; internal text should favor scanability.
+
+### Layout and material
+
+The public composition is a paced editorial read: compact warm-paper navigation, a split dark/photo hero, a monochrome image collage, service cards, a dark barber roster, branch details, an about/contact section, and a dark CTA/footer close. Public surfaces are square or nearly square, flat at rest, and structured by thin rules, hard crops, and tonal transitions rather than rounded SaaS-style cards or decorative shadows.
+
+The internal workspace uses dark mineral layers, a persistent sidebar, sticky context/topbar treatment, page headers, metrics, panels, tables, modals, and clear action zones. Internal controls and panels may use the existing softened radius and restrained elevation. The shared UI primitives live in `barracks-pwa/app/components/ui/`.
+
+### Product and accessibility principles
+
+- Keep the next operational action obvious.
+- Separate staff operations from management oversight without splitting the brand.
+- Let bookings, barber availability, customers, inventory, and reporting tell one connected story as the backend grows.
+- Make routine updates safe, reversible, and explicit.
+- Use semantic controls, visible keyboard focus, readable contrast, clear status labels, and text alongside state colors.
+- Preserve factual Barracks content for Davao, its branches, services, roster, contact details, and hours. Synthetic data and placeholder imagery must remain clearly replaceable.
+
 ## Architecture
+
+The current sprint uses a hybrid path: the active sprint entities are served by Next.js Route Handlers and PostgreSQL, while the public content and older out-of-scope prototype modules still use local TypeScript data and, in some cases, browser state.
+
+### Server-backed request path
 
 ```text
 React UI
   -> app/lib/api.ts
   -> Next.js Route Handler in app/api/
-  -> session / role check + Zod validation
+  -> session lookup / role check + Zod validation
   -> server/services/
   -> server/db/pool.ts
   -> PostgreSQL
 ```
 
-- `app/` contains the App Router entry point, client-driven view router, UI components, and feature screens.
-- `app/api/` contains Next.js Route Handlers. Client code uses same-origin `/api/...` requests.
-- `server/auth/` resolves the HTTP-only `barracks_session` cookie and applies role checks.
-- `server/schemas/` contains Zod schemas and field-level validation formatting.
-- `server/services/` contains database and password/session logic.
-- `server/db/migrations/001_user_management.sql` creates the roles, users, sessions, barbers, customers, and inventory tables.
-- `app/data/` still contains legacy sample data used by out-of-scope prototype screens. Sprint-scoped customer, barber, and inventory screens use PostgreSQL instead.
+Client components call same-origin `/api/...` endpoints. They never connect to PostgreSQL directly. Route Handlers own HTTP parsing and response formatting; server services own database operations and business rules; schemas own input validation.
 
-## Current sprint scope
+### Client-only path
 
-The home view switches between the seven requested surfaces without introducing URL routing for each view:
+```text
+React UI
+  -> app/data/ seed content
+  -> component state or usePersistentState
+  -> browser localStorage for retained prototype modules
+```
 
-- Landing page: public marketing page with Login and customer-account actions.
-- Admin dashboard: database-backed counts and links for the sprint records.
-- Unified barber dashboard: administrator/front-desk live roster overview with selectable barber business profile details and performance metrics.
-- Unified customer account: one authenticated dashboard combines profile details, preferred barber, loyalty points, appointment booking, and appointment history.
-- Booking system: customers can book a service, barber, date, and time; staff can view bookings and mark them completed or cancelled.
-- Item profile/inventory: PostgreSQL-backed item CRUD with In Stock, Low Stock, and Out of Stock states.
+The current sprint pages use the API for customers, barbers, inventory, bookings, staff accounts, and customer sessions. The landing page still consumes static content from `app/data/landing.ts`, and booking creation uses the small service catalog in `app/data/services.ts` to resolve a service snapshot.
 
-The existing App Router and `PageRouter` patterns remain in place. Queue, payments, transactions, reports, service management, and real visit history remain outside this sprint.
+### Runtime composition
 
-## Roles and access
+`barracks-pwa/app/layout.tsx` is the root document shell. It loads Geist, Geist Mono, and Libre Baskerville, imports the global stylesheet, and defines page metadata.
 
-The only account roles are:
+`barracks-pwa/app/page.tsx` is the client composition root. It:
 
-- `administrator`: admin dashboard, staff/front-desk account management, customer management, barber management, inventory management, and all scoped data.
-- `front_desk`: customer, barber, inventory, and barber-dashboard operations in the Shop floor workspace. It cannot see or enter the Management workspace, and it cannot create or manage user accounts.
-- `customer`: login/signup, own customer account dashboard, and own booking flow only.
+- Tracks the active `ViewId`, pending destination, current user, search value, and toast message.
+- Restores the current session through `GET /api/auth/me` when the app loads.
+- Redirects unauthenticated users to login when a protected view is selected.
+- Redirects customers to the customer area and prevents them from entering staff views.
+- Chooses the Management or Shop floor shell for authenticated staff.
+- Handles sign-out through `POST /api/auth/logout`.
 
-Barbers are business records, not users. They do not have accounts or sessions. Existing prototype `barber` user rows are reassigned to `front_desk` when the migration is run, then the obsolete role is removed.
+`barracks-pwa/app/pages/PageRouter.tsx` maps active view identifiers to feature pages. `AppShell` owns sidebar navigation, workspace context, search, profile/sign-out controls, and the internal frame. This is UI routing and is not a substitute for server-side authorization.
+
+## Repository structure
+
+```text
+.
+├── README.md                         # Canonical product, design, system, and codebase guide
+├── DEMO_README.md                    # Focused demo walkthrough and showcase accounts
+├── running.md                        # Focused local setup and troubleshooting guide
+└── barracks-pwa/
+    ├── app/
+    │   ├── api/                      # Next.js Route Handlers
+    │   │   ├── auth/                 # login, signup, logout, current-user lookup
+    │   │   ├── barbers/              # barber list and CRUD
+    │   │   ├── bookings/              # booking list/create/status update
+    │   │   ├── customers/             # staff list/create/update and customer self-service
+    │   │   ├── health/                # unauthenticated health response
+    │   │   ├── inventory/             # inventory list and CRUD
+    │   │   └── users/                 # administrator-only staff account APIs
+    │   ├── components/
+    │   │   ├── bookings/              # shared booking form
+    │   │   ├── customers/             # shared customer form
+    │   │   ├── inventory/             # shared inventory form
+    │   │   ├── layout/                # AppShell
+    │   │   └── ui/                    # buttons, fields, panels, dialogs, badges, icons
+    │   ├── constants/                 # navigation and role options
+    │   ├── data/                      # landing content and legacy prototype seed data
+    │   ├── hooks/                     # browser persistence hook for legacy modules
+    │   ├── lib/                       # frontend API wrapper and response types
+    │   ├── pages/                     # public, auth, customer, staff, and admin screens
+    │   ├── types/                     # shared frontend domain types
+    │   ├── utils/                     # formatting, CSV download, and view helpers
+    │   ├── globals.css                # tokens, shared styles, shell, modules, responsive rules
+    │   ├── layout.tsx                 # document shell and metadata
+    │   ├── page.tsx                   # client composition root
+    │   └── favicon.ico
+    ├── public/                        # logo, branch imagery, and static assets
+    ├── server/
+    │   ├── auth/                      # session lookup and role guards
+    │   ├── db/                        # PostgreSQL pool and SQL migrations
+    │   ├── schemas/                   # Zod schemas and validation formatting
+    │   └── services/                  # database-facing domain and session services
+    ├── scripts/                       # migration and seed commands
+    ├── package.json                   # scripts and dependencies
+    ├── next.config.ts
+    ├── postcss.config.mjs
+    ├── tsconfig.json
+    └── .env.example                   # server-only local environment contract
+```
+
+### Active page surfaces
+
+| Surface | Main implementation | Data path |
+| --- | --- | --- |
+| Public landing | `app/pages/public/LandingPage.tsx` and `app/pages/public/landing/*` | Static `app/data/landing.ts` and bundled imagery |
+| Login/signup | `app/pages/auth/LoginPage.tsx` | `/api/auth/login`, `/api/auth/signup` |
+| Customer dashboard/profile | `app/pages/customer/CustomerDashboard.tsx` | `/api/customers/me`, `/api/bookings`, `/api/barbers` |
+| Customer booking | `app/pages/customer/CustomerBookingPage.tsx` | Service catalog plus `/api/barbers` and `/api/bookings` |
+| Staff dashboard | `app/pages/staff/StaffDashboard.tsx` | `/api/barbers` |
+| Staff bookings | `app/pages/staff/BookingsPage.tsx` | `/api/bookings`, `/api/customers`, `/api/barbers` |
+| Staff customers | `app/pages/staff/CustomersPage.tsx` | `/api/customers`, `/api/barbers` |
+| Staff/admin barbers | `app/pages/admin/BarbersManagement.tsx` | `/api/barbers` |
+| Staff/admin inventory | `app/pages/staff/InventoryPage.tsx` | `/api/inventory` |
+| Admin dashboard | `app/pages/admin/AdminDashboard.tsx` | `/api/barbers`, `/api/customers`, `/api/inventory` |
+| Admin staff accounts | `app/pages/admin/StaffManagement.tsx` | `/api/users` |
+
+Legacy prototype screens such as `QueuePage`, `PaymentPage`, `ReportsPage`, `ServicesManagement`, and settings pages remain available as source references but are not active destinations in the sprint view switchboard.
 
 ## API routes
 
-Authentication:
+All protected routes use the HTTP-only `barracks_session` cookie. JSON errors follow the general shape `{ success: false, message, errors? }`; validation errors include field-level messages.
 
-- `POST /api/auth/login` validates credentials, verifies the scrypt password hash, creates a session, and sets the HTTP-only cookie.
-- `POST /api/auth/signup` creates a `customer` user plus linked customer record and starts a session.
-- `POST /api/auth/logout` deletes the current session and expires the cookie.
-- `GET /api/auth/me` returns the current public user.
+### Authentication
 
-User management:
+- `POST /api/auth/login` — public. Validates credentials, verifies the scrypt password hash, creates a seven-day database session, and sets the HTTP-only cookie.
+- `POST /api/auth/signup` — public. Validates customer details, creates a customer user plus linked customer record, and starts a session.
+- `POST /api/auth/logout` — clears the current database session and expires the cookie.
+- `GET /api/auth/me` — returns the authenticated public user or `401` when no valid session exists.
+- `GET /api/health` — public, database-independent health response.
 
-- `GET /api/users` lists administrator and front-desk accounts for administrators only.
-- `POST /api/users` creates administrator or front-desk accounts for administrators only.
-- `GET /api/users/:id` reads one user for administrators only.
+### User management
 
-Customers:
+- `GET /api/users` — administrator only; lists public administrator/front-desk account records.
+- `POST /api/users` — administrator only; creates an administrator or front-desk account.
+- `GET /api/users/:id` — administrator only; reads one public user record.
 
-- `GET /api/customers` lists customer records for administrators/front desk.
-- `POST /api/customers` creates a customer account/profile for administrators/front desk.
-- `GET /api/customers/:id` and `PUT /api/customers/:id` read/update a customer for administrators/front desk.
-- `GET /api/customers/me` and `PUT /api/customers/me` read/update only the authenticated customer's own record.
+There are no user update, delete, password-change, password-reset, invitation, or role-management endpoints yet.
 
-Barbers:
+### Customers
 
-- `GET /api/barbers` and `POST /api/barbers` list/create barber business records for administrators/front desk.
-- `GET /api/barbers/:id`, `PUT /api/barbers/:id`, and `DELETE /api/barbers/:id` read/update/delete barber records for administrators/front desk.
+- `GET /api/customers` — administrator/front desk; lists customer profiles.
+- `POST /api/customers` — administrator/front desk; creates a customer account/profile.
+- `GET /api/customers/:id` and `PUT /api/customers/:id` — administrator/front desk; read/update a customer profile.
+- `GET /api/customers/me` and `PUT /api/customers/me` — customer only; read/update the profile linked to the current session.
 
-Inventory:
+### Barbers
 
-- `GET /api/inventory` and `POST /api/inventory` list/create inventory items for administrators/front desk.
-- `GET /api/inventory/:id`, `PUT /api/inventory/:id`, and `DELETE /api/inventory/:id` read/update/delete inventory items for administrators/front desk.
+- `GET /api/barbers` — administrator, front desk, or customer; lists barber business records.
+- `POST /api/barbers` — administrator/front desk; creates a barber.
+- `GET /api/barbers/:id`, `PUT /api/barbers/:id`, and `DELETE /api/barbers/:id` — administrator/front desk; read/update/delete a barber.
 
-Bookings:
+### Inventory
 
-- `GET /api/bookings` lists all bookings for administrators/front desk, or only the authenticated customer's bookings.
-- `POST /api/bookings` creates an upcoming booking. Customers book for themselves; staff can choose a customer.
-- `PATCH /api/bookings/:id` lets administrators/front desk mark a booking completed or cancelled.
+- `GET /api/inventory` and `POST /api/inventory` — administrator/front desk; list/create inventory items.
+- `GET /api/inventory/:id`, `PUT /api/inventory/:id`, and `DELETE /api/inventory/:id` — administrator/front desk; read/update/delete an item.
 
-All protected routes authenticate with the existing session system. Client components never access PostgreSQL directly.
+Inventory state is derived from quantity and minimum stock: In Stock, Low Stock, or Out of Stock. The current implementation does not create inventory movement or audit records.
 
-## Database
+### Bookings
 
-The project uses raw parameterized SQL through `pg`; it does not use Prisma, Drizzle, Express, Hono, or another backend framework.
+- `GET /api/bookings` — administrator/front desk receive all bookings; customers receive only their own bookings.
+- `POST /api/bookings` — administrator/front desk can select a customer; customers can create only their own booking. The request includes barber, service, date, and time.
+- `PATCH /api/bookings/:id` — administrator/front desk can mark a booking `completed` or `cancelled`.
+
+Booking creation validates the date/time, confirms that the customer and barber exist, resolves the service from the local catalog, and prevents an active duplicate barber/date/time slot with a database constraint.
+
+## Database and server layer
+
+The backend uses raw parameterized SQL through `pg`. It does not use Prisma, Drizzle, Express, Hono, or another backend framework.
+
+`server/db/pool.ts` creates the PostgreSQL pool from `DATABASE_URL`, optionally enables SSL through `DATABASE_SSL`, and uses `DATABASE_POOL_MAX` with a default of `10`. Migrations are stored in `server/db/migrations/001_user_management.sql` and run transactionally by `scripts/db-migrate.ts`.
 
 The current migration creates:
 
-- `roles`, `users`, and `sessions` for account/session infrastructure.
-- `barbers`: `first_name`, `last_name`, `status`, optional `commission_rate`, `services_done`, `revenue`, `rating`, timestamps.
-- `customers`: unique `user_id`, `phone`, nullable `preferred_barber_id`, `loyalty_points`, timestamps.
-- `inventory_items`: `name`, `category`, `quantity`, `minimum_stock`, `unit_cost`, timestamps.
-- `bookings`: customer, barber, service snapshot, price, date, time, status, and timestamps. An active barber/date/time slot is unique.
+- `roles` — supported role names and descriptions.
+- `users` — account identity, scrypt password hash, role, and timestamps.
+- `sessions` — SHA-256 token hash, user, expiration, and creation time.
+- `barbers` — business name, availability status, commission rate, services completed, revenue, rating, and timestamps.
+- `customers` — one profile per customer user, phone, preferred barber, loyalty points, and timestamps.
+- `inventory_items` — item name, category, quantity, minimum stock, unit cost, and timestamps.
+- `bookings` — customer/barber relationships, service snapshot, price, date/time, status, demo key, and timestamps.
 
-The migration is wrapped in a transaction by `scripts/db-migrate.ts`. Passwords are hashed with Node's `crypto.scrypt`; plaintext passwords are never stored or returned.
+Important database constraints include case-insensitive unique user email, valid role/status/category values, non-negative quantities and monetary values, customer/user uniqueness, foreign keys, and a unique active barber slot for upcoming bookings.
 
-## Validation and authorization
+`scripts/seed-admin.ts` creates the initial administrator from `INITIAL_ADMIN_*` variables and is safe to rerun for the same administrator email. `scripts/seed-demo.ts` upserts repeatable demo records identified by `demo_key` and does not reset unrelated local records.
 
-`server/schemas/user.schema.ts` validates login and account creation. `server/schemas/sprint.schema.ts` validates customer, barber, inventory, and booking input. Strict schemas reject unknown fields, and route handlers return field-level validation errors as JSON.
+## Authentication, validation, and authorization
 
-`server/auth/require-admin.ts` protects administrator-only user-management routes. `server/auth/require-role.ts` protects staff resources. Customer profile routes check the authenticated user's role and resolve the customer by `user_id`, so customers cannot select another customer record by ID.
+Passwords are hashed with Node's `crypto.scrypt` using a random salt. The stored format includes the algorithm parameters, salt, and derived key. Login verifies the derived key with a timing-safe comparison. Plaintext passwords are never stored or returned.
 
-## Verification commands
+Session behavior:
+
+- The raw random session token is sent only in the HTTP-only `barracks_session` cookie.
+- Only the token's SHA-256 hash is stored in `sessions`.
+- Sessions expire after seven days.
+- Production cookies are `secure`, use `sameSite: lax`, and are scoped to `/`.
+- Logout deletes the database session and expires the cookie.
+
+Zod schemas live under `server/schemas/`:
+
+- `user.schema.ts` validates login and staff account creation.
+- `sprint.schema.ts` validates barber, inventory, booking, customer signup, and customer profile input.
+
+Schemas are strict, reject unknown fields, enforce bounds and enum values, and are applied before service/database work. `requireAdministrator`, `requireStaff`, and `requireRoles` resolve the current session and return `401` or `403` responses before protected operations run.
+
+The browser does not send an admin token. Private credentials, database URLs, and seed passwords must remain server-only and must not use a `NEXT_PUBLIC_` prefix.
+
+## Environment variables
+
+The contract is documented in `barracks-pwa/.env.example`:
+
+```text
+DATABASE_URL
+DATABASE_SSL
+DATABASE_POOL_MAX
+INITIAL_ADMIN_FIRST_NAME
+INITIAL_ADMIN_LAST_NAME
+INITIAL_ADMIN_EMAIL
+INITIAL_ADMIN_PASSWORD
+```
+
+The Next.js dev server loads `.env.local` automatically. The standalone migration and seed scripts do not, so export the file before running database commands:
 
 ```bash
+set -a
+source .env.local
+set +a
+```
+
+Never commit `.env.local` or real credentials. Obsolete variables from the former separate-server setup—such as `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_ADMIN_API_TOKEN`, `ADMIN_API_TOKEN`, `CORS_ORIGIN`, and `PORT`—are not used by the current app.
+
+## Dependencies and tooling
+
+- Next.js `16.3.1` provides the App Router and Route Handlers.
+- React `19.2.8` provides the client UI.
+- TypeScript provides strict typing across app, server, and scripts.
+- `pg` provides the PostgreSQL pool and queries.
+- Zod provides request validation.
+- `tsx` runs TypeScript database scripts.
+- Tailwind's PostCSS integration is installed, but the UI is primarily authored in `app/globals.css`.
+
+Useful commands from `barracks-pwa/`:
+
+```bash
+npm run dev
 npm run lint
 npx tsc --noEmit
 npm run build
+npm run start
+git diff --check
 ```
 
-The public landing page remains usable when the database is unavailable. Database-backed workspace screens show explicit loading, error, and empty states until PostgreSQL is configured and migrated. Booking options use the small service catalog in `barracks-pwa/app/data/services.ts`; payments, notifications, calendar sync, and email confirmations are not included.
+For Next.js-specific changes, read the repository guidance in `barracks-pwa/AGENTS.md` and the matching installed guide under `barracks-pwa/node_modules/next/dist/docs/` before editing routing, layouts, server/client boundaries, caching, or build configuration.
+
+## Current limitations and next steps
+
+The sprint backend is intentionally partial. The main remaining seams are:
+
+- In-memory view switching means modules are not deep-linkable or refresh-persistent.
+- The API does not yet cover queue, services, payments, transactions, reports, settings, or real visit history.
+- There are no user update/delete/password-reset or role-lifecycle APIs.
+- Dashboard and customer/barber summaries cover the sprint entities but do not yet form a complete reporting model.
+- Inventory has current quantities but no movement ledger, audit trail, or concurrency workflow.
+- There is no payment processor, notification delivery, calendar sync, email confirmation, rate limiting, MFA, or observability layer.
+- Some legacy prototype modules still use seed data or `localStorage`; those paths should not be treated as production persistence.
+- No automated unit, integration, end-to-end, accessibility, or visual regression test suite is configured.
+
+The recommended evolution is incremental: add URL-backed routes, expand authenticated server boundaries, make each domain use one canonical repository/query path, add inventory movements and booking/payment integrity rules, persist settings, then add automated coverage, observability, audit logging, rate limiting, and deployment documentation.
+
+## Contribution rules
+
+- Put reusable visual behavior in `app/components/ui` and shared workflows in `app/components/<domain>`.
+- Keep shell and navigation behavior in `app/components/layout`.
+- Put HTTP endpoints under `app/api` and server-only logic under `server`.
+- Keep database queries out of client components and use `app/lib/api.ts` for same-origin requests.
+- Add Zod schemas for new request payloads and keep business/database operations in services.
+- Add a migration when the database shape changes.
+- Preserve accessible labels, keyboard focus, dialog semantics, and text status cues.
+- Use the existing neutral design language; do not reintroduce saturated decorative accents.
+- Update this root README whenever code, configuration, dependencies, database, API, or architecture behavior changes.
+- Before handoff, run TypeScript, lint, build, and diff checks, and manually verify affected UI flows at desktop and mobile widths.

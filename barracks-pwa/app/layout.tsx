@@ -38,7 +38,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           STORY: visitors understand the Barracks standard, browse services and barbers, find a Davao chair, and book an appointment.
           FIRST VIEWPORT: a compact light navbar above a dark two-column hero, followed immediately by a two-image tools-and-chair collage.
           FORM: brief-pinned reference-led editorial barbershop composition.
-          FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+          FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and the repository README
         */}
         {children}
       </body>
