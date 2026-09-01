@@ -415,9 +415,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .detail-modal { padding: 22px; }
 .detail-modal__identity { align-items: center; display: flex; gap: 12px; }
 .detail-modal__identity > div { min-width: 0; flex: 1; }
-.detail-modal__identity strong, .detail-modal__identity span { display: block; }
-.detail-modal__identity strong { color: var(--text); font-size: 16px; }
-.detail-modal__identity span { margin-top: 3px; color: var(--text-muted); font-size: 12px; }
+.detail-modal__identity > div > strong, .detail-modal__identity > div > span { display: block; }
+.detail-modal__identity > div > strong { color: var(--text); font-size: 16px; }
+.detail-modal__identity > div > span { margin-top: 3px; color: var(--text-muted); font-size: 12px; }
 .detail-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 24px; padding: 15px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
 .detail-facts small, .detail-facts strong { display: block; }
 .detail-facts small { color: var(--text-muted); font-size: 10px; }
