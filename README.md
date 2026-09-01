@@ -271,9 +271,9 @@ Booking creation validates the date/time, confirms that the customer and barber 
 
 ## Database and server layer
 
-The backend uses raw parameterized SQL through `pg`. It does not use Prisma, Drizzle, Express, Hono, or another backend framework. The same server layer works with either a local PostgreSQL database or a hosted Supabase PostgreSQL database; the active target is selected only by `DATABASE_URL`.
+The backend uses raw parameterized SQL through `pg`. It does not use Prisma, Drizzle, Express, Hono, or another backend framework. The same server layer works with either a local PostgreSQL database or a hosted Supabase PostgreSQL database; the active target is selected by `DATABASE_URL`, with `POSTGRES_URL` as the Vercel Supabase-integration fallback.
 
-`server/db/pool.ts` creates the PostgreSQL pool from `DATABASE_URL`, optionally enables SSL through `DATABASE_SSL`, and uses `DATABASE_POOL_MAX` with a default of `10`. Migrations are stored in `server/db/migrations/001_user_management.sql` and run transactionally by `scripts/db-migrate.ts`.
+`server/db/pool.ts` creates the PostgreSQL pool from `DATABASE_URL` or `POSTGRES_URL`, optionally enables SSL through `DATABASE_SSL`, and uses `DATABASE_POOL_MAX` with a default of `10`. Migrations are stored in `server/db/migrations/001_user_management.sql` and run transactionally by `scripts/db-migrate.ts`.
 
 The current migration creates:
 
@@ -331,9 +331,9 @@ The environment is intentionally portable:
 | Runtime | `DATABASE_URL` | `DATABASE_SSL` | Purpose |
 | --- | --- | --- | --- |
 | Local | Local PostgreSQL URL ending in `/barracks` | `false` | Local development and demo data |
-| Vercel | Supabase transaction-pooler URL for the Barracks database | `true` | Hosted frontend and API routes |
+| Vercel | Supabase transaction-pooler URL for the Barracks database, or integration-provided `POSTGRES_URL` | `true` | Hosted frontend and API routes |
 
-To use Supabase without changing the code, apply the migration and repeatable demo seed to the Supabase database, then add these server-only variables to the Vercel project:
+To use Supabase with an explicit connection string, apply the migration and repeatable demo seed to the Supabase database, then add these server-only variables to the Vercel project:
 
 ```text
 DATABASE_URL=<Supabase transaction-pooler connection string>

@@ -121,7 +121,7 @@ DATABASE_SSL=true
 DATABASE_POOL_MAX=3
 ```
 
-Apply the Barracks migration and demo seed to that database before starting the hosted app. Keep the connection string server-only; do not prefix it with `NEXT_PUBLIC_` or paste it into client-side code. Vercel uses its own environment variables, so switching Vercel to Supabase does not replace or modify your local PostgreSQL database.
+The Vercel Supabase integration can provide `POSTGRES_URL` automatically; the app uses it when `DATABASE_URL` is not set. Apply the Barracks migration and demo seed to that database before starting the hosted app. Keep connection strings server-only; do not prefix them with `NEXT_PUBLIC_` or paste them into client-side code. Vercel uses its own environment variables, so switching Vercel to Supabase does not replace or modify your local PostgreSQL database.
 
 ## 6. Load the settings in your command window
 
