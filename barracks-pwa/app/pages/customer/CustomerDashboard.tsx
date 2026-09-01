@@ -224,7 +224,6 @@ export function CustomerDashboard({
                       icon="calendar"
                       title="No appointments yet"
                       description="Choose a service and time to reserve your next chair."
-                      action={<Button size="sm" onClick={() => go("customer-booking")}>Book an appointment</Button>}
                     />
                   )}
                 </Panel>
