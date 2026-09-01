@@ -111,6 +111,18 @@ INITIAL_ADMIN_PASSWORD=choose-a-long-random-password
 
 Change `INITIAL_ADMIN_PASSWORD` to a password you will remember. Do not share or commit `.env.local`; it contains private database and login settings.
 
+### Optional: use the Supabase database
+
+The application can use Supabase without changing the frontend or API code. Keep the local values above for local development. For a hosted environment, use the Supabase transaction-pooler connection string for the `simplecrudapp` project instead:
+
+```text
+DATABASE_URL=<Supabase transaction-pooler connection string>
+DATABASE_SSL=true
+DATABASE_POOL_MAX=3
+```
+
+Apply the Barracks migration and demo seed to that database before starting the hosted app. Keep the connection string server-only; do not prefix it with `NEXT_PUBLIC_` or paste it into client-side code. Vercel uses its own environment variables, so switching Vercel to Supabase does not replace or modify your local PostgreSQL database.
+
 ## 6. Load the settings in your command window
 
 The Next.js app reads `.env.local` automatically. The database setup scripts need you to load the settings into the current command window first.

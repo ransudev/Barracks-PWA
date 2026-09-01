@@ -271,7 +271,7 @@ Booking creation validates the date/time, confirms that the customer and barber 
 
 ## Database and server layer
 
-The backend uses raw parameterized SQL through `pg`. It does not use Prisma, Drizzle, Express, Hono, or another backend framework.
+The backend uses raw parameterized SQL through `pg`. It does not use Prisma, Drizzle, Express, Hono, or another backend framework. The same server layer works with either a local PostgreSQL database or a hosted Supabase PostgreSQL database; the active target is selected only by `DATABASE_URL`.
 
 `server/db/pool.ts` creates the PostgreSQL pool from `DATABASE_URL`, optionally enables SSL through `DATABASE_SSL`, and uses `DATABASE_POOL_MAX` with a default of `10`. Migrations are stored in `server/db/migrations/001_user_management.sql` and run transactionally by `scripts/db-migrate.ts`.
 
@@ -284,6 +284,8 @@ The current migration creates:
 - `customers` — one profile per customer user, phone, preferred barber, loyalty points, and timestamps.
 - `inventory_items` — item name, category, quantity, minimum stock, unit cost, and timestamps.
 - `bookings` — customer/barber relationships, service snapshot, price, date/time, status, demo key, and timestamps.
+
+The migration is compatible with the existing Supabase project `simplecrudapp`. Its Barracks tables are protected with PostgreSQL row-level security. The Next.js server connects through the database connection string and keeps authorization in the application session/role guards; no Supabase secret or database credential is sent to the browser.
 
 Important database constraints include case-insensitive unique user email, valid role/status/category values, non-negative quantities and monetary values, customer/user uniqueness, foreign keys, and a unique active barber slot for upcoming bookings.
 
@@ -323,6 +325,23 @@ INITIAL_ADMIN_LAST_NAME
 INITIAL_ADMIN_EMAIL
 INITIAL_ADMIN_PASSWORD
 ```
+
+The environment is intentionally portable:
+
+| Runtime | `DATABASE_URL` | `DATABASE_SSL` | Purpose |
+| --- | --- | --- | --- |
+| Local | Local PostgreSQL URL ending in `/barracks` | `false` | Local development and demo data |
+| Vercel | Supabase transaction-pooler URL for the Barracks database | `true` | Hosted frontend and API routes |
+
+To use Supabase without changing the code, apply the migration and repeatable demo seed to the Supabase database, then add these server-only variables to the Vercel project:
+
+```text
+DATABASE_URL=<Supabase transaction-pooler connection string>
+DATABASE_SSL=true
+DATABASE_POOL_MAX=3
+```
+
+Keep `DATABASE_URL` and all `INITIAL_ADMIN_*` values out of `NEXT_PUBLIC_*` variables. The local `.env.local` and the Vercel environment variables are separate, so local PostgreSQL remains available as a fallback and for offline development.
 
 The Next.js dev server loads `.env.local` automatically. The standalone migration and seed scripts do not, so export the file before running database commands:
 
