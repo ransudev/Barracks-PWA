@@ -31,7 +31,7 @@ export function AdminDashboard({ go, onToast }: { go: (view: ViewId) => void; on
 
   const attention = inventory.filter((item) => item.quantity <= item.minimumStock).length;
   return <>
-    <PageHeader title="Admin dashboard" action={<Button icon="plus" onClick={() => go("barbers")}>Add barber</Button>} />
+    <PageHeader title="Admin dashboard" action={<Button icon="plus" onClick={() => go("admin-barbers")}>Add barber</Button>} />
     <div className="metrics-grid metrics-grid--four"><MetricCard label="Customer accounts" value={String(customers.length)} icon="users" accent="blue" /><MetricCard label="Total barbers" value={String(barbers.length)} icon="scissors" accent="green" /><MetricCard label="Inventory items" value={String(inventory.length)} icon="box" accent="violet" /><MetricCard label="Stock needing attention" value={String(attention)} icon="info" accent="amber" /></div>
     <Panel className="dashboard-lower-grid"><SectionHeading title="Low-stock items" />{attention ? <div className="admin-dashboard-low-stock">{inventory.filter((item) => item.quantity <= item.minimumStock).map((item) => <div key={item.id}><span><strong>{item.name}</strong><small>{item.category}</small></span><span>{item.quantity} / {item.minimumStock}</span></div>)}</div> : <EmptyState icon="check" title="All stock levels are healthy" description="Items below their minimum will appear here." />}</Panel>
   </>;

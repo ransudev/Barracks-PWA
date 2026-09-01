@@ -1,3 +1,4 @@
+import { requireAdministrator } from "@/server/auth/require-admin";
 import { requireStaff } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { formatValidationErrors, inventoryItemSchema } from "@/server/schemas/sprint.schema";
@@ -48,7 +49,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const authorizationResponse = await requireStaff();
+  const authorizationResponse = await requireAdministrator();
   if (authorizationResponse) return authorizationResponse;
   const id = parseId((await params).id);
   if (!id) return Response.json({ success: false, message: "Invalid inventory item id" }, { status: 400 });

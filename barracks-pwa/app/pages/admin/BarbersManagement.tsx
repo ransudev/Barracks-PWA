@@ -13,6 +13,7 @@ import {
   Modal,
   PageHeader,
   Panel,
+  SearchInput,
   SectionHeading,
   SelectField,
   TextField,
@@ -45,12 +46,16 @@ function statusTone(status: ApiBarber["status"]): "success" | "warning" | "neutr
   return status === "available" ? "success" : status === "busy" ? "warning" : "neutral";
 }
 
-function formatMemberSince(date: string) {
-  return new Date(date).toLocaleDateString(undefined, { month: "short", year: "numeric" });
-}
-
 function barberCommission(barber: ApiBarber) {
   return barber.commissionRate === null ? null : barber.revenue * barber.commissionRate / 100;
+}
+
+function responseMessage(
+  body: { message?: string; errors?: Record<string, string[]> } | null,
+  fallback: string,
+) {
+  const validationMessage = body?.errors ? Object.values(body.errors).flat().join(" ") : "";
+  return validationMessage || body?.message || fallback;
 }
 
 export function BarbersManagement({
@@ -61,12 +66,15 @@ export function BarbersManagement({
   canDelete: boolean;
 }) {
   const [items, setItems] = useState<ApiBarber[]>([]);
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<ApiBarber | null>(null);
   const [form, setForm] = useState<BarberForm>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [commissionRateDraft, setCommissionRateDraft] = useState("");
   const [commissionModalOpen, setCommissionModalOpen] = useState(false);
   const [commissionSaving, setCommissionSaving] = useState(false);
@@ -99,6 +107,7 @@ export function BarbersManagement({
   function openCreate() {
     setForm(emptyForm);
     setEditing(null);
+    setFormError("");
     setModalOpen(true);
   }
 
@@ -110,11 +119,13 @@ export function BarbersManagement({
       status: barber.status,
       commissionRate: barber.commissionRate === null ? "" : String(barber.commissionRate),
     });
+    setFormError("");
     setModalOpen(true);
   }
 
   async function saveBarber(event: FormEvent) {
     event.preventDefault();
+    setFormError("");
     setSubmitting(true);
     try {
       const payload = {
@@ -127,14 +138,14 @@ export function BarbersManagement({
         method: editing ? "PUT" : "POST",
         body: JSON.stringify(payload),
       });
-      const body = await readApiBody<{ success: boolean; barber?: ApiBarber; message?: string }>(response);
-      if (!response.ok || !body?.success || !body.barber) throw new Error(body?.message ?? "Unable to save barber");
+      const body = await readApiBody<{ success: boolean; barber?: ApiBarber; message?: string; errors?: Record<string, string[]> }>(response);
+      if (!response.ok || !body?.success || !body.barber) throw new Error(responseMessage(body, "Unable to save barber"));
       const savedBarber = body.barber;
       setItems((current) => editing ? current.map((item) => item.id === savedBarber.id ? savedBarber : item) : [savedBarber, ...current]);
       setModalOpen(false);
-      onToast(`${displayName(savedBarber)} ${editing ? "updated" : "added to the roster"}`);
+      onToast(`${displayName(savedBarber)} ${editing ? "updated" : "added"}`);
     } catch (error) {
-      onToast(error instanceof Error ? error.message : "Unable to save barber");
+      setFormError(error instanceof Error ? error.message : "Unable to save barber");
     } finally {
       setSubmitting(false);
     }
@@ -142,14 +153,18 @@ export function BarbersManagement({
 
   async function deleteBarber(barber: ApiBarber) {
     if (!window.confirm(`Delete ${displayName(barber)} from the roster?`)) return;
-    const response = await apiRequest(`/api/barbers/${barber.id}`, { method: "DELETE" });
-    const body = await readApiBody<{ success: boolean; message?: string }>(response);
-    if (!response.ok || !body?.success) {
-      onToast(body?.message ?? "Unable to delete barber");
-      return;
+    setDeletingId(barber.id);
+    try {
+      const response = await apiRequest(`/api/barbers/${barber.id}`, { method: "DELETE" });
+      const body = await readApiBody<{ success: boolean; message?: string }>(response);
+      if (!response.ok || !body?.success) throw new Error(body?.message ?? "Unable to delete barber");
+      setItems((current) => current.filter((item) => item.id !== barber.id));
+      onToast(`${displayName(barber)} removed from the roster`);
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : "Unable to delete barber");
+    } finally {
+      setDeletingId(null);
     }
-    setItems((current) => current.filter((item) => item.id !== barber.id));
-    onToast(`${displayName(barber)} removed from the roster`);
   }
 
   function openCommissionRate() {
@@ -199,12 +214,14 @@ export function BarbersManagement({
   const totalCommission = items.reduce((total, barber) => total + (barberCommission(barber) ?? 0), 0);
   const commissionRates = [...new Set(items.map((barber) => barber.commissionRate).filter((rate): rate is number => rate !== null))];
   const commissionRateLabel = commissionRates.length === 1 ? `${commissionRates[0]}%` : commissionRates.length ? "Mixed" : "—";
+  const filtered = items.filter((barber) => `${displayName(barber)} ${barber.status} ${barber.commissionRate ?? ""}`.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <>
       <PageHeader
-        title="Barber Management"
-        action={<><Button variant="secondary" iconAfter="chevronDown" onClick={openCommissionRate}>Set Commission Rate</Button><Button icon="plus" onClick={openCreate}>Add Barber</Button></>}
+        title="Barber management"
+        description="Create, update, and manage the barber roster."
+        action={<><Button variant="secondary" iconAfter="chevronDown" onClick={openCommissionRate}>Set commission rate</Button><Button icon="plus" onClick={openCreate}>Add barber</Button></>}
       />
       <div className="metrics-grid metrics-grid--four">
         <MetricCard label="Total Barbers" value={String(items.length)} icon="scissors" accent="blue" />
@@ -213,35 +230,39 @@ export function BarbersManagement({
         <MetricCard label="Total Commission" value={formatCurrency(totalCommission)} icon="spark" accent="violet" />
       </div>
 
-      <Panel className="barber-management-panel">
-        <SectionHeading title="Barbers" />
-        <div className="barber-management-list">
-          {loading ? <div className="staff-table__empty">Loading barber profiles…</div> : loadError ? <div className="staff-table__empty">{loadError}</div> : items.length ? items.map((barber) => (
-            <article className="barber-management-card" key={barber.id}>
-              <div className="barber-management-card__intro">
-                <Avatar initials={createInitials(displayName(barber))} tone="slate" size="lg" />
-                <div>
-                  <h3>{displayName(barber)}</h3>
-                  <small>Member since {formatMemberSince(barber.createdAt)}</small>
-                </div>
-                <Badge tone={statusTone(barber.status)}>{statusLabel(barber.status)}</Badge>
-              </div>
-              <div className="barber-management-card__stats">
-                <span><small>Services Done</small><strong>{barber.servicesDone}</strong></span>
-                <span><small>Revenue</small><strong className="barber-stat--revenue">{formatCurrency(barber.revenue)}</strong></span>
-                <span><small>Commission</small><strong className="barber-stat--commission">{barberCommission(barber) === null ? "—" : formatCurrency(barberCommission(barber) ?? 0)}</strong></span>
-                <span><small>Rating</small><strong className="barber-rating">{barber.rating === null ? "—" : <><span>{barber.rating.toFixed(1)}</span><Icon name="star" size={13} /></>}</strong></span>
-              </div>
-              <div className="barber-management-card__actions">
-                <button className="row-action" type="button" onClick={() => openEdit(barber)}><Icon name="edit" size={14} /> Edit profile</button>
-                {canDelete && <button className="row-action row-action--danger" type="button" onClick={() => void deleteBarber(barber)}>Delete</button>}
-              </div>
-            </article>
-          )) : <EmptyState icon="scissors" title="No barbers yet" description="Add the first barber profile to start the operational roster." />}
+      <Panel className="staff-table-panel barber-crud-panel">
+        <SectionHeading title="Barber records" description="Manage roster details and compensation data." action={<SearchInput value={search} onChange={setSearch} placeholder="Search barbers" />} />
+        <div className="barber-table">
+          <div className="barber-table__head">
+            <span>Name</span>
+            <span>Status</span>
+            <span>Services</span>
+            <span>Revenue</span>
+            <span>Commission</span>
+            <span>Rating</span>
+            <span>Actions</span>
+          </div>
+          {loading ? <div className="staff-table__empty">Loading barbers…</div> : loadError ? <div className="staff-table__empty">{loadError}</div> : filtered.length ? filtered.map((barber) => (
+            <div className="barber-table__row" key={barber.id}>
+              <span className="table-person">
+                <Avatar initials={createInitials(displayName(barber))} tone="slate" size="sm" />
+                <span><strong>{displayName(barber)}</strong><small>Barber #{barber.id}</small></span>
+              </span>
+              <span><Badge tone={statusTone(barber.status)}>{statusLabel(barber.status)}</Badge></span>
+              <span>{barber.servicesDone}</span>
+              <span className="barber-table__revenue">{formatCurrency(barber.revenue)}</span>
+              <span className="barber-table__commission">{barber.commissionRate === null ? "—" : `${barber.commissionRate}%`}</span>
+              <span className="barber-table__rating">{barber.rating === null ? "—" : <><span>{barber.rating.toFixed(1)}</span><Icon name="star" size={13} /></>}</span>
+              <span className="row-actions">
+                <button className="row-action row-action--icon" type="button" onClick={() => openEdit(barber)} disabled={deletingId === barber.id} aria-label={`Edit ${displayName(barber)}`} title={`Edit ${displayName(barber)}`}><Icon name="edit" size={16} /></button>
+                {canDelete && <button className="row-action row-action--icon row-action--danger" type="button" onClick={() => void deleteBarber(barber)} disabled={deletingId === barber.id} aria-label={`${deletingId === barber.id ? "Deleting" : "Delete"} ${displayName(barber)}`} title={`${deletingId === barber.id ? "Deleting" : "Delete"} ${displayName(barber)}`}><Icon name={deletingId === barber.id ? "refresh" : "trash"} size={16} /></button>}
+              </span>
+            </div>
+          )) : <EmptyState icon="scissors" title="No barbers found" description="Add a barber or try a different search." action={<Button size="sm" icon="plus" onClick={openCreate}>Add barber</Button>} />}
         </div>
       </Panel>
 
-      <Modal open={modalOpen} title={editing ? "Edit barber profile" : "Add barber"} description="Barbers are business records managed by the shop team; they do not sign in." onClose={() => !submitting && setModalOpen(false)}>
+      <Modal open={modalOpen} title={editing ? "Edit barber" : "Add barber"} description="Barbers are business records managed by the shop team; they do not sign in." onClose={() => !submitting && setModalOpen(false)}>
         <form className="modal-form" onSubmit={saveBarber}>
           <div className="form-grid form-grid--two">
             <TextField label="First name" value={form.firstName} onChange={(event) => setForm({ ...form, firstName: event.target.value })} />
@@ -253,9 +274,10 @@ export function BarbersManagement({
             <option value="unavailable">Unavailable</option>
           </SelectField>
           <TextField label="Commission rate (optional)" type="number" min="0" max="100" step="0.5" value={form.commissionRate} onChange={(event) => setForm({ ...form, commissionRate: event.target.value })} placeholder="e.g. 40" />
+          {formError && <p className="form-error">{formError}</p>}
           <div className="modal-actions">
             <Button variant="secondary" type="button" onClick={() => setModalOpen(false)}>Cancel</Button>
-            <Button type="submit" icon="check" disabled={submitting}>{submitting ? "Saving…" : "Save profile"}</Button>
+            <Button type="submit" icon="check" disabled={submitting}>{submitting ? "Saving…" : "Save changes"}</Button>
           </div>
         </form>
       </Modal>

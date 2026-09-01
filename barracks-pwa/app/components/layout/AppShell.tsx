@@ -6,7 +6,6 @@ import {
   Avatar,
   IconButton,
   Logo,
-  SearchInput,
 } from "@/app/components/ui";
 import { Icon } from "@/app/components/ui/icons";
 import type { ApiUser } from "@/app/lib/api";
@@ -17,8 +16,6 @@ type AppShellProps = {
   area: ShellArea;
   active: ViewId;
   go: (view: ViewId) => void;
-  search: string;
-  setSearch: (value: string) => void;
   onToast: (message: string) => void;
   currentUser: ApiUser;
   onSignOut: () => void;
@@ -35,6 +32,10 @@ function roleLabel(user: ApiUser): string {
   return "Administrator";
 }
 
+function dashboardForArea(area: ShellArea): ViewId {
+  return area === "admin" ? "admin-dashboard" : "staff-dashboard";
+}
+
 function Sidebar({
   area,
   active,
@@ -44,13 +45,14 @@ function Sidebar({
   onSignOut,
   collapsed,
   onToggle,
-}: Omit<AppShellProps, "children" | "search" | "setSearch"> & {
+}: Omit<AppShellProps, "children"> & {
   collapsed: boolean;
   onToggle: () => void;
 }) {
   const isManagement = area === "admin";
   const canSwitchWorkspace = currentUser.role === "administrator";
   const navigation = isManagement ? adminNavigation : staffNavigation;
+  const homeView = dashboardForArea(area);
 
   return (
     <aside
@@ -58,7 +60,7 @@ function Sidebar({
       className={`sidebar ${collapsed ? "is-collapsed" : ""}`}
     >
       <div className="sidebar__brand">
-        <Logo onClick={() => go("landing")} />
+        <Logo onClick={() => go(homeView)} />
         <IconButton
           className="sidebar__toggle"
           label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -153,8 +155,6 @@ function Sidebar({
 function Topbar({
   area,
   go,
-  search,
-  setSearch,
   onToast,
   currentUser,
   onSignOut,
@@ -166,11 +166,12 @@ function Topbar({
   const name = displayName(currentUser);
   const initials = createInitials(name);
   const role = roleLabel(currentUser);
+  const homeView = dashboardForArea(area);
 
   return (
     <header className="topbar">
       <div className="topbar__mobile-logo">
-        <Logo compact onClick={() => go("landing")} />
+        <Logo compact onClick={() => go(homeView)} />
       </div>
       <div className="topbar__context">
         <span>{isManagement ? "Management" : "Shop floor"}</span>
@@ -181,13 +182,6 @@ function Topbar({
       </div>
 
       <div className="topbar__actions">
-        <SearchInput
-          value={search}
-          onChange={setSearch}
-          placeholder="Search the workspace"
-          className="topbar__search"
-        />
-
         <div className="topbar__popover-wrap">
           <IconButton
             label="View notifications"
@@ -284,8 +278,6 @@ export function AppShell({
   area,
   active,
   go,
-  search,
-  setSearch,
   onToast,
   currentUser,
   onSignOut,
@@ -311,8 +303,6 @@ export function AppShell({
         <Topbar
           area={area}
           go={go}
-          search={search}
-          setSearch={setSearch}
           onToast={onToast}
           currentUser={currentUser}
           onSignOut={onSignOut}

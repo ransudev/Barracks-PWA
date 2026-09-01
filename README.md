@@ -46,7 +46,7 @@ The active `sprint-1` experience includes:
 - PostgreSQL-backed CRUD for sprint entities and database-backed booking creation/status updates.
 - Role-aware workspace switching between Management and Shop floor.
 
-The home view uses a single Next.js `/` route and switches between the active surfaces with an in-memory `ViewId`. The browser URL does not currently identify an individual module.
+The app uses URL-backed Next.js routes for the active surfaces. The browser restores the requested page after refresh, and protected routes rehydrate the current account from the HTTP-only session cookie before rendering the workspace.
 
 Queue management, payments, transactions, service management, reports, calendar sync, notifications, email confirmations, and complete visit history remain outside the active sprint backend. Older prototype page components and seed collections for those areas remain in the repository as reference material, but they are not rendered by the current `PageRouter`.
 
@@ -143,16 +143,16 @@ The current sprint pages use the API for customers, barbers, inventory, bookings
 
 `barracks-pwa/app/layout.tsx` is the root document shell. It loads Geist, Geist Mono, and Libre Baskerville, imports the global stylesheet, and defines page metadata.
 
-`barracks-pwa/app/page.tsx` is the client composition root. It:
+`barracks-pwa/app/components/BarracksApp.tsx` is the client composition root. It:
 
 - Tracks the active `ViewId`, pending destination, current user, search value, and toast message.
 - Restores the current session through `GET /api/auth/me` when the app loads.
-- Redirects unauthenticated users to login when a protected view is selected.
+- Redirects unauthenticated users to login when a protected view is selected, preserving the requested destination after sign-in.
 - Redirects customers to the customer area and prevents them from entering staff views.
 - Chooses the Management or Shop floor shell for authenticated staff.
 - Handles sign-out through `POST /api/auth/logout`.
 
-`barracks-pwa/app/pages/PageRouter.tsx` maps active view identifiers to feature pages. `AppShell` owns sidebar navigation, workspace context, search, profile/sign-out controls, and the internal frame. This is UI routing and is not a substitute for server-side authorization.
+`barracks-pwa/app/utils/routes.ts` maps active view identifiers to canonical browser paths, while `barracks-pwa/app/[...slug]/page.tsx` exposes those paths through the App Router. `barracks-pwa/app/pages/PageRouter.tsx` maps active view identifiers to feature pages. `AppShell` owns sidebar navigation, workspace context, search, profile/sign-out controls, and the internal frame. This client routing is not a substitute for server-side authorization.
 
 ## Repository structure
 
@@ -172,6 +172,7 @@ The current sprint pages use the API for customers, barbers, inventory, bookings
     │   │   ├── inventory/             # inventory list and CRUD
     │   │   └── users/                 # administrator-only staff account APIs
     │   ├── components/
+    │   │   ├── BarracksApp.tsx          # persistent client app and session hydration
     │   │   ├── bookings/              # shared booking form
     │   │   ├── customers/             # shared customer form
     │   │   ├── inventory/             # shared inventory form
@@ -183,10 +184,11 @@ The current sprint pages use the API for customers, barbers, inventory, bookings
     │   ├── lib/                       # frontend API wrapper and response types
     │   ├── pages/                     # public, auth, customer, staff, and admin screens
     │   ├── types/                     # shared frontend domain types
-    │   ├── utils/                     # formatting, CSV download, and view helpers
+    │   ├── utils/                     # formatting, CSV download, view helpers, and route mapping
     │   ├── globals.css                # tokens, shared styles, shell, modules, responsive rules
     │   ├── layout.tsx                 # document shell and metadata
-    │   ├── page.tsx                   # client composition root
+    │   ├── page.tsx                   # public root route
+    │   ├── [...slug]/page.tsx         # validated URL-backed app routes
     │   └── favicon.ico
     ├── public/                        # logo, branch imagery, and static assets
     ├── server/
@@ -380,7 +382,7 @@ For Next.js-specific changes, read the repository guidance in `barracks-pwa/AGEN
 
 The sprint backend is intentionally partial. The main remaining seams are:
 
-- In-memory view switching means modules are not deep-linkable or refresh-persistent.
+- Out-of-scope modules such as queue, payments, services, reports, and settings still need their own rendered screens and backend workflows.
 - The API does not yet cover queue, services, payments, transactions, reports, settings, or real visit history.
 - There are no user update/password-reset or role-lifecycle APIs. User deletion is a soft delete; the account row is retained and its sessions are revoked.
 - Dashboard and customer/barber summaries cover the sprint entities but do not yet form a complete reporting model.

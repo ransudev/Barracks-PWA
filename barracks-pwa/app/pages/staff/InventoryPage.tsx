@@ -44,7 +44,7 @@ function statusTone(item: ApiInventoryItem): "danger" | "warning" | "success" {
   return item.quantity === 0 ? "danger" : item.quantity <= item.minimumStock ? "warning" : "success";
 }
 
-export function InventoryPage({ onToast, admin = false }: { onToast: (message: string) => void; admin?: boolean }) {
+export function InventoryPage({ onToast, admin = false, canDelete }: { onToast: (message: string) => void; admin?: boolean; canDelete: boolean }) {
   const [items, setItems] = useState<ApiInventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -135,7 +135,6 @@ export function InventoryPage({ onToast, admin = false }: { onToast: (message: s
       return;
     }
     setItems((current) => current.filter((entry) => entry.id !== item.id));
-    setModalOpen(false);
     onToast(`${item.name} removed from inventory`);
   }
 
@@ -161,7 +160,10 @@ export function InventoryPage({ onToast, admin = false }: { onToast: (message: s
             <span className={item.quantity <= item.minimumStock ? "text-red" : "text-strong"}>{item.quantity}</span>
             <span>{item.minimumStock}</span>
             <span><Badge tone={statusTone(item)}>{stockStatus(item)}</Badge></span>
-            <span className="row-actions"><button className="row-action" type="button" onClick={() => openEdit(item)}><Icon name="edit" size={14} /> Edit</button></span>
+            <span className="row-actions">
+              <button className="row-action row-action--icon" type="button" onClick={() => openEdit(item)} aria-label={`Edit ${item.name}`} title={`Edit ${item.name}`}><Icon name="edit" size={16} /></button>
+              {canDelete && <button className="row-action row-action--icon row-action--danger" type="button" onClick={() => void deleteItem(item)} aria-label={`Delete ${item.name}`} title={`Delete ${item.name}`}><Icon name="trash" size={16} /></button>}
+            </span>
           </div>)}
         </div>
         {!loading && !loadError && filtered.length === 0 && <EmptyState icon="box" title="No stock matches" description="Try a different item name or category." />}
@@ -176,7 +178,7 @@ export function InventoryPage({ onToast, admin = false }: { onToast: (message: s
             <TextField label="Minimum stock" type="number" min="0" value={form.minimumStock} onChange={(event) => setForm({ ...form, minimumStock: event.target.value })} />
           </div>
           <TextField label="Unit cost" type="number" min="0" step="0.01" value={form.unitCost} onChange={(event) => setForm({ ...form, unitCost: event.target.value })} />
-          <div className="modal-actions"><Button variant="secondary" type="button" onClick={() => setModalOpen(false)}>Cancel</Button>{editing && <Button variant="danger" type="button" onClick={() => void deleteItem(editing)}>Delete</Button>}<Button type="submit" icon="check" disabled={submitting}>{submitting ? "Saving…" : "Save item"}</Button></div>
+          <div className="modal-actions"><Button variant="secondary" type="button" onClick={() => setModalOpen(false)}>Cancel</Button><Button type="submit" icon="check" disabled={submitting}>{submitting ? "Saving…" : "Save item"}</Button></div>
         </form>
       </Modal>
     </>

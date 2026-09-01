@@ -18,6 +18,7 @@ import {
   SelectField,
   TextField,
 } from "@/app/components/ui";
+import { Icon } from "@/app/components/ui/icons";
 
 type UsersResponse = {
   success: boolean;
@@ -272,8 +273,8 @@ export function StaffManagement({
                 </span>
                 <span>{item.joined}</span>
                 <span className="row-actions">
-                  <button className="row-action row-action--danger" type="button" onClick={() => void deleteUser(item)}>
-                    Delete
+                  <button className="row-action row-action--icon row-action--danger" type="button" onClick={() => void deleteUser(item)} aria-label={`Delete ${item.name}`} title={`Delete ${item.name}`}>
+                    <Icon name="trash" size={16} />
                   </button>
                 </span>
               </div>

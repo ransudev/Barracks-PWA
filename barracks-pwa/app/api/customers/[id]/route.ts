@@ -1,10 +1,11 @@
+import { requireAdministrator } from "@/server/auth/require-admin";
 import { requireStaff } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import {
   customerProfileSchema,
   formatValidationErrors,
 } from "@/server/schemas/sprint.schema";
-import { findCustomerById, updateCustomer } from "@/server/services/customer.service";
+import { deleteCustomer, findCustomerById, updateCustomer } from "@/server/services/customer.service";
 
 export const runtime = "nodejs";
 
@@ -58,5 +59,22 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       { success: false, message: error instanceof Error ? error.message : "Unable to update customer" },
       { status: 500 },
     );
+  }
+}
+
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const authorizationResponse = await requireAdministrator();
+  if (authorizationResponse) return authorizationResponse;
+  const id = parseId((await params).id);
+  if (!id) return Response.json({ success: false, message: "Invalid customer id" }, { status: 400 });
+
+  try {
+    if (!(await deleteCustomer(pool, id))) {
+      return Response.json({ success: false, message: "Customer not found" }, { status: 404 });
+    }
+    return Response.json({ success: true, message: "Customer deleted" });
+  } catch (error) {
+    console.error("Unable to delete customer", error);
+    return Response.json({ success: false, message: "Unable to delete customer" }, { status: 500 });
   }
 }

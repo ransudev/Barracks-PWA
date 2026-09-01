@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Libre_Baskerville } from "next/font/google";
+import { BarracksApp } from "@/app/components/BarracksApp";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
+      data-scroll-behavior="smooth"
       className={`${geistSans.variable} ${geistMono.variable} ${libreBaskerville.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
@@ -40,6 +42,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           FORM: brief-pinned reference-led editorial barbershop composition.
           FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and the repository README
         */}
+        <BarracksApp />
         {children}
       </body>
     </html>

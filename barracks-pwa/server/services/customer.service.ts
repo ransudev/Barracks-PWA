@@ -222,6 +222,54 @@ export async function updateCustomer(
   }
 }
 
+export async function deleteCustomer(db: Pool, id: number): Promise<boolean> {
+  const client = await db.connect();
+
+  try {
+    await client.query("BEGIN");
+    const target = await client.query<{ user_id: number }>(
+      `
+        SELECT c.user_id
+        FROM customers c
+        INNER JOIN users u ON u.id = c.user_id
+        INNER JOIN roles r ON r.id = u.role_id AND r.name = 'customer'
+        WHERE c.id = $1 AND u.deleted_at IS NULL
+        LIMIT 1
+      `,
+      [id],
+    );
+
+    if (!target.rows[0]) {
+      await client.query("ROLLBACK");
+      return false;
+    }
+
+    const deleted = await client.query<{ id: number }>(
+      `
+        UPDATE users
+        SET deleted_at = NOW(), updated_at = NOW()
+        WHERE id = $1 AND deleted_at IS NULL
+        RETURNING id
+      `,
+      [target.rows[0].user_id],
+    );
+
+    if (!deleted.rowCount) {
+      await client.query("ROLLBACK");
+      return false;
+    }
+
+    await client.query("DELETE FROM sessions WHERE user_id = $1", [deleted.rows[0].id]);
+    await client.query("COMMIT");
+    return true;
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 function isUniqueViolation(error: unknown): error is { code: string } {
   return Boolean(
     error &&
