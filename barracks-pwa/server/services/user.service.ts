@@ -1,6 +1,11 @@
-import type { Pool } from "pg";
+import type { Pool, PoolClient } from "pg";
 import { hashPassword } from "@/server/services/password.service";
-import type { CreateUserInput, UserRole } from "@/server/schemas/user.schema";
+import type {
+  CreateUserInput,
+  UpdateStaffUserInput,
+  UserLifecycleInput,
+  UserRole,
+} from "@/server/schemas/user.schema";
 
 type UserRow = {
   id: number;
@@ -9,6 +14,9 @@ type UserRow = {
   email: string;
   role: UserRole;
   role_description: string;
+  is_verified: boolean;
+  is_blocked: boolean;
+  deleted_at: Date | string | null;
   created_at: Date | string;
   updated_at: Date | string;
 };
@@ -23,6 +31,9 @@ export type PublicUser = {
   lastName: string;
   email: string;
   role: UserRole;
+  isVerified: boolean;
+  isBlocked: boolean;
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -37,6 +48,16 @@ export type CreateUserResult =
   | { kind: "duplicate" }
   | { kind: "invalid_role" };
 
+export type UserMutationResult =
+  | { kind: "updated"; user: PublicUser }
+  | { kind: "deleted" }
+  | { kind: "not_found" }
+  | { kind: "duplicate" }
+  | { kind: "invalid_role" }
+  | { kind: "last_admin" };
+
+const USER_ADMIN_LOCK_KEY = 918273;
+
 const userSelect = `
   SELECT
     u.id,
@@ -45,6 +66,9 @@ const userSelect = `
     u.email,
     r.name AS role,
     r.description AS role_description,
+    u.is_verified,
+    u.is_blocked,
+    u.deleted_at,
     u.created_at,
     u.updated_at
   FROM users u
@@ -62,9 +86,26 @@ function toPublicUser(row: UserRow): PublicUser {
     lastName: row.last_name,
     email: row.email,
     role: row.role,
+    isVerified: Boolean(row.is_verified),
+    isBlocked: Boolean(row.is_blocked),
+    isActive: row.deleted_at === null,
     createdAt: toIso(row.created_at),
     updatedAt: toIso(row.updated_at),
   };
+}
+
+async function lockAdministratorMutations(client: PoolClient): Promise<void> {
+  await client.query("SELECT pg_advisory_xact_lock($1)", [USER_ADMIN_LOCK_KEY]);
+}
+
+async function activeAdministratorCount(client: PoolClient): Promise<number> {
+  const result = await client.query<{ count: string }>(`
+    SELECT COUNT(*)::text AS count
+    FROM users u
+    INNER JOIN roles r ON r.id = u.role_id AND r.name = 'administrator'
+    WHERE u.deleted_at IS NULL
+  `);
+  return Number(result.rows[0]?.count ?? 0);
 }
 
 export async function listUsers(db: Pool): Promise<PublicUser[]> {
@@ -91,6 +132,9 @@ export async function findUserByEmail(
         u.password_hash,
         r.name AS role,
         r.description AS role_description,
+        u.is_verified,
+        u.is_blocked,
+        u.deleted_at,
         u.created_at,
         u.updated_at
       FROM users u
@@ -119,37 +163,6 @@ export async function findUserById(db: Pool, id: number): Promise<PublicUser | n
   return result.rows[0] ? toPublicUser(result.rows[0]) : null;
 }
 
-export async function softDeleteUser(db: Pool, id: number): Promise<boolean> {
-  const client = await db.connect();
-
-  try {
-    await client.query("BEGIN");
-    const deleted = await client.query<{ id: number }>(
-      `
-        UPDATE users
-        SET deleted_at = NOW(), updated_at = NOW()
-        WHERE id = $1 AND deleted_at IS NULL
-        RETURNING id
-      `,
-      [id],
-    );
-
-    if (!deleted.rowCount) {
-      await client.query("ROLLBACK");
-      return false;
-    }
-
-    await client.query("DELETE FROM sessions WHERE user_id = $1", [id]);
-    await client.query("COMMIT");
-    return true;
-  } catch (error) {
-    await client.query("ROLLBACK").catch(() => undefined);
-    throw error;
-  } finally {
-    client.release();
-  }
-}
-
 export async function createUser(
   db: Pool,
   input: CreateUserInput,
@@ -170,7 +183,7 @@ export async function createUser(
     }
 
     const role = await client.query<{ id: number }>(
-      "SELECT id FROM roles WHERE name = $1 LIMIT 1",
+      "SELECT id FROM roles WHERE name = $1 AND name IN ('administrator', 'front_desk') LIMIT 1",
       [input.role],
     );
 
@@ -182,8 +195,9 @@ export async function createUser(
     const passwordHash = await hashPassword(input.password);
     const inserted = await client.query<{ id: number }>(
       `
-        INSERT INTO users (first_name, last_name, email, password_hash, role_id)
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO users
+          (first_name, last_name, email, password_hash, role_id, is_verified, is_blocked)
+        VALUES ($1, $2, $3, $4, $5, FALSE, FALSE)
         RETURNING id
       `,
       [input.firstName, input.lastName, input.email, passwordHash, role.rows[0].id],
@@ -203,6 +217,200 @@ export async function createUser(
       return { kind: "duplicate" };
     }
 
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function updateStaffUser(
+  db: Pool,
+  id: number,
+  input: UpdateStaffUserInput,
+): Promise<UserMutationResult> {
+  const client = await db.connect();
+
+  try {
+    await client.query("BEGIN");
+    await lockAdministratorMutations(client);
+
+    const current = await client.query<UserRow>(
+      `${userSelect}
+        WHERE u.id = $1
+          AND u.deleted_at IS NULL
+          AND r.name IN ('administrator', 'front_desk')
+        FOR UPDATE`,
+      [id],
+    );
+    const existing = current.rows[0];
+
+    if (!existing) {
+      await client.query("ROLLBACK");
+      return { kind: "not_found" };
+    }
+
+    if (existing.role === "administrator" && input.role !== "administrator" && (await activeAdministratorCount(client)) <= 1) {
+      await client.query("ROLLBACK");
+      return { kind: "last_admin" };
+    }
+
+    const role = await client.query<{ id: number }>(
+      "SELECT id FROM roles WHERE name = $1 AND name IN ('administrator', 'front_desk') LIMIT 1",
+      [input.role],
+    );
+    if (!role.rows[0]) {
+      await client.query("ROLLBACK");
+      return { kind: "invalid_role" };
+    }
+
+    if (input.password) {
+      const passwordHash = await hashPassword(input.password);
+      await client.query(
+        `
+          UPDATE users
+          SET first_name = $1, last_name = $2, email = $3, role_id = $4,
+              password_hash = $5, updated_at = NOW()
+          WHERE id = $6
+        `,
+        [input.firstName, input.lastName, input.email, role.rows[0].id, passwordHash, id],
+      );
+      await client.query("DELETE FROM sessions WHERE user_id = $1", [id]);
+    } else {
+      await client.query(
+        `
+          UPDATE users
+          SET first_name = $1, last_name = $2, email = $3, role_id = $4,
+              updated_at = NOW()
+          WHERE id = $5
+        `,
+        [input.firstName, input.lastName, input.email, role.rows[0].id, id],
+      );
+    }
+
+    const updated = await client.query<UserRow>(`${userSelect} WHERE u.id = $1`, [id]);
+    await client.query("COMMIT");
+    return { kind: "updated", user: toPublicUser(updated.rows[0]) };
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    if (isUniqueViolation(error)) return { kind: "duplicate" };
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function updateUserLifecycle(
+  db: Pool,
+  id: number,
+  input: UserLifecycleInput,
+): Promise<UserMutationResult> {
+  const client = await db.connect();
+
+  try {
+    await client.query("BEGIN");
+    await lockAdministratorMutations(client);
+
+    const current = await client.query<UserRow>(
+      `${userSelect}
+        WHERE u.id = $1
+          AND u.deleted_at IS NULL
+          AND r.name IN ('administrator', 'front_desk')
+        FOR UPDATE`,
+      [id],
+    );
+    const existing = current.rows[0];
+
+    if (!existing) {
+      await client.query("ROLLBACK");
+      return { kind: "not_found" };
+    }
+
+    const nextVerified = input.action === "verify" || input.action === "unblock"
+      ? input.action === "verify" ? true : existing.is_verified
+      : input.action === "unverify" ? false : existing.is_verified;
+    const nextBlocked = input.action === "block"
+      ? true
+      : input.action === "unblock" ? false : existing.is_blocked;
+    const disablesAccount = !nextVerified || nextBlocked;
+
+    if (existing.role === "administrator" && disablesAccount && (await activeAdministratorCount(client)) <= 1) {
+      await client.query("ROLLBACK");
+      return { kind: "last_admin" };
+    }
+
+    await client.query(
+      `
+        UPDATE users
+        SET is_verified = $1, is_blocked = $2, updated_at = NOW()
+        WHERE id = $3
+      `,
+      [nextVerified, nextBlocked, id],
+    );
+
+    if (disablesAccount) {
+      await client.query("DELETE FROM sessions WHERE user_id = $1", [id]);
+    }
+
+    const updated = await client.query<UserRow>(`${userSelect} WHERE u.id = $1`, [id]);
+    await client.query("COMMIT");
+    return { kind: "updated", user: toPublicUser(updated.rows[0]) };
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function softDeleteUser(db: Pool, id: number): Promise<UserMutationResult> {
+  const client = await db.connect();
+
+  try {
+    await client.query("BEGIN");
+    await lockAdministratorMutations(client);
+
+    const current = await client.query<{ role: UserRole }>(
+      `
+        SELECT r.name AS role
+        FROM users u
+        INNER JOIN roles r ON r.id = u.role_id
+        WHERE u.id = $1 AND u.deleted_at IS NULL
+        FOR UPDATE
+      `,
+      [id],
+    );
+    const existing = current.rows[0];
+
+    if (!existing) {
+      await client.query("ROLLBACK");
+      return { kind: "not_found" };
+    }
+
+    if (existing.role === "administrator" && (await activeAdministratorCount(client)) <= 1) {
+      await client.query("ROLLBACK");
+      return { kind: "last_admin" };
+    }
+
+    const deleted = await client.query<{ id: number }>(
+      `
+        UPDATE users
+        SET deleted_at = NOW(), updated_at = NOW()
+        WHERE id = $1 AND deleted_at IS NULL
+        RETURNING id
+      `,
+      [id],
+    );
+
+    if (!deleted.rowCount) {
+      await client.query("ROLLBACK");
+      return { kind: "not_found" };
+    }
+
+    await client.query("DELETE FROM sessions WHERE user_id = $1", [id]);
+    await client.query("COMMIT");
+    return { kind: "deleted" };
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
     throw error;
   } finally {
     client.release();

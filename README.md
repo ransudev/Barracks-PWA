@@ -43,7 +43,7 @@ The active `sprint-1` experience includes:
 - Customer signup, login, profile details, preferred barber, loyalty points, booking, and appointment history.
 - Staff workspace with a live barber overview dashboard, bookings, customers, barbers, and inventory.
 - Management workspace with dashboard counts, staff account management, barber management, and inventory.
-- PostgreSQL-backed CRUD for sprint entities and database-backed booking creation/status updates.
+- PostgreSQL-backed CRUD for user accounts, barber employee profiles, and inventory, plus database-backed booking creation/status updates.
 - Role-aware workspace switching between Management and Shop floor.
 
 The app uses URL-backed Next.js routes for the active surfaces. The browser restores the requested page after refresh, and protected routes rehydrate the current account from the HTTP-only session cookie before rendering the workspace.
@@ -55,7 +55,7 @@ Queue management, payments, transactions, service management, reports, calendar 
 There are three account roles:
 
 - `administrator`: can enter Management and Shop floor, manage staff accounts, and access all sprint data.
-- `front_desk`: works in Shop floor and can manage customers, barbers, bookings, and inventory. It cannot enter Management, manage user accounts, or delete barber records.
+- `front_desk`: works in Shop floor and can manage customers, barbers, bookings, and inventory. It can create/read/update inventory and barber records, but cannot enter Management, manage user accounts, or delete inventory/barber records.
 - `customer`: can access only their own customer dashboard/profile and booking flow.
 
 Barbers are business records, not login identities. They do not have accounts or sessions. The migration reassigns legacy `barber` user rows to `front_desk` and removes the obsolete role.
@@ -66,7 +66,7 @@ Barbers are business records, not login identities. They do not have accounts or
 
 The product follows a restrained monochrome Barracks system. The public site feels warm, editorial, and reference-led; the authenticated product feels like a quiet shop-floor ledger. Both use the same neutral material language, while density and interaction patterns differ by context.
 
-Use tonal hierarchy, spacing, rules, and photography before reaching for color. Green, amber, and red are functional status signals only.
+Use tonal hierarchy, spacing, rules, and photography before reaching for color. The customer account dashboard uses the existing dashboard accent roles to distinguish metrics, appointment state, and primary actions; color remains purposeful rather than decorative.
 
 ### Color system
 
@@ -82,7 +82,7 @@ Use tonal hierarchy, spacing, rules, and photography before reaching for color. 
 | Muted amber | `#B09A76` | Attention/pending state |
 | Muted red | `#C27676` | Error/destructive/risk state |
 
-Do not reintroduce saturated blue or cyan as a brand color, primary action, icon treatment, link treatment, or decorative accent. Every status must have a readable text label and must not rely on color alone.
+Do not reintroduce saturated blue or cyan as a public brand color or decorative accent. Internal dashboard surfaces may use their existing blue, green, amber, and violet semantic accents for actions, focus, selection, and status. Every status must have a readable text label and must not rely on color alone.
 
 ### Typography
 
@@ -197,7 +197,8 @@ The current sprint pages use the API for customers, barbers, inventory, bookings
     │   ├── schemas/                   # Zod schemas and validation formatting
     │   └── services/                  # database-facing domain and session services
     ├── scripts/                       # migration and seed commands
-    ├── package.json                   # scripts and dependencies
+    ├── tests/                          # schema and PostgreSQL integration tests
+    ├── package.json                    # scripts and dependencies
     ├── next.config.ts
     ├── postcss.config.mjs
     ├── tsconfig.json
@@ -210,11 +211,11 @@ The current sprint pages use the API for customers, barbers, inventory, bookings
 | --- | --- | --- |
 | Public landing | `app/pages/public/LandingPage.tsx` and `app/pages/public/landing/*` | Static `app/data/landing.ts` and bundled imagery |
 | Login/signup | `app/pages/auth/LoginPage.tsx` | `/api/auth/login`, `/api/auth/signup` |
-| Customer dashboard/profile | `app/pages/customer/CustomerDashboard.tsx` | `/api/customers/me`, `/api/bookings`, `/api/barbers` |
+| Customer dashboard/profile | `app/pages/customer/CustomerDashboard.tsx` — dashboard-style color accents for metrics, appointment state, and primary actions | `/api/customers/me`, `/api/bookings`, `/api/barbers` |
 | Customer booking | `app/pages/customer/CustomerBookingPage.tsx` | Service catalog plus `/api/barbers` and `/api/bookings` |
 | Staff dashboard | `app/pages/staff/StaffDashboard.tsx` | `/api/barbers` |
 | Staff bookings | `app/pages/staff/BookingsPage.tsx` | `/api/bookings`, `/api/customers`, `/api/barbers` |
-| Staff customers | `app/pages/staff/CustomersPage.tsx` | `/api/customers`, `/api/barbers` |
+| Staff customers | `app/pages/staff/CustomersPage.tsx` — customer records, profile details, and CRUD | `/api/customers`, `/api/barbers` |
 | Staff/admin barbers | `app/pages/admin/BarbersManagement.tsx` | `/api/barbers` |
 | Staff/admin inventory | `app/pages/staff/InventoryPage.tsx` | `/api/inventory` |
 | Admin dashboard | `app/pages/admin/AdminDashboard.tsx` | `/api/barbers`, `/api/customers`, `/api/inventory` |
@@ -238,30 +239,37 @@ All protected routes use the HTTP-only `barracks_session` cookie. JSON errors fo
 
 - `GET /api/users` — administrator only; lists public administrator/front-desk account records.
 - `POST /api/users` — administrator only; creates an administrator or front-desk account.
-- `GET /api/users/:id` — administrator only; reads one public user record.
-- `DELETE /api/users/:id` — administrator only; soft-deletes the account, revokes its sessions, and keeps the database record.
+- `GET /api/users/:id` — administrator only; reads one public user record, including verification, blocked, and active state.
+- `PUT /api/users/:id` — administrator only; updates identity, email, role, and optionally resets the password.
+- `PATCH /api/users/:id` — administrator only; accepts `verify`, `unverify`, `block`, or `unblock`, revoking sessions whenever access is disabled.
+- `DELETE /api/users/:id` — administrator only; soft-deactivates the account, revokes its sessions, and keeps the database record. The last administrator cannot be disabled, blocked, unverified, or deleted.
 
-There are no user update, password-change, password-reset, invitation, or role-management endpoints yet. Deleted accounts are excluded from normal account lists, login, and session lookup.
+New staff accounts start unverified and unblocked. Login rejects unverified, blocked, or deactivated accounts. Account management provides search, role/status filters, a details view, and explicit lifecycle controls; passwords are hashed and never returned.
 
 ### Customers
 
 - `GET /api/customers` — administrator/front desk; lists customer profiles.
 - `POST /api/customers` — administrator/front desk; creates a customer account/profile.
-- `GET /api/customers/:id` and `PUT /api/customers/:id` — administrator/front desk; read/update a customer profile.
+- `GET /api/customers/:id` and `PUT /api/customers/:id` — administrator/front desk; read/update a customer profile. Loyalty points are administrator-only; Front Desk updates are limited to contact and preference fields.
 - `GET /api/customers/me` and `PUT /api/customers/me` — customer only; read/update the profile linked to the current session.
+
+Staff customer management includes search, profile details, contact/preference editing, loyalty-point updates for administrators, and account deactivation. The profile view is opened from the first action in each customer row and uses the same detail-modal pattern as barber profiles.
 
 ### Barbers
 
 - `GET /api/barbers` — administrator, front desk, or customer; lists barber business records.
-- `POST /api/barbers` — administrator/front desk; creates a barber.
-- `GET /api/barbers/:id`, `PUT /api/barbers/:id`, and `DELETE /api/barbers/:id` — administrator/front desk; read/update/delete a barber.
+- `POST /api/barbers` — administrator/front desk; creates a barber. Ratings are administrator-only and service totals are read-only.
+- `GET /api/barbers/:id` and `PUT /api/barbers/:id` — administrator/front desk; read/update a barber. Front Desk updates cannot change ratings; service totals are read-only.
+- `PATCH /api/barbers` — administrator/front desk; applies a validated commission rate to all barber records in one transaction.
+- `DELETE /api/barbers/:id` — administrator only; deletes a barber only when no booking references the profile, otherwise returns an explanatory conflict.
 
 ### Inventory
 
 - `GET /api/inventory` and `POST /api/inventory` — administrator/front desk; list/create inventory items.
-- `GET /api/inventory/:id`, `PUT /api/inventory/:id`, and `DELETE /api/inventory/:id` — administrator/front desk; read/update/delete an item.
+- `GET /api/inventory/:id` and `PUT /api/inventory/:id` — administrator/front desk; read/update an item.
+- `DELETE /api/inventory/:id` — administrator only; deletes an item after confirmation in the UI.
 
-Inventory state is derived from quantity and minimum stock: In Stock, Low Stock, or Out of Stock. The current implementation does not create inventory movement or audit records.
+Inventory state is derived from quantity and minimum stock: In Stock, Low Stock, or Out of Stock. The UI provides search, category/status filters, validation, loading/empty/error states, metrics, and confirmation dialogs. The current implementation does not create inventory movement or audit records.
 
 ### Bookings
 
@@ -280,16 +288,16 @@ The backend uses raw parameterized SQL through `pg`. It does not use Prisma, Dri
 The current migration creates:
 
 - `roles` — supported role names and descriptions.
-- `users` — account identity, scrypt password hash, role, optional `deleted_at`, and timestamps. Soft-deleted accounts remain stored but cannot sign in.
+- `users` — account identity, scrypt password hash, role, `is_verified`, `is_blocked`, optional `deleted_at`, and timestamps. Deactivated accounts remain stored but cannot sign in.
 - `sessions` — SHA-256 token hash, user, expiration, and creation time.
 - `barbers` — business name, availability status, commission rate, services completed, revenue, rating, and timestamps.
 - `customers` — one profile per customer user, phone, preferred barber, loyalty points, and timestamps.
 - `inventory_items` — item name, category, quantity, minimum stock, unit cost, and timestamps.
 - `bookings` — customer/barber relationships, service snapshot, price, date/time, status, demo key, and timestamps.
 
-The migration is compatible with the existing Supabase project `simplecrudapp`. Its Barracks tables are protected with PostgreSQL row-level security. The Next.js server connects through the database connection string and keeps authorization in the application session/role guards; no Supabase secret or database credential is sent to the browser.
+The migration is compatible with the existing Supabase project `simplecrudapp`. The Next.js server connects through the database connection string and keeps authorization in the application session/role guards; no Supabase secret or database credential is sent to the browser.
 
-Important database constraints include case-insensitive unique user email, valid role/status/category values, non-negative quantities and monetary values, customer/user uniqueness, foreign keys, and a unique active barber slot for upcoming bookings.
+Important database constraints include case-insensitive unique user email, explicit account lifecycle columns, valid role/status/category values, non-blank names, non-negative quantities and monetary values with two-decimal precision, commission bounds, customer/user uniqueness, foreign keys, and a unique active barber slot for upcoming bookings.
 
 `scripts/seed-admin.ts` creates the initial administrator from `INITIAL_ADMIN_*` variables and is safe to rerun for the same administrator email. `scripts/seed-demo.ts` upserts repeatable demo records identified by `demo_key` and does not reset unrelated local records.
 
@@ -307,10 +315,10 @@ Session behavior:
 
 Zod schemas live under `server/schemas/`:
 
-- `user.schema.ts` validates login and staff account creation.
+- `user.schema.ts` validates login, staff account creation/update, and lifecycle actions.
 - `sprint.schema.ts` validates barber, inventory, booking, customer signup, and customer profile input.
 
-Schemas are strict, reject unknown fields, enforce bounds and enum values, and are applied before service/database work. `requireAdministrator`, `requireStaff`, and `requireRoles` resolve the current session and return `401` or `403` responses before protected operations run.
+Schemas are strict, reject unknown fields, enforce bounds and enum values, and are applied before service/database work. `requireAdministrator`, `requireStaff`, and `requireRoles` resolve the current session and return `401` or `403` responses before protected operations run. Account lifecycle changes use transactions and a PostgreSQL advisory lock to keep the last administrator rule safe under concurrent requests.
 
 The browser does not send an admin token. Private credentials, database URLs, and seed passwords must remain server-only and must not use a `NEXT_PUBLIC_` prefix.
 
@@ -370,6 +378,7 @@ Useful commands from `barracks-pwa/`:
 ```bash
 npm run dev
 npm run lint
+npm test
 npx tsc --noEmit
 npm run build
 npm run start
@@ -384,12 +393,12 @@ The sprint backend is intentionally partial. The main remaining seams are:
 
 - Out-of-scope modules such as queue, payments, services, reports, and settings still need their own rendered screens and backend workflows.
 - The API does not yet cover queue, services, payments, transactions, reports, settings, or real visit history.
-- There are no user update/password-reset or role-lifecycle APIs. User deletion is a soft delete; the account row is retained and its sessions are revoked.
+- Account password reset/invitation flows, MFA, rate limiting, and audit history are not implemented. Account deactivation is a soft delete; the account row is retained and its sessions are revoked.
 - Dashboard and customer/barber summaries cover the sprint entities but do not yet form a complete reporting model.
 - Inventory has current quantities but no movement ledger, audit trail, or concurrency workflow.
 - There is no payment processor, notification delivery, calendar sync, email confirmation, rate limiting, MFA, or observability layer.
 - Some legacy prototype modules still use seed data or `localStorage`; those paths should not be treated as production persistence.
-- No automated unit, integration, end-to-end, accessibility, or visual regression test suite is configured.
+- The repository has schema tests and a PostgreSQL integration test; a browser automation test runner and visual regression suite are not configured, so the final browser smoke evidence is run manually against the local dev server.
 
 The recommended evolution is incremental: add URL-backed routes, expand authenticated server boundaries, make each domain use one canonical repository/query path, add inventory movements and booking/payment integrity rules, persist settings, then add automated coverage, observability, audit logging, rate limiting, and deployment documentation.
 

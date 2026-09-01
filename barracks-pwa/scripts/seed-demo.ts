@@ -129,7 +129,8 @@ async function upsertUser(
       `
         UPDATE users
         SET first_name = $1, last_name = $2, password_hash = $3,
-            role_id = $4, deleted_at = NULL, updated_at = NOW()
+            role_id = $4, deleted_at = NULL, is_verified = TRUE,
+            is_blocked = FALSE, updated_at = NOW()
         WHERE id = $5
       `,
       [input.firstName, input.lastName, passwordHash, selectedRoleId, existing.rows[0].id],
@@ -139,8 +140,9 @@ async function upsertUser(
 
   const inserted = await client.query<{ id: number }>(
     `
-      INSERT INTO users (first_name, last_name, email, password_hash, role_id)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO users
+        (first_name, last_name, email, password_hash, role_id, is_verified, is_blocked)
+      VALUES ($1, $2, $3, $4, $5, TRUE, FALSE)
       RETURNING id
     `,
     [input.firstName, input.lastName, input.email, passwordHash, selectedRoleId],

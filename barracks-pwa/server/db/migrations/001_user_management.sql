@@ -26,6 +26,13 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+-- Existing accounts were already usable before lifecycle flags existed, so the
+-- migration preserves them as verified and unblocked. New staff accounts are
+-- inserted explicitly as unverified by the account service.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE users ALTER COLUMN is_verified SET DEFAULT TRUE;
+ALTER TABLE users ALTER COLUMN is_blocked SET DEFAULT FALSE;
 
 DROP INDEX IF EXISTS users_email_lower_unique;
 
@@ -35,6 +42,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_unique
 
 CREATE INDEX IF NOT EXISTS users_role_id_idx
   ON users (role_id);
+
+CREATE INDEX IF NOT EXISTS users_lifecycle_idx
+  ON users (is_verified, is_blocked)
+  WHERE deleted_at IS NULL;
 
 -- Existing prototype barber accounts are staff records now, not login identities.
 UPDATE users
@@ -61,6 +72,31 @@ ALTER TABLE barbers DROP COLUMN IF EXISTS specialty;
 ALTER TABLE barbers ADD COLUMN IF NOT EXISTS services_done INTEGER NOT NULL DEFAULT 0 CHECK (services_done >= 0);
 ALTER TABLE barbers ADD COLUMN IF NOT EXISTS revenue NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (revenue >= 0);
 ALTER TABLE barbers ADD COLUMN IF NOT EXISTS rating NUMERIC(2, 1) CHECK (rating >= 0 AND rating <= 5);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'barbers_commission_rate_check'
+  ) THEN
+    ALTER TABLE barbers
+      ADD CONSTRAINT barbers_commission_rate_check
+      CHECK (commission_rate IS NULL OR (commission_rate >= 0 AND commission_rate <= 100));
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'barbers_first_name_not_blank_check'
+  ) THEN
+    ALTER TABLE barbers
+      ADD CONSTRAINT barbers_first_name_not_blank_check
+      CHECK (length(btrim(first_name)) > 0);
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'barbers_last_name_not_blank_check'
+  ) THEN
+    ALTER TABLE barbers
+      ADD CONSTRAINT barbers_last_name_not_blank_check
+      CHECK (length(btrim(last_name)) > 0);
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS barbers_status_idx ON barbers (status);
 
@@ -91,6 +127,24 @@ CREATE TABLE IF NOT EXISTS inventory_items (
 
 CREATE INDEX IF NOT EXISTS inventory_items_category_idx
   ON inventory_items (category);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'inventory_items_name_not_blank_check'
+  ) THEN
+    ALTER TABLE inventory_items
+      ADD CONSTRAINT inventory_items_name_not_blank_check
+      CHECK (length(btrim(name)) > 0);
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'inventory_items_unit_cost_precision_check'
+  ) THEN
+    ALTER TABLE inventory_items
+      ADD CONSTRAINT inventory_items_unit_cost_precision_check
+      CHECK (unit_cost <= 9999999999.99 AND unit_cost = round(unit_cost, 2));
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS bookings (
   id BIGSERIAL PRIMARY KEY,

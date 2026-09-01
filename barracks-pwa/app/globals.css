@@ -54,7 +54,7 @@
 }
 
 * { box-sizing: border-box; }
-html { min-width: 1024px; background: var(--ink); scroll-behavior: smooth; }
+html { background: var(--ink); scroll-behavior: smooth; }
 body { margin: 0; background: var(--ink); color: var(--text); font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; line-height: 1.45; }
 button, input, select, textarea { color: inherit; font: inherit; }
 button { border: 0; cursor: pointer; }
@@ -148,6 +148,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .metrics-grid--three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .field { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
 .field__label { color: var(--text-soft); font-size: 11px; font-weight: 700; }
+.field__label span { color: var(--red); }
 .input-wrap, .select-wrap { position: relative; display: flex; align-items: center; }
 .input-wrap > svg { position: absolute; left: 12px; color: var(--text-muted); pointer-events: none; }
 .input-wrap input, .field select, .field textarea { width: 100%; min-height: 40px; border: 1px solid var(--line); border-radius: 7px; outline: none; background: var(--surface-raised-2); color: var(--text); font-size: 13px; transition: border-color .2s ease, background .2s ease; }
@@ -200,6 +201,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .modal-form { display: flex; flex-direction: column; gap: 16px; padding: 22px; }
 .modal-form .form-grid { padding: 0; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 9px; padding-top: 5px; }
+.modal-actions--dialog { align-items: center; flex-wrap: wrap; gap: 9px; width: 100%; padding: 12px 22px 18px; }
 .modal-actions--stack { flex-direction: column; align-items: stretch; }
 .modal-copy { margin: 0; color: var(--text-soft); font-size: 12px; line-height: 1.6; }
 .detail-modal__row { align-items: center; display: flex; justify-content: space-between; gap: 16px; min-height: 46px; padding: 10px 0; border-bottom: 1px solid rgba(176, 176, 171, .58); color: var(--text-soft); font-size: 12px; }
@@ -437,6 +439,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .detail-facts small { color: var(--text-muted); font-size: 10px; }
 .detail-facts strong { margin-top: 5px; color: var(--text); font-size: 12px; }
 .detail-modal .modal-actions { margin-top: 20px; }
+.detail-modal__rows { margin-top: 22px; }
+.account-status-cell { align-items: flex-start; display: flex; flex-direction: column; gap: 5px; }
+.account-status-cell small { color: var(--text-muted); font-size: 9px; }
+.account-detail-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: stretch; }
+.account-detail-actions .button { width: 100%; min-width: 0; }
+.form-hint { margin: -3px 0 0; color: var(--text-muted); font-size: 11px; line-height: 1.5; }
 
 /* Customer and payment */
 .customer-workspace { display: grid; grid-template-columns: minmax(300px, .72fr) minmax(0, 1.28fr); gap: 14px; margin-bottom: 14px; }
@@ -539,6 +547,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .alert-banner small { margin-top: 2px; color: var(--text-muted); font-size: 10px; }
 .inventory-panel .section-heading { align-items: center; }
 .inventory-panel .panel-toolbar { align-items: center; }
+.panel-toolbar--filters { flex-wrap: wrap; }
 .inventory-panel .search-input { width: 175px; }
 .inventory-panel .field { width: 145px; }
 .inventory-table__head, .inventory-table__row { min-width: 800px; display: grid; grid-template-columns: 1.5fr 1fr .55fr .55fr 1fr 1.05fr; gap: 15px; align-items: center; }
@@ -867,7 +876,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 @media (max-width: 760px) {
-  html { min-width: 0; }
+  .modal-backdrop { padding: 16px; }
+  .modal { max-height: calc(100vh - 32px); }
   .app-shell { display: block; }
   .sidebar { position: fixed; z-index: 50; display: none; }
   .topbar { padding: 0 18px; }
@@ -875,6 +885,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .topbar__context { display: none; }
   .app-content { padding: 28px 18px 50px; }
   .page-header { align-items: flex-start; flex-direction: column; gap: 15px; }
+  .section-heading { flex-direction: column; }
+  .panel-toolbar--filters { align-items: stretch; width: 100%; }
+  .panel-toolbar--filters > .search-input,
+  .panel-toolbar--filters > .field,
+  .inventory-panel .panel-toolbar--filters > .field { width: 100%; flex: 1 1 100%; }
   .staff-dashboard > .page-header { gap: 12px; margin-bottom: 18px; }
   .staff-dashboard > .page-header h1 { font-size: 32px; }
   .staff-dashboard .page-header__description { max-width: 32ch; }
@@ -909,6 +924,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .login-page__aside { display: none; }
   .login-page__main { min-height: 100vh; padding: 35px 22px; }
   .login-card__head h1 { font-size: 37px; }
+}
+
+@media (max-width: 480px) {
+  .modal-actions--dialog { flex-direction: column; align-items: stretch; }
+  .modal-actions--dialog .button { width: 100%; }
+  .account-detail-actions { grid-template-columns: 1fr; }
 }
 
 /* Public editorial landing page */
@@ -1408,6 +1429,30 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .customer-profile-inline-facts small, .customer-profile-inline-facts strong { display: block; }
 .customer-profile-inline-facts small { color: var(--text-muted); font-size: 10px; }
 .customer-profile-inline-facts strong { margin-top: 6px; overflow: hidden; color: var(--text); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.customer-page--dashboard {
+  --customer-blue: #6b9cff;
+  --customer-blue-light: #a5c2ff;
+  --customer-green: #39d18b;
+  --customer-amber: #e3ad48;
+  --customer-violet: #ae85ee;
+}
+.customer-page--dashboard .customer-topbar__links button.is-active,
+.customer-page--dashboard .link-button { color: var(--customer-blue-light); }
+.customer-page--dashboard .customer-dashboard__heading .customer-page__eyebrow { color: var(--customer-blue-light); }
+.customer-page--dashboard .customer-dashboard__heading .button--primary,
+.customer-page--dashboard .customer-bookings-panel .button--primary { background: var(--customer-blue); color: #08111f; }
+.customer-page--dashboard .customer-dashboard__heading .button--primary:hover,
+.customer-page--dashboard .customer-bookings-panel .button--primary:hover { background: #83acff; }
+.customer-page--dashboard .metric-card--blue { --accent: var(--customer-blue); --accent-soft: rgba(107, 156, 255, .14); }
+.customer-page--dashboard .metric-card--amber { --accent: var(--customer-amber); --accent-soft: rgba(227, 173, 72, .14); }
+.customer-page--dashboard .metric-card--green { --accent: var(--customer-green); --accent-soft: rgba(57, 209, 139, .14); }
+.customer-page--dashboard .metric-card__icon { background: var(--accent-soft); color: var(--accent); }
+.customer-page--dashboard .customer-dashboard__avatar { background: rgba(107, 156, 255, .16); color: var(--customer-blue-light); }
+.customer-page--dashboard .customer-profile-inline-facts > div:nth-child(1) strong { color: var(--customer-green); }
+.customer-page--dashboard .customer-profile-inline-facts > div:nth-child(2) strong { color: var(--customer-amber); }
+.customer-page--dashboard .customer-profile-inline-facts > div:nth-child(3) strong { color: var(--customer-blue-light); }
+.customer-page--dashboard .customer-bookings-panel .empty-state__icon { background: rgba(107, 156, 255, .12); color: var(--customer-blue-light); }
+.customer-page--dashboard .customer-history-panel .badge--success { border-color: var(--line); background: rgba(57, 209, 139, .13); color: var(--customer-green); }
 .customer-booking-page__heading { align-items: flex-end; display: flex; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
 .customer-booking-page__heading h1 { margin: 7px 0 6px; color: var(--text); font-family: "Iowan Old Style", "Baskerville", "Times New Roman", serif; font-size: 38px; font-weight: 700; letter-spacing: -.045em; line-height: 1.05; }
 .customer-booking-page__heading p:last-child { max-width: 520px; margin: 0; color: var(--text-muted); font-size: 12px; }

@@ -52,6 +52,18 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!account.user.isVerified || account.user.isBlocked || !account.user.isActive) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: account.user.isBlocked
+            ? "This account is blocked. Contact an administrator."
+            : "This account is not verified yet. Contact an administrator.",
+        },
+        { status: 403 },
+      );
+    }
+
     const response = NextResponse.json({
       success: true,
       user: account.user,

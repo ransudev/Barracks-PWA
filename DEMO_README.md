@@ -41,7 +41,7 @@ Email: demo.frontdesk@barracks.local
 Password: frontdesk123
 ```
 
-Front Desk users open directly in the Shop floor workspace. They can manage customers, barbers, and inventory, but cannot see or enter Management.
+Front Desk users open directly in the Shop floor workspace. They can manage customer contact/preferences, barber roster details, and inventory, but cannot see or enter Management. Loyalty points and barber ratings remain administrator-only; barber service totals are read-only.
 
 ### Customer
 
@@ -66,14 +66,15 @@ These are local demo credentials only. Do not use them in production.
 2. Sign in as the Administrator.
 3. Show the Management dashboard and its seeded summary counts.
 4. Open **Staff** to show administrator-only account management.
-5. Open **Barbers** to inspect and manage the roster, summary metrics, and each barber’s services, revenue, commission, and rating.
-6. Open **Inventory** and show the In Stock, Low Stock, and Out of Stock states.
-7. Use the account menu to switch to Shop floor.
-8. Sign out and sign in as Front Desk. Confirm that the Management selector is not visible.
-9. Open **Customers** to show the seeded customer profiles and preferred barbers.
-10. Sign out and sign in as the demo Customer to show the unified customer account dashboard, including profile details and appointments.
-11. Open **Book**, choose a service, barber, date, and time, then confirm the appointment.
-12. Sign back in as Front Desk and open **Bookings** to see the saved appointment and mark it completed or cancelled.
+5. Create a temporary staff account, open its details, verify it, block/unblock it, and show the real status badges. New accounts cannot sign in until verified.
+6. Open **Barbers** to inspect and manage the roster, summary metrics, and each barber’s services, revenue, commission, and rating.
+7. Open **Inventory** and show the In Stock, Low Stock, and Out of Stock states, category/status filters, and a persisted edit.
+8. Use the account menu to switch to Shop floor.
+9. Sign out and sign in as Front Desk. Confirm that the Management selector and User Management are not visible; create/update inventory and barber records, but note delete actions are administrator-only.
+10. Open **Customers** to show the seeded customer profiles and preferred barbers.
+11. Sign out and sign in as the demo Customer to show the unified customer account dashboard, including profile details and appointments.
+12. Open **Book**, choose a service, barber, date, and time, then confirm the appointment.
+13. Sign back in as Front Desk and open **Bookings** to see the saved appointment and mark it completed or cancelled.
 
 ## Seeded showcase data
 
@@ -82,6 +83,8 @@ These are local demo credentials only. Do not use them in production.
 - Four customer profiles with phone numbers, preferred barbers, and loyalty points.
 - Two upcoming bookings connected to the seeded customers and barbers.
 - One Front Desk account.
+
+New accounts created from Management start unverified. Use the account details view to verify them before testing login; blocking an account revokes its active sessions.
 
 The booking flow is intentionally small: one-time appointments with one service, barber, date, and time. Transactions, payments, queue management, and real visit history remain out of scope.
 

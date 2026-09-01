@@ -1,7 +1,7 @@
 import { getCurrentUser } from "@/server/auth/session";
 import { pool } from "@/server/db/pool";
 import {
-  customerProfileSchema,
+  customerSelfProfileSchema,
   formatValidationErrors,
 } from "@/server/schemas/sprint.schema";
 import {
@@ -46,7 +46,7 @@ export async function PUT(request: Request) {
     } catch {
       return Response.json({ success: false, message: "Invalid customer information" }, { status: 400 });
     }
-    const parsed = customerProfileSchema.safeParse(body);
+    const parsed = customerSelfProfileSchema.safeParse(body);
     if (!parsed.success) {
       return Response.json(
         {

@@ -205,10 +205,11 @@ export async function updateCustomer(
     await client.query(
       `
         UPDATE customers
-        SET phone = $1, preferred_barber_id = $2, updated_at = NOW()
-        WHERE id = $3
+        SET phone = $1, preferred_barber_id = $2,
+            loyalty_points = COALESCE($3, loyalty_points), updated_at = NOW()
+        WHERE id = $4
       `,
-      [input.phone, input.preferredBarberId, id],
+      [input.phone, input.preferredBarberId, input.loyaltyPoints ?? null, id],
     );
 
     await client.query("COMMIT");

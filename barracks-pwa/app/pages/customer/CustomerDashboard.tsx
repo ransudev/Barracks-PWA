@@ -157,7 +157,7 @@ export function CustomerDashboard({
   const past = bookings.filter((booking) => booking.status !== "upcoming");
 
   return (
-    <div className="customer-page">
+    <div className="customer-page customer-page--dashboard">
       <CustomerTopbar go={go} active="customer-dashboard" onSignOut={onSignOut} user={user} />
       <main className="customer-content">
         <div className="customer-dashboard">
@@ -187,7 +187,7 @@ export function CustomerDashboard({
                     action={<button className="link-button" type="button" onClick={openProfileEditor}>Edit details</button>}
                   />
                   <div className="customer-summary">
-                    <Avatar initials={createInitials(name)} tone="slate" size="lg" />
+                    <Avatar initials={createInitials(name)} tone="slate" size="lg" className="customer-dashboard__avatar" />
                     <div>
                       <strong>{name}</strong>
                       <span>{customer.email}</span>

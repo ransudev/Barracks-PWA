@@ -201,7 +201,11 @@ export function BarracksApp() {
     }
   }
 
-  if (sessionLoading && view !== "landing") {
+  const waitingForSession = sessionLoading && (
+    !currentUser || !canAccessView(view, currentUser)
+  );
+
+  if (waitingForSession && view !== "landing") {
     return <SessionLoading />;
   }
 

@@ -6,6 +6,9 @@ export type ApiUser = {
   lastName: string;
   email: string;
   role: ApiRole;
+  isVerified: boolean;
+  isBlocked: boolean;
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 };

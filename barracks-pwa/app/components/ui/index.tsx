@@ -1,5 +1,5 @@
 import Image from "next/image";
-import type { ButtonHTMLAttributes, ChangeEvent, ReactNode } from "react";
+import { useEffect, useId, useRef, type ButtonHTMLAttributes, type ChangeEvent, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
 import type { Tone } from "@/app/types/domain";
 import { Icon, type IconName } from "./icons";
 
@@ -257,29 +257,46 @@ export function SearchInput({
         placeholder={placeholder}
         aria-label={placeholder}
       />
-      <kbd>⌘ K</kbd>
     </label>
   );
 }
 
 export function SelectField({
   label,
+  id,
+  required = false,
   value,
   onChange,
   children,
   className = "",
+  ...props
 }: {
   label?: string;
-  value?: string;
-  onChange?: (event: ChangeEvent<HTMLSelectElement>) => void;
+  id?: string;
+  required?: boolean;
   children: ReactNode;
   className?: string;
-}) {
+} & Omit<SelectHTMLAttributes<HTMLSelectElement>, "className" | "children">) {
+  const generatedId = useId();
+  const fieldId = id ?? generatedId;
+
   return (
     <label className={`field ${className}`}>
-      {label && <span className="field__label">{label}</span>}
+      {label && (
+        <span className="field__label">
+          {label}
+          {required && <span aria-hidden="true"> *</span>}
+        </span>
+      )}
       <span className="select-wrap">
-        <select value={value} onChange={onChange}>
+        <select
+          id={fieldId}
+          value={value}
+          onChange={onChange}
+          required={required}
+          aria-label={label ? undefined : props["aria-label"]}
+          {...props}
+        >
           {children}
         </select>
         <Icon name="chevronDown" size={15} />
@@ -290,6 +307,8 @@ export function SelectField({
 
 export function TextField({
   label,
+  id,
+  required = false,
   value,
   onChange,
   placeholder,
@@ -299,8 +318,11 @@ export function TextField({
   min,
   max,
   step,
+  ...props
 }: {
   label?: string;
+  id?: string;
+  required?: boolean;
   value?: string;
   onChange?: (event: ChangeEvent<HTMLInputElement>) => void;
   placeholder?: string;
@@ -310,13 +332,22 @@ export function TextField({
   min?: string;
   max?: string;
   step?: string;
-}) {
+} & Omit<InputHTMLAttributes<HTMLInputElement>, "className" | "value" | "onChange" | "type" | "min" | "max" | "step">) {
+  const generatedId = useId();
+  const fieldId = id ?? generatedId;
+
   return (
     <label className={`field ${className}`}>
-      {label && <span className="field__label">{label}</span>}
+      {label && (
+        <span className="field__label">
+          {label}
+          {required && <span aria-hidden="true"> *</span>}
+        </span>
+      )}
       <span className="input-wrap">
         {icon && <Icon name={icon} size={16} />}
         <input
+          id={fieldId}
           type={type}
           value={value}
           onChange={onChange}
@@ -324,6 +355,8 @@ export function TextField({
           min={min}
           max={max}
           step={step}
+          required={required}
+          {...props}
         />
       </span>
     </label>
@@ -354,6 +387,7 @@ export function Toggle({
         type="button"
         role="switch"
         aria-checked={checked}
+        aria-label={label}
         onClick={() => onChange(!checked)}
       >
         <span />
@@ -402,6 +436,73 @@ export function Modal({
 }) {
   if (!open) return null;
 
+  return <OpenModal title={title} description={description} onClose={onClose} width={width}>{children}</OpenModal>;
+}
+
+function OpenModal({
+  title,
+  description,
+  onClose,
+  children,
+  width,
+}: {
+  title: string;
+  description?: string;
+  onClose: () => void;
+  children: ReactNode;
+  width: "sm" | "md" | "lg";
+}) {
+  const modalRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  const descriptionId = useId();
+
+  useEffect(() => {
+    const modal = modalRef.current;
+    if (!modal) return;
+
+    const previousFocus = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const focusableSelector =
+      'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
+    const focusFirstControl = () => {
+      const firstControl = modal.querySelector<HTMLElement>(focusableSelector);
+      firstControl?.focus();
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const controls = Array.from(modal.querySelectorAll<HTMLElement>(focusableSelector));
+      if (!controls.length) return;
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    const frame = window.requestAnimationFrame(focusFirstControl);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus();
+    };
+  }, [onClose]);
+
   return (
     <div
       className="modal-backdrop"
@@ -411,15 +512,18 @@ export function Modal({
       }}
     >
       <div
+        ref={modalRef}
         className={`modal modal--${width}`}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="modal-title"
+        aria-labelledby={titleId}
+        aria-describedby={description ? descriptionId : undefined}
+        tabIndex={-1}
       >
         <div className="modal__header">
           <div>
-            <h2 id="modal-title">{title}</h2>
-            {description && <p>{description}</p>}
+            <h2 id={titleId}>{title}</h2>
+            {description && <p id={descriptionId}>{description}</p>}
           </div>
           <IconButton label="Close dialog" icon="x" onClick={onClose} />
         </div>
@@ -493,3 +597,5 @@ export function Toast({
     </div>
   );
 }
+
+export { ConfirmDialog } from "./ConfirmDialog";

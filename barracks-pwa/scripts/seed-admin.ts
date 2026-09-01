@@ -73,8 +73,9 @@ async function seedInitialAdministrator() {
     const passwordHash = await hashPassword(parsed.data.password);
     const inserted = await client.query<{ id: number }>(
       `
-        INSERT INTO users (first_name, last_name, email, password_hash, role_id)
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO users
+          (first_name, last_name, email, password_hash, role_id, is_verified, is_blocked)
+        VALUES ($1, $2, $3, $4, $5, TRUE, FALSE)
         ON CONFLICT (LOWER(email)) WHERE deleted_at IS NULL DO NOTHING
         RETURNING id
       `,

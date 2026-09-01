@@ -37,9 +37,12 @@ export async function findUserBySessionToken(
     first_name: string;
     last_name: string;
     email: string;
-    role: PublicUser["role"];
-    created_at: Date | string;
-    updated_at: Date | string;
+      role: PublicUser["role"];
+    is_verified: boolean;
+    is_blocked: boolean;
+    deleted_at: Date | string | null;
+      created_at: Date | string;
+      updated_at: Date | string;
   }>(
     `
       SELECT
@@ -56,6 +59,8 @@ export async function findUserBySessionToken(
       WHERE s.token_hash = $1
         AND s.expires_at > NOW()
         AND u.deleted_at IS NULL
+        AND u.is_verified = TRUE
+        AND u.is_blocked = FALSE
       LIMIT 1
     `,
     [hashSessionToken(token)],
@@ -69,6 +74,9 @@ export async function findUserBySessionToken(
         lastName: row.last_name,
         email: row.email,
         role: row.role,
+        isVerified: Boolean(row.is_verified),
+        isBlocked: Boolean(row.is_blocked),
+        isActive: row.deleted_at === null,
         createdAt: row.created_at instanceof Date
           ? row.created_at.toISOString()
           : new Date(row.created_at).toISOString(),

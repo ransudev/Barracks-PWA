@@ -1,7 +1,7 @@
 import { requireAdministrator } from "@/server/auth/require-admin";
-import { requireStaff } from "@/server/auth/require-role";
+import { requireStaff, requireStaffUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
-import { barberSchema, formatValidationErrors } from "@/server/schemas/sprint.schema";
+import { barberSchema, barberStaffSchema, formatValidationErrors } from "@/server/schemas/sprint.schema";
 import { deleteBarber, findBarberById, updateBarber } from "@/server/services/barber.service";
 
 export const runtime = "nodejs";
@@ -26,15 +26,18 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const authorizationResponse = await requireStaff();
-  if (authorizationResponse) return authorizationResponse;
+  const authorizationResult = await requireStaffUser();
+  if (authorizationResult instanceof Response) return authorizationResult;
   const id = parseId((await params).id);
   if (!id) return Response.json({ success: false, message: "Invalid barber id" }, { status: 400 });
   let body: unknown;
   try { body = await request.json(); } catch {
     return Response.json({ success: false, message: "Invalid barber information" }, { status: 400 });
   }
-  const parsed = barberSchema.safeParse(body);
+  if (authorizationResult.role !== "administrator" && typeof body === "object" && body !== null && ("rating" in body || "servicesDone" in body)) {
+    return Response.json({ success: false, message: "Administrator access is required to change barber ratings or services" }, { status: 403 });
+  }
+  const parsed = (authorizationResult.role === "administrator" ? barberSchema : barberStaffSchema).safeParse(body);
   if (!parsed.success) {
     return Response.json({ success: false, message: "Invalid barber information", errors: formatValidationErrors(parsed.error) }, { status: 400 });
   }
@@ -54,7 +57,17 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   const id = parseId((await params).id);
   if (!id) return Response.json({ success: false, message: "Invalid barber id" }, { status: 400 });
   try {
-    if (!(await deleteBarber(pool, id))) return Response.json({ success: false, message: "Barber not found" }, { status: 404 });
+    const result = await deleteBarber(pool, id);
+    if (result === "not_found") return Response.json({ success: false, message: "Barber not found" }, { status: 404 });
+    if (result === "referenced") {
+      return Response.json(
+        {
+          success: false,
+          message: "This barber cannot be deleted while bookings reference the profile. Complete or cancel those bookings first.",
+        },
+        { status: 409 },
+      );
+    }
     return Response.json({ success: true, message: "Barber deleted" });
   } catch (error) {
     console.error("Unable to delete barber", error);

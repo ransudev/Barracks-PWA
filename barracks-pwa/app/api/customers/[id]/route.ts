@@ -1,8 +1,9 @@
 import { requireAdministrator } from "@/server/auth/require-admin";
-import { requireStaff } from "@/server/auth/require-role";
+import { requireStaff, requireStaffUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import {
   customerProfileSchema,
+  customerStaffProfileSchema,
   formatValidationErrors,
 } from "@/server/schemas/sprint.schema";
 import { deleteCustomer, findCustomerById, updateCustomer } from "@/server/services/customer.service";
@@ -30,8 +31,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const authorizationResponse = await requireStaff();
-  if (authorizationResponse) return authorizationResponse;
+  const authorizationResult = await requireStaffUser();
+  if (authorizationResult instanceof Response) return authorizationResult;
   const id = parseId((await params).id);
   if (!id) return Response.json({ success: false, message: "Invalid customer id" }, { status: 400 });
 
@@ -41,7 +42,10 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   } catch {
     return Response.json({ success: false, message: "Invalid customer information" }, { status: 400 });
   }
-  const parsed = customerProfileSchema.safeParse(body);
+  if (authorizationResult.role !== "administrator" && typeof body === "object" && body !== null && "loyaltyPoints" in body) {
+    return Response.json({ success: false, message: "Administrator access is required to change loyalty points" }, { status: 403 });
+  }
+  const parsed = (authorizationResult.role === "administrator" ? customerProfileSchema : customerStaffProfileSchema).safeParse(body);
   if (!parsed.success) {
     return Response.json(
       { success: false, message: "Invalid customer information", errors: formatValidationErrors(parsed.error) },

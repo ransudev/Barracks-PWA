@@ -1,9 +1,10 @@
 import { getCurrentUser } from "@/server/auth/session";
 import type { UserRole } from "@/server/schemas/user.schema";
+import type { PublicUser } from "@/server/services/user.service";
 
-export async function requireRoles(
+async function getAuthorizedUser(
   allowedRoles: readonly UserRole[],
-): Promise<Response | null> {
+): Promise<PublicUser | Response> {
   let user;
 
   try {
@@ -30,9 +31,20 @@ export async function requireRoles(
     );
   }
 
-  return null;
+  return user;
+}
+
+export async function requireRoles(
+  allowedRoles: readonly UserRole[],
+): Promise<Response | null> {
+  const result = await getAuthorizedUser(allowedRoles);
+  return result instanceof Response ? result : null;
 }
 
 export async function requireStaff(): Promise<Response | null> {
   return requireRoles(["administrator", "front_desk"]);
+}
+
+export async function requireStaffUser(): Promise<PublicUser | Response> {
+  return getAuthorizedUser(["administrator", "front_desk"]);
 }
