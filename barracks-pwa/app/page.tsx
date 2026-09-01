@@ -180,6 +180,7 @@ export default function Home() {
           view={view}
           go={go}
           onToast={onToast}
+          currentUser={currentUser}
         />
       </AppShell>
       <Toast message={toast} onClose={() => setToast("")} />

@@ -19,14 +19,6 @@ function statusTone(status: ApiBarber["status"]): "success" | "warning" | "neutr
   return status === "available" ? "success" : status === "busy" ? "warning" : "neutral";
 }
 
-function formatAdded(date: string) {
-  return new Date(date).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
 export function StaffDashboard({
   go,
   onToast,
@@ -35,7 +27,6 @@ export function StaffDashboard({
   onToast: (message: string) => void;
 }) {
   const [barbers, setBarbers] = useState<ApiBarber[]>([]);
-  const [selectedId, setSelectedId] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -45,7 +36,6 @@ export function StaffDashboard({
         const body = await readApiBody<{ success: boolean; barbers?: ApiBarber[]; message?: string }>(response);
         if (!response.ok || !body?.success || !body.barbers) throw new Error(body?.message ?? "Unable to load barber dashboard");
         setBarbers(body.barbers);
-        setSelectedId(body.barbers[0] ? String(body.barbers[0].id) : "");
       } catch (error) {
         onToast(error instanceof Error ? error.message : "Unable to load barber dashboard");
       } finally {
@@ -58,7 +48,6 @@ export function StaffDashboard({
 
   const available = barbers.filter((barber) => barber.status === "available").length;
   const unavailable = barbers.length - available;
-  const selected = barbers.find((barber) => String(barber.id) === selectedId) ?? barbers[0];
 
   return (
     <>
@@ -78,14 +67,7 @@ export function StaffDashboard({
             barbers.map((barber) => {
               const name = displayName(barber);
               return (
-                <button
-                  className={`barber-status-card ${selected?.id === barber.id ? "is-selected" : ""}`}
-                  type="button"
-                  key={barber.id}
-                  aria-pressed={selected?.id === barber.id}
-                  aria-label={`View ${name} profile`}
-                  onClick={() => setSelectedId(String(barber.id))}
-                >
+                <article className="barber-status-card" key={barber.id}>
                   <div className="barber-status-card__head">
                     <Avatar initials={createInitials(name)} tone="slate" size="md" />
                     <Badge tone={statusTone(barber.status)}>{statusLabel(barber.status)}</Badge>
@@ -95,7 +77,7 @@ export function StaffDashboard({
                     <span><small>Status</small><strong>{statusLabel(barber.status)}</strong></span>
                     <span><small>Commission</small><strong>{barber.commissionRate === null ? "—" : `${barber.commissionRate}%`}</strong></span>
                   </div>
-                </button>
+                </article>
               );
             })
           ) : (
@@ -103,24 +85,6 @@ export function StaffDashboard({
           )}
         </div>
       </Panel>
-
-      {selected && (
-        <Panel className="barber-profile-summary-panel">
-          <SectionHeading title="Barber profile" action={<Badge tone={statusTone(selected.status)}>{statusLabel(selected.status)}</Badge>} />
-          <div className="barber-profile-summary__hero">
-            <Avatar initials={createInitials(displayName(selected))} tone="slate" size="xl" />
-            <div>
-              <p className="barber-profile-summary__eyebrow">Business record</p>
-              <h2>{displayName(selected)}</h2>
-            </div>
-          </div>
-          <div className="barber-profile-summary__facts">
-            <div><small>Status</small><strong>{statusLabel(selected.status)}</strong></div>
-            <div><small>Commission rate</small><strong>{selected.commissionRate === null ? "Not set" : `${selected.commissionRate}%`}</strong></div>
-            <div><small>Profile added</small><strong>{formatAdded(selected.createdAt)}</strong></div>
-          </div>
-        </Panel>
-      )}
     </>
   );
 }

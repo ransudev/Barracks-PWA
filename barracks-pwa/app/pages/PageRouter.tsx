@@ -5,22 +5,24 @@ import { InventoryPage } from "@/app/pages/staff/InventoryPage";
 import { CustomersPage } from "@/app/pages/staff/CustomersPage";
 import { StaffDashboard } from "@/app/pages/staff/StaffDashboard";
 import { BookingsPage } from "@/app/pages/staff/BookingsPage";
+import type { ApiUser } from "@/app/lib/api";
 import type { ViewId } from "@/app/types/domain";
 
 type PageRouterProps = {
   view: ViewId;
   go: (view: ViewId) => void;
   onToast: (message: string) => void;
+  currentUser: ApiUser;
 };
 
-export function PageRouter({ view, go, onToast }: PageRouterProps) {
+export function PageRouter({ view, go, onToast, currentUser }: PageRouterProps) {
   switch (view) {
     case "admin-dashboard":
       return <AdminDashboard go={go} onToast={onToast} />;
     case "staff-management":
       return <StaffManagement onToast={onToast} />;
     case "barbers":
-      return <BarbersManagement onToast={onToast} />;
+      return <BarbersManagement onToast={onToast} canDelete={currentUser.role === "administrator"} />;
     case "customers":
       return <CustomersPage onToast={onToast} />;
     case "bookings":

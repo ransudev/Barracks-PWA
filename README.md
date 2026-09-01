@@ -41,7 +41,7 @@ The active `sprint-1` experience includes:
 
 - Public landing page with Barracks branding, service information, branches, contact details, and login/customer-account actions.
 - Customer signup, login, profile details, preferred barber, loyalty points, booking, and appointment history.
-- Staff workspace with barber dashboard, bookings, customers, barbers, and inventory.
+- Staff workspace with a live barber overview dashboard, bookings, customers, barbers, and inventory.
 - Management workspace with dashboard counts, staff account management, barber management, and inventory.
 - PostgreSQL-backed CRUD for sprint entities and database-backed booking creation/status updates.
 - Role-aware workspace switching between Management and Shop floor.
@@ -55,7 +55,7 @@ Queue management, payments, transactions, service management, reports, calendar 
 There are three account roles:
 
 - `administrator`: can enter Management and Shop floor, manage staff accounts, and access all sprint data.
-- `front_desk`: works in Shop floor and can manage customers, barbers, bookings, and inventory. It cannot enter Management or manage user accounts.
+- `front_desk`: works in Shop floor and can manage customers, barbers, bookings, and inventory. It cannot enter Management, manage user accounts, or delete barber records.
 - `customer`: can access only their own customer dashboard/profile and booking flow.
 
 Barbers are business records, not login identities. They do not have accounts or sessions. The migration reassigns legacy `barber` user rows to `front_desk` and removes the obsolete role.
@@ -92,6 +92,8 @@ Do not reintroduce saturated blue or cyan as a brand color, primary action, icon
 
 Keep serif display styling out of dense tables, forms, and operational copy. Public body text should remain readable and comfortably narrow; internal text should favor scanability.
 
+All customer-facing and operational prices use the Philippine peso symbol (`₱`).
+
 ### Layout and material
 
 The public composition is a paced editorial read: compact warm-paper navigation, a split dark/photo hero, a monochrome image collage, service cards, a dark barber roster, branch details, an about/contact section, and a dark CTA/footer close. Public surfaces are square or nearly square, flat at rest, and structured by thin rules, hard crops, and tonal transitions rather than rounded SaaS-style cards or decorative shadows.
@@ -105,6 +107,7 @@ The internal workspace uses dark mineral layers, a persistent sidebar, sticky co
 - Let bookings, barber availability, customers, inventory, and reporting tell one connected story as the backend grows.
 - Make routine updates safe, reversible, and explicit.
 - Use semantic controls, visible keyboard focus, readable contrast, clear status labels, and text alongside state colors.
+- Keep dense booking-row time labels compact and on one line for quick scanning.
 - Preserve factual Barracks content for Davao, its branches, services, roster, contact details, and hours. Synthetic data and placeholder imagery must remain clearly replaceable.
 
 ## Architecture

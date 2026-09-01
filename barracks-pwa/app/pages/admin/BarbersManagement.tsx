@@ -55,8 +55,10 @@ function barberCommission(barber: ApiBarber) {
 
 export function BarbersManagement({
   onToast,
+  canDelete,
 }: {
   onToast: (message: string) => void;
+  canDelete: boolean;
 }) {
   const [items, setItems] = useState<ApiBarber[]>([]);
   const [loading, setLoading] = useState(true);
@@ -232,7 +234,7 @@ export function BarbersManagement({
               </div>
               <div className="barber-management-card__actions">
                 <button className="row-action" type="button" onClick={() => openEdit(barber)}><Icon name="edit" size={14} /> Edit profile</button>
-                <button className="row-action row-action--danger" type="button" onClick={() => void deleteBarber(barber)}>Delete</button>
+                {canDelete && <button className="row-action row-action--danger" type="button" onClick={() => void deleteBarber(barber)}>Delete</button>}
               </div>
             </article>
           )) : <EmptyState icon="scissors" title="No barbers yet" description="Add the first barber profile to start the operational roster." />}
