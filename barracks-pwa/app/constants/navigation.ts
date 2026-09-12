@@ -16,6 +16,7 @@ export const adminNavigation: Array<NavigationItem & { icon: IconName }> = [
   { id: "admin-barbers", label: "Barbers", icon: "scissors" },
   { id: "admin-suppliers", label: "Suppliers", icon: "users" },
   { id: "admin-restocks", label: "Restocks", icon: "calendar" },
+  { id: "admin-reports", label: "Reports", icon: "info" },
   { id: "admin-inventory", label: "Inventory", icon: "box" },
 ];
 
@@ -26,6 +27,7 @@ export const adminViews: ViewId[] = [
   "admin-barbers",
   "admin-suppliers",
   "admin-restocks",
+  "admin-reports",
   "admin-inventory",
 ];
 
@@ -36,5 +38,6 @@ export const administratorOnlyViews: ViewId[] = [
   "admin-barbers",
   "admin-suppliers",
   "admin-restocks",
+  "admin-reports",
   "admin-inventory",
 ];
