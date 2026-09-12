@@ -1,9 +1,6 @@
 import type { Pool } from "pg";
 import type { InventoryItemInput } from "@/server/schemas/sprint.schema";
-import type { z } from "zod";
-import type { inventoryMetadataSchema } from "@/server/schemas/sprint2.schema";
-
-type InventoryMetadataInput = z.infer<typeof inventoryMetadataSchema>;
+import type { InventoryCreateInput, InventoryMetadataInput } from "@/server/schemas/sprint2.schema";
 
 type InventoryRow = {
   id: number;
@@ -71,6 +68,7 @@ export async function findInventoryById(db: Pool, id: number): Promise<Inventory
   return result.rows[0] ? toInventory(result.rows[0]) : null;
 }
 
+// Kept for compatibility with older seed/tests. New UI/API uses createInventoryItem.
 export async function createInventory(db: Pool, input: InventoryItemInput): Promise<InventoryRecord> {
   const result = await db.query<{ id: number }>(`
     INSERT INTO inventory_items (name, category, quantity, minimum_stock, unit_cost)
@@ -79,8 +77,17 @@ export async function createInventory(db: Pool, input: InventoryItemInput): Prom
   return (await findInventoryById(db, result.rows[0].id)) as InventoryRecord;
 }
 
+export async function createInventoryItem(db: Pool, input: InventoryCreateInput): Promise<InventoryRecord> {
+  const result = await db.query<{ id: number }>(`
+    INSERT INTO inventory_items
+      (name,category,quantity,minimum_stock,maximum_stock,unit_cost,unit,sku,status,supplier_id)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+    [input.name,input.category,input.initialQuantity,input.minimumStock,input.maximumStock,input.unitCost,
+      input.unit,input.sku,input.status,input.supplierId]);
+  return (await findInventoryById(db,result.rows[0].id))!;
+}
+
 // Legacy Sprint 1 editor. Quantity is deliberately no longer changed here.
-// Stock mutations must go through inventory movements so every change is auditable.
 export async function updateInventory(db: Pool, id: number, input: InventoryItemInput): Promise<InventoryRecord | null> {
   const result = await db.query<{ id: number }>(`
     UPDATE inventory_items SET name=$1, category=$2, minimum_stock=$3, unit_cost=$4, updated_at=NOW()
