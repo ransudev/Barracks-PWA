@@ -19,7 +19,7 @@ export const supplierAccountSchema = z.object({
   userId: positiveInt,
 }).strict();
 
-export const inventoryMetadataSchema = z.object({
+const inventoryMetadataShape = {
   name: z.string().trim().min(1).max(160),
   category: z.enum(["Supplies", "Equipment", "Products"]),
   supplierId: positiveInt.nullable(),
@@ -29,14 +29,24 @@ export const inventoryMetadataSchema = z.object({
   maximumStock: nonNegativeInt.nullable(),
   unitCost: money,
   status: z.enum(["active", "inactive"]),
-}).strict().refine((data) => data.maximumStock === null || data.maximumStock >= data.minimumStock, {
+} as const;
+
+function maximumStockIsValid(data: { minimumStock: number; maximumStock: number | null }): boolean {
+  return data.maximumStock === null || data.maximumStock >= data.minimumStock;
+}
+
+export const inventoryMetadataSchema = z.object(inventoryMetadataShape).strict().refine(maximumStockIsValid, {
   path: ["maximumStock"],
   message: "Maximum stock must be at least minimum stock",
 });
 
-export const inventoryCreateSchema = inventoryMetadataSchema.and(z.object({
+export const inventoryCreateSchema = z.object({
+  ...inventoryMetadataShape,
   initialQuantity: nonNegativeInt.default(0),
-}).strict());
+}).strict().refine(maximumStockIsValid, {
+  path: ["maximumStock"],
+  message: "Maximum stock must be at least minimum stock",
+});
 
 export const inventoryMovementSchema = z.object({
   movementType: z.enum(["RECEIVE", "USE", "DAMAGE", "RETURN", "ADJUSTMENT"]),
