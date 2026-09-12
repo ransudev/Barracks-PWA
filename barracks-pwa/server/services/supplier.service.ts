@@ -62,7 +62,11 @@ export async function updateSupplier(db: Pool, id: number, input: SupplierInput)
 }
 
 export async function supplierIdForUser(db: Pool | PoolClient, userId: number): Promise<number | null> {
-  const result = await db.query<{ supplier_id: number }>("SELECT supplier_id FROM supplier_accounts WHERE user_id=$1", [userId]);
+  const result = await db.query<{ supplier_id: number }>(`
+    SELECT sa.supplier_id
+    FROM supplier_accounts sa
+    INNER JOIN suppliers s ON s.id=sa.supplier_id AND s.status='active'
+    WHERE sa.user_id=$1`, [userId]);
   return result.rows[0] ? Number(result.rows[0].supplier_id) : null;
 }
 
