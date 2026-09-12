@@ -109,6 +109,19 @@ CREATE TABLE IF NOT EXISTS services (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Seed the application's canonical service catalog so the new FK also works on a fresh database.
+INSERT INTO services (id, name, current_price, active)
+VALUES
+  ('barracks-basic', 'Barracks Basic', 300, TRUE),
+  ('signature-shave', 'Signature Shave', 300, TRUE),
+  ('barracks-premium', 'Barracks Premium', 550, TRUE)
+ON CONFLICT (id) DO UPDATE
+SET name = EXCLUDED.name,
+    current_price = EXCLUDED.current_price,
+    active = EXCLUDED.active,
+    updated_at = NOW();
+
+-- Preserve any historical service IDs that already exist in bookings.
 INSERT INTO services (id, name, current_price)
 SELECT DISTINCT service_id, service_name, service_price
 FROM bookings
