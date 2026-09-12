@@ -7,12 +7,12 @@ import { supplierIdForUser } from "@/server/services/supplier.service";
 export const runtime = "nodejs";
 
 export async function GET() {
-  const user = await requireRolesUser(["administrator", "front_desk", "supplier"]);
+  const user = await requireRolesUser(["administrator", "supplier"]);
   if (user instanceof Response) return user;
   try {
     const supplierId = user.role === "supplier" ? await supplierIdForUser(pool, user.id) : undefined;
     if (user.role === "supplier" && !supplierId) {
-      return Response.json({ success: false, message: "Supplier account is not linked" }, { status: 403 });
+      return Response.json({ success: false, message: "Supplier account is inactive or not linked" }, { status: 403 });
     }
     return Response.json({ success: true, restocks: await listRestockRequests(pool, supplierId ?? undefined) });
   } catch (error) {
