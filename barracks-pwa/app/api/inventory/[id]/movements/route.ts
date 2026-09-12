@@ -1,4 +1,4 @@
-import { requireAdministratorUser, requireStaffUser } from "@/server/auth/require-role";
+import { requireStaffUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { inventoryMovementSchema } from "@/server/schemas/sprint2.schema";
 import { applyInventoryMovement, listInventoryMovements } from "@/server/services/inventory-movement.service";
@@ -17,9 +17,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const id = parseId((await params).id); if (!id) return Response.json({success:false,message:"Invalid inventory item id"},{status:400});
   let body: unknown; try { body = await request.json(); } catch { return Response.json({success:false,message:"Invalid stock operation"},{status:400}); }
   const parsed = inventoryMovementSchema.safeParse(body); if (!parsed.success) return Response.json({success:false,message:"Invalid stock operation"},{status:400});
-  if (parsed.data.movementType === "ADJUSTMENT") {
-    const admin = await requireAdministratorUser(); if (admin instanceof Response) return admin;
+
+  if (staff.role === "front_desk" && parsed.data.movementType !== "USE") {
+    return Response.json({ success: false, message: "Front Desk can only record inventory usage" }, { status: 403 });
   }
+
   try {
     const movement = await applyInventoryMovement(pool,id,staff.id,parsed.data);
     return Response.json({success:true,movement},{status:201});
