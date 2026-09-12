@@ -19,7 +19,9 @@ type SupplierProfileResponse = {
 type Restock = { id:number; status:string; reference:string|null; created_at:string; items:Array<{ id:number; itemName:string; requestedQuantity:number; deliveredQuantity:number|null }> };
 
 const supplierTransitions: Record<string, string | undefined> = {
-  Pending: "Accepted", Accepted: "Preparing", Preparing: "Shipped", Shipped: "Delivered",
+  Pending: "Accepted",
+  Accepted: "Preparing",
+  Preparing: "Shipped",
 };
 
 export function SupplierPortal({ user, onSignOut, onToast }: { user: ApiUser; onSignOut: () => void; onToast: (message:string) => void }) {
@@ -38,19 +40,28 @@ export function SupplierPortal({ user, onSignOut, onToast }: { user: ApiUser; on
       const restockBody = await readApiBody<{success:boolean;restocks?:Restock[];message?:string}>(restockResponse);
       if (!profileResponse.ok || !profileBody?.success || !profileBody.profile) throw new Error(profileBody?.message ?? "Unable to load supplier profile");
       if (!restockResponse.ok || !restockBody?.success) throw new Error(restockBody?.message ?? "Unable to load restock requests");
-      setProfile(profileBody.profile); setRestocks(restockBody.restocks ?? []);
-    } catch (error) { onToast(error instanceof Error ? error.message : "Unable to load supplier portal"); }
-    finally { setLoading(false); }
+      setProfile(profileBody.profile);
+      setRestocks(restockBody.restocks ?? []);
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : "Unable to load supplier portal");
+    } finally {
+      setLoading(false);
+    }
   }, [onToast]);
 
   useEffect(() => { void load(); }, [load]);
 
   async function advance(restock: Restock) {
-    const next = supplierTransitions[restock.status]; if (!next) return;
+    const next = supplierTransitions[restock.status];
+    if (!next) return;
     const response = await apiRequest(`/api/restocks/${restock.id}/status`, { method:"PATCH", body:JSON.stringify({status:next}) });
     const body = await readApiBody<{success:boolean;message?:string}>(response);
-    if (!response.ok || !body?.success) { onToast(body?.message ?? "Unable to update restock"); return; }
-    onToast(`Restock marked ${next}`); await load();
+    if (!response.ok || !body?.success) {
+      onToast(body?.message ?? "Unable to update restock");
+      return;
+    }
+    onToast(`Restock marked ${next}`);
+    await load();
   }
 
   const pending = restocks.filter((r) => !["Received","Cancelled"].includes(r.status));
@@ -62,8 +73,9 @@ export function SupplierPortal({ user, onSignOut, onToast }: { user: ApiUser; on
       <MetricCard label="Deliveries" value={String(profile?.recentDeliveries.length ?? 0)} icon="check" accent="green" />
       <MetricCard label="Account" value={profile?.supplier.status === "active" ? "Active" : "Inactive"} icon="user" accent="violet" />
     </div>
-    <Panel><SectionHeading title="My profile" />{loading ? <p>Loading…</p> : profile ? <div className="detail-grid"><div><strong>Contact</strong><p>{profile.supplier.contactPerson || "Not set"}</p></div><div><strong>Email</strong><p>{profile.supplier.email || "Not set"}</p></div><div><strong>Phone</strong><p>{profile.supplier.phone || "Not set"}</p></div><div><strong>Address</strong><p>{profile.supplier.address || "Not set"}</p></div></div> : <EmptyState icon="user" title="No supplier profile" description="Ask an administrator to link this account to a supplier profile." />}</Panel>
+    <Panel><SectionHeading title="My profile" />{loading ? <p>Loading…</p> : profile ? <div className="detail-grid"><div><strong>Contact</strong><p>{profile.supplier.contactPerson || "Not set"}</p></div><div><strong>Email</strong><p>{profile.supplier.email || "Not set"}</p></div><div><strong>Phone</strong><p>{profile.supplier.phone || "Not set"}</p></div><div><strong>Address</strong><p>{profile.supplier.address || "Not set"}</p></div><div><strong>Notes</strong><p>{profile.supplier.notes || "No notes"}</p></div><div><strong>Account settings</strong><p>Login email: {user.email}</p></div></div> : <EmptyState icon="user" title="No supplier profile" description="Ask an administrator to link this account to a supplier profile." />}</Panel>
     <Panel><SectionHeading title="Supplied items" />{profile?.suppliedItems.length ? <div className="staff-table">{profile.suppliedItems.map((item) => <div className="staff-table__row" key={item.id}><span><strong>{item.name}</strong><small>{item.category} · {item.sku ?? "No SKU"}</small></span><span>{item.quantity} {item.unit}</span><span><Badge tone={item.quantity <= item.minimum_stock ? "warning" : "success"}>{item.quantity <= item.minimum_stock ? "Low stock" : "In stock"}</Badge></span></div>)}</div> : <p>No linked items yet.</p>}</Panel>
     <Panel><SectionHeading title="Restock requests" />{restocks.length ? <div className="staff-table">{restocks.map((restock) => <div className="staff-table__row" key={restock.id}><span><strong>Request #{restock.id}</strong><small>{restock.reference ?? "No reference"}</small></span><span><Badge tone={restock.status === "Cancelled" ? "danger" : restock.status === "Received" ? "success" : "warning"}>{restock.status}</Badge></span><span>{supplierTransitions[restock.status] && <Button size="sm" onClick={() => void advance(restock)}>Mark {supplierTransitions[restock.status]}</Button>}</span></div>)}</div> : <p>No restock requests yet.</p>}</Panel>
+    <Panel><SectionHeading title="Delivery history" />{profile?.recentDeliveries.length ? <div className="staff-table">{profile.recentDeliveries.map((delivery) => <div className="staff-table__row" key={delivery.id}><span><strong>Request #{delivery.id}</strong><small>{delivery.reference ?? "No reference"}</small></span><span>{delivery.received_at ? new Date(delivery.received_at).toLocaleString() : "Received"}</span><span><Badge tone="success">Received</Badge></span></div>)}</div> : <p>No received deliveries yet.</p>}</Panel>
   </main>;
 }
