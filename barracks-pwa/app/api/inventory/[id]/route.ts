@@ -42,6 +42,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     if (!item) return Response.json({ success: false, message: "Inventory item not found" }, { status: 404 });
     return Response.json({ success: true, item });
   } catch (error) {
+    if (error instanceof Error && error.message === "SUPPLIER_UNAVAILABLE") {
+      return Response.json({ success: false, message: "Supplier is inactive or unavailable" }, { status: 400 });
+    }
     console.error("Unable to update inventory item", error);
     return Response.json({ success: false, message: "Unable to update inventory item" }, { status: 500 });
   }
