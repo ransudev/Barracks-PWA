@@ -30,6 +30,9 @@ export async function POST(request: Request) {
   try {
     return Response.json({ success: true, item: await createInventoryItem(pool, parsed.data) }, { status: 201 });
   } catch (error) {
+    if (error instanceof Error && error.message === "SUPPLIER_UNAVAILABLE") {
+      return Response.json({ success: false, message: "Supplier is inactive or unavailable" }, { status: 400 });
+    }
     console.error("Unable to create inventory item", error);
     return Response.json({ success: false, message: "Unable to create inventory item" }, { status: 500 });
   }
