@@ -17,6 +17,12 @@ type SupplierForm = {
 };
 
 type AccountForm = { firstName:string; lastName:string; email:string; password:string };
+type SupplierProfile = {
+  supplier: ApiSupplier;
+  suppliedItems: Array<{ id:number; name:string; category:string; quantity:number; minimum_stock:number; maximum_stock:number|null; unit:string; sku:string|null; unit_cost:number|string; status:string }>;
+  recentDeliveries: Array<{ id:number; status:string; reference:string|null; received_at:string|null; created_at:string }>;
+  restockHistory: Array<{ id:number; status:string; reference:string|null; notes:string; created_at:string; updated_at:string }>;
+};
 
 const emptySupplier: SupplierForm = { companyName:"",contactPerson:"",phone:"",email:"",address:"",notes:"",status:"active" };
 const emptyAccount: AccountForm = { firstName:"",lastName:"",email:"",password:"" };
@@ -32,6 +38,8 @@ export function SuppliersManagement({ onToast }: { onToast:(message:string)=>voi
   const [accountSupplier,setAccountSupplier] = useState<ApiSupplier|null>(null);
   const [accountForm,setAccountForm] = useState<AccountForm>(emptyAccount);
   const [accountSubmitting,setAccountSubmitting] = useState(false);
+  const [profile,setProfile] = useState<SupplierProfile|null>(null);
+  const [profileLoading,setProfileLoading] = useState(false);
 
   const load = useCallback(async()=>{
     setLoading(true);
@@ -53,6 +61,17 @@ export function SuppliersManagement({ onToast }: { onToast:(message:string)=>voi
 
   function openCreate(){ setEditing(null); setForm(emptySupplier); setModalOpen(true); }
   function openEdit(s:ApiSupplier){ setEditing(s); setForm({companyName:s.companyName,contactPerson:s.contactPerson,phone:s.phone,email:s.email,address:s.address,notes:s.notes,status:s.status}); setModalOpen(true); }
+
+  async function openProfile(supplier:ApiSupplier){
+    setProfileLoading(true);
+    try{
+      const response=await apiRequest(`/api/suppliers/${supplier.id}`,{cache:"no-store"});
+      const body=await readApiBody<{success:boolean;profile?:SupplierProfile;message?:string}>(response);
+      if(!response.ok||!body?.success||!body.profile) throw new Error(body?.message??"Unable to load supplier profile");
+      setProfile(body.profile);
+    }catch(error){ onToast(error instanceof Error?error.message:"Unable to load supplier profile"); }
+    finally{ setProfileLoading(false); }
+  }
 
   async function save(event:FormEvent){
     event.preventDefault(); setSubmitting(true);
@@ -94,6 +113,7 @@ export function SuppliersManagement({ onToast }: { onToast:(message:string)=>voi
           <span><strong>{supplier.contactPerson || "Not set"}</strong><small>{supplier.phone || "No phone"}</small></span>
           <span><Badge tone={supplier.status==="active"?"success":"danger"}>{supplier.status==="active"?"Active":"Inactive"}</Badge></span>
           <span className="row-actions">
+            <Button size="sm" variant="secondary" disabled={profileLoading} onClick={()=>void openProfile(supplier)}>Profile</Button>
             <button className="row-action row-action--icon" type="button" onClick={()=>openEdit(supplier)} title="Edit supplier"><Icon name="edit" size={16}/></button>
             <Button size="sm" variant="secondary" onClick={()=>{setAccountSupplier(supplier);setAccountForm({firstName:supplier.contactPerson.split(" ")[0] ?? "",lastName:supplier.contactPerson.split(" ").slice(1).join(" "),email:supplier.email,password:""});}}>Create login</Button>
             {supplier.status==="active" && <Button size="sm" variant="secondary" onClick={()=>void deactivate(supplier)}>Deactivate</Button>}
@@ -112,6 +132,15 @@ export function SuppliersManagement({ onToast }: { onToast:(message:string)=>voi
         <SelectField label="Status" value={form.status} onChange={(e)=>setForm({...form,status:e.target.value as SupplierForm["status"]})}><option value="active">Active</option><option value="inactive">Inactive</option></SelectField>
         <div className="modal-actions"><Button variant="secondary" type="button" onClick={()=>setModalOpen(false)} disabled={submitting}>Cancel</Button><Button type="submit" disabled={submitting}>{submitting?"Saving…":"Save supplier"}</Button></div>
       </form>
+    </Modal>
+
+    <Modal open={Boolean(profile)} title={profile?.supplier.companyName ?? "Supplier profile"} onClose={()=>setProfile(null)}>
+      {profile && <div className="modal-form">
+        <div className="detail-grid"><div><strong>Contact</strong><p>{profile.supplier.contactPerson||"Not set"}</p></div><div><strong>Phone</strong><p>{profile.supplier.phone||"Not set"}</p></div><div><strong>Email</strong><p>{profile.supplier.email||"Not set"}</p></div><div><strong>Address</strong><p>{profile.supplier.address||"Not set"}</p></div><div><strong>Status</strong><p>{profile.supplier.status}</p></div><div><strong>Notes</strong><p>{profile.supplier.notes||"No notes"}</p></div></div>
+        <h3>Supplied items</h3>{profile.suppliedItems.length?<div className="staff-table">{profile.suppliedItems.map((item)=><div className="staff-table__row" key={item.id}><span><strong>{item.name}</strong><small>{item.category} · {item.sku??"No SKU"}</small></span><span>{item.quantity} {item.unit}</span><span>{item.minimum_stock} min / {item.maximum_stock??"—"} max</span></div>)}</div>:<p>No supplied items.</p>}
+        <h3>Recent deliveries</h3>{profile.recentDeliveries.length?<div className="staff-table">{profile.recentDeliveries.map((delivery)=><div className="staff-table__row" key={delivery.id}><span><strong>Request #{delivery.id}</strong><small>{delivery.reference??"No reference"}</small></span><span>{delivery.received_at?new Date(delivery.received_at).toLocaleString():"Received"}</span></div>)}</div>:<p>No received deliveries.</p>}
+        <h3>Restock history</h3>{profile.restockHistory.length?<div className="staff-table">{profile.restockHistory.map((restock)=><div className="staff-table__row" key={restock.id}><span><strong>Request #{restock.id}</strong><small>{restock.reference??"No reference"}</small></span><span><Badge tone={restock.status==="Received"?"success":restock.status==="Cancelled"?"danger":"warning"}>{restock.status}</Badge></span><span>{restock.notes||"No notes"}</span></div>)}</div>:<p>No restock history.</p>}
+      </div>}
     </Modal>
 
     <Modal open={Boolean(accountSupplier)} title={accountSupplier?`Create login for ${accountSupplier.companyName}`:"Create supplier login"} onClose={()=>!accountSubmitting&&setAccountSupplier(null)}>
