@@ -3,17 +3,12 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { BookingForm, type BookingFormValue } from "@/app/components/bookings/BookingForm";
 import { Button, EmptyState, Panel } from "@/app/components/ui";
-import type { ApiBarber, ApiUser } from "@/app/lib/api";
+import type { ApiBarberAvailability, ApiUser } from "@/app/lib/api";
 import { apiRequest, readApiBody } from "@/app/lib/api";
 import { services } from "@/app/data/services";
 import type { ViewId } from "@/app/types/domain";
 import { CustomerTopbar } from "@/app/pages/customer/CustomerTopbar";
-
-function futureDate() {
-  const date = new Date();
-  date.setDate(date.getDate() + 1);
-  return date.toISOString().slice(0, 10);
-}
+import { futureDateInputValue } from "@/app/utils/format";
 
 export function CustomerBookingPage({
   go,
@@ -26,14 +21,14 @@ export function CustomerBookingPage({
   onSignOut: () => void;
   user: ApiUser;
 }) {
-  const [barbers, setBarbers] = useState<ApiBarber[]>([]);
+  const [barbers, setBarbers] = useState<ApiBarberAvailability[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [value, setValue] = useState<BookingFormValue>({
     customerId: "",
     serviceId: services[0]?.id ?? "",
     barberId: "",
-    date: futureDate(),
+    date: futureDateInputValue(),
     time: "10:00",
   });
 
@@ -41,7 +36,7 @@ export function CustomerBookingPage({
     async function loadBarbers() {
       try {
         const response = await apiRequest("/api/barbers");
-        const body = await readApiBody<{ success: boolean; barbers?: ApiBarber[]; message?: string }>(response);
+        const body = await readApiBody<{ success: boolean; barbers?: ApiBarberAvailability[]; message?: string }>(response);
         if (!response.ok || !body?.success) throw new Error(body?.message ?? "Unable to load barbers");
         const available = (body.barbers ?? []).filter((barber) => barber.status !== "unavailable");
         setBarbers(available);

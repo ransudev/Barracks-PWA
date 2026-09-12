@@ -26,6 +26,8 @@ export type ApiBarber = {
   updatedAt: string;
 };
 
+export type ApiBarberAvailability = Pick<ApiBarber, "id" | "firstName" | "lastName" | "status">;
+
 export type ApiInventoryItem = {
   id: number;
   name: string;

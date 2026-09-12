@@ -34,10 +34,16 @@ async function getAuthorizedUser(
   return user;
 }
 
+export async function requireRolesUser(
+  allowedRoles: readonly UserRole[],
+): Promise<PublicUser | Response> {
+  return getAuthorizedUser(allowedRoles);
+}
+
 export async function requireRoles(
   allowedRoles: readonly UserRole[],
 ): Promise<Response | null> {
-  const result = await getAuthorizedUser(allowedRoles);
+  const result = await requireRolesUser(allowedRoles);
   return result instanceof Response ? result : null;
 }
 
@@ -46,5 +52,5 @@ export async function requireStaff(): Promise<Response | null> {
 }
 
 export async function requireStaffUser(): Promise<PublicUser | Response> {
-  return getAuthorizedUser(["administrator", "front_desk"]);
+  return requireRolesUser(["administrator", "front_desk"]);
 }

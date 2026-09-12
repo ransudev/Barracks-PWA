@@ -1,6 +1,7 @@
 import type { Pool } from "pg";
 import { services } from "@/app/data/services";
 import type {
+  BookingEditInput,
   BookingCreateInput,
   BookingUpdateInput,
 } from "@/server/schemas/sprint.schema";
@@ -41,7 +42,7 @@ export type BookingRecord = {
 
 export class BookingServiceError extends Error {
   constructor(
-    public readonly kind: "not_found" | "unavailable" | "conflict" | "past",
+    public readonly kind: "not_found" | "unavailable" | "conflict" | "past" | "not_updatable",
     message: string,
   ) {
     super(message);
@@ -72,7 +73,13 @@ const bookingSelect = `
 `;
 
 function toDateOnly(value: string | Date): string {
-  return value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
+  if (value instanceof Date) {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, "0");
+    const day = String(value.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+  return String(value).slice(0, 10);
 }
 
 function toTimeOnly(value: string | Date): string {
@@ -202,12 +209,108 @@ export async function updateBooking(
     `
       UPDATE bookings
       SET status = $1, updated_at = NOW()
-      WHERE id = $2
+      WHERE id = $2 AND status = 'upcoming'
       RETURNING id
     `,
     [input.status, id],
   );
+  if (!result.rows[0]) {
+    const existing = await db.query<{ id: number; status: BookingRow["status"] }>(
+      "SELECT id, status FROM bookings WHERE id = $1 LIMIT 1",
+      [id],
+    );
+    if (existing.rows[0]?.status !== "upcoming") {
+      if (existing.rows[0]) {
+        throw new BookingServiceError("not_updatable", "Only upcoming bookings can be updated");
+      }
+      return null;
+    }
+  }
   return result.rows[0] ? findBookingById(db, id) : null;
+}
+
+export async function updateBookingDetails(
+  db: Pool,
+  id: number,
+  input: BookingEditInput,
+): Promise<BookingRecord | null> {
+  const slot = new Date(`${input.date}T${input.time}:00+08:00`);
+  if (Number.isNaN(slot.getTime()) || slot.getTime() <= Date.now()) {
+    throw new BookingServiceError("past", "Choose a future booking time");
+  }
+
+  const service = services.find((item) => item.id === input.serviceId && item.active);
+  if (!service) {
+    throw new BookingServiceError("not_found", "That service is not available");
+  }
+
+  const customer = await db.query<{ id: number }>(
+    `
+      SELECT c.id
+      FROM customers c
+      INNER JOIN users u ON u.id = c.user_id
+      INNER JOIN roles r ON r.id = u.role_id AND r.name = 'customer' AND u.deleted_at IS NULL
+      WHERE c.id = $1
+      LIMIT 1
+    `,
+    [input.customerId],
+  );
+  if (!customer.rows[0]) {
+    throw new BookingServiceError("not_found", "Customer not found");
+  }
+
+  const barber = await db.query<{ id: number; status: string }>(
+    "SELECT id, status FROM barbers WHERE id = $1 LIMIT 1",
+    [input.barberId],
+  );
+  if (!barber.rows[0]) {
+    throw new BookingServiceError("not_found", "Barber not found");
+  }
+  if (barber.rows[0].status === "unavailable") {
+    throw new BookingServiceError("unavailable", "That barber is currently unavailable");
+  }
+
+  try {
+    const updated = await db.query<{ id: number }>(
+      `
+        UPDATE bookings
+        SET customer_id = $1, barber_id = $2, service_id = $3, service_name = $4,
+            service_price = $5, booking_date = $6, booking_time = $7, updated_at = NOW()
+        WHERE id = $8 AND status = 'upcoming'
+        RETURNING id
+      `,
+      [
+        input.customerId,
+        input.barberId,
+        service.id,
+        service.name,
+        service.price,
+        input.date,
+        input.time,
+        id,
+      ],
+    );
+
+    if (!updated.rows[0]) {
+      const existing = await db.query<{ status: BookingRow["status"] }>(
+        "SELECT status FROM bookings WHERE id = $1 LIMIT 1",
+        [id],
+      );
+      if (existing.rows[0]?.status !== "upcoming") {
+        if (existing.rows[0]) {
+          throw new BookingServiceError("not_updatable", "Only upcoming bookings can be updated");
+        }
+        return null;
+      }
+    }
+
+    return updated.rows[0] ? findBookingById(db, id) : null;
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      throw new BookingServiceError("conflict", "That barber is already booked for this time");
+    }
+    throw error;
+  }
 }
 
 function isUniqueViolation(error: unknown): error is { code: string } {

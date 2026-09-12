@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createStaffUserSchema, userLifecycleSchema, updateStaffUserSchema } from "@/server/schemas/user.schema";
-import { barberSchema, barberStaffSchema, customerProfileSchema, customerSelfProfileSchema, inventoryItemSchema } from "@/server/schemas/sprint.schema";
+import { barberSchema, barberStaffSchema, bookingEditSchema, bookingUpdateSchema, customerProfileSchema, customerSelfProfileSchema, inventoryItemSchema } from "@/server/schemas/sprint.schema";
 
 test("staff account schemas are strict and validate lifecycle input", () => {
   const valid = createStaffUserSchema.safeParse({
@@ -77,8 +77,12 @@ test("inventory and barber schemas reject unsafe values", () => {
     firstName: "Miko",
     lastName: "Reyes",
     status: "available",
+  }).success, true);
+  assert.equal(barberStaffSchema.safeParse({
+    firstName: "Miko",
+    lastName: "Reyes",
+    status: "available",
     commissionRate: 45.25,
-    rating: 4.8,
   }).success, false);
   assert.equal(barberStaffSchema.safeParse({
     firstName: "Miko",
@@ -110,5 +114,26 @@ test("inventory and barber schemas reject unsafe values", () => {
     phone: "",
     preferredBarberId: null,
     loyaltyPoints: 100,
+  }).success, false);
+});
+
+test("booking schemas keep status transitions terminal and edits explicit", () => {
+  assert.equal(bookingUpdateSchema.safeParse({ status: "completed" }).success, true);
+  assert.equal(bookingUpdateSchema.safeParse({ status: "cancelled" }).success, true);
+  assert.equal(bookingUpdateSchema.safeParse({ status: "upcoming" }).success, false);
+  assert.equal(bookingUpdateSchema.safeParse({ status: "completed", customerId: 1 }).success, false);
+  assert.equal(bookingEditSchema.safeParse({
+    customerId: 1,
+    barberId: 2,
+    serviceId: "barracks-basic",
+    date: "2099-01-02",
+    time: "10:00",
+  }).success, true);
+  assert.equal(bookingEditSchema.safeParse({
+    customerId: 1,
+    barberId: 2,
+    serviceId: "barracks-basic",
+    date: "2099-02-30",
+    time: "10:00",
   }).success, false);
 });

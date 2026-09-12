@@ -5,19 +5,21 @@ import test from "node:test";
 const databaseConfigured = Boolean(process.env.DATABASE_URL || process.env.POSTGRES_URL);
 
 test("PostgreSQL account, inventory, and barber lifecycle persists safely", { skip: !databaseConfigured }, async () => {
-  const [{ pool }, users, sessions, inventory, barbers, customers] = await Promise.all([
+  const [{ pool }, users, sessions, inventory, barbers, customers, bookings] = await Promise.all([
     import("@/server/db/pool"),
     import("@/server/services/user.service"),
     import("@/server/services/session.service"),
     import("@/server/services/inventory.service"),
     import("@/server/services/barber.service"),
     import("@/server/services/customer.service"),
+    import("@/server/services/booking.service"),
   ]);
   const email = `codex.test.${randomUUID()}@barracks.local`;
   let userId: number | null = null;
   let inventoryId: number | null = null;
   let barberId: number | null = null;
   let customerUserId: number | null = null;
+  let bookingId: number | null = null;
 
   try {
     const created = await users.createUser(pool, {
@@ -108,9 +110,9 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
       firstName: changedBarber!.firstName,
       lastName: changedBarber!.lastName,
       status: "available",
-      commissionRate: 40,
     });
     assert.equal(rosterEdit?.rating, 4.7);
+    assert.equal(rosterEdit?.commissionRate, 40);
 
     const createdCustomer = await customers.createCustomer(pool, {
       firstName: "Codex",
@@ -141,7 +143,32 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
       preferredBarberId: createdCustomer.customer.preferredBarberId,
     });
     assert.equal(contactOnlyEdit?.loyaltyPoints, 125);
+
+    const createdBooking = await bookings.createBooking(pool, {
+      customerId: createdCustomer.customer.id,
+      barberId,
+      serviceId: "barracks-basic",
+      date: "2099-01-02",
+      time: "11:00",
+    });
+    bookingId = createdBooking.id;
+    const editedBooking = await bookings.updateBookingDetails(pool, bookingId, {
+      customerId: createdCustomer.customer.id,
+      barberId,
+      serviceId: "signature-shave",
+      date: "2099-01-03",
+      time: "12:00",
+    });
+    assert.equal(editedBooking?.serviceId, "signature-shave");
+    assert.equal(editedBooking?.date, "2099-01-03");
+    const completedBooking = await bookings.updateBooking(pool, bookingId, { status: "completed" });
+    assert.equal(completedBooking?.status, "completed");
+    await assert.rejects(
+      () => bookings.updateBooking(pool, bookingId!, { status: "cancelled" }),
+      (error: unknown) => error instanceof bookings.BookingServiceError && error.kind === "not_updatable",
+    );
   } finally {
+    if (bookingId) await pool.query("DELETE FROM bookings WHERE id = $1", [bookingId]);
     if (barberId) await pool.query("DELETE FROM barbers WHERE id = $1", [barberId]);
     if (inventoryId) await pool.query("DELETE FROM inventory_items WHERE id = $1", [inventoryId]);
     if (customerUserId) await pool.query("DELETE FROM users WHERE id = $1", [customerUserId]);

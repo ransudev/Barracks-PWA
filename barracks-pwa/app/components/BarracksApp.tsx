@@ -225,7 +225,7 @@ export function BarracksApp() {
   if (view === "login") {
     return (
       <>
-        <LoginPage go={go} onToast={onToast} onLogin={handleLogin} />
+        <LoginPage go={go} onLogin={handleLogin} />
         <Toast message={toast} onClose={() => setToast("")} />
       </>
     );
@@ -252,7 +252,7 @@ export function BarracksApp() {
   if (!currentUser) {
     return (
       <>
-        <LoginPage go={go} onToast={onToast} onLogin={handleLogin} />
+        <LoginPage go={go} onLogin={handleLogin} />
         <Toast message={toast} onClose={() => setToast("")} />
       </>
     );

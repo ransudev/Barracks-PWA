@@ -7,21 +7,15 @@ export const viewPaths: Record<ViewId, string> = {
   "customer-profile": "/customer/profile",
   "customer-booking": "/customer/book-appointment",
   "staff-dashboard": "/staff/dashboard",
-  queue: "/staff/queue",
   bookings: "/staff/bookings",
   customers: "/staff/customers",
-  payment: "/staff/payment",
   inventory: "/staff/inventory",
-  "staff-settings": "/staff/settings",
   "admin-dashboard": "/admin/dashboard",
   "staff-management": "/admin/staff",
   "admin-customers": "/admin/customers",
   "admin-barbers": "/admin/barbers",
   barbers: "/staff/barbers",
-  services: "/admin/services",
-  reports: "/admin/reports",
   "admin-inventory": "/admin/inventory",
-  "admin-settings": "/admin/settings",
 };
 
 const pathsToViews = new Map(

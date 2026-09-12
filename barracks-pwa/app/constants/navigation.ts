@@ -23,7 +23,6 @@ export const adminViews: ViewId[] = [
   "admin-customers",
   "admin-barbers",
   "admin-inventory",
-  "admin-settings",
 ];
 
 export const administratorOnlyViews: ViewId[] = [
@@ -31,5 +30,5 @@ export const administratorOnlyViews: ViewId[] = [
   "staff-management",
   "admin-customers",
   "admin-barbers",
-  "admin-settings",
+  "admin-inventory",
 ];

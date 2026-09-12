@@ -5,17 +5,11 @@ import { BookingForm, type BookingFormValue } from "@/app/components/bookings/Bo
 import { services } from "@/app/data/services";
 import type { ApiBarber, ApiBooking, ApiBookingStatus, ApiCustomer } from "@/app/lib/api";
 import { apiRequest, readApiBody } from "@/app/lib/api";
-import { Avatar, Badge, Button, EmptyState, MetricCard, Modal, PageHeader, Panel, SearchInput, SectionHeading, Tabs } from "@/app/components/ui";
-import { createInitials, formatCurrency } from "@/app/utils/format";
+import { Avatar, Badge, Button, ConfirmDialog, EmptyState, MetricCard, Modal, PageHeader, Panel, SearchInput, SectionHeading, Tabs } from "@/app/components/ui";
+import { createInitials, dateInputValue, formatCurrency, futureDateInputValue } from "@/app/utils/format";
 
 function dateString(date = new Date()) {
-  return date.toISOString().slice(0, 10);
-}
-
-function futureDate() {
-  const date = new Date();
-  date.setDate(date.getDate() + 1);
-  return dateString(date);
+  return dateInputValue(date);
 }
 
 function formatDate(date: string) {
@@ -45,7 +39,7 @@ function emptyForm(customerId = "", barberId = ""): BookingFormValue {
     customerId,
     serviceId: services[0]?.id ?? "",
     barberId,
-    date: futureDate(),
+    date: futureDateInputValue(),
     time: "10:00",
   };
 }
@@ -61,6 +55,11 @@ export function BookingsPage({ onToast }: { onToast: (message: string) => void }
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [draft, setDraft] = useState<BookingFormValue>(emptyForm());
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editingBooking, setEditingBooking] = useState<ApiBooking | null>(null);
+  const [editDraft, setEditDraft] = useState<BookingFormValue>(emptyForm());
+  const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
+  const [pendingCancellation, setPendingCancellation] = useState<ApiBooking | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -112,6 +111,18 @@ export function BookingsPage({ onToast }: { onToast: (message: string) => void }
     setBookingModalOpen(true);
   }
 
+  function openEditBooking(booking: ApiBooking) {
+    setSelected(null);
+    setEditingBooking(booking);
+    setEditDraft({
+      customerId: String(booking.customerId),
+      serviceId: booking.serviceId,
+      barberId: String(booking.barberId),
+      date: booking.date,
+      time: booking.time,
+    });
+  }
+
   async function createBooking(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!draft.customerId || !draft.serviceId || !draft.barberId || !draft.date || !draft.time) {
@@ -142,7 +153,8 @@ export function BookingsPage({ onToast }: { onToast: (message: string) => void }
     }
   }
 
-  async function updateStatus(booking: ApiBooking, status: ApiBookingStatus) {
+  async function updateStatus(booking: ApiBooking, status: "completed" | "cancelled") {
+    setStatusUpdatingId(booking.id);
     try {
       const response = await apiRequest(`/api/bookings/${booking.id}`, {
         method: "PATCH",
@@ -152,18 +164,57 @@ export function BookingsPage({ onToast }: { onToast: (message: string) => void }
       if (!response.ok || !body?.success || !body.booking) throw new Error(body?.message ?? "Unable to update booking");
       setItems((current) => current.map((item) => item.id === booking.id ? body.booking as ApiBooking : item));
       setSelected(null);
+      setPendingCancellation(null);
       onToast(`Booking marked ${status}`);
     } catch (error) {
       onToast(error instanceof Error ? error.message : "Unable to update booking");
+    } finally {
+      setStatusUpdatingId(null);
     }
   }
 
+  async function saveBookingEdit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editDraft.customerId || !editDraft.serviceId || !editDraft.barberId || !editDraft.date || !editDraft.time) {
+      onToast("Complete the booking details first");
+      return;
+    }
+
+    setEditSubmitting(true);
+    try {
+      if (!editingBooking) return;
+      const response = await apiRequest(`/api/bookings/${editingBooking.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          customerId: Number(editDraft.customerId),
+          serviceId: editDraft.serviceId,
+          barberId: Number(editDraft.barberId),
+          date: editDraft.date,
+          time: editDraft.time,
+        }),
+      });
+      const body = await readApiBody<{ success: boolean; booking?: ApiBooking; message?: string }>(response);
+      if (!response.ok || !body?.success || !body.booking) throw new Error(body?.message ?? "Unable to update booking");
+      setItems((current) => current.map((item) => item.id === body.booking!.id ? body.booking! : item).sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)));
+      setEditingBooking(null);
+      onToast("Booking updated");
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : "Unable to update booking");
+    } finally {
+      setEditSubmitting(false);
+    }
+  }
+
+  const bookableBarbers = barbers.filter((barber) => barber.status !== "unavailable");
+
   return <>
-    <PageHeader title="Bookings" action={<Button icon="plus" disabled={loading || !customers.length || !barbers.length} onClick={openNewBooking}>New booking</Button>} />
+    <PageHeader title="Bookings" action={<Button icon="plus" disabled={loading || !customers.length || !bookableBarbers.length} onClick={openNewBooking}>New booking</Button>} />
     <div className="booking-tabs-row"><Tabs active={tab} onChange={setTab} items={[{ id: "today", label: "Today", count: counts.today }, { id: "upcoming", label: "Upcoming", count: counts.upcoming }, { id: "completed", label: "Completed", count: counts.completed }, { id: "cancelled", label: "Cancelled", count: counts.cancelled }]} /><SearchInput value={search} onChange={setSearch} placeholder="Search bookings" /></div>
     <div className="metrics-grid metrics-grid--four"><MetricCard label="All bookings" value={String(items.length)} icon="calendar" accent="blue" /><MetricCard label="Today" value={String(counts.today)} icon="clock" accent="amber" /><MetricCard label="Completed" value={String(counts.completed)} icon="checkCircle" accent="green" /><MetricCard label="Cancelled" value={String(counts.cancelled)} icon="x" accent="red" /></div>
     <Panel className="bookings-panel"><SectionHeading title={tab === "today" ? "Today’s schedule" : `${statusLabel(tab as ApiBookingStatus)} bookings`} /><div className="booking-list">{loading ? <div className="staff-table__empty">Loading bookings…</div> : visible.length ? visible.map((booking) => <button className={`booking-row booking-row--${booking.status}`} type="button" key={booking.id} onClick={() => setSelected(booking)}><span className="booking-row__time"><strong>{formatTime(booking.time)}</strong><small>{formatDate(booking.date)}</small></span><span className="booking-row__customer"><Avatar initials={createInitials(booking.customerName)} tone="slate" size="sm" /><span><strong>{booking.customerName}</strong><small>{booking.customerEmail}</small></span></span><span className="booking-row__service"><strong>{booking.serviceName}</strong><small>with {booking.barberName}</small></span><span><Badge tone={statusTone(booking.status)}>{statusLabel(booking.status)}</Badge></span><strong className="booking-row__price">{formatCurrency(booking.price)}</strong></button>) : <EmptyState icon="calendar" title="No bookings found" description="Create a booking or switch to another view." />}</div></Panel>
     <Modal open={bookingModalOpen} title="New booking" onClose={() => !submitting && setBookingModalOpen(false)}><BookingForm value={draft} customers={customers} services={services} barbers={barbers} submitLabel="Create booking" submitting={submitting} onChange={setDraft} onSubmit={createBooking} onCancel={() => setBookingModalOpen(false)} /></Modal>
-    <Modal open={Boolean(selected)} title="Booking details" onClose={() => setSelected(null)}>{selected && <div className="detail-modal"><div className="detail-modal__identity"><Avatar initials={createInitials(selected.customerName)} tone="slate" size="lg" /><div><strong>{selected.customerName}</strong><span>{selected.serviceName}</span></div><Badge tone={statusTone(selected.status)}>{statusLabel(selected.status)}</Badge></div><div className="detail-facts"><span><small>When</small><strong>{formatDate(selected.date)} · {formatTime(selected.time)}</strong></span><span><small>Barber</small><strong>{selected.barberName}</strong></span><span><small>Total</small><strong>{formatCurrency(selected.price)}</strong></span></div>{selected.status === "upcoming" && <div className="modal-actions"><Button variant="secondary" onClick={() => void updateStatus(selected, "completed")}>Mark completed</Button><Button variant="danger" onClick={() => void updateStatus(selected, "cancelled")}>Cancel booking</Button></div>}</div>}</Modal>
+    <Modal open={Boolean(editingBooking)} title="Edit booking" onClose={() => !editSubmitting && setEditingBooking(null)}><BookingForm value={editDraft} customers={customers} services={services} barbers={barbers} submitLabel="Save booking" submitting={editSubmitting} onChange={setEditDraft} onSubmit={saveBookingEdit} onCancel={() => setEditingBooking(null)} /></Modal>
+    <Modal open={Boolean(selected)} title="Booking details" onClose={() => setSelected(null)}>{selected && <div className="detail-modal"><div className="detail-modal__identity"><Avatar initials={createInitials(selected.customerName)} tone="slate" size="lg" /><div><strong>{selected.customerName}</strong><span>{selected.serviceName}</span></div><Badge tone={statusTone(selected.status)}>{statusLabel(selected.status)}</Badge></div><div className="detail-facts"><span><small>When</small><strong>{formatDate(selected.date)} · {formatTime(selected.time)}</strong></span><span><small>Barber</small><strong>{selected.barberName}</strong></span><span><small>Total</small><strong>{formatCurrency(selected.price)}</strong></span></div>{selected.status === "upcoming" && <div className="modal-actions"><Button variant="secondary" disabled={statusUpdatingId === selected.id} onClick={() => openEditBooking(selected)}>Edit booking</Button><Button variant="secondary" disabled={statusUpdatingId === selected.id} onClick={() => void updateStatus(selected, "completed")}>{statusUpdatingId === selected.id ? "Updating…" : "Mark completed"}</Button><Button variant="danger" disabled={statusUpdatingId === selected.id} onClick={() => setPendingCancellation(selected)}>Cancel booking</Button></div>}</div>}</Modal>
+    <ConfirmDialog open={Boolean(pendingCancellation)} title="Cancel this booking?" description={pendingCancellation ? `${pendingCancellation.customerName}'s ${pendingCancellation.serviceName} appointment will be marked cancelled.` : undefined} confirmLabel="Cancel booking" danger busy={statusUpdatingId !== null} onClose={() => statusUpdatingId === null && setPendingCancellation(null)} onConfirm={() => pendingCancellation && void updateStatus(pendingCancellation, "cancelled")} />
   </>;
 }

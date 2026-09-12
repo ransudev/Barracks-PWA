@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ApiBarber, ApiBooking, ApiInventoryItem } from "@/app/lib/api";
 import { apiRequest, readApiBody } from "@/app/lib/api";
 import type { ViewId } from "@/app/types/domain";
-import { createInitials, formatCurrency } from "@/app/utils/format";
+import { createInitials, dateInputValue, formatCurrency } from "@/app/utils/format";
 import { Avatar, Badge, Button, EmptyState, MetricCard, PageHeader, Panel, SectionHeading } from "@/app/components/ui";
 import { Icon } from "@/app/components/ui/icons";
 
@@ -21,7 +21,7 @@ function statusTone(status: ApiBarber["status"]): "success" | "warning" | "neutr
 }
 
 function dateString(date = new Date()) {
-  return date.toISOString().slice(0, 10);
+  return dateInputValue(date);
 }
 
 function formatDate(date: string) {

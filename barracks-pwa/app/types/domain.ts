@@ -7,21 +7,15 @@ export type ViewId =
   | "customer-profile"
   | "customer-booking"
   | "staff-dashboard"
-  | "queue"
   | "bookings"
   | "customers"
-  | "payment"
   | "inventory"
-  | "staff-settings"
   | "admin-dashboard"
   | "staff-management"
   | "admin-customers"
   | "admin-barbers"
   | "barbers"
-  | "services"
-  | "reports"
-  | "admin-inventory"
-  | "admin-settings";
+  | "admin-inventory";
 
 export type ShellArea = "staff" | "admin";
 

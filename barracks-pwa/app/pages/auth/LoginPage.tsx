@@ -13,13 +13,12 @@ import {
 
 type LoginPageProps = {
   go: (view: ViewId) => void;
-  onToast: (message: string) => void;
   onLogin: (user: ApiUser) => void;
 };
 
 type AuthMode = "login" | "signup";
 
-export function LoginPage({ go, onToast, onLogin }: LoginPageProps) {
+export function LoginPage({ go, onLogin }: LoginPageProps) {
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
@@ -31,7 +30,6 @@ export function LoginPage({ go, onToast, onLogin }: LoginPageProps) {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [recoveryOpen, setRecoveryOpen] = useState(false);
-  const [recoveryEmail, setRecoveryEmail] = useState("");
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -131,16 +129,6 @@ export function LoginPage({ go, onToast, onLogin }: LoginPageProps) {
     setError("");
   }
 
-  function sendRecovery(event: FormEvent) {
-    event.preventDefault();
-    if (!recoveryEmail.includes("@")) {
-      onToast("Enter a valid email address");
-      return;
-    }
-    setRecoveryOpen(false);
-    onToast("Password reset instructions sent");
-  }
-
   return (
     <div className="login-page">
       <div className="login-page__aside">
@@ -183,15 +171,17 @@ export function LoginPage({ go, onToast, onLogin }: LoginPageProps) {
                 onChange={(event) => setEmail(event.target.value)}
                 type="email"
                 icon="mail"
+                required
               />
               <label className="field">
-                <span className="field__label">Password</span>
+                <span className="field__label">Password <span aria-hidden="true">*</span></span>
                 <span className="input-wrap">
                   <Icon name="lock" size={16} />
                   <input
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
+                    required
                   />
                   <button
                     type="button"
@@ -204,10 +194,7 @@ export function LoginPage({ go, onToast, onLogin }: LoginPageProps) {
                 </span>
               </label>
               <div className="login-form__meta">
-                <label className="checkbox-label">
-                  <input type="checkbox" defaultChecked />{" "}
-                  <span>Keep me signed in</span>
-                </label>
+                <span className="login-form__session-note">Sessions last 7 days.</span>
                 <button
                   type="button"
                   className="link-button"
@@ -233,6 +220,7 @@ export function LoginPage({ go, onToast, onLogin }: LoginPageProps) {
                 value={signupName}
                 onChange={(event) => setSignupName(event.target.value)}
                 icon="userPlus"
+                required
               />
               <TextField
                 label="Email address"
@@ -240,6 +228,7 @@ export function LoginPage({ go, onToast, onLogin }: LoginPageProps) {
                 onChange={(event) => setSignupEmail(event.target.value)}
                 type="email"
                 icon="mail"
+                required
               />
               <TextField
                 label="Phone number"
@@ -249,7 +238,7 @@ export function LoginPage({ go, onToast, onLogin }: LoginPageProps) {
                 placeholder="+63 917 000 0000"
               />
               <label className="field">
-                <span className="field__label">Password</span>
+                <span className="field__label">Password <span aria-hidden="true">*</span></span>
                 <span className="input-wrap">
                   <Icon name="lock" size={16} />
                   <input
@@ -257,6 +246,8 @@ export function LoginPage({ go, onToast, onLogin }: LoginPageProps) {
                     value={signupPassword}
                     onChange={(event) => setSignupPassword(event.target.value)}
                     aria-describedby="signup-password-hint"
+                    required
+                    minLength={8}
                   />
                   <button
                     type="button"
@@ -276,12 +267,13 @@ export function LoginPage({ go, onToast, onLogin }: LoginPageProps) {
                 size="lg"
                 iconAfter="arrowRight"
                 className="login-submit"
+                disabled={submitting}
               >
                 Create customer account
               </Button>
             </form>
           )}
-          {error && <p className="form-error">{error}</p>}
+          {error && <p className="form-error" role="alert">{error}</p>}
           <div className="login-card__switch">
             <span>
               {authMode === "login"
@@ -301,31 +293,18 @@ export function LoginPage({ go, onToast, onLogin }: LoginPageProps) {
 
       <Modal
         open={recoveryOpen}
-        title="Reset your password"
-        description="We’ll send a reset link to the email on your account."
+        title="Sign-in help"
+        description="Password reset is not available in Sprint 1."
         onClose={() => setRecoveryOpen(false)}
       >
-        <form className="modal-form" onSubmit={sendRecovery}>
-          <TextField
-            label="Email address"
-            type="email"
-            value={recoveryEmail}
-            onChange={(event) => setRecoveryEmail(event.target.value)}
-            icon="mail"
-          />
+        <div className="modal-form">
+          <p className="modal-copy">Contact an administrator if you need your staff access restored.</p>
           <div className="modal-actions">
-            <Button
-              variant="secondary"
-              type="button"
-              onClick={() => setRecoveryOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" icon="mail">
-              Send reset link
+            <Button type="button" onClick={() => setRecoveryOpen(false)}>
+              Close
             </Button>
           </div>
-        </form>
+        </div>
       </Modal>
     </div>
   );

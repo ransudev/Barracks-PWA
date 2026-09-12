@@ -34,8 +34,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   try { body = await request.json(); } catch {
     return Response.json({ success: false, message: "Invalid barber information" }, { status: 400 });
   }
-  if (authorizationResult.role !== "administrator" && typeof body === "object" && body !== null && ("rating" in body || "servicesDone" in body)) {
-    return Response.json({ success: false, message: "Administrator access is required to change barber ratings or services" }, { status: 403 });
+  if (authorizationResult.role !== "administrator" && typeof body === "object" && body !== null && ("commissionRate" in body || "rating" in body || "servicesDone" in body)) {
+    return Response.json({ success: false, message: "Administrator access is required to change barber commission, ratings, or services" }, { status: 403 });
   }
   const parsed = (authorizationResult.role === "administrator" ? barberSchema : barberStaffSchema).safeParse(body);
   if (!parsed.success) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import type { ApiBarber, ApiBooking, ApiCustomer, ApiUser } from "@/app/lib/api";
+import type { ApiBarberAvailability, ApiBooking, ApiCustomer, ApiUser } from "@/app/lib/api";
 import { apiRequest, readApiBody } from "@/app/lib/api";
 import type { ViewId } from "@/app/types/domain";
 import {
@@ -71,7 +71,7 @@ export function CustomerDashboard({
   user: ApiUser;
 }) {
   const [customer, setCustomer] = useState<ApiCustomer | null>(null);
-  const [barbers, setBarbers] = useState<ApiBarber[]>([]);
+  const [barbers, setBarbers] = useState<ApiBarberAvailability[]>([]);
   const [bookings, setBookings] = useState<ApiBooking[]>([]);
   const [draft, setDraft] = useState<ProfileDraft>({
     firstName: "",
@@ -94,7 +94,7 @@ export function CustomerDashboard({
         ]);
         const customerBody = await readApiBody<{ success: boolean; customer?: ApiCustomer; message?: string }>(customerResponse);
         const bookingBody = await readApiBody<{ success: boolean; bookings?: ApiBooking[]; message?: string }>(bookingResponse);
-        const barberBody = await readApiBody<{ success: boolean; barbers?: ApiBarber[] }>(barberResponse);
+        const barberBody = await readApiBody<{ success: boolean; barbers?: ApiBarberAvailability[] }>(barberResponse);
 
         if (!customerResponse.ok || !customerBody?.success || !customerBody.customer) {
           throw new Error(customerBody?.message ?? "Unable to load customer dashboard");

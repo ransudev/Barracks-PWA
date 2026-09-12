@@ -98,12 +98,14 @@ async function lockAdministratorMutations(client: PoolClient): Promise<void> {
   await client.query("SELECT pg_advisory_xact_lock($1)", [USER_ADMIN_LOCK_KEY]);
 }
 
-async function activeAdministratorCount(client: PoolClient): Promise<number> {
+async function usableAdministratorCount(client: PoolClient): Promise<number> {
   const result = await client.query<{ count: string }>(`
     SELECT COUNT(*)::text AS count
     FROM users u
     INNER JOIN roles r ON r.id = u.role_id AND r.name = 'administrator'
     WHERE u.deleted_at IS NULL
+      AND u.is_verified = TRUE
+      AND u.is_blocked = FALSE
   `);
   return Number(result.rows[0]?.count ?? 0);
 }
@@ -249,7 +251,7 @@ export async function updateStaffUser(
       return { kind: "not_found" };
     }
 
-    if (existing.role === "administrator" && input.role !== "administrator" && (await activeAdministratorCount(client)) <= 1) {
+    if (existing.role === "administrator" && input.role !== "administrator" && (await usableAdministratorCount(client)) <= 1) {
       await client.query("ROLLBACK");
       return { kind: "last_admin" };
     }
@@ -333,7 +335,7 @@ export async function updateUserLifecycle(
       : input.action === "unblock" ? false : existing.is_blocked;
     const disablesAccount = !nextVerified || nextBlocked;
 
-    if (existing.role === "administrator" && disablesAccount && (await activeAdministratorCount(client)) <= 1) {
+    if (existing.role === "administrator" && disablesAccount && (await usableAdministratorCount(client)) <= 1) {
       await client.query("ROLLBACK");
       return { kind: "last_admin" };
     }
@@ -386,7 +388,7 @@ export async function softDeleteUser(db: Pool, id: number): Promise<UserMutation
       return { kind: "not_found" };
     }
 
-    if (existing.role === "administrator" && (await activeAdministratorCount(client)) <= 1) {
+    if (existing.role === "administrator" && (await usableAdministratorCount(client)) <= 1) {
       await client.query("ROLLBACK");
       return { kind: "last_admin" };
     }

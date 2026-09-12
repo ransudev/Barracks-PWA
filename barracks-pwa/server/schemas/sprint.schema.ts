@@ -62,7 +62,7 @@ export const barberSchema = z
   })
   .strict();
 
-export const barberStaffSchema = barberSchema.omit({ rating: true }).strict();
+export const barberStaffSchema = barberSchema.omit({ commissionRate: true, rating: true }).strict();
 
 export const inventoryItemSchema = z
   .object({
@@ -92,7 +92,17 @@ export const bookingCreateSchema = z
 
 export const bookingUpdateSchema = z
   .object({
-    status: bookingStatusSchema,
+    status: z.enum(["completed", "cancelled"]),
+  })
+  .strict();
+
+export const bookingEditSchema = z
+  .object({
+    customerId: z.number().int().positive(),
+    barberId: z.number().int().positive(),
+    serviceId: z.string().trim().min(1).max(80),
+    date: bookingDateSchema,
+    time: bookingTimeSchema,
   })
   .strict();
 
@@ -122,8 +132,10 @@ export const customerSelfProfileSchema = customerProfileSchema.omit({ loyaltyPoi
 export const customerStaffProfileSchema = customerSelfProfileSchema;
 
 export type BarberInput = z.infer<typeof barberSchema>;
+export type BarberStaffInput = z.infer<typeof barberStaffSchema>;
 export type InventoryItemInput = z.infer<typeof inventoryItemSchema>;
 export type BookingCreateInput = z.infer<typeof bookingCreateSchema>;
 export type BookingUpdateInput = z.infer<typeof bookingUpdateSchema>;
+export type BookingEditInput = z.infer<typeof bookingEditSchema>;
 export type CustomerSignupInput = z.infer<typeof customerSignupSchema>;
 export type CustomerProfileInput = z.infer<typeof customerProfileSchema>;

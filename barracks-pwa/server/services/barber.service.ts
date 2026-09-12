@@ -1,5 +1,5 @@
 import type { Pool } from "pg";
-import type { BarberInput } from "@/server/schemas/sprint.schema";
+import type { BarberInput, BarberStaffInput } from "@/server/schemas/sprint.schema";
 
 type BarberRow = {
   id: number;
@@ -26,6 +26,10 @@ export type BarberRecord = {
   createdAt: string;
   updatedAt: string;
 };
+
+export type BarberAvailabilityRecord = Pick<BarberRecord, "id" | "firstName" | "lastName" | "status">;
+
+type BarberAvailabilityRow = Pick<BarberRow, "id" | "first_name" | "last_name" | "status">;
 
 export type BarberDeleteResult = "deleted" | "not_found" | "referenced";
 
@@ -60,19 +64,39 @@ export async function listBarbers(db: Pool): Promise<BarberRecord[]> {
   return result.rows.map(toBarber);
 }
 
+export async function listBarberAvailability(db: Pool): Promise<BarberAvailabilityRecord[]> {
+  const result = await db.query<BarberAvailabilityRow>(
+    `
+      SELECT id, first_name, last_name, status
+      FROM barbers
+      ORDER BY first_name ASC, last_name ASC, id ASC
+    `,
+  );
+  return result.rows.map((row) => ({
+    id: Number(row.id),
+    firstName: row.first_name,
+    lastName: row.last_name,
+    status: row.status,
+  }));
+}
+
 export async function findBarberById(db: Pool, id: number): Promise<BarberRecord | null> {
   const result = await db.query<BarberRow>(`${barberSelect} WHERE id = $1`, [id]);
   return result.rows[0] ? toBarber(result.rows[0]) : null;
 }
 
-export async function createBarber(db: Pool, input: BarberInput): Promise<BarberRecord> {
+type BarberMutationInput = BarberInput | BarberStaffInput;
+
+export async function createBarber(db: Pool, input: BarberMutationInput): Promise<BarberRecord> {
+  const commissionRate = "commissionRate" in input ? input.commissionRate : null;
+  const rating = "rating" in input ? input.rating : null;
   const result = await db.query<{ id: number }>(
       `
       INSERT INTO barbers (first_name, last_name, status, commission_rate, rating)
       VALUES ($1, $2, $3, $4, $5)
       RETURNING id
     `,
-    [input.firstName, input.lastName, input.status, input.commissionRate, input.rating ?? null],
+    [input.firstName, input.lastName, input.status, commissionRate, rating ?? null],
   );
   return (await findBarberById(db, result.rows[0].id)) as BarberRecord;
 }
@@ -80,19 +104,28 @@ export async function createBarber(db: Pool, input: BarberInput): Promise<Barber
 export async function updateBarber(
   db: Pool,
   id: number,
-  input: BarberInput,
+  input: BarberMutationInput,
 ): Promise<BarberRecord | null> {
-  const ratingUpdate = input.rating === undefined ? "" : ", rating = $5";
-  const idPlaceholder = input.rating === undefined ? "$5" : "$6";
-  const values = input.rating === undefined
-    ? [input.firstName, input.lastName, input.status, input.commissionRate, id]
-    : [input.firstName, input.lastName, input.status, input.commissionRate, input.rating, id];
+  const values: Array<string | number | null> = [input.firstName, input.lastName, input.status];
+  const updates = ["first_name = $1", "last_name = $2", "status = $3"];
+  const commissionRate = "commissionRate" in input ? input.commissionRate : undefined;
+  const rating = "rating" in input ? input.rating : undefined;
+
+  if (commissionRate !== undefined) {
+    values.push(commissionRate);
+    updates.push(`commission_rate = $${values.length}`);
+  }
+  if (rating !== undefined) {
+    values.push(rating);
+    updates.push(`rating = $${values.length}`);
+  }
+
+  values.push(id);
   const result = await db.query<{ id: number }>(
     `
       UPDATE barbers
-      SET first_name = $1, last_name = $2, status = $3,
-          commission_rate = $4${ratingUpdate}, updated_at = NOW()
-      WHERE id = ${idPlaceholder}
+      SET ${updates.join(", ")}, updated_at = NOW()
+      WHERE id = $${values.length}
       RETURNING id
     `,
     values,

@@ -43,7 +43,7 @@ The active `sprint-1` experience includes:
 - Customer signup, login, profile details, preferred barber, loyalty points, booking, and appointment history.
 - Staff workspace with a live barber overview dashboard, bookings, customers, barbers, and inventory.
 - Management workspace with dashboard counts, staff account management, barber management, and inventory.
-- PostgreSQL-backed CRUD for user accounts, barber employee profiles, and inventory, plus database-backed booking creation/status updates.
+- PostgreSQL-backed CRUD for user accounts, barber employee profiles, and inventory, plus database-backed booking creation/editing/status updates.
 - Role-aware workspace switching between Management and Shop floor.
 
 The app uses URL-backed Next.js routes for the active surfaces. The browser restores the requested page after refresh, and protected routes rehydrate the current account from the HTTP-only session cookie before rendering the workspace.
@@ -55,7 +55,7 @@ Queue management, payments, transactions, service management, reports, calendar 
 There are three account roles:
 
 - `administrator`: can enter Management and Shop floor, manage staff accounts, and access all sprint data.
-- `front_desk`: works in Shop floor and can manage customers, barbers, bookings, and inventory. It can create/read/update inventory and barber records, but cannot enter Management, manage user accounts, or delete inventory/barber records.
+- `front_desk`: works in Shop floor and can manage customers, barbers, bookings, and inventory. It can create/read/update inventory and barber records, but barber commission rates and ratings are administrator-only. It cannot enter Management, manage user accounts, or delete inventory/barber records.
 - `customer`: can access only their own customer dashboard/profile and booking flow.
 
 Barbers are business records, not login identities. They do not have accounts or sessions. The migration reassigns legacy `barber` user rows to `front_desk` and removes the obsolete role.
@@ -107,6 +107,7 @@ The internal workspace uses dark mineral layers, a persistent sidebar, sticky co
 - Let bookings, barber availability, customers, inventory, and reporting tell one connected story as the backend grows.
 - Make routine updates safe, reversible, and explicit.
 - Use semantic controls, visible keyboard focus, readable contrast, clear status labels, and text alongside state colors.
+- Keep dialog focus stable while controlled forms rerender, and return focus to the launching control when a modal closes.
 - Keep dense booking-row time labels compact and on one line for quick scanning.
 - Preserve factual Barracks content for Davao, its branches, services, roster, contact details, and hours. Synthetic data and placeholder imagery must remain clearly replaceable.
 
@@ -166,7 +167,7 @@ The current sprint pages use the API for customers, barbers, inventory, bookings
     │   ├── api/                      # Next.js Route Handlers
     │   │   ├── auth/                 # login, signup, logout, current-user lookup
     │   │   ├── barbers/              # barber list and CRUD
-    │   │   ├── bookings/              # booking list/create/status update
+    │   │   ├── bookings/              # booking list/create/edit/status update
     │   │   ├── customers/             # staff list/create/update and customer self-service
     │   │   ├── health/                # unauthenticated health response
     │   │   ├── inventory/             # inventory list and CRUD
@@ -218,7 +219,7 @@ The current sprint pages use the API for customers, barbers, inventory, bookings
 | Staff customers | `app/pages/staff/CustomersPage.tsx` — customer records, profile details, and CRUD | `/api/customers`, `/api/barbers` |
 | Staff/admin barbers | `app/pages/admin/BarbersManagement.tsx` | `/api/barbers` |
 | Staff/admin inventory | `app/pages/staff/InventoryPage.tsx` | `/api/inventory` |
-| Admin dashboard | `app/pages/admin/AdminDashboard.tsx` | `/api/barbers`, `/api/customers`, `/api/inventory` |
+| Admin dashboard | `app/pages/admin/AdminDashboard.tsx` | `/api/barbers`, `/api/bookings`, `/api/customers`, `/api/inventory` |
 | Admin staff accounts | `app/pages/admin/StaffManagement.tsx` | `/api/users` |
 
 Legacy prototype screens such as `QueuePage`, `PaymentPage`, `ReportsPage`, `ServicesManagement`, and settings pages remain available as source references but are not active destinations in the sprint view switchboard.
@@ -258,9 +259,9 @@ Staff customer management includes search, profile details, contact/preference e
 ### Barbers
 
 - `GET /api/barbers` — administrator, front desk, or customer; lists barber business records.
-- `POST /api/barbers` — administrator/front desk; creates a barber. Ratings are administrator-only and service totals are read-only.
-- `GET /api/barbers/:id` and `PUT /api/barbers/:id` — administrator/front desk; read/update a barber. Front Desk updates cannot change ratings; service totals are read-only.
-- `PATCH /api/barbers` — administrator/front desk; applies a validated commission rate to all barber records in one transaction.
+- `POST /api/barbers` — administrator/front desk; creates a barber. Commission rates and ratings are administrator-only, and service totals are read-only.
+- `GET /api/barbers/:id` and `PUT /api/barbers/:id` — administrator/front desk; read/update a barber. Front Desk updates are limited to name and status; commission rates, ratings, and service totals are protected.
+- `PATCH /api/barbers` — administrator only; applies a validated commission rate to all barber records in one transaction.
 - `DELETE /api/barbers/:id` — administrator only; deletes a barber only when no booking references the profile, otherwise returns an explanatory conflict.
 
 ### Inventory
@@ -275,9 +276,10 @@ Inventory state is derived from quantity and minimum stock: In Stock, Low Stock,
 
 - `GET /api/bookings` — administrator/front desk receive all bookings; customers receive only their own bookings.
 - `POST /api/bookings` — administrator/front desk can select a customer; customers can create only their own booking. The request includes barber, service, date, and time.
-- `PATCH /api/bookings/:id` — administrator/front desk can mark a booking `completed` or `cancelled`.
+- `PUT /api/bookings/:id` — administrator/front desk can edit an upcoming booking's customer, barber, service, date, and time.
+- `PATCH /api/bookings/:id` — administrator/front desk can mark an upcoming booking `completed` or `cancelled`; completed and cancelled bookings are terminal in Sprint 1.
 
-Booking creation validates the date/time, confirms that the customer and barber exist, resolves the service from the local catalog, and prevents an active duplicate barber/date/time slot with a database constraint.
+Booking creation and editing validate the date/time, confirm that the customer and barber exist, resolve the service from the local catalog, and prevent an active duplicate barber/date/time slot with a database constraint. Staff booking cancellation uses an explicit confirmation step in the active UI.
 
 ## Database and server layer
 

@@ -51,6 +51,9 @@ export async function findUserBySessionToken(
         u.last_name,
         u.email,
         r.name AS role,
+        u.is_verified,
+        u.is_blocked,
+        u.deleted_at,
         u.created_at,
         u.updated_at
       FROM sessions s

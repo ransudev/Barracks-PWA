@@ -724,6 +724,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .login-form { display: flex; flex-direction: column; gap: 17px; margin-top: 38px; }
 .login-form .field { gap: 8px; }
 .login-form__meta { align-items: center; display: flex; justify-content: space-between; margin: -2px 0 3px; }
+.login-form__session-note { color: var(--text-muted); font-size: 11px; }
 .checkbox-label { align-items: center; display: inline-flex; gap: 7px; color: var(--text-muted); font-size: 11px; }
 .checkbox-label input { width: 14px; height: 14px; accent-color: var(--blue); }
 .login-submit { width: 100%; }
