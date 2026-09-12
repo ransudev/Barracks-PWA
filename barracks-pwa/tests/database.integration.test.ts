@@ -5,11 +5,12 @@ import test from "node:test";
 const databaseConfigured = Boolean(process.env.DATABASE_URL || process.env.POSTGRES_URL);
 
 test("PostgreSQL account, inventory, and barber lifecycle persists safely", { skip: !databaseConfigured }, async () => {
-  const [{ pool }, users, sessions, inventory, barbers, customers, bookings] = await Promise.all([
+  const [{ pool }, users, sessions, inventory, inventoryMovements, barbers, customers, bookings] = await Promise.all([
     import("@/server/db/pool"),
     import("@/server/services/user.service"),
     import("@/server/services/session.service"),
     import("@/server/services/inventory.service"),
+    import("@/server/services/inventory-movement.service"),
     import("@/server/services/barber.service"),
     import("@/server/services/customer.service"),
     import("@/server/services/booking.service"),
@@ -87,7 +88,28 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
       unitCost: 15,
     });
     assert.equal(changedItem?.category, "Products");
+    assert.equal((await inventory.findInventoryById(pool, inventoryId))?.quantity, 4, "metadata edits must not directly change stock");
+
+    await inventoryMovements.applyInventoryMovement(pool, inventoryId, userId, {
+      movementType: "USE",
+      quantity: 4,
+      supplierId: null,
+      unitCost: null,
+      reference: "integration-test",
+      notes: "Stock changes through movement history",
+    });
     assert.equal((await inventory.findInventoryById(pool, inventoryId))?.quantity, 0);
+    await assert.rejects(
+      () => inventoryMovements.applyInventoryMovement(pool, inventoryId!, userId!, {
+        movementType: "USE",
+        quantity: 1,
+        supplierId: null,
+        unitCost: null,
+        reference: "negative-stock-test",
+        notes: "Must fail",
+      }),
+      (error: unknown) => error instanceof Error && error.message === "NEGATIVE_STOCK",
+    );
 
     const createdBarber = await barbers.createBarber(pool, {
       firstName: "Codex",
@@ -170,7 +192,10 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
   } finally {
     if (bookingId) await pool.query("DELETE FROM bookings WHERE id = $1", [bookingId]);
     if (barberId) await pool.query("DELETE FROM barbers WHERE id = $1", [barberId]);
-    if (inventoryId) await pool.query("DELETE FROM inventory_items WHERE id = $1", [inventoryId]);
+    if (inventoryId) {
+      await pool.query("DELETE FROM inventory_movements WHERE inventory_item_id = $1", [inventoryId]);
+      await pool.query("DELETE FROM inventory_items WHERE id = $1", [inventoryId]);
+    }
     if (customerUserId) await pool.query("DELETE FROM users WHERE id = $1", [customerUserId]);
     if (userId) await pool.query("DELETE FROM users WHERE id = $1", [userId]);
     await pool.end();
