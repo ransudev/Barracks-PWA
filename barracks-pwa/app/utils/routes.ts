@@ -15,22 +15,12 @@ export const viewPaths: Record<ViewId, string> = {
   "staff-management": "/admin/staff",
   "admin-customers": "/admin/customers",
   "admin-barbers": "/admin/barbers",
+  "admin-suppliers": "/admin/suppliers",
   barbers: "/staff/barbers",
   "admin-inventory": "/admin/inventory",
 };
 
-const pathsToViews = new Map(
-  Object.entries(viewPaths).map(([view, path]) => [path, view as ViewId]),
-);
-
-export function pathForView(view: ViewId): string {
-  return viewPaths[view];
-}
-
-export function viewForPath(pathname: string): ViewId {
-  return pathsToViews.get(pathname) ?? "landing";
-}
-
-export function isKnownAppPath(pathname: string): boolean {
-  return pathsToViews.has(pathname);
-}
+const pathsToViews = new Map(Object.entries(viewPaths).map(([view, path]) => [path, view as ViewId]));
+export function pathForView(view: ViewId): string { return viewPaths[view]; }
+export function viewForPath(pathname: string): ViewId { return pathsToViews.get(pathname) ?? "landing"; }
+export function isKnownAppPath(pathname: string): boolean { return pathsToViews.has(pathname); }
