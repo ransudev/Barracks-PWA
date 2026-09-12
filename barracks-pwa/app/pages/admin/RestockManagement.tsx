@@ -44,6 +44,7 @@ export function RestockManagement({ onToast }:{ onToast:(message:string)=>void }
   const [receiveReference,setReceiveReference] = useState("");
   const [receiveNotes,setReceiveNotes] = useState("");
   const [receiveSubmitting,setReceiveSubmitting] = useState(false);
+  const [markingDelivered,setMarkingDelivered] = useState<number|null>(null);
 
   const load = useCallback(async()=>{
     setLoading(true);
@@ -68,7 +69,7 @@ export function RestockManagement({ onToast }:{ onToast:(message:string)=>void }
 
   const supplierItems=useMemo(()=>inventory.filter((item)=>createForm.supplierId && item.supplierId===Number(createForm.supplierId) && item.status==="active"),[inventory,createForm.supplierId]);
   const pending=restocks.filter((r)=>!["Received","Cancelled"].includes(r.status));
-  const delivered=restocks.filter((r)=>r.status==="Delivered"||r.status==="Shipped");
+  const delivered=restocks.filter((r)=>r.status==="Delivered");
   const received=restocks.filter((r)=>r.status==="Received");
 
   function openCreate(){ setCreateForm(emptyCreate); setCreateOpen(true); }
@@ -85,6 +86,21 @@ export function RestockManagement({ onToast }:{ onToast:(message:string)=>void }
       setCreateOpen(false); onToast("Restock request sent to supplier"); await load();
     }catch(error){ onToast(error instanceof Error?error.message:"Unable to create restock request"); }
     finally{ setCreating(false); }
+  }
+
+  async function markDelivered(restock: Restock) {
+    setMarkingDelivered(restock.id);
+    try {
+      const response = await apiRequest(`/api/restocks/${restock.id}/delivered`, { method: "POST" });
+      const body = await readApiBody<{success:boolean;message?:string}>(response);
+      if (!response.ok || !body?.success) throw new Error(body?.message ?? "Unable to confirm delivery");
+      onToast(`Restock #${restock.id} marked Delivered`);
+      await load();
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : "Unable to confirm delivery");
+    } finally {
+      setMarkingDelivered(null);
+    }
   }
 
   function openReceive(restock:Restock){
@@ -111,7 +127,7 @@ export function RestockManagement({ onToast }:{ onToast:(message:string)=>void }
     <div className="metrics-grid metrics-grid--four"><MetricCard label="Open requests" value={String(pending.length)} icon="info" accent="amber"/><MetricCard label="Ready to receive" value={String(delivered.length)} icon="box" accent="blue"/><MetricCard label="Received" value={String(received.length)} icon="check" accent="green"/><MetricCard label="Suppliers" value={String(suppliers.filter((s)=>s.status==="active").length)} icon="users" accent="violet"/></div>
     <Panel>
       <div className="staff-table"><div className="staff-table__head"><span>Request</span><span>Supplier</span><span>Items</span><span>Status</span><span>Actions</span></div>
-        {loading?<div className="staff-table__empty">Loading restock requests…</div>:restocks.length?restocks.map((restock)=><div className="staff-table__row" key={restock.id}><span><strong>#{restock.id}</strong><small>{restock.reference??new Date(restock.created_at).toLocaleDateString()}</small></span><span>{restock.supplier_name}</span><span>{restock.items.map((item)=>`${item.itemName} × ${item.requestedQuantity}`).join(", ")}</span><span><Badge tone={restock.status==="Received"?"success":restock.status==="Cancelled"?"danger":"warning"}>{restock.status}</Badge></span><span>{(restock.status==="Delivered"||restock.status==="Shipped")&&<Button size="sm" onClick={()=>openReceive(restock)}>Receive</Button>}</span></div>):<EmptyState icon="box" title="No restock requests" description="Create a request from a supplier-linked inventory item." action={<Button size="sm" onClick={openCreate}>New request</Button>}/>}</div>
+        {loading?<div className="staff-table__empty">Loading restock requests…</div>:restocks.length?restocks.map((restock)=><div className="staff-table__row" key={restock.id}><span><strong>#{restock.id}</strong><small>{restock.reference??new Date(restock.created_at).toLocaleDateString()}</small></span><span>{restock.supplier_name}</span><span>{restock.items.map((item)=>`${item.itemName} × ${item.requestedQuantity}`).join(", ")}</span><span><Badge tone={restock.status==="Received"?"success":restock.status==="Cancelled"?"danger":"warning"}>{restock.status}</Badge></span><span>{restock.status==="Shipped"?<Button size="sm" disabled={markingDelivered===restock.id} onClick={()=>void markDelivered(restock)}>{markingDelivered===restock.id?"Confirming…":"Mark delivered"}</Button>:restock.status==="Delivered"?<Button size="sm" onClick={()=>openReceive(restock)}>Receive</Button>:null}</span></div>):<EmptyState icon="box" title="No restock requests" description="Create a request from a supplier-linked inventory item." action={<Button size="sm" onClick={openCreate}>New request</Button>}/>}</div>
     </Panel>
 
     <Modal open={createOpen} title="Create restock request" onClose={()=>!creating&&setCreateOpen(false)}>
