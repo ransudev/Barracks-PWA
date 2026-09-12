@@ -58,6 +58,12 @@ function toInventory(row: InventoryRow): InventoryRecord {
   };
 }
 
+async function assertActiveSupplier(db: Pool, supplierId: number | null): Promise<void> {
+  if (supplierId === null) return;
+  const supplier = await db.query("SELECT id FROM suppliers WHERE id=$1 AND status='active'", [supplierId]);
+  if (!supplier.rows[0]) throw new Error("SUPPLIER_UNAVAILABLE");
+}
+
 export async function listInventory(db: Pool): Promise<InventoryRecord[]> {
   const result = await db.query<InventoryRow>(`${inventorySelect} ORDER BY i.name ASC, i.id ASC`);
   return result.rows.map(toInventory);
@@ -78,6 +84,7 @@ export async function createInventory(db: Pool, input: InventoryItemInput): Prom
 }
 
 export async function createInventoryItem(db: Pool, input: InventoryCreateInput): Promise<InventoryRecord> {
+  await assertActiveSupplier(db, input.supplierId);
   const result = await db.query<{ id: number }>(`
     INSERT INTO inventory_items
       (name,category,quantity,minimum_stock,maximum_stock,unit_cost,unit,sku,status,supplier_id)
@@ -97,6 +104,7 @@ export async function updateInventory(db: Pool, id: number, input: InventoryItem
 }
 
 export async function updateInventoryMetadata(db: Pool, id: number, input: InventoryMetadataInput): Promise<InventoryRecord | null> {
+  await assertActiveSupplier(db, input.supplierId);
   const result = await db.query<{ id: number }>(`
     UPDATE inventory_items SET name=$1,category=$2,supplier_id=$3,unit=$4,sku=$5,minimum_stock=$6,
       maximum_stock=$7,unit_cost=$8,status=$9,updated_at=NOW() WHERE id=$10 RETURNING id`,
