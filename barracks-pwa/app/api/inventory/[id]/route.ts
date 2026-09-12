@@ -1,8 +1,7 @@
-import { requireAdministrator } from "@/server/auth/require-admin";
-import { requireStaff } from "@/server/auth/require-role";
+import { requireAdministrator, requireStaff } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
-import { formatValidationErrors, inventoryItemSchema } from "@/server/schemas/sprint.schema";
-import { deleteInventory, findInventoryById, updateInventory } from "@/server/services/inventory.service";
+import { inventoryMetadataSchema } from "@/server/schemas/sprint2.schema";
+import { deleteInventory, findInventoryById, updateInventoryMetadata } from "@/server/services/inventory.service";
 
 export const runtime = "nodejs";
 
@@ -26,7 +25,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const authorizationResponse = await requireStaff();
+  const authorizationResponse = await requireAdministrator();
   if (authorizationResponse) return authorizationResponse;
   const id = parseId((await params).id);
   if (!id) return Response.json({ success: false, message: "Invalid inventory item id" }, { status: 400 });
@@ -34,12 +33,12 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   try { body = await request.json(); } catch {
     return Response.json({ success: false, message: "Invalid inventory information" }, { status: 400 });
   }
-  const parsed = inventoryItemSchema.safeParse(body);
+  const parsed = inventoryMetadataSchema.safeParse(body);
   if (!parsed.success) {
-    return Response.json({ success: false, message: "Invalid inventory information", errors: formatValidationErrors(parsed.error) }, { status: 400 });
+    return Response.json({ success: false, message: "Invalid inventory information", errors: parsed.error.flatten().fieldErrors }, { status: 400 });
   }
   try {
-    const item = await updateInventory(pool, id, parsed.data);
+    const item = await updateInventoryMetadata(pool, id, parsed.data);
     if (!item) return Response.json({ success: false, message: "Inventory item not found" }, { status: 404 });
     return Response.json({ success: true, item });
   } catch (error) {
@@ -55,9 +54,9 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   if (!id) return Response.json({ success: false, message: "Invalid inventory item id" }, { status: 400 });
   try {
     if (!(await deleteInventory(pool, id))) return Response.json({ success: false, message: "Inventory item not found" }, { status: 404 });
-    return Response.json({ success: true, message: "Inventory item deleted" });
+    return Response.json({ success: true, message: "Inventory item deactivated or deleted" });
   } catch (error) {
     console.error("Unable to delete inventory item", error);
-    return Response.json({ success: false, message: "Unable to delete inventory item" }, { status: 500 });
+    return Response.json({ success: false, message: "Unable to deactivate inventory item" }, { status: 500 });
   }
 }
