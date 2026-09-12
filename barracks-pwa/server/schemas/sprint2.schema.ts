@@ -2,6 +2,7 @@ import { z } from "zod";
 
 const money = z.number().finite().min(0).max(9999999999.99);
 const positiveInt = z.number().int().positive();
+const nonNegativeInt = z.number().int().min(0).max(2147483647);
 
 export const supplierSchema = z.object({
   companyName: z.string().trim().min(1).max(180),
@@ -24,14 +25,18 @@ export const inventoryMetadataSchema = z.object({
   supplierId: positiveInt.nullable(),
   unit: z.string().trim().min(1).max(40),
   sku: z.string().trim().max(100).nullable(),
-  minimumStock: z.number().int().min(0),
-  maximumStock: z.number().int().min(0).nullable(),
+  minimumStock: nonNegativeInt,
+  maximumStock: nonNegativeInt.nullable(),
   unitCost: money,
   status: z.enum(["active", "inactive"]),
 }).strict().refine((data) => data.maximumStock === null || data.maximumStock >= data.minimumStock, {
   path: ["maximumStock"],
   message: "Maximum stock must be at least minimum stock",
 });
+
+export const inventoryCreateSchema = inventoryMetadataSchema.and(z.object({
+  initialQuantity: nonNegativeInt.default(0),
+}).strict());
 
 export const inventoryMovementSchema = z.object({
   movementType: z.enum(["RECEIVE", "USE", "DAMAGE", "RETURN", "ADJUSTMENT"]),
@@ -41,7 +46,11 @@ export const inventoryMovementSchema = z.object({
   reference: z.string().trim().max(160).nullable().optional(),
   notes: z.string().trim().max(4000).default(""),
   adjustmentDirection: z.enum(["increase", "decrease"]).optional(),
-}).strict();
+}).strict().superRefine((data, ctx) => {
+  if (data.movementType === "ADJUSTMENT" && !data.adjustmentDirection) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["adjustmentDirection"], message: "Adjustment direction is required" });
+  }
+});
 
 export const restockCreateSchema = z.object({
   supplierId: positiveInt,
@@ -63,12 +72,14 @@ export const receiveRestockSchema = z.object({
   notes: z.string().trim().max(4000).default(""),
   items: z.array(z.object({
     restockRequestItemId: positiveInt,
-    deliveredQuantity: z.number().int().min(0),
+    deliveredQuantity: nonNegativeInt,
     unitCost: money.nullable().optional(),
   }).strict()).min(1),
 }).strict();
 
 export type SupplierInput = z.infer<typeof supplierSchema>;
+export type InventoryMetadataInput = z.infer<typeof inventoryMetadataSchema>;
+export type InventoryCreateInput = z.infer<typeof inventoryCreateSchema>;
 export type InventoryMovementInput = z.infer<typeof inventoryMovementSchema>;
 export type RestockCreateInput = z.infer<typeof restockCreateSchema>;
 export type RestockStatusInput = z.infer<typeof restockStatusSchema>;
