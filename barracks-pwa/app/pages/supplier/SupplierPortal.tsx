@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import type { ApiUser } from "@/app/lib/api";
 import { apiRequest, readApiBody } from "@/app/lib/api";
 import { Badge, Button, EmptyState, MetricCard, Panel, SectionHeading, TextField } from "@/app/components/ui";
+import { ThemeToggle } from "@/app/components/ui/ThemeToggle";
 
 type SupplierProfileResponse = {
   success: boolean;
@@ -94,8 +95,8 @@ export function SupplierPortal({ user, onSignOut, onToast }: { user: ApiUser; on
   }
 
   const pending = restocks.filter((r) => !["Received","Cancelled"].includes(r.status));
-  return <main className="customer-dashboard">
-    <header className="customer-topbar"><div><p className="eyebrow">Supplier Portal</p><h1>{profile?.supplier.companyName ?? "Barracks supplier"}</h1><p>Signed in as {user.firstName} {user.lastName}</p></div><Button variant="secondary" onClick={onSignOut}>Sign out</Button></header>
+  return <main className="customer-dashboard supplier-portal">
+    <header className="customer-topbar"><div><p className="eyebrow">Supplier Portal</p><h1>{profile?.supplier.companyName ?? "Barracks supplier"}</h1><p>Signed in as {user.firstName} {user.lastName}</p></div><div className="supplier-portal__actions"><ThemeToggle /><Button variant="secondary" onClick={onSignOut}>Sign out</Button></div></header>
     <div className="metrics-grid metrics-grid--four">
       <MetricCard label="Supplied items" value={String(profile?.suppliedItems.length ?? 0)} icon="box" accent="blue" />
       <MetricCard label="Pending requests" value={String(pending.length)} icon="info" accent="amber" />
