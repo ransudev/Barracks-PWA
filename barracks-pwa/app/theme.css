@@ -52,6 +52,13 @@
   line-height: 1;
 }
 
+.supplier-portal__actions {
+  align-items: center;
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
 :root[data-theme="light"] .app-shell,
 :root[data-theme="light"] .customer-page,
 :root[data-theme="light"] .supplier-portal,
@@ -146,5 +153,9 @@
     width: 38px;
     padding: 0;
     justify-content: center;
+  }
+
+  .supplier-portal__actions {
+    justify-content: flex-end;
   }
 }
