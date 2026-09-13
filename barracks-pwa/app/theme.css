@@ -52,6 +52,10 @@
   line-height: 1;
 }
 
+.supplier-portal {
+  min-height: 100vh;
+}
+
 .supplier-portal__actions {
   align-items: center;
   display: flex;
