@@ -1,0 +1,150 @@
+/* Dashboard theme overrides. Dark mode remains the default Barracks theme. */
+
+.theme-toggle {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-raised-2);
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 700;
+  transition: background .2s ease, border-color .2s ease, color .2s ease, transform .2s ease;
+}
+
+.theme-toggle:hover {
+  background: var(--surface-hover);
+  border-color: var(--line-strong);
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 3px;
+}
+
+.theme-toggle--compact {
+  width: 38px;
+  height: 38px;
+  min-height: 38px;
+  justify-content: center;
+  padding: 0;
+  background: transparent;
+  border-color: transparent;
+}
+
+.theme-toggle--compact:hover {
+  background: var(--surface-raised-2);
+  border-color: var(--line);
+}
+
+.theme-toggle__icon {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+:root[data-theme="light"] .app-shell,
+:root[data-theme="light"] .customer-page,
+:root[data-theme="light"] .supplier-portal,
+:root[data-theme="light"] .route-loading {
+  color-scheme: light;
+  --ink: #f4f2ec;
+  --ink-soft: #ebe8df;
+  --surface: #ffffff;
+  --surface-raised: #f7f5ef;
+  --surface-raised-2: #f7f5ef;
+  --surface-hover: #eeebe3;
+  --line: #d8d3c8;
+  --line-strong: #bdb6a8;
+  --text: #1b1d1a;
+  --text-soft: #484b46;
+  --text-muted: #73776f;
+  --paper: #ffffff;
+  --blue: #27302d;
+  --green: #526d49;
+  --amber: #85672d;
+  --red: #a74848;
+  --violet: #625a70;
+  --shadow: 0 18px 42px rgba(48, 42, 32, .12);
+}
+
+:root[data-theme="light"] .app-shell,
+:root[data-theme="light"] .customer-page,
+:root[data-theme="light"] .supplier-portal {
+  background: var(--ink);
+  color: var(--text);
+}
+
+:root[data-theme="light"] .app-shell .button--primary,
+:root[data-theme="light"] .app-shell .button--success,
+:root[data-theme="light"] .customer-page .button--primary,
+:root[data-theme="light"] .customer-page .button--success,
+:root[data-theme="light"] .supplier-portal .button--primary,
+:root[data-theme="light"] .supplier-portal .button--success {
+  background: #1b1d1a;
+  color: #ffffff;
+}
+
+:root[data-theme="light"] .app-shell .button--primary:hover,
+:root[data-theme="light"] .app-shell .button--success:hover,
+:root[data-theme="light"] .customer-page .button--primary:hover,
+:root[data-theme="light"] .customer-page .button--success:hover,
+:root[data-theme="light"] .supplier-portal .button--primary:hover,
+:root[data-theme="light"] .supplier-portal .button--success:hover {
+  background: #2a2d29;
+}
+
+:root[data-theme="light"] .app-shell .badge--neutral,
+:root[data-theme="light"] .app-shell .badge--info,
+:root[data-theme="light"] .app-shell .badge--purple,
+:root[data-theme="light"] .customer-page .badge--neutral,
+:root[data-theme="light"] .customer-page .badge--info,
+:root[data-theme="light"] .customer-page .badge--purple,
+:root[data-theme="light"] .supplier-portal .badge--neutral,
+:root[data-theme="light"] .supplier-portal .badge--info,
+:root[data-theme="light"] .supplier-portal .badge--purple {
+  background: rgba(27, 29, 26, .05);
+}
+
+:root[data-theme="light"] .app-shell .avatar,
+:root[data-theme="light"] .customer-page .avatar,
+:root[data-theme="light"] .supplier-portal .avatar {
+  border-color: var(--line-strong);
+}
+
+:root[data-theme="light"] .app-shell .tabs button.is-active {
+  background: #1b1d1a;
+  color: #ffffff;
+}
+
+:root[data-theme="light"] .app-shell .tabs button.is-active span {
+  background: rgba(255, 255, 255, .14);
+  color: #ffffff;
+}
+
+:root[data-theme="light"] .app-shell .popover,
+:root[data-theme="light"] .customer-page .popover,
+:root[data-theme="light"] .supplier-portal .popover {
+  box-shadow: 0 16px 36px rgba(48, 42, 32, .14);
+}
+
+@media (max-width: 720px) {
+  .customer-topbar .theme-toggle:not(.theme-toggle--compact) span:last-child {
+    display: none;
+  }
+
+  .customer-topbar .theme-toggle:not(.theme-toggle--compact) {
+    width: 38px;
+    padding: 0;
+    justify-content: center;
+  }
+}
