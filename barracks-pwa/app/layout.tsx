@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Libre_Baskerville } from "next/font/google";
 import { BarracksApp } from "@/app/components/BarracksApp";
 import "./globals.css";
+import "./theme.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,13 +27,30 @@ export const metadata: Metadata = {
     "Premium grooming, homegrown in Davao. Barracks Barbers & Shaves brings a modern twist to traditional barbering.",
 };
 
+const themeBootScript = `
+  try {
+    var storedTheme = localStorage.getItem("barracks-theme");
+    var theme = storedTheme === "light" ? "light" : "dark";
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+  } catch (_) {
+    document.documentElement.dataset.theme = "dark";
+    document.documentElement.style.colorScheme = "dark";
+  }
+`;
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
       data-scroll-behavior="smooth"
+      data-theme="dark"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} ${libreBaskerville.variable} h-full antialiased`}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
+      </head>
       <body className="min-h-full flex flex-col">
         {/*
           THESIS: Barracks is a considered barbershop worth visiting, not a dashboard wearing a marketing skin.
