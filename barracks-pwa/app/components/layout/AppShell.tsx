@@ -7,6 +7,7 @@ import {
   IconButton,
   Logo,
 } from "@/app/components/ui";
+import { ThemeToggle } from "@/app/components/ui/ThemeToggle";
 import { Icon } from "@/app/components/ui/icons";
 import type { ApiUser } from "@/app/lib/api";
 import type { ShellArea, ViewId } from "@/app/types/domain";
@@ -29,6 +30,7 @@ function displayName(user: ApiUser): string {
 function roleLabel(user: ApiUser): string {
   if (user.role === "front_desk") return "Front Desk";
   if (user.role === "customer") return "Customer";
+  if (user.role === "supplier") return "Supplier";
   return "Administrator";
 }
 
@@ -182,6 +184,8 @@ function Topbar({
       </div>
 
       <div className="topbar__actions">
+        <ThemeToggle compact />
+
         <div className="topbar__popover-wrap">
           <IconButton
             label="View notifications"
