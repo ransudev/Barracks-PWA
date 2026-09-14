@@ -94,7 +94,7 @@ test("Sprint 2 supplier, restock, and receiving workflow is relational and audit
       supplierId,
       reference: "PO-TEST",
       notes: "Integration restock",
-      items: [{ inventoryItemId, requestedQuantity: 5, unitCost: 55 }],
+      items: [{ inventoryItemId: inventoryId!, requestedQuantity: 5, unitCost: 55 }],
     });
     assert.ok(restock);
     restockId = Number(restock!.id);

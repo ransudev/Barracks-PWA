@@ -65,7 +65,10 @@ export function RestockManagement({ onToast }:{ onToast:(message:string)=>void }
     finally{ setLoading(false); }
   },[onToast]);
 
-  useEffect(()=>{ void load(); },[load]);
+  useEffect(()=>{
+    const frame = window.requestAnimationFrame(() => { void load(); });
+    return () => window.cancelAnimationFrame(frame);
+  },[load]);
 
   const supplierItems=useMemo(()=>inventory.filter((item)=>createForm.supplierId && item.supplierId===Number(createForm.supplierId) && item.status==="active"),[inventory,createForm.supplierId]);
   const pending=restocks.filter((r)=>!["Received","Cancelled"].includes(r.status));

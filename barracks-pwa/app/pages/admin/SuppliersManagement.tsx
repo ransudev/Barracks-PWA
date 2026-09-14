@@ -52,7 +52,10 @@ export function SuppliersManagement({ onToast }: { onToast:(message:string)=>voi
     finally { setLoading(false); }
   },[onToast]);
 
-  useEffect(()=>{ void load(); },[load]);
+  useEffect(()=>{
+    const frame = window.requestAnimationFrame(() => { void load(); });
+    return () => window.cancelAnimationFrame(frame);
+  },[load]);
 
   const filtered = useMemo(()=>{
     const q=search.trim().toLowerCase();

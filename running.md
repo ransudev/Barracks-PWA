@@ -121,7 +121,7 @@ DATABASE_SSL=true
 DATABASE_POOL_MAX=3
 ```
 
-The Vercel Supabase integration can provide `POSTGRES_URL` automatically; the app uses it when `DATABASE_URL` is not set. Apply the Barracks migration and demo seed to that database before starting the hosted app. Keep connection strings server-only; do not prefix them with `NEXT_PUBLIC_` or paste them into client-side code. Vercel uses its own environment variables, so switching Vercel to Supabase does not replace or modify your local PostgreSQL database.
+The Vercel Supabase integration can provide `POSTGRES_URL` automatically; the app uses it when `DATABASE_URL` is not set. Apply the Barracks migrations to that database before starting the hosted app. Only run `db:seed-demo` against a disposable preview/demo database because it replaces non-administrator business data. Keep connection strings server-only; do not prefix them with `NEXT_PUBLIC_` or paste them into client-side code. Vercel uses its own environment variables, so switching Vercel to Supabase does not replace or modify your local PostgreSQL database.
 
 ## 6. Load the settings in your command window
 
@@ -163,9 +163,9 @@ What they do:
 
 - `db:migrate` creates the tables Barracks needs.
 - `db:seed-admin` creates the administrator account from `.env.local`.
-- `db:seed-demo` adds repeatable sample barbers, customers, inventory, bookings, and a Front Desk account.
+- `db:seed-demo` replaces the local business/demo records and loads the Sprint 2 sample barbers, suppliers, supplier accounts, linked inventory, restocks, receiving history, customers, bookings, transactions, and Front Desk account.
 
-The demo seed is safe to run again. It updates the demo records instead of creating duplicates.
+The demo seed is deterministic but destructive to non-administrator local data. It is safe for a disposable local/demo database only; do not run it against production or a database containing records you need to keep.
 
 ## 8. Start Barracks
 
@@ -198,6 +198,10 @@ Password: frontdesk123
 Customer
 Email: demo.customer.ana@barracks.local
 Password: customer123
+
+Supplier
+Email: demo.supplier.nina@barracks.local
+Password: supplier123
 ```
 
 See [DEMO_README.md](DEMO_README.md) for the recommended walkthrough.

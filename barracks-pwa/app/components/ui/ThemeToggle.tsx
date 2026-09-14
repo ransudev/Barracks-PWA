@@ -12,13 +12,14 @@ function applyTheme(theme: DashboardTheme) {
 }
 
 export function ThemeToggle({ compact = false }: { compact?: boolean }) {
-  const [theme, setTheme] = useState<DashboardTheme>("dark");
+  const [theme, setTheme] = useState<DashboardTheme>(() => {
+    if (typeof document === "undefined") return "dark";
+    return document.documentElement.dataset.theme === "light" ? "light" : "dark";
+  });
 
   useEffect(() => {
-    const activeTheme = document.documentElement.dataset.theme === "light" ? "light" : "dark";
-    setTheme(activeTheme);
-    applyTheme(activeTheme);
-  }, []);
+    applyTheme(theme);
+  }, [theme]);
 
   function toggleTheme() {
     const nextTheme: DashboardTheme = theme === "dark" ? "light" : "dark";

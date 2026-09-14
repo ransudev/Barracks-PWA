@@ -26,7 +26,7 @@ npm run db:seed-admin
 npm run db:seed-demo
 ```
 
-The full setup sequence is in [running.md](running.md). The demo seed is repeatable and creates clearly marked local records for four barbers, six inventory items, four customers, two bookings, and one Front Desk account.
+The full setup sequence is in [running.md](running.md). The demo seed replaces local business/demo records while preserving administrator accounts, then creates a complete Sprint 2 showcase dataset for barbers, suppliers, supplier accounts, linked inventory, restocks, receiving history, customers, bookings, and a transaction.
 
 Demo credentials:
 
@@ -270,7 +270,23 @@ Staff customer management includes search, profile details, contact/preference e
 - `GET /api/inventory/:id` and `PUT /api/inventory/:id` — administrator/front desk; read/update an item.
 - `DELETE /api/inventory/:id` — administrator only; deletes an item after confirmation in the UI.
 
-Inventory state is derived from quantity and minimum stock: In Stock, Low Stock, or Out of Stock. The UI provides search, category/status filters, validation, loading/empty/error states, metrics, and confirmation dialogs. The current implementation does not create inventory movement or audit records.
+Inventory state is derived from quantity and minimum stock: In Stock, Low Stock, or Out of Stock. The UI provides search, category/status/supplier filters, validation, loading/empty/error states, metrics, confirmation dialogs, stock movement recording, and movement history. Receiving a restock also writes an auditable `RECEIVE` movement.
+
+### Suppliers and restocks
+
+- `GET /api/suppliers` and `POST /api/suppliers` — administrator only; list/create supplier records.
+- `GET /api/suppliers/:id`, `PUT /api/suppliers/:id`, and `DELETE /api/suppliers/:id` — administrator only; read, edit, and deactivate suppliers.
+- `POST /api/suppliers/:id/account` — administrator only; creates or links one supplier portal account.
+- `GET /api/supplier/me` — supplier only; returns the linked profile, supplied items, deliveries, and restock history.
+- `GET /api/restocks` — administrators receive all requests; supplier accounts receive only requests for their active supplier.
+- `POST /api/restocks` — administrator only; creates a request using items linked to an active supplier.
+- `PATCH /api/restocks/:id/status` — the linked supplier advances Pending → Accepted → Preparing → Shipped.
+- `POST /api/restocks/:id/delivered` — administrator only; confirms a shipped request as delivered.
+- `POST /api/restocks/:id/receive` — administrator only; receives a delivered request, updates stock, and writes `RECEIVE` movement records transactionally.
+- `GET /api/inventory/:id/movements` and `POST /api/inventory/:id/movements` — staff; list or record auditable stock movements.
+- `GET /api/reports/inventory` — administrator only; returns valuation, low-stock, supplier-spend, and movement summaries.
+
+The supplier portal is a responsive supplier-specific workspace with a split overview: the supplier profile occupies the left half while linked items, open requests, deliveries, and account status form a 2×2 summary grid on the right. Supplier-facing status actions remain limited to the documented request transition flow. On wider screens, the lower supplied-items panel aligns with the bottom of the combined restock and delivery-history column before returning to natural stacked heights on smaller screens.
 
 ### Bookings
 
@@ -285,7 +301,7 @@ Booking creation and editing validate the date/time, confirm that the customer a
 
 The backend uses raw parameterized SQL through `pg`. It does not use Prisma, Drizzle, Express, Hono, or another backend framework. The same server layer works with either a local PostgreSQL database or a hosted Supabase PostgreSQL database; the active target is selected by `DATABASE_URL`, with `POSTGRES_URL` as the Vercel Supabase-integration fallback.
 
-`server/db/pool.ts` creates the PostgreSQL pool from `DATABASE_URL` or `POSTGRES_URL`, optionally enables SSL through `DATABASE_SSL`, and uses `DATABASE_POOL_MAX` with a default of `10`. Migrations are stored in `server/db/migrations/001_user_management.sql` and run transactionally by `scripts/db-migrate.ts`.
+`server/db/pool.ts` creates the PostgreSQL pool from `DATABASE_URL` or `POSTGRES_URL`, optionally enables SSL through `DATABASE_SSL`, and uses `DATABASE_POOL_MAX` with a default of `10`. Migrations are stored in `server/db/migrations/001_user_management.sql` and `server/db/migrations/002_supplier_inventory.sql`, and run transactionally by `scripts/db-migrate.ts`.
 
 The current migration creates:
 
@@ -294,14 +310,19 @@ The current migration creates:
 - `sessions` — SHA-256 token hash, user, expiration, and creation time.
 - `barbers` — business name, availability status, commission rate, services completed, revenue, rating, and timestamps.
 - `customers` — one profile per customer user, phone, preferred barber, loyalty points, and timestamps.
-- `inventory_items` — item name, category, quantity, minimum stock, unit cost, and timestamps.
+- `inventory_items` — item name, category, quantity, minimum/maximum stock, unit, SKU, supplier link, status, unit cost, and timestamps.
 - `bookings` — customer/barber relationships, service snapshot, price, date/time, status, demo key, and timestamps.
+- `suppliers` and `supplier_accounts` — supplier records and one linked supplier login per supplier.
+- `inventory_movements` — auditable stock changes with before/after quantities, supplier, reference, and actor.
+- `restock_requests` and `restock_request_items` — supplier-linked requests, status transitions, delivery receiving, and line quantities.
+- `services` — canonical service catalog referenced by bookings and transactions.
+- `transactions` — persisted transaction records linked to customers, bookings, barbers, and services.
 
 The migration is compatible with the existing Supabase project `simplecrudapp`. The Next.js server connects through the database connection string and keeps authorization in the application session/role guards; no Supabase secret or database credential is sent to the browser.
 
 Important database constraints include case-insensitive unique user email, explicit account lifecycle columns, valid role/status/category values, non-blank names, non-negative quantities and monetary values with two-decimal precision, commission bounds, customer/user uniqueness, foreign keys, and a unique active barber slot for upcoming bookings.
 
-`scripts/seed-admin.ts` creates the initial administrator from `INITIAL_ADMIN_*` variables and is safe to rerun for the same administrator email. `scripts/seed-demo.ts` upserts repeatable demo records identified by `demo_key` and does not reset unrelated local records.
+`scripts/seed-admin.ts` creates the initial administrator from `INITIAL_ADMIN_*` variables and is safe to rerun for the same administrator email. `scripts/seed-demo.ts` is the local Sprint 2 replacement seed: it runs in one transaction, preserves administrator accounts, removes existing local business/demo records, and loads the current supplier, inventory, restock, customer, booking, and transaction showcase records. Rerunning it is deterministic but intentionally destructive to non-administrator local data; do not run it against production data.
 
 ## Authentication, validation, and authorization
 
@@ -345,7 +366,7 @@ The environment is intentionally portable:
 | Local | Local PostgreSQL URL ending in `/barracks` | `false` | Local development and demo data |
 | Vercel | Supabase transaction-pooler URL for the Barracks database, or integration-provided `POSTGRES_URL` | `true` | Hosted frontend and API routes |
 
-To use Supabase with an explicit connection string, apply the migration and repeatable demo seed to the Supabase database, then add these server-only variables to the Vercel project:
+To use Supabase with an explicit connection string, apply the migrations to the Supabase database. Only run the replacement demo seed against a disposable preview/demo database, then add these server-only variables to the Vercel project:
 
 ```text
 DATABASE_URL=<Supabase transaction-pooler connection string>
@@ -394,12 +415,12 @@ For Next.js-specific changes, read the repository guidance in `barracks-pwa/AGEN
 The sprint backend is intentionally partial. The main remaining seams are:
 
 - Out-of-scope modules such as queue, payments, services, reports, and settings still need their own rendered screens and backend workflows.
-- The API does not yet cover queue, services, payments, transactions, reports, settings, or real visit history.
+- The API does not yet cover queue, payments, settings, or complete visit history. Transaction persistence exists for the Sprint 2 relational foundation, while the older payment/report screens still need to be connected to it.
 - Account password reset/invitation flows, MFA, rate limiting, and audit history are not implemented. Account deactivation is a soft delete; the account row is retained and its sessions are revoked.
 - Dashboard and customer/barber summaries cover the sprint entities but do not yet form a complete reporting model.
-- Inventory has current quantities but no movement ledger, audit trail, or concurrency workflow.
+- Inventory movements and restock receiving are transactional and auditable; broader stock-use workflows and concurrency coverage remain to be expanded.
 - There is no payment processor, notification delivery, calendar sync, email confirmation, rate limiting, MFA, or observability layer.
-- Some legacy prototype modules still use seed data or `localStorage`; those paths should not be treated as production persistence.
+- Some legacy prototype modules, including queue, payment, service-management, and report references, still use seed data or `localStorage`; those paths should not be treated as production persistence.
 - The repository has schema tests and a PostgreSQL integration test; a browser automation test runner and visual regression suite are not configured, so the final browser smoke evidence is run manually against the local dev server.
 
 The recommended evolution is incremental: add URL-backed routes, expand authenticated server boundaries, make each domain use one canonical repository/query path, add inventory movements and booking/payment integrity rules, persist settings, then add automated coverage, observability, audit logging, rate limiting, and deployment documentation.
