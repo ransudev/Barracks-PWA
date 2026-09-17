@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { adminNavigation, staffNavigation } from "@/app/constants/navigation";
 import {
   Avatar,
@@ -9,7 +9,7 @@ import {
 } from "@/app/components/ui";
 import { ThemeToggle } from "@/app/components/ui/ThemeToggle";
 import { Icon } from "@/app/components/ui/icons";
-import type { ApiUser } from "@/app/lib/api";
+import { apiRequest, readApiBody, type ApiInventoryItem, type ApiUser } from "@/app/lib/api";
 import type { ShellArea, ViewId } from "@/app/types/domain";
 import { createInitials } from "@/app/utils/format";
 
@@ -163,12 +163,32 @@ function Topbar({
 }: Omit<AppShellProps, "children" | "active">) {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [lowStock, setLowStock] = useState<ApiInventoryItem[]>([]);
+  const [acknowledgedLowStockIds, setAcknowledgedLowStockIds] = useState<number[]>([]);
   const isManagement = area === "admin";
   const canSwitchWorkspace = currentUser.role === "administrator";
   const name = displayName(currentUser);
   const initials = createInitials(name);
   const role = roleLabel(currentUser);
   const homeView = dashboardForArea(area);
+  const visibleLowStock = lowStock.filter((item) => !acknowledgedLowStockIds.includes(item.id));
+
+  async function refreshLowStock() {
+    try {
+      const response = await apiRequest("/api/inventory", { cache: "no-store" });
+      const body = await readApiBody<{ success:boolean; items?:ApiInventoryItem[] }>(response);
+      if (!response.ok || !body?.success) return;
+      setLowStock((body.items ?? []).filter((item) => item.status === "active" && item.quantity <= item.minimumStock));
+    } catch {
+      // Notifications should not block the rest of the workspace.
+    }
+  }
+
+  useEffect(() => {
+    void refreshLowStock();
+    // A signed-in staff/admin account is required to render AppShell.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser.id]);
 
   return (
     <header className="topbar">
@@ -188,12 +208,13 @@ function Topbar({
 
         <div className="topbar__popover-wrap">
           <IconButton
-            label="View notifications"
+            label={`View notifications${visibleLowStock.length ? ` (${visibleLowStock.length})` : ""}`}
             icon="bell"
             active={notificationsOpen}
             onClick={() => {
               setNotificationsOpen(!notificationsOpen);
               setProfileOpen(false);
+              if (!notificationsOpen) void refreshLowStock();
             }}
           />
         {notificationsOpen && (
@@ -201,19 +222,26 @@ function Topbar({
             <div className="popover__header">
               <strong>Notifications</strong>
             </div>
-            <div className="notification-item">
-              <span>No notifications yet.</span>
-            </div>
-              <button
+            {visibleLowStock.length ? visibleLowStock.map((item) => (
+              <div className="notification-item" key={item.id}>
+                <span><strong>{item.quantity === 0 ? "Out of stock" : "Low stock"}: {item.name}</strong><small>{item.branch} · {item.quantity} {item.unit} remaining · threshold {item.minimumStock}</small></span>
+              </div>
+            )) : (
+              <div className="notification-item">
+                <span>No active stock alerts.</span>
+              </div>
+            )}
+              {visibleLowStock.length > 0 && <button
                 className="popover__footer"
                 type="button"
                 onClick={() => {
+                  setAcknowledgedLowStockIds((current) => [...new Set([...current, ...visibleLowStock.map((item) => item.id)])]);
                   setNotificationsOpen(false);
-                  onToast("All notifications marked as read");
+                  onToast("Low stock alerts acknowledged");
                 }}
               >
-                Mark all as read
-              </button>
+                Acknowledge stock alerts
+              </button>}
             </div>
           )}
         </div>
