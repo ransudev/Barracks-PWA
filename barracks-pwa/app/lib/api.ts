@@ -41,6 +41,7 @@ export type ApiInventoryItem = {
   status: "active" | "inactive";
   supplierId: number | null;
   supplierName: string | null;
+  branch: string;
   createdAt: string;
   updatedAt: string;
 };

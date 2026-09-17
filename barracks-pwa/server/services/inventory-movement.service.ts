@@ -5,7 +5,9 @@ type Queryable = Pool | PoolClient;
 
 function deltaFor(input: InventoryMovementInput): number {
   if (input.movementType === "RECEIVE" || input.movementType === "RETURN") return input.quantity;
-  if (input.movementType === "USE" || input.movementType === "DAMAGE") return -input.quantity;
+  if (["USE", "CUSTOMER_PURCHASE", "STAFF_USAGE", "DAMAGE", "DISCARD"].includes(input.movementType)) {
+    return -input.quantity;
+  }
   return input.adjustmentDirection === "increase" ? input.quantity : -input.quantity;
 }
 
@@ -18,12 +20,24 @@ export async function applyInventoryMovement(
   const client = await db.connect();
   try {
     await client.query("BEGIN");
-    const itemResult = await client.query<{ quantity: number; supplier_id: number | null; unit_cost: number | string }>(
-      "SELECT quantity, supplier_id, unit_cost FROM inventory_items WHERE id=$1 FOR UPDATE",
+    const itemResult = await client.query<{
+      quantity: number;
+      supplier_id: number | null;
+      unit_cost: number | string;
+      category: "Supplies" | "Equipment" | "Products";
+    }>(
+      "SELECT quantity, supplier_id, unit_cost, category FROM inventory_items WHERE id=$1 AND status='active' FOR UPDATE",
       [inventoryItemId],
     );
     const item = itemResult.rows[0];
     if (!item) throw new Error("INVENTORY_NOT_FOUND");
+
+    if (input.movementType === "CUSTOMER_PURCHASE" && item.category !== "Products") {
+      throw new Error("CUSTOMER_PURCHASE_REQUIRES_PRODUCT");
+    }
+    if (input.movementType === "STAFF_USAGE" && item.category !== "Supplies") {
+      throw new Error("STAFF_USAGE_REQUIRES_SUPPLY");
+    }
 
     const previousStock = Number(item.quantity);
     const newStock = previousStock + deltaFor(input);
@@ -57,14 +71,15 @@ export async function applyInventoryMovement(
 export async function listInventoryMovements(db: Queryable, inventoryItemId?: number) {
   if (inventoryItemId) {
     return (await db.query(
-      `SELECT m.*, u.first_name || ' ' || u.last_name AS created_by_name, s.company_name AS supplier_name
+      `SELECT m.*, i.branch, u.first_name || ' ' || u.last_name AS created_by_name, s.company_name AS supplier_name
        FROM inventory_movements m
+       JOIN inventory_items i ON i.id=m.inventory_item_id
        JOIN users u ON u.id=m.created_by
        LEFT JOIN suppliers s ON s.id=m.supplier_id
        WHERE m.inventory_item_id=$1 ORDER BY m.created_at DESC`, [inventoryItemId])).rows;
   }
   return (await db.query(
-    `SELECT m.*, i.name AS item_name, u.first_name || ' ' || u.last_name AS created_by_name, s.company_name AS supplier_name
+    `SELECT m.*, i.name AS item_name, i.branch, u.first_name || ' ' || u.last_name AS created_by_name, s.company_name AS supplier_name
      FROM inventory_movements m
      JOIN inventory_items i ON i.id=m.inventory_item_id
      JOIN users u ON u.id=m.created_by

@@ -1,6 +1,8 @@
 import type { Pool, PoolClient } from "pg";
 import type { SupplierInput } from "@/server/schemas/sprint2.schema";
 
+type Queryable = Pool | PoolClient;
+
 type SupplierRow = {
   id: number;
   company_name: string;
@@ -35,6 +37,22 @@ const mapSupplier = (row: SupplierRow): SupplierRecord => ({
   createdAt: iso(row.created_at), updatedAt: iso(row.updated_at),
 });
 
+async function assertUniqueActiveSupplierName(db: Queryable, companyName: string, excludeId?: number): Promise<void> {
+  const params: unknown[] = [companyName];
+  let sql = "SELECT id FROM suppliers WHERE status='active' AND LOWER(BTRIM(company_name))=LOWER(BTRIM($1))";
+  if (excludeId) {
+    params.push(excludeId);
+    sql += ` AND id<>$${params.length}`;
+  }
+  sql += " LIMIT 1";
+  const duplicate = await db.query(sql, params);
+  if (duplicate.rows[0]) throw new Error("DUPLICATE_SUPPLIER_NAME");
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && "code" in error && (error as { code?: string }).code === "23505");
+}
+
 export async function listSuppliers(db: Pool): Promise<SupplierRecord[]> {
   const result = await db.query<SupplierRow>(`${selectSupplier} ORDER BY company_name ASC, id ASC`);
   return result.rows.map(mapSupplier);
@@ -46,19 +64,31 @@ export async function findSupplier(db: Pool | PoolClient, id: number): Promise<S
 }
 
 export async function createSupplier(db: Pool, input: SupplierInput): Promise<SupplierRecord> {
-  const result = await db.query<{ id: number }>(`
-    INSERT INTO suppliers (company_name, contact_person, phone, email, address, notes, status)
-    VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
-    [input.companyName, input.contactPerson, input.phone, input.email, input.address, input.notes, input.status]);
-  return (await findSupplier(db, result.rows[0].id))!;
+  if (input.status === "active") await assertUniqueActiveSupplierName(db, input.companyName);
+  try {
+    const result = await db.query<{ id: number }>(`
+      INSERT INTO suppliers (company_name, contact_person, phone, email, address, notes, status)
+      VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+      [input.companyName, input.contactPerson, input.phone, input.email, input.address, input.notes, input.status]);
+    return (await findSupplier(db, result.rows[0].id))!;
+  } catch (error) {
+    if (isUniqueViolation(error)) throw new Error("DUPLICATE_SUPPLIER_NAME");
+    throw error;
+  }
 }
 
 export async function updateSupplier(db: Pool, id: number, input: SupplierInput): Promise<SupplierRecord | null> {
-  const result = await db.query<{ id: number }>(`
-    UPDATE suppliers SET company_name=$1, contact_person=$2, phone=$3, email=$4, address=$5,
-      notes=$6, status=$7, updated_at=NOW() WHERE id=$8 RETURNING id`,
-    [input.companyName, input.contactPerson, input.phone, input.email, input.address, input.notes, input.status, id]);
-  return result.rows[0] ? findSupplier(db, id) : null;
+  if (input.status === "active") await assertUniqueActiveSupplierName(db, input.companyName, id);
+  try {
+    const result = await db.query<{ id: number }>(`
+      UPDATE suppliers SET company_name=$1, contact_person=$2, phone=$3, email=$4, address=$5,
+        notes=$6, status=$7, updated_at=NOW() WHERE id=$8 RETURNING id`,
+      [input.companyName, input.contactPerson, input.phone, input.email, input.address, input.notes, input.status, id]);
+    return result.rows[0] ? findSupplier(db, id) : null;
+  } catch (error) {
+    if (isUniqueViolation(error)) throw new Error("DUPLICATE_SUPPLIER_NAME");
+    throw error;
+  }
 }
 
 export async function supplierIdForUser(db: Pool | PoolClient, userId: number): Promise<number | null> {
@@ -80,9 +110,9 @@ export async function getSupplierProfile(db: Pool, supplierId: number) {
   const supplier = await findSupplier(db, supplierId);
   if (!supplier) return null;
   const [items, deliveries, restocks] = await Promise.all([
-    db.query("SELECT id,name,category,quantity,minimum_stock,maximum_stock,unit,sku,unit_cost,status FROM inventory_items WHERE supplier_id=$1 ORDER BY name", [supplierId]),
-    db.query("SELECT id,status,reference,received_at,created_at FROM restock_requests WHERE supplier_id=$1 AND status='Received' ORDER BY received_at DESC NULLS LAST LIMIT 20", [supplierId]),
-    db.query("SELECT id,status,reference,notes,created_at,updated_at FROM restock_requests WHERE supplier_id=$1 ORDER BY created_at DESC LIMIT 50", [supplierId]),
+    db.query("SELECT id,name,category,quantity,minimum_stock,maximum_stock,unit,sku,unit_cost,status,branch FROM inventory_items WHERE supplier_id=$1 ORDER BY name", [supplierId]),
+    db.query("SELECT id,status,branch,reference,received_at,created_at FROM restock_requests WHERE supplier_id=$1 AND status='Received' ORDER BY received_at DESC NULLS LAST LIMIT 20", [supplierId]),
+    db.query("SELECT id,status,branch,reference,notes,created_at,updated_at FROM restock_requests WHERE supplier_id=$1 ORDER BY created_at DESC LIMIT 50", [supplierId]),
   ]);
   return { supplier, suppliedItems: items.rows, recentDeliveries: deliveries.rows, restockHistory: restocks.rows };
 }

@@ -1,4 +1,4 @@
-import { requireAdministrator, requireStaff } from "@/server/auth/require-role";
+import { requireAdministrator, requireStaff, requireStaffUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { inventoryMetadataSchema } from "@/server/schemas/sprint2.schema";
 import { deleteInventory, findInventoryById, updateInventoryMetadata } from "@/server/services/inventory.service";
@@ -25,8 +25,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const authorizationResponse = await requireAdministrator();
-  if (authorizationResponse) return authorizationResponse;
+  const staff = await requireStaffUser();
+  if (staff instanceof Response) return staff;
   const id = parseId((await params).id);
   if (!id) return Response.json({ success: false, message: "Invalid inventory item id" }, { status: 400 });
   let body: unknown;
@@ -38,7 +38,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     return Response.json({ success: false, message: "Invalid inventory information", errors: parsed.error.flatten().fieldErrors }, { status: 400 });
   }
   try {
-    const item = await updateInventoryMetadata(pool, id, parsed.data);
+    const item = await updateInventoryMetadata(pool, id, staff.id, parsed.data);
     if (!item) return Response.json({ success: false, message: "Inventory item not found" }, { status: 404 });
     return Response.json({ success: true, item });
   } catch (error) {

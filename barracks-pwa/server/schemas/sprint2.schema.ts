@@ -3,16 +3,28 @@ import { z } from "zod";
 const money = z.number().finite().min(0).max(9999999999.99);
 const positiveInt = z.number().int().positive();
 const nonNegativeInt = z.number().int().min(0).max(2147483647);
+const optionalEmail = z.string().trim().max(320).refine(
+  (value) => !value || z.string().email().safeParse(value).success,
+  { message: "Enter a valid email address" },
+);
 
 export const supplierSchema = z.object({
   companyName: z.string().trim().min(1).max(180),
   contactPerson: z.string().trim().max(180).default(""),
   phone: z.string().trim().max(40).default(""),
-  email: z.string().trim().max(320).default(""),
+  email: optionalEmail.default(""),
   address: z.string().trim().max(2000).default(""),
   notes: z.string().trim().max(4000).default(""),
   status: z.enum(["active", "inactive"]).default("active"),
-}).strict();
+}).strict().superRefine((data, ctx) => {
+  if (!data.phone && !data.email) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["phone"],
+      message: "Provide a phone number or email address",
+    });
+  }
+});
 
 export const supplierAccountSchema = z.object({
   supplierId: positiveInt,
@@ -49,7 +61,16 @@ export const inventoryCreateSchema = z.object({
 });
 
 export const inventoryMovementSchema = z.object({
-  movementType: z.enum(["RECEIVE", "USE", "DAMAGE", "RETURN", "ADJUSTMENT"]),
+  movementType: z.enum([
+    "RECEIVE",
+    "USE",
+    "CUSTOMER_PURCHASE",
+    "STAFF_USAGE",
+    "DAMAGE",
+    "DISCARD",
+    "RETURN",
+    "ADJUSTMENT",
+  ]),
   quantity: positiveInt,
   supplierId: positiveInt.nullable().optional(),
   unitCost: money.nullable().optional(),
@@ -60,10 +81,14 @@ export const inventoryMovementSchema = z.object({
   if (data.movementType === "ADJUSTMENT" && !data.adjustmentDirection) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["adjustmentDirection"], message: "Adjustment direction is required" });
   }
+  if (data.movementType === "ADJUSTMENT" && !data.notes.trim()) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["notes"], message: "Adjustment reason is required" });
+  }
 });
 
 export const restockCreateSchema = z.object({
   supplierId: positiveInt,
+  branch: z.string().trim().min(1).max(120).default("Main Branch"),
   reference: z.string().trim().max(160).nullable().optional(),
   notes: z.string().trim().max(4000).default(""),
   items: z.array(z.object({

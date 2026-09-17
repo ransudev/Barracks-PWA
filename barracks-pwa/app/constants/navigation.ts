@@ -7,6 +7,7 @@ export const staffNavigation: Array<NavigationItem & { icon: IconName }> = [
   { id: "customers", label: "Customers", icon: "users" },
   { id: "barbers", label: "Barbers", icon: "scissors" },
   { id: "inventory", label: "Inventory", icon: "box" },
+  { id: "staff-suppliers", label: "Suppliers", icon: "users" },
 ];
 
 export const adminNavigation: Array<NavigationItem & { icon: IconName }> = [

@@ -1,4 +1,4 @@
-import { requireAdministrator } from "@/server/auth/require-admin";
+import { requireAdministratorUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import {
   createStaffUserSchema,
@@ -9,11 +9,8 @@ import { createUser, listUsers } from "@/server/services/user.service";
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  const authorizationResponse = await requireAdministrator();
-
-  if (authorizationResponse) {
-    return authorizationResponse;
-  }
+  const administrator = await requireAdministratorUser();
+  if (administrator instanceof Response) return administrator;
 
   let body: unknown;
 
@@ -87,15 +84,15 @@ export async function POST(request: Request) {
 }
 
 export async function GET() {
-  const authorizationResponse = await requireAdministrator();
-
-  if (authorizationResponse) {
-    return authorizationResponse;
-  }
+  const administrator = await requireAdministratorUser();
+  if (administrator instanceof Response) return administrator;
 
   try {
     const users = await listUsers(pool);
-    return Response.json({ success: true, users });
+    const visibleUsers = users.filter(
+      (user) => user.role !== "administrator" || user.id === administrator.id,
+    );
+    return Response.json({ success: true, users: visibleUsers });
   } catch (error) {
     console.error("Unable to list users", error);
     return Response.json(

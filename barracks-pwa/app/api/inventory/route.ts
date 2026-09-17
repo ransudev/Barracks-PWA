@@ -1,4 +1,4 @@
-import { requireAdministrator, requireStaff } from "@/server/auth/require-role";
+import { requireStaff, requireStaffUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { inventoryCreateSchema } from "@/server/schemas/sprint2.schema";
 import { createInventoryItem, listInventory } from "@/server/services/inventory.service";
@@ -17,8 +17,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const authorizationResponse = await requireAdministrator();
-  if (authorizationResponse) return authorizationResponse;
+  const staff = await requireStaffUser();
+  if (staff instanceof Response) return staff;
   let body: unknown;
   try { body = await request.json(); } catch {
     return Response.json({ success: false, message: "Invalid inventory information" }, { status: 400 });

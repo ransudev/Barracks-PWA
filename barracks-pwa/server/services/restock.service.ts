@@ -17,9 +17,9 @@ export async function createRestockRequest(db: Pool, userId: number, input: Rest
     if (!supplier.rows[0]) throw new Error("SUPPLIER_UNAVAILABLE");
 
     const request = await client.query<{ id: number }>(
-      `INSERT INTO restock_requests (supplier_id,reference,notes,requested_by)
-       VALUES ($1,$2,$3,$4) RETURNING id`,
-      [input.supplierId, input.reference ?? null, input.notes, userId],
+      `INSERT INTO restock_requests (supplier_id,branch,reference,notes,requested_by)
+       VALUES ($1,$2,$3,$4,$5) RETURNING id`,
+      [input.supplierId, input.branch, input.reference ?? null, input.notes, userId],
     );
     const requestId = Number(request.rows[0].id);
 
@@ -43,11 +43,20 @@ export async function createRestockRequest(db: Pool, userId: number, input: Rest
   } finally { client.release(); }
 }
 
-export async function listRestockRequests(db: Pool, supplierId?: number) {
+export async function listRestockRequests(db: Pool, supplierId?: number, requestedBy?: number) {
   const params: unknown[] = [];
-  const where = supplierId ? (params.push(supplierId), "WHERE r.supplier_id=$1") : "";
+  const conditions: string[] = [];
+  if (supplierId) {
+    params.push(supplierId);
+    conditions.push(`r.supplier_id=$${params.length}`);
+  }
+  if (requestedBy) {
+    params.push(requestedBy);
+    conditions.push(`r.requested_by=$${params.length}`);
+  }
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   const result = await db.query(
-    `SELECT r.id,r.supplier_id,s.company_name AS supplier_name,r.status,r.reference,r.notes,r.requested_by,
+    `SELECT r.id,r.supplier_id,s.company_name AS supplier_name,r.status,r.branch,r.reference,r.notes,r.requested_by,
       r.received_by,r.received_at,r.created_at,r.updated_at,
       COALESCE(json_agg(json_build_object('id',ri.id,'inventoryItemId',ri.inventory_item_id,'itemName',i.name,
         'requestedQuantity',ri.requested_quantity,'deliveredQuantity',ri.delivered_quantity,'unitCost',ri.unit_cost)
@@ -61,7 +70,7 @@ export async function listRestockRequests(db: Pool, supplierId?: number) {
 
 export async function getRestockRequest(db: Pool, id: number) {
   const result = await db.query(
-    `SELECT r.id,r.supplier_id,s.company_name AS supplier_name,r.status,r.reference,r.notes,r.requested_by,
+    `SELECT r.id,r.supplier_id,s.company_name AS supplier_name,r.status,r.branch,r.reference,r.notes,r.requested_by,
       r.received_by,r.received_at,r.created_at,r.updated_at,
       COALESCE(json_agg(json_build_object('id',ri.id,'inventoryItemId',ri.inventory_item_id,'itemName',i.name,
         'requestedQuantity',ri.requested_quantity,'deliveredQuantity',ri.delivered_quantity,'unitCost',ri.unit_cost)
