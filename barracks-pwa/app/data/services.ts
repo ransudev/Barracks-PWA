@@ -20,7 +20,7 @@ export const services: Service[] = [
   {
     id: "barracks-premium",
     name: "Barracks Premium",
-    description: "A complete cut, styling, and finishing ritual.",
+    description: "A complete cut, styling, and premium finish.",
     duration: "75 mins",
     price: 550,
     active: true,

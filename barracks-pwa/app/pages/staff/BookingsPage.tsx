@@ -7,6 +7,7 @@ import type { ApiBarber, ApiBooking, ApiBookingStatus, ApiCustomer } from "@/app
 import { apiRequest, readApiBody } from "@/app/lib/api";
 import { Avatar, Badge, Button, ConfirmDialog, EmptyState, MetricCard, Modal, PageHeader, Panel, SearchInput, SectionHeading, Tabs } from "@/app/components/ui";
 import { createInitials, dateInputValue, formatCurrency, futureDateInputValue } from "@/app/utils/format";
+import { bookingListState } from "@/app/utils/booking-state";
 
 function dateString(date = new Date()) {
   return dateInputValue(date);
@@ -49,6 +50,7 @@ export function BookingsPage({ onToast }: { onToast: (message: string) => void }
   const [customers, setCustomers] = useState<ApiCustomer[]>([]);
   const [barbers, setBarbers] = useState<ApiBarber[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [tab, setTab] = useState("upcoming");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<ApiBooking | null>(null);
@@ -78,11 +80,14 @@ export function BookingsPage({ onToast }: { onToast: (message: string) => void }
         const nextCustomers = customerBody.customers ?? [];
         const nextBarbers = barberBody.barbers ?? [];
         setItems(bookingBody.bookings ?? []);
+        setLoadError("");
         setCustomers(nextCustomers);
         setBarbers(nextBarbers);
         setDraft(emptyForm(String(nextCustomers[0]?.id ?? ""), String(nextBarbers.find((barber) => barber.status !== "unavailable")?.id ?? "")));
       } catch (error) {
-        onToast(error instanceof Error ? error.message : "Unable to load bookings");
+        const message = error instanceof Error ? error.message : "Unable to load bookings";
+        setLoadError(message);
+        onToast(message);
       } finally {
         setLoading(false);
       }
@@ -206,15 +211,36 @@ export function BookingsPage({ onToast }: { onToast: (message: string) => void }
   }
 
   const bookableBarbers = barbers.filter((barber) => barber.status !== "unavailable");
+  const listState = bookingListState({ loading, loadError, visibleCount: visible.length });
+  const [pendingDeletion, setPendingDeletion] = useState<ApiBooking | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  async function deleteBooking(booking: ApiBooking) {
+    setDeleting(true);
+    try {
+      const response = await apiRequest(`/api/bookings/${booking.id}`, { method: "DELETE" });
+      const body = await readApiBody<{ success: boolean; message?: string }>(response);
+      if (!response.ok || !body?.success) throw new Error(body?.message ?? "Unable to delete booking");
+      setItems((current) => current.filter((item) => item.id !== booking.id));
+      setSelected(null);
+      setPendingDeletion(null);
+      onToast("Booking deleted");
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : "Unable to delete booking");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   return <>
     <PageHeader title="Bookings" action={<Button icon="plus" disabled={loading || !customers.length || !bookableBarbers.length} onClick={openNewBooking}>New booking</Button>} />
     <div className="booking-tabs-row"><Tabs active={tab} onChange={setTab} items={[{ id: "today", label: "Today", count: counts.today }, { id: "upcoming", label: "Upcoming", count: counts.upcoming }, { id: "completed", label: "Completed", count: counts.completed }, { id: "cancelled", label: "Cancelled", count: counts.cancelled }]} /><SearchInput value={search} onChange={setSearch} placeholder="Search bookings" /></div>
     <div className="metrics-grid metrics-grid--four"><MetricCard label="All bookings" value={String(items.length)} icon="calendar" accent="blue" /><MetricCard label="Today" value={String(counts.today)} icon="clock" accent="amber" /><MetricCard label="Completed" value={String(counts.completed)} icon="checkCircle" accent="green" /><MetricCard label="Cancelled" value={String(counts.cancelled)} icon="x" accent="red" /></div>
-    <Panel className="bookings-panel"><SectionHeading title={tab === "today" ? "Today’s schedule" : `${statusLabel(tab as ApiBookingStatus)} bookings`} /><div className="booking-list">{loading ? <div className="staff-table__empty">Loading bookings…</div> : visible.length ? visible.map((booking) => <button className={`booking-row booking-row--${booking.status}`} type="button" key={booking.id} onClick={() => setSelected(booking)}><span className="booking-row__time"><strong>{formatTime(booking.time)}</strong><small>{formatDate(booking.date)}</small></span><span className="booking-row__customer"><Avatar initials={createInitials(booking.customerName)} tone="slate" size="sm" /><span><strong>{booking.customerName}</strong><small>{booking.customerEmail}</small></span></span><span className="booking-row__service"><strong>{booking.serviceName}</strong><small>with {booking.barberName}</small></span><span><Badge tone={statusTone(booking.status)}>{statusLabel(booking.status)}</Badge></span><strong className="booking-row__price">{formatCurrency(booking.price)}</strong></button>) : <EmptyState icon="calendar" title="No bookings found" description="Create a booking or switch to another view." />}</div></Panel>
+    <Panel className="bookings-panel"><SectionHeading title={tab === "today" ? "Today’s schedule" : `${statusLabel(tab as ApiBookingStatus)} bookings`} /><div className="booking-list">{listState === "loading" ? <div className="staff-table__empty">Loading bookings…</div> : listState === "error" ? <div className="staff-table__empty" role="alert">{loadError}</div> : listState === "list" ? visible.map((booking) => <button className={`booking-row booking-row--${booking.status}`} type="button" key={booking.id} onClick={() => setSelected(booking)}><span className="booking-row__time"><strong>{formatTime(booking.time)}</strong><small>{formatDate(booking.date)}</small></span><span className="booking-row__customer"><Avatar initials={createInitials(booking.customerName)} tone="slate" size="sm" /><span><strong>{booking.customerName}</strong><small>{booking.customerEmail}</small></span></span><span className="booking-row__service"><strong>{booking.serviceName}</strong><small>with {booking.barberName}</small></span><span><Badge tone={statusTone(booking.status)}>{statusLabel(booking.status)}</Badge></span><strong className="booking-row__price">{formatCurrency(booking.price)}</strong></button>) : <EmptyState icon="calendar" title="No bookings found" description="Create a booking or switch to another view." />}</div></Panel>
     <Modal open={bookingModalOpen} title="New booking" onClose={() => !submitting && setBookingModalOpen(false)}><BookingForm value={draft} customers={customers} services={services} barbers={barbers} submitLabel="Create booking" submitting={submitting} onChange={setDraft} onSubmit={createBooking} onCancel={() => setBookingModalOpen(false)} /></Modal>
     <Modal open={Boolean(editingBooking)} title="Edit booking" onClose={() => !editSubmitting && setEditingBooking(null)}><BookingForm value={editDraft} customers={customers} services={services} barbers={barbers} submitLabel="Save booking" submitting={editSubmitting} onChange={setEditDraft} onSubmit={saveBookingEdit} onCancel={() => setEditingBooking(null)} /></Modal>
-    <Modal open={Boolean(selected)} title="Booking details" onClose={() => setSelected(null)}>{selected && <div className="detail-modal"><div className="detail-modal__identity"><Avatar initials={createInitials(selected.customerName)} tone="slate" size="lg" /><div><strong>{selected.customerName}</strong><span>{selected.serviceName}</span></div><Badge tone={statusTone(selected.status)}>{statusLabel(selected.status)}</Badge></div><div className="detail-facts"><span><small>When</small><strong>{formatDate(selected.date)} · {formatTime(selected.time)}</strong></span><span><small>Barber</small><strong>{selected.barberName}</strong></span><span><small>Total</small><strong>{formatCurrency(selected.price)}</strong></span></div>{selected.status === "upcoming" && <div className="modal-actions"><Button variant="secondary" disabled={statusUpdatingId === selected.id} onClick={() => openEditBooking(selected)}>Edit booking</Button><Button variant="secondary" disabled={statusUpdatingId === selected.id} onClick={() => void updateStatus(selected, "completed")}>{statusUpdatingId === selected.id ? "Updating…" : "Mark completed"}</Button><Button variant="danger" disabled={statusUpdatingId === selected.id} onClick={() => setPendingCancellation(selected)}>Cancel booking</Button></div>}</div>}</Modal>
+    <Modal open={Boolean(selected)} title="Booking details" onClose={() => setSelected(null)}>{selected && <div className="detail-modal"><div className="detail-modal__identity"><Avatar initials={createInitials(selected.customerName)} tone="slate" size="lg" /><div><strong>{selected.customerName}</strong><span>{selected.serviceName}</span></div><Badge tone={statusTone(selected.status)}>{statusLabel(selected.status)}</Badge></div><div className="detail-facts"><span><small>When</small><strong>{formatDate(selected.date)} · {formatTime(selected.time)}</strong></span><span><small>Barber</small><strong>{selected.barberName}</strong></span><span><small>Total</small><strong>{formatCurrency(selected.price)}</strong></span></div>{selected.status === "upcoming" && <div className="modal-actions"><Button variant="secondary" disabled={statusUpdatingId === selected.id || deleting} onClick={() => openEditBooking(selected)}>Edit booking</Button><Button variant="secondary" disabled={statusUpdatingId === selected.id || deleting} onClick={() => void updateStatus(selected, "completed")}>{statusUpdatingId === selected.id ? "Updating…" : "Mark completed"}</Button><Button variant="secondary" disabled={statusUpdatingId === selected.id || deleting} onClick={() => setPendingDeletion(selected)}>Delete booking</Button><Button variant="danger" disabled={statusUpdatingId === selected.id || deleting} onClick={() => setPendingCancellation(selected)}>Cancel booking</Button></div>}</div>}</Modal>
     <ConfirmDialog open={Boolean(pendingCancellation)} title="Cancel this booking?" description={pendingCancellation ? `${pendingCancellation.customerName}'s ${pendingCancellation.serviceName} appointment will be marked cancelled.` : undefined} confirmLabel="Cancel booking" danger busy={statusUpdatingId !== null} onClose={() => statusUpdatingId === null && setPendingCancellation(null)} onConfirm={() => pendingCancellation && void updateStatus(pendingCancellation, "cancelled")} />
+    <ConfirmDialog open={Boolean(pendingDeletion)} title="Delete this booking?" description={pendingDeletion ? `${pendingDeletion.customerName}'s upcoming appointment will be permanently removed.` : undefined} confirmLabel="Delete booking" danger busy={deleting} onClose={() => !deleting && setPendingDeletion(null)} onConfirm={() => pendingDeletion && void deleteBooking(pendingDeletion)} />
   </>;
 }

@@ -12,6 +12,7 @@ type SupplierRow = {
   address: string;
   notes: string;
   status: "active" | "inactive";
+  has_account: boolean;
   created_at: Date | string;
   updated_at: Date | string;
 };
@@ -25,15 +26,19 @@ export type SupplierRecord = {
   address: string;
   notes: string;
   status: "active" | "inactive";
+  hasAccount: boolean;
   createdAt: string;
   updatedAt: string;
 };
 
-const selectSupplier = `SELECT id, company_name, contact_person, phone, email, address, notes, status, created_at, updated_at FROM suppliers`;
+const selectSupplier = `SELECT s.id, s.company_name, s.contact_person, s.phone, s.email, s.address, s.notes, s.status, s.created_at, s.updated_at,
+  EXISTS (SELECT 1 FROM supplier_accounts sa WHERE sa.supplier_id = s.id) AS has_account
+  FROM suppliers s`;
 const iso = (value: Date | string) => value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 const mapSupplier = (row: SupplierRow): SupplierRecord => ({
   id: Number(row.id), companyName: row.company_name, contactPerson: row.contact_person,
   phone: row.phone, email: row.email, address: row.address, notes: row.notes, status: row.status,
+  hasAccount: Boolean(row.has_account),
   createdAt: iso(row.created_at), updatedAt: iso(row.updated_at),
 });
 

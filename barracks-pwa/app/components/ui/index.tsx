@@ -132,6 +132,7 @@ export function MetricCard({
   changeTone = "positive",
   icon,
   accent = "blue",
+  className,
 }: {
   label: string;
   value: string;
@@ -139,9 +140,10 @@ export function MetricCard({
   changeTone?: "positive" | "warning" | "negative";
   icon?: IconName;
   accent?: Tone;
+  className?: string;
 }) {
   return (
-    <section className={`metric-card metric-card--${accent}`}>
+    <section className={`metric-card metric-card--${accent}${className ? ` ${className}` : ""}`}>
       <div className="metric-card__top">
         <span className="metric-card__label">{label}</span>
         {icon && (
@@ -184,7 +186,7 @@ export function PageHeader({
     <header className="page-header">
       <div>
         <h1>{title}</h1>
-        {description && <p className="page-header__description">{description}</p>}
+        {description ? <p className="page-header__description">{description}</p> : null}
       </div>
       {action || children ? (
         <div className="page-header__actions">
@@ -198,7 +200,6 @@ export function PageHeader({
 
 export function SectionHeading({
   title,
-  description,
   action,
 }: {
   title: string;
@@ -209,7 +210,6 @@ export function SectionHeading({
     <div className="section-heading">
       <div>
         <h2>{title}</h2>
-        {description && <p>{description}</p>}
       </div>
       {action}
     </div>

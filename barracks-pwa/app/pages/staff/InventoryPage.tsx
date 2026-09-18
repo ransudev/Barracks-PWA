@@ -26,6 +26,7 @@ type MovementType = "RECEIVE" | "USE" | "CUSTOMER_PURCHASE" | "STAFF_USAGE" | "D
 type ItemForm = {
   name: string;
   category: ApiInventoryItem["category"];
+  branch: string;
   initialQuantity: string;
   minimumStock: string;
   maximumStock: string;
@@ -61,6 +62,7 @@ type Movement = {
 const emptyForm: ItemForm = {
   name: "",
   category: "Supplies",
+  branch: "Main Branch",
   initialQuantity: "0",
   minimumStock: "10",
   maximumStock: "",
@@ -87,6 +89,20 @@ function stockStatus(item: ApiInventoryItem): StockFilter {
 
 function stockStatusLabel(status: StockFilter): string {
   return status === "out_of_stock" ? "Out of stock" : status === "low_stock" ? "Low stock" : "In stock";
+}
+
+function movementLabel(type: MovementType): string {
+  const labels: Record<MovementType, string> = {
+    RECEIVE: "Received stock",
+    USE: "Used stock",
+    CUSTOMER_PURCHASE: "Sold to customer",
+    STAFF_USAGE: "Used by barber",
+    DAMAGE: "Damaged stock",
+    DISCARD: "Discarded stock",
+    RETURN: "Returned stock",
+    ADJUSTMENT: "Manual adjustment",
+  };
+  return labels[type];
 }
 
 function statusTone(item: ApiInventoryItem): "danger" | "warning" | "success" {
@@ -128,6 +144,7 @@ export function InventoryPage({
   const [loadError, setLoadError] = useState("");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
+  const [branchFilter, setBranchFilter] = useState("all");
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [status, setStatus] = useState<StockFilter>("all");
   const [modalOpen, setModalOpen] = useState(false);
@@ -192,14 +209,19 @@ export function InventoryPage({
     for (const item of items) if (item.supplierId && item.supplierName) byId.set(item.supplierId, item.supplierName);
     return [...byId.entries()].sort((a, b) => a[1].localeCompare(b[1]));
   }, [items, suppliers]);
+  const branchOptions = useMemo(
+    () => [...new Set(items.map((item) => item.branch).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
+    [items],
+  );
 
   const normalizedSearch = search.trim().toLowerCase();
   const filtered = items.filter((item) => {
     const matchesSearch = !normalizedSearch || `${item.name} ${item.category} ${item.supplierName ?? ""} ${item.sku ?? ""} ${item.branch}`.toLowerCase().includes(normalizedSearch);
     const matchesCategory = category === "all" || item.category === category;
+    const matchesBranch = branchFilter === "all" || item.branch === branchFilter;
     const matchesSupplier = supplierFilter === "all" || String(item.supplierId ?? "none") === supplierFilter;
     const matchesStatus = status === "all" || stockStatus(item) === status;
-    return matchesSearch && matchesCategory && matchesSupplier && matchesStatus;
+    return matchesSearch && matchesCategory && matchesBranch && matchesSupplier && matchesStatus;
   });
   const lowStock = items.filter((item) => item.status === "active" && stockStatus(item) === "low_stock");
   const outOfStock = items.filter((item) => item.status === "active" && stockStatus(item) === "out_of_stock");
@@ -217,6 +239,7 @@ export function InventoryPage({
     setForm({
       name: item.name,
       category: item.category,
+      branch: item.branch,
       initialQuantity: String(item.quantity),
       minimumStock: String(item.minimumStock),
       maximumStock: item.maximumStock === null ? "" : String(item.maximumStock),
@@ -246,6 +269,7 @@ export function InventoryPage({
       const basePayload = {
         name,
         category: form.category,
+        branch: form.branch.trim() || "Main Branch",
         supplierId: form.supplierId ? Number(form.supplierId) : null,
         unit: form.unit.trim() || "unit",
         sku: form.sku.trim() || null,
@@ -402,10 +426,8 @@ export function InventoryPage({
         <MetricCard label="Inventory value" value={formatCurrency(inventoryValue)} icon="check" accent="green" />
       </div>
 
-      {(lowStock.length > 0 || outOfStock.length > 0) && <div className="alert-banner" role="status"><span className="alert-banner__icon"><Icon name="info" size={17} /></span><span><strong>Stock needs attention.</strong><small>{[...outOfStock, ...lowStock].map((item) => `${item.name} · ${item.branch}${item.supplierName ? ` · ${item.supplierName}` : ""}`).join(", ")}</small></span></div>}
-
       <Panel className="inventory-panel">
-        <SectionHeading title="Stock levels" action={<div className="panel-toolbar panel-toolbar--filters"><SearchInput value={search} onChange={setSearch} placeholder="Search stock" /><SelectField value={category} onChange={(event) => setCategory(event.target.value)} aria-label="Filter inventory by category"><option value="all">All categories</option><option value="Supplies">Supplies</option><option value="Equipment">Equipment</option><option value="Products">Products</option></SelectField><SelectField value={supplierFilter} onChange={(event) => setSupplierFilter(event.target.value)} aria-label="Filter inventory by supplier"><option value="all">All suppliers</option><option value="none">No supplier</option>{supplierOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</SelectField><SelectField value={status} onChange={(event) => setStatus(event.target.value as StockFilter)} aria-label="Filter inventory by stock status"><option value="all">All stock statuses</option><option value="in_stock">In stock</option><option value="low_stock">Low stock</option><option value="out_of_stock">Out of stock</option></SelectField></div>} />
+          <SectionHeading title="Stock levels" action={<div className="panel-toolbar panel-toolbar--filters"><SearchInput value={search} onChange={setSearch} placeholder="Search stock" /><SelectField value={branchFilter} onChange={(event) => setBranchFilter(event.target.value)} aria-label="Filter inventory by branch"><option value="all">All branches</option>{branchOptions.map((branch) => <option key={branch} value={branch}>{branch}</option>)}</SelectField><SelectField value={category} onChange={(event) => setCategory(event.target.value)} aria-label="Filter inventory by category"><option value="all">All categories</option><option value="Supplies">Supplies</option><option value="Equipment">Equipment</option><option value="Products">Products</option></SelectField><SelectField value={supplierFilter} onChange={(event) => setSupplierFilter(event.target.value)} aria-label="Filter inventory by supplier"><option value="all">All suppliers</option><option value="none">No supplier</option>{supplierOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</SelectField><SelectField value={status} onChange={(event) => setStatus(event.target.value as StockFilter)} aria-label="Filter inventory by stock status"><option value="all">All stock statuses</option><option value="in_stock">In stock</option><option value="low_stock">Low stock</option><option value="out_of_stock">Out of stock</option></SelectField></div>} />
         <div className="inventory-table">
           <div className="inventory-table__head"><span>Item</span><span>Supplier</span><span>Current</span><span>Min / Max</span><span>Status</span><span>Actions</span></div>
           {loading ? <div className="staff-table__empty" role="status">Loading inventory…</div> : loadError ? <div className="staff-table__empty" role="alert">{loadError}</div> : filtered.length ? filtered.map((item) => <div className="inventory-table__row" key={item.id}>
@@ -427,7 +449,8 @@ export function InventoryPage({
       <Modal open={modalOpen} title={editing ? "Edit inventory item" : "Add inventory item"} onClose={closeEditor}>
         <form className="modal-form" onSubmit={saveItem}>
           <TextField label="Item name" required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
-          <div className="form-grid form-grid--three"><SelectField label="Category" required value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value as ItemForm["category"] })}><option>Supplies</option><option>Equipment</option><option>Products</option></SelectField><TextField label="Unit" required value={form.unit} onChange={(event) => setForm({ ...form, unit: event.target.value })} /><TextField label="SKU" value={form.sku} onChange={(event) => setForm({ ...form, sku: event.target.value })} /></div>
+          <div className="form-grid form-grid--three"><SelectField label="Category" required value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value as ItemForm["category"] })}><option>Supplies</option><option>Equipment</option><option>Products</option></SelectField><TextField label="Branch" required value={form.branch} onChange={(event) => setForm({ ...form, branch: event.target.value })} placeholder="Main Branch" /><TextField label="Unit" required value={form.unit} onChange={(event) => setForm({ ...form, unit: event.target.value })} /></div>
+          <TextField label="SKU" value={form.sku} onChange={(event) => setForm({ ...form, sku: event.target.value })} />
           <SelectField label="Supplier" value={form.supplierId} onChange={(event) => setForm({ ...form, supplierId: event.target.value })}><option value="">No supplier</option>{suppliers.filter((supplier) => supplier.status === "active" || String(supplier.id) === form.supplierId).map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.companyName}</option>)}</SelectField>
           <div className="form-grid form-grid--three">{!editing && <TextField label="Initial quantity" required type="number" min="0" step="1" value={form.initialQuantity} onChange={(event) => setForm({ ...form, initialQuantity: event.target.value })} />}<TextField label="Minimum stock" required type="number" min="0" step="1" value={form.minimumStock} onChange={(event) => setForm({ ...form, minimumStock: event.target.value })} /><TextField label="Maximum stock" type="number" min="0" step="1" value={form.maximumStock} onChange={(event) => setForm({ ...form, maximumStock: event.target.value })} /></div>
           {editing && <p className="form-hint">Current stock is {editing.quantity} {editing.unit}. Use a stock operation to change it. Threshold changes are saved to the audit history.</p>}
@@ -441,8 +464,8 @@ export function InventoryPage({
         <form className="modal-form" onSubmit={submitMovement}>
           <SelectField label="Operation" value={movementForm.movementType} onChange={(event) => setMovementForm({ ...movementForm, movementType: event.target.value as MovementType })}>
             <option value="RECEIVE">Receive stock</option>
-            {movementItem?.category === "Products" && <option value="CUSTOMER_PURCHASE">Customer purchase</option>}
-            {movementItem?.category === "Supplies" && <option value="STAFF_USAGE">Staff usage</option>}
+            {(movementItem?.category === "Products" || movementItem?.category === "Supplies") && <option value="CUSTOMER_PURCHASE">Sold to customer</option>}
+            {(movementItem?.category === "Products" || movementItem?.category === "Supplies") && <option value="STAFF_USAGE">Used by barber</option>}
             <option value="DAMAGE">Damaged stock</option>
             <option value="DISCARD">Discard stock</option>
             <option value="RETURN">Return stock</option>
@@ -452,7 +475,7 @@ export function InventoryPage({
           {movementForm.movementType === "ADJUSTMENT" && <SelectField label="Adjustment direction" value={movementForm.adjustmentDirection} onChange={(event) => setMovementForm({ ...movementForm, adjustmentDirection: event.target.value as MovementForm["adjustmentDirection"] })}><option value="increase">Increase</option><option value="decrease">Decrease</option></SelectField>}
           {(movementForm.movementType === "RECEIVE" || movementForm.movementType === "RETURN") && <TextField label="Unit cost" type="number" min="0" step="0.01" value={movementForm.unitCost} onChange={(event) => setMovementForm({ ...movementForm, unitCost: event.target.value })} />}
           <TextField label="Reference" value={movementForm.reference} onChange={(event) => setMovementForm({ ...movementForm, reference: event.target.value })} placeholder="PO, delivery receipt, sale or service ref" />
-          <TextField label={movementForm.movementType === "ADJUSTMENT" ? "Reason" : "Notes"} required={movementForm.movementType === "ADJUSTMENT"} value={movementForm.notes} onChange={(event) => setMovementForm({ ...movementForm, notes: event.target.value })} placeholder={movementForm.movementType === "STAFF_USAGE" ? "Purpose, service, or remark" : undefined} />
+          <TextField label={movementForm.movementType === "ADJUSTMENT" ? "Reason" : "Notes"} required={movementForm.movementType === "ADJUSTMENT"} value={movementForm.notes} onChange={(event) => setMovementForm({ ...movementForm, notes: event.target.value })} placeholder={movementForm.movementType === "STAFF_USAGE" ? "Barber, service, or purpose" : movementForm.movementType === "CUSTOMER_PURCHASE" ? "Sale or receipt reference" : undefined} />
           {movementError && <p className="form-error" role="alert">{movementError}</p>}
           <div className="modal-actions"><Button variant="secondary" type="button" disabled={movementSubmitting} onClick={() => setMovementItem(null)}>Cancel</Button><Button type="submit" disabled={movementSubmitting}>{movementSubmitting ? "Recording…" : "Record operation"}</Button></div>
         </form>
@@ -469,16 +492,17 @@ export function InventoryPage({
       </Modal>
 
       <Modal open={Boolean(historyItem)} title={historyItem ? `${historyItem.name} movement history` : "Movement history"} onClose={() => setHistoryItem(null)}>
-        {historyLoading ? <p>Loading history…</p> : history.length ? <div className="staff-table staff-table--cols-4">{history.map((movement) => <div className="staff-table__row" key={movement.id}><span><strong>{movement.movement_type.replaceAll("_", " ")}</strong><small>{new Date(movement.created_at).toLocaleString()} · {movement.created_by_name} · {movement.branch}</small></span><span>{movement.previous_stock} → {movement.new_stock}</span><span>{movement.reference ?? "No reference"}</span><span>{movement.notes || "No notes"}</span></div>)}</div> : <p>No stock movements have been recorded yet.</p>}
+        {historyLoading ? <p>Loading history…</p> : history.length ? <div className="staff-table staff-table--cols-4">{history.map((movement) => <div className="staff-table__row" key={movement.id}><span><strong>{movementLabel(movement.movement_type)}</strong><small>{new Date(movement.created_at).toLocaleString()} · {movement.created_by_name} · {movement.branch}</small></span><span>{movement.previous_stock} → {movement.new_stock}</span><span>{movement.reference ?? "No reference"}</span><span>{movement.notes || "No notes"}</span></div>)}</div> : <p>No stock movements have been recorded yet.</p>}
       </Modal>
 
       <Modal open={Boolean(operationsItem)} title={operationsItem ? `Stock operations · ${operationsItem.name}` : "Stock operations"} description="Choose the operation to record for this item." width="sm" onClose={() => setOperationsItem(null)}>
         {operationsItem && <div className="modal-form">
           <p className="modal-copy">{operationsItem.quantity} {operationsItem.unit} on hand · minimum {operationsItem.minimumStock} · {operationsItem.branch}</p>
+          <p className="form-hint">Supplies and products can either be used by a barber during a service or sold to a customer. Choose the action that matches what happened.</p>
           <div className="operation-choices">
             <Button variant="secondary" icon="plus" onClick={() => chooseOperation("RECEIVE")}>Receive stock</Button>
-            {operationsItem.category === "Products" && <Button variant="secondary" icon="cash" onClick={() => chooseOperation("CUSTOMER_PURCHASE")}>Sell to customer</Button>}
-            {operationsItem.category === "Supplies" && <Button variant="secondary" icon="scissors" onClick={() => chooseOperation("STAFF_USAGE")}>Staff usage</Button>}
+            {(operationsItem.category === "Products" || operationsItem.category === "Supplies") && <Button variant="secondary" icon="cash" onClick={() => chooseOperation("CUSTOMER_PURCHASE")}>Sold to customer</Button>}
+            {(operationsItem.category === "Products" || operationsItem.category === "Supplies") && <Button variant="secondary" icon="scissors" onClick={() => chooseOperation("STAFF_USAGE")}>Used by barber</Button>}
             {operationsItem.supplierId && <Button variant="secondary" icon="box" onClick={chooseRestock}>Request restock</Button>}
           </div>
           <div className="modal-actions"><Button variant="secondary" type="button" onClick={() => setOperationsItem(null)}>Cancel</Button></div>

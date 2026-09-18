@@ -1,7 +1,7 @@
 import { requireStaff } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { bookingEditSchema, bookingUpdateSchema, formatValidationErrors } from "@/server/schemas/sprint.schema";
-import { BookingServiceError, updateBooking, updateBookingDetails } from "@/server/services/booking.service";
+import { BookingServiceError, deleteBooking, updateBooking, updateBookingDetails } from "@/server/services/booking.service";
 
 export const runtime = "nodejs";
 
@@ -81,5 +81,29 @@ export async function PUT(
     }
     console.error("Unable to edit booking", error);
     return Response.json({ success: false, message: "Unable to update booking" }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const authorizationResponse = await requireStaff();
+  if (authorizationResponse) return authorizationResponse;
+  const id = Number((await params).id);
+  if (!Number.isInteger(id) || id < 1) {
+    return Response.json({ success: false, message: "Booking not found" }, { status: 404 });
+  }
+
+  try {
+    const deleted = await deleteBooking(pool, id);
+    if (!deleted) return Response.json({ success: false, message: "Booking not found" }, { status: 404 });
+    return Response.json({ success: true, message: "Booking deleted" });
+  } catch (error) {
+    if (error instanceof BookingServiceError && error.kind === "not_deletable") {
+      return Response.json({ success: false, message: error.message }, { status: 409 });
+    }
+    console.error("Unable to delete booking", error);
+    return Response.json({ success: false, message: "Unable to delete booking" }, { status: 500 });
   }
 }

@@ -1,0 +1,393 @@
+/* ==========================================================================
+   PUBLIC HEADER & NAVIGATION (GoGrin Style)
+   ========================================================================== */
+.public-site .public-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: linear-gradient(180deg, rgba(17, 19, 19, 0.92) 0%, rgba(17, 19, 19, 0) 100%);
+  border-bottom: 1px solid rgba(226, 226, 230, 0.06);
+}
+
+.public-site .public-nav {
+  max-width: 1120px;
+  margin: 0 auto;
+  height: 72px;
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.public-site .public-nav__links {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.public-site .public-nav__link {
+  font-family: var(--font-headline);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(226, 226, 230, 0.82);
+  text-decoration: none;
+  transition: color 0.18s ease;
+  position: relative;
+  padding: 4px 0;
+}
+
+.public-site .public-nav__link:hover,
+.public-site .public-nav__link.is-active {
+  color: var(--color-primary-bright);
+}
+
+.public-site .public-nav__actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 16px;
+}
+
+.public-site .public-nav__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(17, 19, 19, 0.7);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 6px 14px;
+  color: var(--color-text-dim);
+  font-size: 12px;
+}
+
+.public-site .public-nav__search input {
+  background: transparent;
+  border: 0;
+  outline: 0;
+  color: #FFFFFF;
+  font-size: 12px;
+  width: 90px;
+}
+
+.public-site .public-nav__login {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0 16px;
+  color: var(--color-text-main);
+  font-family: var(--font-headline);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.public-site .public-nav__login:hover {
+  border-color: var(--color-tertiary);
+  color: #FFFFFF;
+}
+
+.public-site .public-nav__dropdown {
+  position: relative;
+}
+
+.public-site .public-nav__dropdown-trigger {
+  background: transparent;
+  border: 0;
+  color: rgba(226, 226, 230, 0.82);
+  font-family: var(--font-headline);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+  transition: color 0.18s ease;
+}
+
+.public-site .public-nav__dropdown-trigger:hover {
+  color: var(--color-primary-bright);
+}
+
+.public-site .public-nav__dropdown-menu {
+  position: absolute;
+  top: calc(100% + 12px);
+  left: 0;
+  min-width: 170px;
+  background: var(--bg-surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 8px 0;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  z-index: 60;
+}
+
+.public-site .public-nav__dropdown-menu a {
+  padding: 9px 18px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-main);
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.public-site .public-nav__dropdown-menu a:hover {
+  background: var(--bg-surface-hover);
+  color: var(--color-secondary-bright);
+}
+
+.public-site .public-nav__book-btn {
+  height: 36px;
+  padding: 0 18px;
+  font-size: 11px;
+}
+
+.public-site .public-nav__menu-toggle {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  background: rgba(17, 19, 19, 0.8);
+  border: 1px solid var(--border-subtle);
+  color: #FFFFFF;
+  cursor: pointer;
+}
+
+.public-site .public-nav__menu-toggle span {
+  display: block;
+  width: 18px;
+  height: 2px;
+  background-color: #FFFFFF;
+}
+
+/* Mobile Menu */
+.public-site .public-mobile-menu {
+  display: none;
+  position: fixed;
+  top: 72px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(17, 19, 19, 0.98);
+  backdrop-filter: blur(20px);
+  padding: 24px 28px;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+  z-index: 60;
+  border-top: 1px solid var(--border-hairline);
+}
+
+.public-site .public-mobile-menu.is-open {
+  display: flex;
+}
+
+.public-site .public-mobile-menu__links {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.public-site .public-mobile-menu__links a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-hairline);
+  color: #FFFFFF;
+  font-family: var(--font-headline);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+
+.public-site .public-mobile-menu__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 18px;
+  border-top: 1px solid var(--border-hairline);
+}
+
+/* ==========================================================================
+   HERO SECTION (GoGrin Full-Bleed Atmospheric Header)
+   ========================================================================== */
+.public-site .hero-gogrin {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100svh;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 130px 24px 90px;
+  overflow: hidden;
+}
+
+/* Background Image & Vignette */
+.public-site .hero-gogrin__bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.public-site .hero-gogrin__bg img {
+  object-fit: cover;
+  object-position: center 30%;
+  filter: brightness(0.48) contrast(1.15) saturate(0.85);
+}
+
+.public-site .hero-gogrin__overlay {
+  position: absolute;
+  inset: 0;
+  background: 
+    radial-gradient(ellipse at center, rgba(17, 19, 19, 0.4) 0%, rgba(17, 19, 19, 0.88) 80%, rgba(17, 19, 19, 1) 100%),
+    linear-gradient(to bottom, rgba(17, 19, 19, 0.6) 0%, transparent 40%, rgba(17, 19, 19, 0.95) 90%, var(--bg-obsidian) 100%);
+  z-index: 1;
+}
+
+.public-site .hero-gogrin__content {
+  position: relative;
+  z-index: 2;
+  max-width: 860px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+}
+
+/* Classic Barbershop Crest Emblem (GoGrin style) */
+.public-site .barbershop-crest {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.public-site .barbershop-crest__badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-headline);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-primary-bright);
+}
+
+.public-site .barbershop-crest__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(220, 38, 38, 0.16);
+  border: 1px solid var(--border-accent-red);
+  color: var(--color-primary-bright);
+  box-shadow: 0 0 20px var(--color-primary-glow);
+}
+
+.public-site .barbershop-crest__mark {
+  display: block;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--color-tertiary);
+  object-fit: contain;
+}
+
+.public-site .barbershop-crest__meta {
+  font-family: var(--font-headline);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.public-site .hero-gogrin h1 {
+  font-size: clamp(38px, 6vw, 68px);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #FFFFFF;
+  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.75);
+}
+
+.public-site .hero-gogrin__lead {
+  font-size: clamp(14px, 1.8vw, 16px);
+  line-height: 1.68;
+  color: rgba(226, 226, 230, 0.88);
+  max-width: 620px;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
+  margin: 0;
+}
+
+.public-site .hero-gogrin__actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+/* Hero Carousel Pagination Dots */
+.public-site .hero-dots {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 3;
+}
+
+.public-site .hero-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(226, 226, 230, 0.3);
+  border: 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.public-site .hero-dot.is-active {
+  background: var(--color-primary);
+  width: 24px;
+  border-radius: 4px;
+}
+

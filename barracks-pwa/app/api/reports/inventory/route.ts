@@ -1,4 +1,4 @@
-import { requireAdministrator } from "@/server/auth/require-role";
+import { requireManagement } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 
 export const runtime = "nodejs";
@@ -14,7 +14,7 @@ function parseDate(raw: string | null): Date | null {
 }
 
 export async function GET(request: Request) {
-  const denied = await requireAdministrator();
+  const denied = await requireManagement();
   if (denied) return denied;
 
   const url = new URL(request.url);
@@ -62,7 +62,7 @@ export async function GET(request: Request) {
       `, [from, toExclusive]),
       pool.query(`
         SELECT m.id, m.movement_type, m.quantity, m.previous_stock, m.new_stock, m.unit_cost,
-          m.reference, m.notes, m.created_at, i.name AS item_name, i.branch,
+          m.reference, m.notes, m.created_at, i.name AS item_name, m.branch,
           s.company_name AS supplier_name,
           u.first_name || ' ' || u.last_name AS created_by_name
         FROM inventory_movements m

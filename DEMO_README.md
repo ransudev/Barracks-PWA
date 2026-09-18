@@ -43,6 +43,15 @@ Password: frontdesk123
 
 Front Desk users open directly in the Shop floor workspace. They can manage customer contact/preferences, barber roster details, and inventory, but cannot see or enter Management. Loyalty points and barber ratings remain administrator-only; barber service totals are read-only.
 
+### Manager
+
+```text
+Email: demo.manager@barracks.local
+Password: manager123
+```
+
+Managers open in the Management workspace and can manage day-to-day business operations, including customers, barbers, suppliers, inventory, restocks, reports, and bookings. Staff account administration remains administrator-only.
+
 ### Customer
 
 ```text
@@ -91,11 +100,11 @@ The second seeded supplier account is `demo.supplier.marco@barracks.local` with 
 
 - Four barbers with available, busy, and unavailable statuses.
 - Two active suppliers, each with a supplier portal account.
-- Seven supplier-linked inventory items across Supplies, Products, and Equipment, including low-stock items.
+- Twenty-six supplier-linked inventory items across Supplies, Products, and Equipment, including all 21 products shown on the public landing page and low-stock items.
 - Three restock requests in Pending, Delivered, and Received states, plus one audited receiving movement.
 - Four customer profiles with phone numbers, preferred barbers, and loyalty points.
 - Four bookings across upcoming, completed, and cancelled states, plus one persisted transaction.
-- One Front Desk account.
+- One Manager account and one Front Desk account.
 
 New accounts created from Management start unverified. Use the account details view to verify them before testing login; blocking an account revokes its active sessions.
 

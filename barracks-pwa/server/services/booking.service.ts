@@ -42,7 +42,7 @@ export type BookingRecord = {
 
 export class BookingServiceError extends Error {
   constructor(
-    public readonly kind: "not_found" | "unavailable" | "conflict" | "past" | "not_updatable",
+    public readonly kind: "not_found" | "unavailable" | "conflict" | "past" | "not_updatable" | "not_deletable",
     message: string,
   ) {
     super(message);
@@ -311,6 +311,25 @@ export async function updateBookingDetails(
     }
     throw error;
   }
+}
+
+/**
+ * Only upcoming bookings may be physically removed. Completed and cancelled
+ * records are historical facts and remain available for reporting/audit.
+ */
+export async function deleteBooking(db: Pool, id: number): Promise<boolean> {
+  const deleted = await db.query<{ id: number }>(
+    "DELETE FROM bookings WHERE id=$1 AND status='upcoming' RETURNING id",
+    [id],
+  );
+  if (deleted.rows[0]) return true;
+
+  const existing = await db.query<{ status: BookingRow["status"] }>(
+    "SELECT status FROM bookings WHERE id=$1 LIMIT 1",
+    [id],
+  );
+  if (!existing.rows[0]) return false;
+  throw new BookingServiceError("not_deletable", "Only upcoming bookings can be deleted");
 }
 
 function isUniqueViolation(error: unknown): error is { code: string } {

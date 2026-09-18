@@ -105,7 +105,7 @@ export function SuppliersManagement({ onToast, canManageLogins=false }: { onToas
       const response=await apiRequest(`/api/suppliers/${accountSupplier.id}/account`,{method:"POST",body:JSON.stringify(accountForm)});
       const body=await readApiBody<{success:boolean;message?:string}>(response);
       if(!response.ok || !body?.success) throw new Error(body?.message ?? "Unable to create supplier account");
-      setAccountSupplier(null); setAccountForm(emptyAccount); onToast("Supplier login created");
+      setAccountSupplier(null); setAccountForm(emptyAccount); onToast("Supplier login created"); await load();
     }catch(error){ onToast(error instanceof Error?error.message:"Unable to create supplier account"); }
     finally{ setAccountSubmitting(false); }
   }
@@ -123,7 +123,7 @@ export function SuppliersManagement({ onToast, canManageLogins=false }: { onToas
           <span className="row-actions">
             <Button size="sm" variant="secondary" disabled={profileLoading} onClick={()=>void openProfile(supplier)}>Profile</Button>
             <button className="row-action row-action--icon" type="button" onClick={()=>openEdit(supplier)} aria-label={`Edit ${supplier.companyName}`} title={`Edit ${supplier.companyName}`}><Icon name="edit" size={16}/></button>
-            {canManageLogins && <Button size="sm" variant="secondary" onClick={()=>{setAccountSupplier(supplier);setAccountForm({firstName:supplier.contactPerson.split(" ")[0] ?? "",lastName:supplier.contactPerson.split(" ").slice(1).join(" "),email:supplier.email,password:""});}}>Create login</Button>}
+            {canManageLogins && !supplier.hasAccount && <Button size="sm" variant="secondary" onClick={()=>{setAccountSupplier(supplier);setAccountForm({firstName:supplier.contactPerson.split(" ")[0] ?? "",lastName:supplier.contactPerson.split(" ").slice(1).join(" "),email:supplier.email,password:""});}}>Create login</Button>}
             {supplier.status==="active" && <Button size="sm" variant="secondary" onClick={()=>void deactivate(supplier)}>Deactivate</Button>}
           </span>
         </div>) : <EmptyState icon="users" title="No suppliers found" description="Create a supplier profile to link inventory and restock requests." action={<Button size="sm" icon="plus" onClick={openCreate}>Add supplier</Button>} />}

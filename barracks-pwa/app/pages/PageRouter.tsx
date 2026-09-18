@@ -8,6 +8,7 @@ import { InventoryPage } from "@/app/pages/staff/InventoryPage";
 import { CustomersPage } from "@/app/pages/staff/CustomersPage";
 import { StaffDashboard } from "@/app/pages/staff/StaffDashboard";
 import { BookingsPage } from "@/app/pages/staff/BookingsPage";
+import { isManagementRole } from "@/app/constants/roles";
 import type { ApiUser } from "@/app/lib/api";
 import type { ViewId } from "@/app/types/domain";
 
@@ -21,7 +22,7 @@ type PageRouterProps = {
 export function PageRouter({ view, go, onToast, currentUser }: PageRouterProps) {
   switch (view) {
     case "admin-dashboard":
-      return <AdminDashboard go={go} onToast={onToast} />;
+      return <AdminDashboard go={go} onToast={onToast} currentUser={currentUser} />;
     case "staff-management":
       return <StaffManagement onToast={onToast} />;
     case "admin-suppliers":
@@ -30,14 +31,16 @@ export function PageRouter({ view, go, onToast, currentUser }: PageRouterProps) 
       return <SuppliersManagement onToast={onToast} />;
     case "admin-restocks":
       return <RestockManagement onToast={onToast} />;
+    case "restocks":
+      return <RestockManagement onToast={onToast} />;
     case "admin-reports":
       return <InventoryReports onToast={onToast} />;
     case "admin-customers":
     case "customers":
-      return <CustomersPage onToast={onToast} canDelete={currentUser.role === "administrator"} isAdministrator={currentUser.role === "administrator"} />;
+      return <CustomersPage onToast={onToast} canDelete={currentUser.role === "administrator"} isAdministrator={isManagementRole(currentUser.role)} />;
     case "admin-barbers":
     case "barbers":
-      return <BarbersManagement onToast={onToast} canDelete={currentUser.role === "administrator"} isAdministrator={currentUser.role === "administrator"} />;
+      return <BarbersManagement onToast={onToast} canDelete={currentUser.role === "administrator"} isAdministrator={isManagementRole(currentUser.role)} />;
     case "bookings":
       return <BookingsPage onToast={onToast} />;
     case "inventory":

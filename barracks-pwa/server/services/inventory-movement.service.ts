@@ -1,5 +1,6 @@
 import type { Pool, PoolClient } from "pg";
 import type { InventoryMovementInput } from "@/server/schemas/sprint2.schema";
+import { resolveLowStockAcknowledgements } from "@/server/services/inventory-alert.service";
 
 type Queryable = Pool | PoolClient;
 
@@ -25,17 +26,18 @@ export async function applyInventoryMovement(
       supplier_id: number | null;
       unit_cost: number | string;
       category: "Supplies" | "Equipment" | "Products";
+      branch: string;
     }>(
-      "SELECT quantity, supplier_id, unit_cost, category FROM inventory_items WHERE id=$1 AND status='active' FOR UPDATE",
+      "SELECT quantity, supplier_id, unit_cost, category, branch FROM inventory_items WHERE id=$1 AND status='active' FOR UPDATE",
       [inventoryItemId],
     );
     const item = itemResult.rows[0];
     if (!item) throw new Error("INVENTORY_NOT_FOUND");
 
-    if (input.movementType === "CUSTOMER_PURCHASE" && item.category !== "Products") {
+    if (input.movementType === "CUSTOMER_PURCHASE" && !["Products", "Supplies"].includes(item.category)) {
       throw new Error("CUSTOMER_PURCHASE_REQUIRES_PRODUCT");
     }
-    if (input.movementType === "STAFF_USAGE" && item.category !== "Supplies") {
+    if (input.movementType === "STAFF_USAGE" && !["Products", "Supplies"].includes(item.category)) {
       throw new Error("STAFF_USAGE_REQUIRES_SUPPLY");
     }
 
@@ -50,12 +52,13 @@ export async function applyInventoryMovement(
       "UPDATE inventory_items SET quantity=$1, unit_cost=COALESCE($2, unit_cost), updated_at=NOW() WHERE id=$3",
       [newStock, input.movementType === "RECEIVE" ? unitCost : null, inventoryItemId],
     );
+    await resolveLowStockAcknowledgements(client, inventoryItemId, newStock);
     const movement = await client.query(
       `INSERT INTO inventory_movements
-        (inventory_item_id,supplier_id,movement_type,quantity,previous_stock,new_stock,unit_cost,reference,notes,created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-       RETURNING id,inventory_item_id,supplier_id,movement_type,quantity,previous_stock,new_stock,unit_cost,reference,notes,created_by,created_at`,
-      [inventoryItemId, supplierId, input.movementType, input.quantity, previousStock, newStock, unitCost,
+        (inventory_item_id,supplier_id,branch,movement_type,quantity,previous_stock,new_stock,unit_cost,reference,notes,created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+       RETURNING id,inventory_item_id,supplier_id,branch,movement_type,quantity,previous_stock,new_stock,unit_cost,reference,notes,created_by,created_at`,
+      [inventoryItemId, supplierId, item.branch, input.movementType, input.quantity, previousStock, newStock, unitCost,
         input.reference ?? null, input.notes, userId],
     );
     await client.query("COMMIT");
@@ -71,7 +74,7 @@ export async function applyInventoryMovement(
 export async function listInventoryMovements(db: Queryable, inventoryItemId?: number) {
   if (inventoryItemId) {
     return (await db.query(
-      `SELECT m.*, i.branch, u.first_name || ' ' || u.last_name AS created_by_name, s.company_name AS supplier_name
+      `SELECT m.*, u.first_name || ' ' || u.last_name AS created_by_name, s.company_name AS supplier_name
        FROM inventory_movements m
        JOIN inventory_items i ON i.id=m.inventory_item_id
        JOIN users u ON u.id=m.created_by
@@ -79,7 +82,7 @@ export async function listInventoryMovements(db: Queryable, inventoryItemId?: nu
        WHERE m.inventory_item_id=$1 ORDER BY m.created_at DESC`, [inventoryItemId])).rows;
   }
   return (await db.query(
-    `SELECT m.*, i.name AS item_name, i.branch, u.first_name || ' ' || u.last_name AS created_by_name, s.company_name AS supplier_name
+    `SELECT m.*, i.name AS item_name, u.first_name || ' ' || u.last_name AS created_by_name, s.company_name AS supplier_name
      FROM inventory_movements m
      JOIN inventory_items i ON i.id=m.inventory_item_id
      JOIN users u ON u.id=m.created_by

@@ -1,4 +1,5 @@
 import { requireAdministrator } from "@/server/auth/require-admin";
+import { isManagementRole } from "@/app/constants/roles";
 import { requireStaff, requireStaffUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { barberSchema, barberStaffSchema, formatValidationErrors } from "@/server/schemas/sprint.schema";
@@ -34,10 +35,10 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   try { body = await request.json(); } catch {
     return Response.json({ success: false, message: "Invalid barber information" }, { status: 400 });
   }
-  if (authorizationResult.role !== "administrator" && typeof body === "object" && body !== null && ("commissionRate" in body || "rating" in body || "servicesDone" in body)) {
+  if (!isManagementRole(authorizationResult.role) && typeof body === "object" && body !== null && ("commissionRate" in body || "rating" in body || "servicesDone" in body)) {
     return Response.json({ success: false, message: "Administrator access is required to change barber commission, ratings, or services" }, { status: 403 });
   }
-  const parsed = (authorizationResult.role === "administrator" ? barberSchema : barberStaffSchema).safeParse(body);
+  const parsed = (isManagementRole(authorizationResult.role) ? barberSchema : barberStaffSchema).safeParse(body);
   if (!parsed.success) {
     return Response.json({ success: false, message: "Invalid barber information", errors: formatValidationErrors(parsed.error) }, { status: 400 });
   }

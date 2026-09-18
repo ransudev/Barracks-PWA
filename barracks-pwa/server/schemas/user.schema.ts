@@ -2,7 +2,7 @@ import { z } from "zod";
 import { userRoles } from "@/app/constants/roles";
 
 export const userRoleSchema = z.enum(userRoles);
-export const staffRoleSchema = z.enum(["administrator", "front_desk"]);
+export const staffRoleSchema = z.enum(["administrator", "manager", "front_desk"]);
 
 export const createUserSchema = z
   .object({

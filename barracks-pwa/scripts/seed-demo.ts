@@ -1,4 +1,5 @@
 import type { PoolClient } from "pg";
+import { landingProducts, type LandingProduct } from "../app/data/landing";
 import { pool } from "../server/db/pool";
 import { hashPassword } from "../server/services/password.service";
 
@@ -8,6 +9,14 @@ const demoFrontDesk = {
   email: "demo.frontdesk@barracks.local",
   password: "frontdesk123",
   role: "front_desk",
+} as const;
+
+const demoManager = {
+  firstName: "Rafael",
+  lastName: "Dela Cruz",
+  email: "demo.manager@barracks.local",
+  password: "manager123",
+  role: "manager",
 } as const;
 
 const demoSuppliers = [
@@ -87,14 +96,31 @@ const demoBarbers = [
   { firstName: "Andrei", lastName: "Villanueva", status: "available", commissionRate: 55, servicesDone: 31, revenue: 720, rating: 4.7 },
 ] as const;
 
+function firstListedPrice(product: LandingProduct): number {
+  const value = product.prices[0]?.amount.match(/[\d,]+/)?.[0] ?? "0";
+  return Number(value.replaceAll(",", ""));
+}
+
+const demoProductInventory = landingProducts.map((product, index) => ({
+  key: product.id,
+  name: product.name,
+  category: "Products" as const,
+  quantity: index === 0 ? 7 : 24,
+  minimumStock: index === 0 ? 10 : 8,
+  maximumStock: 40,
+  unitCost: firstListedPrice(product),
+  unit: "piece",
+  sku: `BRX-${String(index + 1).padStart(3, "0")}`,
+  supplierKey: "davao-essentials" as const,
+}));
+
 const demoInventory = [
   { key: "neck-strips", name: "Neck strips", category: "Supplies", quantity: 480, minimumStock: 120, maximumStock: 1000, unitCost: 0.75, unit: "pack", sku: "NS-NECK-001", supplierKey: "northstar" },
   { key: "disinfectant", name: "Disinfectant spray", category: "Supplies", quantity: 9, minimumStock: 12, maximumStock: 30, unitCost: 280, unit: "bottle", sku: "NS-DIS-001", supplierKey: "northstar" },
-  { key: "aftershave", name: "Aftershave balm", category: "Products", quantity: 14, minimumStock: 8, maximumStock: 30, unitCost: 450, unit: "bottle", sku: "NS-AFT-001", supplierKey: "northstar" },
   { key: "capes", name: "Barber capes", category: "Supplies", quantity: 24, minimumStock: 12, maximumStock: 40, unitCost: 420, unit: "piece", sku: "DBE-CAP-001", supplierKey: "davao-essentials" },
-  { key: "matte-clay", name: "Matte clay", category: "Products", quantity: 7, minimumStock: 10, maximumStock: 30, unitCost: 380, unit: "jar", sku: "DBE-CLY-001", supplierKey: "davao-essentials" },
   { key: "clippers", name: "Cordless clippers", category: "Equipment", quantity: 6, minimumStock: 3, maximumStock: 10, unitCost: 7800, unit: "piece", sku: "DBE-CLI-001", supplierKey: "davao-essentials" },
   { key: "steamer", name: "Hot towel steamer", category: "Equipment", quantity: 2, minimumStock: 1, maximumStock: 4, unitCost: 6200, unit: "piece", sku: "DBE-STE-001", supplierKey: "davao-essentials" },
+  ...demoProductInventory,
 ] as const;
 
 const demoBookings = [
@@ -162,10 +188,10 @@ const demoRestocks = [
     status: "Delivered",
     reference: "DBE-REQ-2026-004",
     notes: "Awaiting front-desk receiving count.",
-    itemKey: "matte-clay",
+    itemKey: "amore-pomade",
     requestedQuantity: 15,
     deliveredQuantity: null,
-    unitCost: 350,
+    unitCost: 250,
   },
   {
     key: "demo-restock-received",
@@ -389,11 +415,13 @@ async function seedDemoData() {
     const bookings = await seedBookings(client, customers, barbers);
     await seedRestocks(client, adminUserId, suppliers, inventory);
     await seedTransactions(client, bookings, customers, barbers);
+    await createUser(client, demoManager);
     await createUser(client, demoFrontDesk);
 
     await client.query("COMMIT");
-    console.log("Sprint 2 demo data replaced: 4 barbers, 7 inventory items, 2 suppliers, 4 customers, 4 bookings, 3 restocks, 1 movement, 1 transaction, 1 front-desk account, and 2 supplier accounts");
+    console.log(`Sprint 2 demo data replaced: 4 barbers, ${demoInventory.length} inventory items (${landingProducts.length} products), 2 suppliers, 4 customers, 4 bookings, 3 restocks, 1 movement, 1 transaction, 1 manager account, 1 front-desk account, and 2 supplier accounts`);
     console.log("Front Desk login: demo.frontdesk@barracks.local / frontdesk123");
+    console.log("Manager login: demo.manager@barracks.local / manager123");
     console.log("Supplier logins: demo.supplier.nina@barracks.local / supplier123 and demo.supplier.marco@barracks.local / supplier123");
     console.log("Customer login: demo.customer.ana@barracks.local / customer123");
   } catch (error) {

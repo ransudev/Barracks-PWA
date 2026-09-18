@@ -1,0 +1,484 @@
+/* ==========================================================================
+   BARRACKS BARBERS & SHAVES — CUSTOMER BOOKING PAGE
+   Palette: Crimson Red (#DC2626), Charcoal Silver,
+            Warm Platinum (#E2E2E6), Deep Obsidian (#0B0D0D / #111313)
+   ========================================================================== */
+
+.customer-booking-view {
+  min-height: 100vh;
+  background-color: #0b0d0d;
+  color: #e2e2e6;
+  font-family: var(--font-dashboard-sans), "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+/* --------------------------------------------------------------------------
+   CUSTOMER TOPBAR OVERRIDES (Scrubbed to Precision Palette)
+   -------------------------------------------------------------------------- */
+.customer-booking-view .customer-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 48px;
+  background-color: #101211;
+  border-bottom: 1px solid rgba(226, 226, 230, 0.08);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(12px);
+}
+
+.customer-booking-view .customer-topbar__links {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.customer-booking-view .customer-topbar__links button {
+  background: transparent;
+  border: none;
+  color: #a3a49e;
+  font-family: var(--font-dashboard-sans), "Inter", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.customer-booking-view .customer-topbar__links button:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.customer-booking-view .customer-topbar__links button.is-active {
+  background: rgba(220, 38, 38, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(220, 38, 38, 0.35);
+}
+
+.customer-booking-view .customer-topbar__links span {
+  color: #d0cec6;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 0 4px;
+}
+
+/* --------------------------------------------------------------------------
+   PAGE CONTAINER & HEADER
+   -------------------------------------------------------------------------- */
+.customer-booking-view .customer-content {
+  flex: 1;
+  padding: 48px 48px 80px;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.booking-hero-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 36px;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.booking-hero-header__left {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.booking-crest-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 12px;
+  background: rgba(220, 38, 38, 0.12);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  border-radius: 9999px;
+  color: #ef4444;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  width: fit-content;
+}
+
+.booking-hero-header h1 {
+  font-family: var(--font-dashboard-accent), "Sora", sans-serif;
+  font-size: 32px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  margin: 0;
+  line-height: 1.15;
+}
+
+.booking-hero-header h1 .accent-crimson {
+  color: #ef4444;
+}
+
+.booking-hero-header p {
+  color: #a3a49e;
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0;
+  max-width: 600px;
+}
+
+.booking-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  background: #141615;
+  border: 1px solid rgba(226, 226, 230, 0.12);
+  border-radius: 8px;
+  color: #d0cec6;
+  font-family: var(--font-dashboard-sans), "Inter", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.booking-back-btn:hover {
+  background: #202222;
+  color: #ffffff;
+  border-color: rgba(226, 226, 230, 0.25);
+  transform: translateX(-2px);
+}
+
+/* --------------------------------------------------------------------------
+   TWO-COLUMN BOOKING WORKSPACE
+   -------------------------------------------------------------------------- */
+.booking-workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.9fr);
+  gap: 32px;
+  align-items: start;
+}
+
+/* --------------------------------------------------------------------------
+   MAIN FORM CARD
+   -------------------------------------------------------------------------- */
+.booking-form-card {
+  background-color: #141615;
+  border: 1px solid rgba(226, 226, 230, 0.1);
+  border-radius: 16px;
+  padding: 36px;
+  box-shadow:
+    0 20px 45px -15px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.booking-loading {
+  padding: 48px 0;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.booking-summary-card__icon {
+  color: var(--red);
+}
+
+.booking-summary-item__meta {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.booking-summary-item__certification {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  color: var(--blue);
+  font-size: 11px;
+}
+
+.booking-summary-item__location {
+  color: var(--text-soft);
+}
+
+.booking-form-card .modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+/* Form Fields & Select Styling */
+.customer-booking-view .field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.customer-booking-view .field__label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #d0cec6;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.customer-booking-view .field__label span[aria-hidden="true"] {
+  color: #ef4444;
+}
+
+.customer-booking-view select,
+.customer-booking-view input[type="date"],
+.customer-booking-view input[type="time"],
+.customer-booking-view input[type="text"] {
+  width: 100%;
+  padding: 13px 16px;
+  background-color: #0d0f0f;
+  border: 1px solid rgba(226, 226, 230, 0.12);
+  border-radius: 9px;
+  color: #ffffff;
+  font-size: 14px;
+  font-family: var(--font-dashboard-sans), "Inter", sans-serif;
+  transition: all 0.2s ease;
+  color-scheme: dark;
+}
+
+.customer-booking-view select:focus,
+.customer-booking-view input:focus {
+  outline: none;
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+  background-color: #101211;
+}
+
+.customer-booking-view select option {
+  background-color: #141615;
+  color: #ffffff;
+  padding: 8px;
+}
+
+.customer-booking-view .form-grid--two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+/* Selected Service Callout Chip */
+.booking-form__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: rgba(242, 240, 234, 0.07);
+  border: 1px solid rgba(242, 240, 234, 0.18);
+  border-radius: 9px;
+  color: #d2d0c8;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 4px 0 0 0;
+}
+
+/* Actions in Form */
+.customer-booking-view .modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 14px;
+  margin-top: 12px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(226, 226, 230, 0.08);
+}
+
+.customer-booking-view .modal-actions .button--secondary {
+  padding: 11px 20px;
+  background: rgba(226, 226, 230, 0.06);
+  border: 1px solid rgba(226, 226, 230, 0.12);
+  border-radius: 9px;
+  color: #d0cec6;
+  font-family: var(--font-dashboard-sans), "Inter", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.customer-booking-view .modal-actions .button--secondary:hover {
+  background: rgba(226, 226, 230, 0.12);
+  color: #ffffff;
+  border-color: rgba(226, 226, 230, 0.25);
+}
+
+.customer-booking-view .modal-actions button[type="submit"],
+.customer-booking-view .modal-actions .button--primary {
+  padding: 12px 26px !important;
+  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%) !important;
+  border: 1px solid #dc2626 !important;
+  border-radius: 9px !important;
+  color: #ffffff !important;
+  font-family: var(--font-dashboard-sans), "Inter", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.35);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.customer-booking-view .modal-actions button[type="submit"]:hover:not(:disabled),
+.customer-booking-view .modal-actions .button--primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #f87171 0%, #ef4444 100%) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(220, 38, 38, 0.45);
+}
+
+/* --------------------------------------------------------------------------
+   SIDEBAR: LIVE SUMMARY & BARBER CAFÉ PERKS
+   -------------------------------------------------------------------------- */
+.booking-summary-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.booking-summary-card {
+  background-color: #141615;
+  border: 1px solid rgba(226, 226, 230, 0.1);
+  border-radius: 16px;
+  padding: 28px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+.booking-summary-card__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(226, 226, 230, 0.08);
+}
+
+.booking-summary-card__header h3 {
+  font-family: var(--font-dashboard-accent), "Sora", sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ffffff;
+  margin: 0;
+}
+
+.booking-summary-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.booking-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.booking-summary-item span {
+  color: #747670;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.booking-summary-item strong {
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.booking-summary-item strong.highlight-price {
+  color: #d2d0c8;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+/* Perks Card */
+.booking-perks-card {
+  background: linear-gradient(180deg, #181A19 0%, #111313 100%);
+  border: 1px solid rgba(226, 226, 230, 0.08);
+  border-radius: 16px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.booking-perk-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.booking-perk-item__icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(220, 38, 38, 0.12);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ef4444;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.booking-perk-item__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.booking-perk-item__text strong {
+  color: #d0cec6;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.booking-perk-item__text span {
+  color: #747670;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* --------------------------------------------------------------------------
+   RESPONSIVE MEDIA QUERIES
+   -------------------------------------------------------------------------- */
+@media (max-width: 960px) {
+  .customer-booking-view .customer-content {
+    padding: 32px 20px 60px;
+  }
+
+  .customer-booking-view .customer-topbar {
+    padding: 14px 20px;
+  }
+
+  .booking-workspace-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .booking-form-card {
+    padding: 24px 20px;
+  }
+
+  .customer-booking-view .form-grid--two {
+    grid-template-columns: 1fr;
+  }
+}

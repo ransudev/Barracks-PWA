@@ -1,4 +1,4 @@
-export type ApiRole = "administrator" | "front_desk" | "customer" | "supplier";
+export type ApiRole = "administrator" | "manager" | "front_desk" | "customer" | "supplier";
 
 export type ApiUser = {
   id: number;
@@ -46,6 +46,16 @@ export type ApiInventoryItem = {
   updatedAt: string;
 };
 
+export type ApiLowStockAlert = {
+  id: number;
+  itemId: number;
+  itemName: string;
+  branch: string;
+  currentQuantity: number;
+  threshold: number;
+  unit: string;
+};
+
 export type ApiSupplier = {
   id: number;
   companyName: string;
@@ -55,6 +65,7 @@ export type ApiSupplier = {
   address: string;
   notes: string;
   status: "active" | "inactive";
+  hasAccount: boolean;
   createdAt: string;
   updatedAt: string;
 };

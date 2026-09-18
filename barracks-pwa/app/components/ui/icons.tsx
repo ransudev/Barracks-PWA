@@ -11,6 +11,12 @@ export type IconName =
   | "chart"
   | "briefcase"
   | "scissors"
+  | "comb"
+  | "razor"
+  | "droplet"
+  | "palette"
+  | "hand"
+  | "shoppingBag"
   | "search"
   | "bell"
   | "plus"
@@ -121,6 +127,40 @@ const paths: Record<IconName, ReactNode> = {
       <circle cx="6.5" cy="7" r="2.5" />
       <circle cx="6.5" cy="17" r="2.5" />
       <path d="m8.6 8.4 10.1 10.1M8.6 15.6 18.7 5.5" />
+    </>
+  ),
+  comb: (
+    <>
+      <path d="M4 5h16v5H4z" />
+      <path d="M5 10v9M8 10v9M11 10v9M14 10v9M17 10v9" />
+    </>
+  ),
+  razor: (
+    <>
+      <path d="M4 5h16v4H4z" />
+      <path d="M8 9v3M16 9v3M10 12v8M14 12v8M8 20h8" />
+    </>
+  ),
+  droplet: (
+    <path d="M12 3s6 6.2 6 11a6 6 0 1 1-12 0c0-4.8 6-11 6-11Z" />
+  ),
+  palette: (
+    <>
+      <path d="M12 4a8 8 0 1 0 0 16h1.5a1.5 1.5 0 0 0 0-3H12a1 1 0 0 1 0-2h4.5A3.5 3.5 0 0 0 20 11.5 7.5 7.5 0 0 0 12 4Z" />
+      <circle cx="8" cy="10" r=".8" fill="currentColor" stroke="none" />
+      <circle cx="11" cy="7.5" r=".8" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="8.5" r=".8" fill="currentColor" stroke="none" />
+    </>
+  ),
+  hand: (
+    <>
+      <path d="M7.5 12V6.5a1.4 1.4 0 0 1 2.8 0V11M10.3 10V4.8a1.4 1.4 0 0 1 2.8 0V11M13.1 10V5.6a1.4 1.4 0 0 1 2.8 0V12M15.9 11V8.5a1.4 1.4 0 0 1 2.8 0v6.2c0 3-2.4 5.3-5.4 5.3H11c-1.8 0-3.2-.8-4.2-2.2L4.7 15a1.6 1.6 0 0 1 2.3-2.2l.5.5Z" />
+    </>
+  ),
+  shoppingBag: (
+    <>
+      <path d="M5 8h14l-1 12H6L5 8Z" />
+      <path d="M9 8V6a3 3 0 0 1 6 0v2" />
     </>
   ),
   search: (

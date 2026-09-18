@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createStaffUserSchema, userLifecycleSchema, updateStaffUserSchema } from "@/server/schemas/user.schema";
 import { barberSchema, barberStaffSchema, bookingEditSchema, bookingUpdateSchema, customerProfileSchema, customerSelfProfileSchema, inventoryItemSchema } from "@/server/schemas/sprint.schema";
+import { receiveRestockSchema, restockCreateSchema } from "@/server/schemas/sprint2.schema";
+import { bookingListState } from "@/app/utils/booking-state";
 
 test("staff account schemas are strict and validate lifecycle input", () => {
   const valid = createStaffUserSchema.safeParse({
@@ -136,4 +138,34 @@ test("booking schemas keep status transitions terminal and edits explicit", () =
     date: "2099-02-30",
     time: "10:00",
   }).success, false);
+});
+
+test("branch-aware inventory and restock schemas preserve safe defaults and reject duplicate lines", () => {
+  const inventory = inventoryItemSchema.parse({
+    name: "Neck strips",
+    category: "Supplies",
+    quantity: 4,
+    minimumStock: 2,
+    unitCost: 12.5,
+  });
+  assert.equal(inventory.branch, "Main Branch");
+  assert.equal(restockCreateSchema.safeParse({
+    supplierId: 1,
+    branch: "Maa Branch",
+    items: [
+      { inventoryItemId: 10, requestedQuantity: 2 },
+      { inventoryItemId: 10, requestedQuantity: 3 },
+    ],
+  }).success, false);
+  assert.equal(receiveRestockSchema.safeParse({
+    items: [
+      { restockRequestItemId: 4, deliveredQuantity: 1 },
+      { restockRequestItemId: 4, deliveredQuantity: 1 },
+    ],
+  }).success, false);
+});
+
+test("booking lists expose load failures instead of falling through to an empty state", () => {
+  assert.equal(bookingListState({ loading: false, loadError: "Unable to load bookings", visibleCount: 0 }), "error");
+  assert.equal(bookingListState({ loading: false, loadError: "", visibleCount: 0 }), "empty");
 });

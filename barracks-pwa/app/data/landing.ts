@@ -18,10 +18,10 @@ export const landingEditorialImages = {
   // Real Barracks photography: the service shots come from the Barracks
   // booking page, while the interior shots come from Barracks HQ listings.
   hero: "/barracks/bajada-styling.jpg",
-  heroCollageLeft: "/barracks/bangkal-interior.jpg",
+  heroCollageLeft: "/barracks/bangkal-interior-enhanced.png",
   heroCollageRight: "/barracks/bajada-interior.jpg",
-  detail: "/barracks/bangkal-interior.jpg",
-  studio: "/barracks/bangkal-interior.jpg",
+  detail: "/barracks/bangkal-interior-enhanced.png",
+  studio: "/barracks/bangkal-interior-enhanced.png",
 };
 
 type LandingMenuPrice = {
@@ -42,19 +42,30 @@ type LandingMenuGroup = {
   items: LandingMenuItem[];
 };
 
-export type LandingServiceSection = {
+type LandingServiceSectionBase = {
   id: string;
   number: string;
   name: string;
   description: string;
   duration: string;
-  items?: LandingMenuItem[];
-  groups?: LandingMenuGroup[];
 };
+
+export type LandingServiceSection =
+  | (LandingServiceSectionBase & {
+      kind: "items";
+      items: LandingMenuItem[];
+      groups?: never;
+    })
+  | (LandingServiceSectionBase & {
+      kind: "groups";
+      groups: LandingMenuGroup[];
+      items?: never;
+    });
 
 export const landingServices: LandingServiceSection[] = [
   {
     id: "cut-and-shave",
+    kind: "items",
     number: "01",
     name: "Cut & Shave",
     description: "Core Barracks cuts and shave services, with Junior and Senior Barber pricing.",
@@ -91,6 +102,7 @@ export const landingServices: LandingServiceSection[] = [
   },
   {
     id: "hair-dye-services",
+    kind: "items",
     number: "02",
     name: "Hair Dye Services",
     description: "Professional colour services for a refreshed, well-finished look.",
@@ -103,9 +115,10 @@ export const landingServices: LandingServiceSection[] = [
   },
   {
     id: "hair-and-scalp-care",
+    kind: "groups",
     number: "03",
     name: "Hair & Scalp Care",
-    description: "Scalp, hair spa, and repair services by L'Oréal for a complete care ritual.",
+    description: "Scalp care, hair spa, and molecular repair treatments powered by L'Oréal Professionnel.",
     duration: "MENU",
     groups: [
       {
@@ -137,9 +150,10 @@ export const landingServices: LandingServiceSection[] = [
   },
   {
     id: "other-services",
+    kind: "items",
     number: "04",
     name: "Other Services",
-    description: "Facial care, massage, and treatment services for the rest of your ritual.",
+    description: "Facial care, upper body massage, and deep conditioning treatments to recharge and look sharp.",
     duration: "MENU",
     items: [
       { id: "facial-care", name: "Facial Care Service", prices: [{ amount: "₱300 / ₱550*" }] },
@@ -149,6 +163,7 @@ export const landingServices: LandingServiceSection[] = [
   },
   {
     id: "barracks-products",
+    kind: "items",
     number: "05",
     name: "Barracks Products",
     description: "Barracks grooming essentials, gift items, and tools to take the finish home.",
@@ -168,6 +183,7 @@ export const landingServices: LandingServiceSection[] = [
   },
   {
     id: "retrobee",
+    kind: "items",
     number: "06",
     name: "Retrobee",
     description: "Styling staples for hold, texture, and the Barracks finish.",
@@ -182,6 +198,7 @@ export const landingServices: LandingServiceSection[] = [
   },
   {
     id: "loreal-pro",
+    kind: "items",
     number: "07",
     name: "L'Oréal Pro",
     description: "Professional care products for scalp health, repair, and growth support.",
@@ -196,6 +213,25 @@ export const landingServices: LandingServiceSection[] = [
     ],
   },
 ];
+
+export type LandingProduct = LandingMenuItem & {
+  sectionId: string;
+  sectionName: string;
+};
+
+export const landingProducts: LandingProduct[] = landingServices
+  .filter((section) => section.duration === "PRODUCTS")
+  .flatMap((section) => {
+    const items = section.kind === "groups"
+      ? section.groups.flatMap((group) => group.items)
+      : section.items;
+
+    return items.map((item) => ({
+      ...item,
+      sectionId: section.id,
+      sectionName: section.name,
+    }));
+  });
 
 export const landingBranches = [
   {

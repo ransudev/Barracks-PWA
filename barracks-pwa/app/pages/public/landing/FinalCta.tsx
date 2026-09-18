@@ -1,16 +1,49 @@
-import { Button } from "@/app/components/ui";
+import { Icon } from "@/app/components/ui/icons";
 import { landingContact } from "@/app/data/landing";
 import type { ViewId } from "@/app/types/domain";
 
 export function FinalCta({ go }: { go: (view: ViewId) => void }) {
   return (
-    <section className="landing-final-cta">
-      <div><h2>Ready for your next cut?</h2></div>
-      <div className="landing-final-cta__action">
-        <p>
-          Book via <span className="landing-final-cta__contact">{landingContact.phone}</span>. Check your email for confirmation after booking. A 10-minute waiting-time extension is provided.
-        </p>
-        <Button size="lg" icon="calendar" onClick={() => go("customer-booking")}>Book an Appointment</Button>
+    <section className="section-final-cta-gogrin" id="booking">
+      <div className="final-cta-card">
+        <div className="final-cta-card__left">
+          <div className="barbershop-crest__badge">
+            <Icon name="scissors" size={13} />
+            <span>BOOK YOUR CHAIR ONLINE</span>
+          </div>
+          <h2>
+            READY FOR YOUR <br />
+            <span className="accent-crimson">NEXT FRESH CUT?</span>
+          </h2>
+          <p>
+            Appointments and walk-ins welcome across all 4 Davao HQs. Reserve your chair in advance,
+            select your preferred barber, grab an iced coffee, and enjoy the authentic Barracks experience.
+          </p>
+        </div>
+
+        <div className="final-cta-card__right">
+          <button
+            type="button"
+            className="btn-primary"
+            style={{ width: "100%", height: 52 }}
+            onClick={() => go("customer-booking")}
+          >
+            <Icon name="calendar" size={18} />
+            <span>Book An Appointment</span>
+          </button>
+
+          <div className="final-cta-card__policy">
+            <span>Direct phone reservations: </span>
+            <a
+              href={`tel:${landingContact.phoneHref}`}
+              style={{ color: "var(--color-secondary-bright)", fontWeight: 600, textDecoration: "none" }}
+            >
+              {landingContact.phone}
+            </a>
+            <br />
+            <span>Check your email for confirmation. A 10-minute grace period is provided.</span>
+          </div>
+        </div>
       </div>
     </section>
   );

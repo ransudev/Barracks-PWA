@@ -12,6 +12,7 @@ export type ViewId =
   | "customers"
   | "inventory"
   | "staff-suppliers"
+  | "restocks"
   | "admin-dashboard"
   | "staff-management"
   | "admin-customers"

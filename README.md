@@ -54,11 +54,13 @@ Queue management, payments, transactions, service management, reports, calendar 
 
 ### Roles and access
 
-There are three account roles:
+There are five account roles:
 
 - `administrator`: can enter Management and Shop floor, manage staff accounts, and access all sprint data.
+- `manager`: can enter Management and Shop floor and manage day-to-day business operations, including customers, barbers, suppliers, inventory, restocks, reports, and bookings. Staff account administration remains administrator-only.
 - `front_desk`: works in Shop floor and can manage customers, barbers, bookings, and inventory. It can create/read/update inventory and barber records, but barber commission rates and ratings are administrator-only. It cannot enter Management, manage user accounts, or delete inventory/barber records.
 - `customer`: can access only their own customer dashboard/profile and booking flow.
+- `supplier`: can access the supplier portal for the linked supplier account and its restock requests.
 
 Barbers are business records, not login identities. They do not have accounts or sessions. The migration reassigns legacy `barber` user rows to `front_desk` and removes the obsolete role.
 
@@ -245,8 +247,8 @@ All protected routes use the HTTP-only `barracks_session` cookie. JSON errors fo
 
 ### User management
 
-- `GET /api/users` — administrator only; lists public administrator/front-desk account records.
-- `POST /api/users` — administrator only; creates an administrator or front-desk account.
+- `GET /api/users` — administrator only; lists public administrator/manager/front-desk account records.
+- `POST /api/users` — administrator only; creates an administrator, manager, or front-desk account.
 - `GET /api/users/:id` — administrator only; reads one public user record, including verification, blocked, and active state.
 - `PUT /api/users/:id` — administrator only; updates identity, email, role, and optionally resets the password.
 - `PATCH /api/users/:id` — administrator only; accepts `verify`, `unverify`, `block`, or `unblock`, revoking sessions whenever access is disabled.
@@ -258,57 +260,60 @@ New staff accounts start unverified and unblocked. Login rejects unverified, blo
 
 - `GET /api/customers` — administrator/front desk; lists customer profiles.
 - `POST /api/customers` — administrator/front desk; creates a customer account/profile.
-- `GET /api/customers/:id` and `PUT /api/customers/:id` — administrator/front desk; read/update a customer profile. Loyalty points are administrator-only; Front Desk updates are limited to contact and preference fields.
+- `GET /api/customers/:id` and `PUT /api/customers/:id` — administrator/manager/front desk; read/update a customer profile. Loyalty points are administrator/manager-only; Front Desk updates are limited to contact and preference fields.
 - `GET /api/customers/me` and `PUT /api/customers/me` — customer only; read/update the profile linked to the current session.
 
 Staff customer management includes search, profile details, contact/preference editing, loyalty-point updates for administrators, and account deactivation. The profile view is opened from the first action in each customer row and uses the same detail-modal pattern as barber profiles.
 
 ### Barbers
 
-- `GET /api/barbers` — administrator, front desk, or customer; lists barber business records.
-- `POST /api/barbers` — administrator/front desk; creates a barber. Commission rates and ratings are administrator-only, and service totals are read-only.
-- `GET /api/barbers/:id` and `PUT /api/barbers/:id` — administrator/front desk; read/update a barber. Front Desk updates are limited to name and status; commission rates, ratings, and service totals are protected.
+- `GET /api/barbers` — administrator, manager, front desk, or customer; lists barber business records.
+- `POST /api/barbers` — administrator/manager/front desk; creates a barber. Commission rates and ratings are administrator/manager-only, and service totals are read-only.
+- `GET /api/barbers/:id` and `PUT /api/barbers/:id` — administrator/manager/front desk; read/update a barber. Front Desk updates are limited to name and status; commission rates, ratings, and service totals are protected.
 - `PATCH /api/barbers` — administrator only; applies a validated commission rate to all barber records in one transaction.
 - `DELETE /api/barbers/:id` — administrator only; deletes a barber only when no booking references the profile, otherwise returns an explanatory conflict.
 
 ### Inventory
 
-- `GET /api/inventory` and `POST /api/inventory` — administrator/front desk; list/create inventory items.
-- `GET /api/inventory/:id` and `PUT /api/inventory/:id` — administrator/front desk; read/update an item.
+- `GET /api/inventory` and `POST /api/inventory` — administrator/manager/front desk; list/create inventory items. Inventory rows carry an editable branch (default `Main Branch`); `GET` accepts an optional `branch` query filter.
+- `GET /api/inventory/:id` and `PUT /api/inventory/:id` — administrator/manager/front desk; read/update an item.
 - `DELETE /api/inventory/:id` — administrator only; deletes an item after confirmation in the UI.
+- `GET /api/inventory/:id/movements` and `POST /api/inventory/:id/movements` — staff; list or record auditable stock movements with item branch context.
+- `GET /api/inventory/:id/threshold-history` — staff; returns item/branch threshold changes with actor and timestamp.
+- `GET /api/inventory/alerts` and `POST /api/inventory/alerts/:id/acknowledge` — staff; list and persist low-stock acknowledgements per user. Acknowledgements reactivate after stock rises above the branch threshold and later falls below it again.
 
-Inventory state is derived from quantity and minimum stock: In Stock, Low Stock, or Out of Stock. The UI provides search, category/status/supplier filters, validation, loading/empty/error states, metrics, confirmation dialogs, stock movement recording, and movement history. Receiving a restock also writes an auditable `RECEIVE` movement.
+Inventory state is derived from quantity and the branch-specific minimum stock: In Stock, Low Stock, or Out of Stock. The UI provides search, branch/category/status/supplier filters, editable branch and minimum/maximum thresholds, validation, loading/empty/error states, metrics, confirmation dialogs, stock movement recording, and movement history. Threshold changes retain the item, branch, user, and timestamp. Receiving a restock also writes an auditable `RECEIVE` movement.
 
 ### Suppliers and restocks
 
-- `GET /api/suppliers` and `POST /api/suppliers` — administrator only; list/create supplier records.
-- `GET /api/suppliers/:id`, `PUT /api/suppliers/:id`, and `DELETE /api/suppliers/:id` — administrator only; read, edit, and deactivate suppliers.
+- `GET /api/suppliers` and `POST /api/suppliers` — administrator/manager/front desk; list/create supplier records.
+- `GET /api/suppliers/:id`, `PUT /api/suppliers/:id`, and `DELETE /api/suppliers/:id` — administrator/manager/front desk; read, edit, and deactivate suppliers.
 - `POST /api/suppliers/:id/account` — administrator only; creates or links one supplier portal account.
 - `GET /api/supplier/me` — supplier only; returns the linked profile, supplied items, deliveries, and restock history.
-- `GET /api/restocks` — administrators receive all requests; supplier accounts receive only requests for their active supplier.
-- `POST /api/restocks` — administrator only; creates a request using items linked to an active supplier.
+- `GET /api/restocks` — administrator/manager/front desk receive staff-visible requests; supplier accounts receive only requests for their active supplier.
+- `POST /api/restocks` — administrator/manager/front desk; creates a branch-scoped request with one or more unique items linked to the selected active supplier and branch. The staff Restocks workspace supports adding, removing, and editing lines.
 - `PATCH /api/restocks/:id/status` — the linked supplier advances Pending → Accepted → Preparing → Shipped.
-- `POST /api/restocks/:id/delivered` — administrator only; confirms a shipped request as delivered.
-- `POST /api/restocks/:id/receive` — administrator only; receives a delivered request, updates stock, and writes `RECEIVE` movement records transactionally.
-- `GET /api/inventory/:id/movements` and `POST /api/inventory/:id/movements` — staff; list or record auditable stock movements.
-- `GET /api/reports/inventory` — administrator only; returns valuation, low-stock, supplier-spend, and movement summaries.
+- `POST /api/restocks/:id/delivered` — administrator/manager/front desk; confirms a shipped request as delivered.
+- `POST /api/restocks/:id/receive` — administrator/manager/front desk; receives every line of a delivered request transactionally, rejects duplicate/invalid transitions, updates stock, and writes `RECEIVE` movement records with item, supplier, branch, timestamp, and responsible user.
+- `GET /api/reports/inventory` — administrator/manager; returns valuation, low-stock, supplier-spend, and movement summaries.
 
 The supplier portal is a responsive supplier-specific workspace with a split overview: the supplier profile occupies the left half while linked items, open requests, deliveries, and account status form a 2×2 summary grid on the right. Supplier-facing status actions remain limited to the documented request transition flow. On wider screens, the lower supplied-items panel aligns with the bottom of the combined restock and delivery-history column before returning to natural stacked heights on smaller screens.
 
 ### Bookings
 
-- `GET /api/bookings` — administrator/front desk receive all bookings; customers receive only their own bookings.
-- `POST /api/bookings` — administrator/front desk can select a customer; customers can create only their own booking. The request includes barber, service, date, and time.
-- `PUT /api/bookings/:id` — administrator/front desk can edit an upcoming booking's customer, barber, service, date, and time.
-- `PATCH /api/bookings/:id` — administrator/front desk can mark an upcoming booking `completed` or `cancelled`; completed and cancelled bookings are terminal in Sprint 1.
+- `GET /api/bookings` — administrator/manager/front desk receive all bookings; customers receive only their own bookings.
+- `POST /api/bookings` — administrator/manager/front desk can select a customer; customers can create only their own booking. The request includes barber, service, date, and time.
+- `PUT /api/bookings/:id` — administrator/manager/front desk can edit an upcoming booking's customer, barber, service, date, and time.
+- `PATCH /api/bookings/:id` — administrator/manager/front desk can mark an upcoming booking `completed` or `cancelled`; completed and cancelled bookings are terminal in Sprint 1.
+- `DELETE /api/bookings/:id` — administrator/manager/front desk can delete an upcoming booking after confirmation. Completed and cancelled historical bookings are retained and return a conflict.
 
-Booking creation and editing validate the date/time, confirm that the customer and barber exist, resolve the service from the local catalog, and prevent an active duplicate barber/date/time slot with a database constraint. Staff booking cancellation uses an explicit confirmation step in the active UI.
+Booking creation and editing validate the date/time, confirm that the customer and barber exist, resolve the service from the local catalog, and prevent an active duplicate barber/date/time slot with a database constraint. Staff booking cancellation and upcoming-booking deletion use separate explicit confirmation steps. Booking-load failures have an error state and never fall through to “No bookings found.”
 
 ## Database and server layer
 
 The backend uses raw parameterized SQL through `pg`. It does not use Prisma, Drizzle, Express, Hono, or another backend framework. The same server layer works with either a local PostgreSQL database or a hosted Supabase PostgreSQL database; the active target is selected by `DATABASE_URL`, with `POSTGRES_URL` as the Vercel Supabase-integration fallback.
 
-`server/db/pool.ts` creates the PostgreSQL pool from `DATABASE_URL` or `POSTGRES_URL`, optionally enables SSL through `DATABASE_SSL`, and uses `DATABASE_POOL_MAX` with a default of `10`. Migrations are stored in `server/db/migrations/001_user_management.sql` and `server/db/migrations/002_supplier_inventory.sql`, and run transactionally by `scripts/db-migrate.ts`.
+`server/db/pool.ts` creates the PostgreSQL pool from `DATABASE_URL` or `POSTGRES_URL`, optionally enables SSL through `DATABASE_SSL`, and uses `DATABASE_POOL_MAX` with a default of `10`. Migrations are stored in `server/db/migrations/001_user_management.sql` through `005_manager_role.sql`, and run transactionally by `scripts/db-migrate.ts`.
 
 The current migration creates:
 
@@ -321,6 +326,8 @@ The current migration creates:
 - `bookings` — customer/barber relationships, service snapshot, price, date/time, status, demo key, and timestamps.
 - `suppliers` and `supplier_accounts` — supplier records and one linked supplier login per supplier.
 - `inventory_movements` — auditable stock changes with before/after quantities, supplier, reference, and actor.
+- `inventory_threshold_history` — branch-aware minimum/maximum threshold changes with the responsible user and timestamp.
+- `inventory_alert_acknowledgements` — per-user persisted low-stock acknowledgement cycles that reset after replenishment.
 - `restock_requests` and `restock_request_items` — supplier-linked requests, status transitions, delivery receiving, and line quantities.
 - `services` — canonical service catalog referenced by bookings and transactions.
 - `transactions` — persisted transaction records linked to customers, bookings, barbers, and services.
@@ -444,3 +451,9 @@ The recommended evolution is incremental: add URL-backed routes, expand authenti
 - Use the existing neutral design language; do not reintroduce saturated decorative accents.
 - Update this root README whenever code, configuration, dependencies, database, API, or architecture behavior changes.
 - Before handoff, run TypeScript, lint, build, and diff checks, and manually verify affected UI flows at desktop and mobile widths.
+
+### Dashboard surface finish
+
+Staff and Management workspaces (`.app-shell`) and the Customer Dashboard (`.customer-page--dashboard`) use the Barracks precision-grooming theme from the supplied brand board. Inter is the primary interface typeface, with Sora for dashboard display headings and the explicit fallback stack `Inter, Sora, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`. KPI metrics, prices, dates, timestamps, operational statistics, and table rows enable tabular lining figures (`lnum` + `tnum`) for consistent numeric alignment. Primary actions use Barracks red (`#dc2626`), information and links use cyan (`#0ea5e9`), and text uses cool white (`#e2e8f0`) over near-black (`#0b0d10`) surfaces. The dark dashboard follows a compact command-console style: a deep near-black workspace, visibly raised near-flat panels, crisp low-contrast borders, 6–7px corner radii, minimal shadows, a neutral active-navigation fill, and restrained red/cyan functional accents. The sidebar brand rail and sticky topbar share a 64px header line so their dividers align across the shell. Staff, management, and customer dashboards use a fluid staggered entrance sequence with a soft deceleration curve plus restrained card, icon, arrow, and row hover responses; reduced-motion preferences collapse these effects to an effectively instant state. Existing content, components, and page structure remain unchanged. Light mode maps the same semantic palette onto off-white surfaces. Reduced-transparency preferences remain supported.
+
+Existing dashboard grids, workflows, and semantic status colors remain unchanged. Table rows stay flat for readability. Public landing/marketing styles are isolated in their own stylesheet modules.

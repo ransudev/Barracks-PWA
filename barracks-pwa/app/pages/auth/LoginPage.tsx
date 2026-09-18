@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import Image from "next/image";
 import type { ViewId } from "@/app/types/domain";
 import { Button, Logo, Modal, TextField } from "@/app/components/ui";
 import { Icon } from "@/app/components/ui/icons";
+import { landingContact, landingHours } from "@/app/data/landing";
 import {
   apiRequest,
   readApiBody,
@@ -132,35 +134,99 @@ export function LoginPage({ go, onLogin }: LoginPageProps) {
   return (
     <div className="login-page">
       <div className="login-page__aside">
-        <button
-          className="login-back"
-          type="button"
-          onClick={() => go("landing")}
-        >
-          <Icon name="chevronLeft" size={15} />
-          Back to Barracks
-        </button>
-        <div className="login-aside__brand">
-          <Logo />
+        <div className="login-page__aside-bg">
+          <Image
+            src="/barracks/bangkal-interior-enhanced.png"
+            alt="Barracks Barbershop interior"
+            fill
+            priority
+            sizes="(max-width: 960px) 100vw, 460px"
+          />
         </div>
-        <div className="login-aside__mark">
-          <span>B</span>
+        <div className="login-page__aside-overlay" />
+
+        <div className="login-page__aside-content">
+          <div>
+            <button
+              className="login-back"
+              type="button"
+              onClick={() => go("landing")}
+            >
+              <Icon name="chevronLeft" size={14} />
+              <span>Back to Barracks</span>
+            </button>
+
+            <div className="login-aside__brand">
+              <Logo />
+            </div>
+          </div>
+
+          <div className="login-aside__crest">
+            <div className="login-aside__crest-badge">
+              <Icon name="scissors" size={12} />
+              <span>EST. 2017 · DAVAO CITY</span>
+            </div>
+            <h2>
+              GIVING A MODERN TWIST <br />
+              <span className="accent-crimson">TO A TRADITIONAL BARBERSHOP.</span>
+            </h2>
+          </div>
+
+          <div className="login-aside__footer">
+            <div className="login-aside__footer-row">
+              <span>OPERATING HOURS</span>
+              <strong>{landingHours.label}</strong>
+            </div>
+            <div className="login-aside__footer-row">
+              <span>SHOP HOTLINE</span>
+              <strong>{landingContact.phone}</strong>
+            </div>
+            <div className="login-aside__footer-row">
+              <span>COMMUNITY</span>
+              <strong>{landingContact.hashtag}</strong>
+            </div>
+          </div>
         </div>
       </div>
 
       <main className="login-page__main">
         <div className="login-card">
+          {/* Segmented Auth Switcher */}
+          <div className="auth-segmented-switch" role="tablist" aria-label="Sign in or register">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={authMode === "login"}
+              className={`auth-segmented-btn ${authMode === "login" ? "is-active" : ""}`}
+              onClick={() => switchAuthMode("login")}
+            >
+              <Icon name="lock" size={14} />
+              <span>Sign In</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={authMode === "signup"}
+              className={`auth-segmented-btn ${authMode === "signup" ? "is-active" : ""}`}
+              onClick={() => switchAuthMode("signup")}
+            >
+              <Icon name="userPlus" size={14} />
+              <span>Register</span>
+            </button>
+          </div>
+
           <div className="login-card__head">
+            <span className="login-card__eyebrow">
+              <Icon name={authMode === "login" ? "spark" : "userPlus"} size={13} />
+              <span>{authMode === "login" ? "ACCOUNT ACCESS" : "NEW CLIENT REGISTRATION"}</span>
+            </span>
             <h1>
-              {authMode === "login"
-                ? "Good to see you."
-                : "Make room for better visits."}
+              {authMode === "login" ? (
+                <>WELCOME <span className="accent-crimson">BACK.</span></>
+              ) : (
+                <>JOIN THE <span className="accent-crimson">BARRACKS.</span></>
+              )}
             </h1>
-            <p>
-              {authMode === "login"
-                ? "Sign in to pick up where the day left off."
-                : "Create a customer account to manage your Barracks visits."}
-            </p>
           </div>
 
           {authMode === "login" ? (
@@ -194,7 +260,7 @@ export function LoginPage({ go, onLogin }: LoginPageProps) {
                 </span>
               </label>
               <div className="login-form__meta">
-                <span className="login-form__session-note">Sessions last 7 days.</span>
+                <span className="login-form__session-note">Sessions remain active 7 days.</span>
                 <button
                   type="button"
                   className="link-button"
@@ -269,11 +335,13 @@ export function LoginPage({ go, onLogin }: LoginPageProps) {
                 className="login-submit"
                 disabled={submitting}
               >
-                Create customer account
+                {submitting ? "Creating account…" : "Create customer account"}
               </Button>
             </form>
           )}
+
           {error && <p className="form-error" role="alert">{error}</p>}
+
           <div className="login-card__switch">
             <span>
               {authMode === "login"
@@ -283,7 +351,7 @@ export function LoginPage({ go, onLogin }: LoginPageProps) {
             <button
               type="button"
               className="link-button"
-                onClick={() => switchAuthMode(authMode === "login" ? "signup" : "login")}
+              onClick={() => switchAuthMode(authMode === "login" ? "signup" : "login")}
             >
               {authMode === "login" ? "Register" : "Sign in"}
             </button>
@@ -298,7 +366,7 @@ export function LoginPage({ go, onLogin }: LoginPageProps) {
         onClose={() => setRecoveryOpen(false)}
       >
         <div className="modal-form">
-          <p className="modal-copy">Contact an administrator if you need your staff access restored.</p>
+          <p className="modal-copy">Contact an administrator or visit any of our 4 Davao HQs if you need your access restored.</p>
           <div className="modal-actions">
             <Button type="button" onClick={() => setRecoveryOpen(false)}>
               Close

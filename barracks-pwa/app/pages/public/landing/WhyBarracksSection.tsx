@@ -1,28 +1,108 @@
+import Image from "next/image";
+import { Icon } from "@/app/components/ui/icons";
+
 export function WhyBarracksSection() {
   return (
-    <section className="landing-why" id="about">
-      <div className="landing-section-head">
-        <div>
-          <span className="section-stamp">WHY BARRACKS</span>
-          <h2>Born in Davao. Built through craft and community.</h2>
+    <section className="section-craft" id="about">
+      {/* GoGrin 4-Photo Quadrant Collage */}
+      <div className="collage-quad" aria-label="Barracks craftsmanship collage" style={{ position: "relative" }}>
+        <div className="collage-quad__cell" style={{ position: "relative", overflow: "hidden" }}>
+          <Image
+            src="/barracks/bajada-styling.jpg"
+            alt="Barracks barber precision styling at Bajada HQ"
+            fill
+            sizes="(max-width: 1024px) 50vw, 240px"
+          />
         </div>
-        <p>
-          Giving a modern twist to a traditional barbershop since 2017.
-        </p>
+        <div className="collage-quad__cell" style={{ position: "relative", overflow: "hidden" }}>
+          <Image
+            src="/barracks/bangkal-interior-enhanced.png"
+            alt="Barracks Bangkal HQ interior stations"
+            fill
+            sizes="(max-width: 1024px) 50vw, 240px"
+          />
+        </div>
+        <div className="collage-quad__cell" style={{ position: "relative", overflow: "hidden" }}>
+          <Image
+            src="/barracks/lanang-styling.jpg"
+            alt="Barracks Lanang HQ haircut in progress"
+            fill
+            sizes="(max-width: 1024px) 50vw, 240px"
+          />
+        </div>
+        <div className="collage-quad__cell" style={{ position: "relative", overflow: "hidden" }}>
+          <Image
+            src="/barracks/bajada-interior.jpg"
+            alt="Barracks Bajada lounge and heritage chairs"
+            fill
+            sizes="(max-width: 1024px) 50vw, 240px"
+          />
+        </div>
+
+        {/* Central Crest Emblem */}
+        <div className="collage-quad__center-badge" aria-hidden="true">
+          <Icon name="scissors" size={14} style={{ color: "var(--color-primary-bright)", marginBottom: 2 }} />
+          <span>EST.</span>
+          <strong>2017</strong>
+        </div>
       </div>
-      <div className="why-barracks__body">
-        <p className="why-barracks__lead">
-          Homegrown in Davao, Barracks Barbers &amp; Shaves brings a modern
-          approach to traditional barbering. Every visit is shaped around
-          consultation, skilled hands, and a complete grooming experience for
-          men of all ages.
-        </p>
-        <div className="why-barracks__values">
-          <div><strong>Craftsmanship</strong><span>Skilled barbering with attention to the finish.</span></div>
-          <div><strong>Community</strong><span>Supporting local talent, brands, and the people in our chairs.</span></div>
-          <div><strong>Culture</strong><span>A Davao-grown point of view on a familiar ritual.</span></div>
-          <div><strong>Charity</strong><span>Growing the industry with purpose beyond the chair.</span></div>
+
+      {/* Right Side Editorial Story & Pillars */}
+      <div className="craft-story">
+        <div className="craft-story__eyebrow">
+          <Icon name="scissors" size={13} />
+          <span>BORN IN DAVAO · EST. 2017</span>
         </div>
+
+        <h2>
+          Modern grooming. <br />
+          <span className="accent-crimson">Dabawenyo craft &amp; culture.</span>
+        </h2>
+
+        <p>
+          Giving a modern twist to a traditional barbershop since 2017. More than just a haircut,
+          Barracks is a modern man-cave and barber café where great conversation, artisan coffee,
+          and expert grooming meet. Every style is shaped by TESDA-certified barbers dedicated
+          to clean techniques, modern trends, and consistent quality.
+        </p>
+
+        {/* 4 Brand Pillars */}
+        <div className="craft-story__pillars">
+          <div className="craft-pillar-item">
+            <strong>Craftsmanship</strong>
+            <span>Professional barbering by TESDA NC II certified barbers with continuous training.</span>
+          </div>
+          <div className="craft-pillar-item">
+            <strong>Community</strong>
+            <span>Supporting homegrown Dabawenyo talent, local brands, and the people in our chairs.</span>
+          </div>
+          <div className="craft-pillar-item">
+            <strong>Culture</strong>
+            <span>A vibrant Davao-grown space combining sharp grooming with a relaxed café atmosphere.</span>
+          </div>
+          <div className="craft-pillar-item">
+            <strong>Charity</strong>
+            <span>Giving back and uplifting our Davao community beyond the barber chair.</span>
+          </div>
+        </div>
+
+        {/* Master Barber Quote Card */}
+        <div className="barber-quote-card">
+          <div className="barber-quote-card__avatar" aria-hidden="true">
+            <span>RS</span>
+          </div>
+          <div className="barber-quote-card__info">
+            <span className="barber-quote-card__quote">
+              &ldquo;We&apos;re here to give every Dabawenyo a fresh, confident look — delivered with clean technique and good vibes.&rdquo;
+            </span>
+            <span className="barber-quote-card__name">Rodsky · Senior Barber at Bajada HQ</span>
+          </div>
+        </div>
+
+        <a href="#branches" className="btn-action-small btn-action-cyan">
+          <span>Explore 4 Davao HQs</span>
+          <Icon name="arrowRight" size={13} />
+        </a>
       </div>
     </section>
   );

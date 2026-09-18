@@ -69,8 +69,12 @@ async function assertActiveSupplier(db: Queryable, supplierId: number | null): P
   if (!supplier.rows[0]) throw new Error("SUPPLIER_UNAVAILABLE");
 }
 
-export async function listInventory(db: Pool): Promise<InventoryRecord[]> {
-  const result = await db.query<InventoryRow>(`${inventorySelect} ORDER BY i.name ASC, i.id ASC`);
+export async function listInventory(db: Pool, branch?: string): Promise<InventoryRecord[]> {
+  const params = branch ? [branch] : [];
+  const result = await db.query<InventoryRow>(
+    `${inventorySelect} ${branch ? "WHERE i.branch = $1" : ""} ORDER BY i.name ASC, i.id ASC`,
+    params,
+  );
   return result.rows.map(toInventory);
 }
 
@@ -82,9 +86,9 @@ export async function findInventoryById(db: Pool, id: number): Promise<Inventory
 // Kept for compatibility with older seed/tests. New UI/API uses createInventoryItem.
 export async function createInventory(db: Pool, input: InventoryItemInput): Promise<InventoryRecord> {
   const result = await db.query<{ id: number }>(`
-    INSERT INTO inventory_items (name, category, quantity, minimum_stock, unit_cost)
-    VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-    [input.name, input.category, input.quantity, input.minimumStock, input.unitCost]);
+    INSERT INTO inventory_items (name, category, branch, quantity, minimum_stock, unit_cost)
+    VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+    [input.name, input.category, input.branch, input.quantity, input.minimumStock, input.unitCost]);
   return (await findInventoryById(db, result.rows[0].id)) as InventoryRecord;
 }
 
@@ -92,9 +96,9 @@ export async function createInventoryItem(db: Pool, input: InventoryCreateInput)
   await assertActiveSupplier(db, input.supplierId);
   const result = await db.query<{ id: number }>(`
     INSERT INTO inventory_items
-      (name,category,quantity,minimum_stock,maximum_stock,unit_cost,unit,sku,status,supplier_id)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
-    [input.name,input.category,input.initialQuantity,input.minimumStock,input.maximumStock,input.unitCost,
+      (name,category,branch,quantity,minimum_stock,maximum_stock,unit_cost,unit,sku,status,supplier_id)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+    [input.name,input.category,input.branch,input.initialQuantity,input.minimumStock,input.maximumStock,input.unitCost,
       input.unit,input.sku,input.status,input.supplierId]);
   return (await findInventoryById(db,result.rows[0].id))!;
 }
@@ -102,9 +106,9 @@ export async function createInventoryItem(db: Pool, input: InventoryCreateInput)
 // Legacy Sprint 1 editor. Quantity is deliberately no longer changed here.
 export async function updateInventory(db: Pool, id: number, input: InventoryItemInput): Promise<InventoryRecord | null> {
   const result = await db.query<{ id: number }>(`
-    UPDATE inventory_items SET name=$1, category=$2, minimum_stock=$3, unit_cost=$4, updated_at=NOW()
-    WHERE id=$5 RETURNING id`,
-    [input.name, input.category, input.minimumStock, input.unitCost, id]);
+    UPDATE inventory_items SET name=$1, category=$2, branch=$3, minimum_stock=$4, unit_cost=$5, updated_at=NOW()
+    WHERE id=$6 RETURNING id`,
+    [input.name, input.category, input.branch, input.minimumStock, input.unitCost, id]);
   return result.rows[0] ? findInventoryById(db, id) : null;
 }
 
@@ -120,8 +124,9 @@ export async function updateInventoryMetadata(
     const current = await client.query<{
       minimum_stock: number;
       maximum_stock: number | null;
+      branch: string;
     }>(
-      "SELECT minimum_stock, maximum_stock FROM inventory_items WHERE id=$1 FOR UPDATE",
+        "SELECT minimum_stock, maximum_stock, branch FROM inventory_items WHERE id=$1 FOR UPDATE",
       [id],
     );
     const existing = current.rows[0];
@@ -130,20 +135,23 @@ export async function updateInventoryMetadata(
       return null;
     }
 
-    await assertActiveSupplier(client, input.supplierId);
-    await client.query(`
-      UPDATE inventory_items SET name=$1,category=$2,supplier_id=$3,unit=$4,sku=$5,minimum_stock=$6,
-        maximum_stock=$7,unit_cost=$8,status=$9,updated_at=NOW() WHERE id=$10`,
-      [input.name,input.category,input.supplierId,input.unit,input.sku,input.minimumStock,input.maximumStock,input.unitCost,input.status,id]);
-
     const previousMinimum = Number(existing.minimum_stock);
     const previousMaximum = existing.maximum_stock === null ? null : Number(existing.maximum_stock);
+    await assertActiveSupplier(client, input.supplierId);
+    if (existing.branch !== input.branch || previousMinimum !== input.minimumStock) {
+      await client.query("DELETE FROM inventory_alert_acknowledgements WHERE inventory_item_id=$1", [id]);
+    }
+    await client.query(`
+      UPDATE inventory_items SET name=$1,category=$2,branch=$3,supplier_id=$4,unit=$5,sku=$6,minimum_stock=$7,
+        maximum_stock=$8,unit_cost=$9,status=$10,updated_at=NOW() WHERE id=$11`,
+      [input.name,input.category,input.branch,input.supplierId,input.unit,input.sku,input.minimumStock,input.maximumStock,input.unitCost,input.status,id]);
+
     if (previousMinimum !== input.minimumStock || previousMaximum !== input.maximumStock) {
       await client.query(`
         INSERT INTO inventory_threshold_history
-          (inventory_item_id,previous_minimum_stock,new_minimum_stock,previous_maximum_stock,new_maximum_stock,changed_by)
-        VALUES ($1,$2,$3,$4,$5,$6)`,
-        [id, previousMinimum, input.minimumStock, previousMaximum, input.maximumStock, userId]);
+          (inventory_item_id,branch,previous_minimum_stock,new_minimum_stock,previous_maximum_stock,new_maximum_stock,changed_by)
+        VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [id, input.branch, previousMinimum, input.minimumStock, previousMaximum, input.maximumStock, userId]);
     }
 
     await client.query("COMMIT");
@@ -154,6 +162,22 @@ export async function updateInventoryMetadata(
   } finally {
     client.release();
   }
+}
+
+export async function listInventoryThresholdHistory(db: Pool, inventoryItemId: number) {
+  const result = await db.query(
+    `SELECT h.id, h.inventory_item_id, h.branch,
+            h.previous_minimum_stock, h.new_minimum_stock,
+            h.previous_maximum_stock, h.new_maximum_stock,
+            h.changed_by, h.changed_at,
+            u.first_name || ' ' || u.last_name AS changed_by_name
+     FROM inventory_threshold_history h
+     JOIN users u ON u.id = h.changed_by
+     WHERE h.inventory_item_id = $1
+     ORDER BY h.changed_at DESC, h.id DESC`,
+    [inventoryItemId],
+  );
+  return result.rows;
 }
 
 export async function deleteInventory(db: Pool, id: number): Promise<boolean> {

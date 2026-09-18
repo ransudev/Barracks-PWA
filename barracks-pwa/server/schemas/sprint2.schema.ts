@@ -34,6 +34,7 @@ export const supplierAccountSchema = z.object({
 const inventoryMetadataShape = {
   name: z.string().trim().min(1).max(160),
   category: z.enum(["Supplies", "Equipment", "Products"]),
+  branch: z.string().trim().min(1).max(120).default("Main Branch"),
   supplierId: positiveInt.nullable(),
   unit: z.string().trim().min(1).max(40),
   sku: z.string().trim().max(100).nullable(),
@@ -96,7 +97,12 @@ export const restockCreateSchema = z.object({
     requestedQuantity: positiveInt,
     unitCost: money.nullable().optional(),
   }).strict()).min(1),
-}).strict();
+}).strict().superRefine((data, ctx) => {
+  const ids = data.items.map((item) => item.inventoryItemId);
+  if (new Set(ids).size !== ids.length) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["items"], message: "An item can only appear once per restock request" });
+  }
+});
 
 export const restockStatusSchema = z.object({
   status: z.enum(["Pending", "Accepted", "Preparing", "Shipped", "Delivered", "Cancelled"]),
@@ -110,7 +116,12 @@ export const receiveRestockSchema = z.object({
     deliveredQuantity: nonNegativeInt,
     unitCost: money.nullable().optional(),
   }).strict()).min(1),
-}).strict();
+}).strict().superRefine((data, ctx) => {
+  const ids = data.items.map((item) => item.restockRequestItemId);
+  if (new Set(ids).size !== ids.length) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["items"], message: "A restock line can only be received once" });
+  }
+});
 
 export type SupplierInput = z.infer<typeof supplierSchema>;
 export type InventoryMetadataInput = z.infer<typeof inventoryMetadataSchema>;

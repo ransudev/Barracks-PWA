@@ -1,0 +1,79 @@
+/* ==========================================================================
+   LUXURY FOOTER
+   ========================================================================== */
+.public-site .public-footer {
+  background: #0B0D0D;
+  border-top: 1px solid var(--border-hairline);
+  padding: 72px 32px 36px;
+  position: relative;
+  z-index: 2;
+}
+
+.public-site .footer-inner {
+  max-width: var(--container-max);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+}
+
+.public-site .footer-top {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr;
+  gap: 48px;
+}
+
+.public-site .footer-brand-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.public-site .footer-brand-col p {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--color-text-muted);
+  max-width: 340px;
+  margin: 0;
+}
+
+.public-site .footer-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.public-site .footer-col h4 {
+  font-family: var(--font-headline);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-tertiary);
+  margin: 0;
+}
+
+.public-site .footer-col a,
+.public-site .footer-col span {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  transition: color 0.18s ease;
+}
+
+.public-site .footer-col a:hover {
+  color: var(--color-secondary-bright);
+}
+
+.public-site .footer-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border-hairline);
+  font-size: 12px;
+  color: var(--color-text-dim);
+}
+

@@ -1,4 +1,5 @@
 import { requireAdministrator } from "@/server/auth/require-admin";
+import { isManagementRole } from "@/app/constants/roles";
 import { requireRolesUser, requireStaffUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { barberCommissionSchema, barberSchema, barberStaffSchema, formatValidationErrors } from "@/server/schemas/sprint.schema";
@@ -7,13 +8,21 @@ import { createBarber, listBarberAvailability, listBarbers, updateAllBarberCommi
 export const runtime = "nodejs";
 
 export async function GET() {
-  const authorizationResult = await requireRolesUser(["administrator", "front_desk", "customer"]);
+  const authorizationResult = await requireRolesUser(["administrator", "manager", "front_desk", "customer"]);
   if (authorizationResult instanceof Response) return authorizationResult;
   try {
     const barbers = authorizationResult.role === "customer"
       ? await listBarberAvailability(pool)
       : await listBarbers(pool);
-    return Response.json({ success: true, barbers });
+    const visibleBarbers = authorizationResult.role === "front_desk"
+      ? barbers.map((barber) => ({
+        ...barber,
+        commissionRate: null,
+        revenue: 0,
+        rating: null,
+      }))
+      : barbers;
+    return Response.json({ success: true, barbers: visibleBarbers });
   } catch (error) {
     console.error("Unable to list barbers", error);
     return Response.json({ success: false, message: "Unable to load barbers" }, { status: 500 });
@@ -27,10 +36,10 @@ export async function POST(request: Request) {
   try { body = await request.json(); } catch {
     return Response.json({ success: false, message: "Invalid barber information" }, { status: 400 });
   }
-  if (authorizationResult.role !== "administrator" && typeof body === "object" && body !== null && ("commissionRate" in body || "rating" in body || "servicesDone" in body)) {
+  if (!isManagementRole(authorizationResult.role) && typeof body === "object" && body !== null && ("commissionRate" in body || "rating" in body || "servicesDone" in body)) {
     return Response.json({ success: false, message: "Administrator access is required to set barber commission, ratings, or services" }, { status: 403 });
   }
-  const parsed = (authorizationResult.role === "administrator" ? barberSchema : barberStaffSchema).safeParse(body);
+  const parsed = (isManagementRole(authorizationResult.role) ? barberSchema : barberStaffSchema).safeParse(body);
   if (!parsed.success) {
     return Response.json({ success: false, message: "Invalid barber information", errors: formatValidationErrors(parsed.error) }, { status: 400 });
   }

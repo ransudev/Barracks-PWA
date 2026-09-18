@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { ViewId } from "@/app/types/domain";
-import type { ApiBarber, ApiBooking, ApiCustomer, ApiInventoryItem } from "@/app/lib/api";
+import type { ApiBarber, ApiBooking, ApiCustomer, ApiInventoryItem, ApiUser } from "@/app/lib/api";
 import { apiRequest, readApiBody } from "@/app/lib/api";
 import { dateInputValue, formatCurrency } from "@/app/utils/format";
 import { Button, EmptyState, MetricCard, PageHeader, Panel, SectionHeading } from "@/app/components/ui";
@@ -16,7 +16,7 @@ type DashboardRestock = {
   created_at: string;
 };
 
-export function AdminDashboard({ go, onToast }: { go: (view: ViewId) => void; onToast: (message: string) => void }) {
+export function AdminDashboard({ go, onToast, currentUser }: { go: (view: ViewId) => void; onToast: (message: string) => void; currentUser: ApiUser }) {
   const [barbers, setBarbers] = useState<ApiBarber[]>([]);
   const [bookings, setBookings] = useState<ApiBooking[]>([]);
   const [customers, setCustomers] = useState<ApiCustomer[]>([]);
@@ -69,17 +69,22 @@ export function AdminDashboard({ go, onToast }: { go: (view: ViewId) => void; on
   const activeBarbers = barbers.filter((barber) => barber.status !== "unavailable").length;
   const metricValue = (value: number) => loading || loadError ? "—" : String(value);
 
-  return <>
-    <PageHeader title="Admin dashboard" action={<Button icon="plus" onClick={() => go("admin-restocks")}>New restock</Button>} />
-    <div className="metrics-grid metrics-grid--four">
-      <MetricCard label="Customer accounts" value={metricValue(customers.length)} icon="users" accent="blue" />
-      <MetricCard label="Today’s bookings" value={metricValue(todayBookings)} icon="calendar" accent="amber" />
-      <MetricCard label="Upcoming bookings" value={metricValue(upcomingBookings)} icon="clock" accent="violet" />
-      <MetricCard label="Active barbers" value={metricValue(activeBarbers)} icon="scissors" accent="green" />
-      <MetricCard label="Inventory value" value={loading || loadError ? "—" : formatCurrency(inventoryValue)} icon="box" accent="blue" />
-      <MetricCard label="Low / out of stock" value={metricValue(attention)} icon="info" accent="amber" />
-      <MetricCard label="Open restocks" value={metricValue(pendingRestocks.length)} icon="calendar" accent="violet" />
-      <MetricCard label="Recent deliveries" value={metricValue(recentDeliveries.length)} icon="check" accent="green" />
+  const dashboardTitle = currentUser.role === "manager" ? "Manager dashboard" : "Admin dashboard";
+
+  return <div className="admin-dashboard">
+    <PageHeader title={dashboardTitle} description="A clear view of today’s operations, stock health, and supplier activity." action={<Button icon="plus" onClick={() => go("admin-restocks")}>New restock</Button>} />
+    <div className="admin-dashboard__metric-groups">
+      <div className="admin-dashboard__primary-metrics">
+        <MetricCard className="metric-card--hero" label="Inventory value" value={loading || loadError ? "—" : formatCurrency(inventoryValue)} icon="box" accent="blue" />
+        <MetricCard label="Low / out of stock" value={metricValue(attention)} icon="info" accent="amber" />
+        <MetricCard label="Open restocks" value={metricValue(pendingRestocks.length)} icon="calendar" accent="violet" />
+      </div>
+      <div className="admin-dashboard__supporting-metrics">
+        <MetricCard label="Today’s bookings" value={metricValue(todayBookings)} icon="calendar" accent="amber" />
+        <MetricCard label="Upcoming bookings" value={metricValue(upcomingBookings)} icon="clock" accent="violet" />
+        <MetricCard label="Active barbers" value={metricValue(activeBarbers)} icon="scissors" accent="green" />
+        <MetricCard label="Customer accounts" value={metricValue(customers.length)} icon="users" accent="blue" />
+      </div>
     </div>
 
     <div className="dashboard-lower-grid">
@@ -92,5 +97,5 @@ export function AdminDashboard({ go, onToast }: { go: (view: ViewId) => void; on
         {loading ? <div className="staff-table__empty">Loading deliveries…</div> : recentDeliveries.length ? <div className="admin-dashboard-low-stock">{recentDeliveries.map((restock) => <div key={restock.id}><span><strong>{restock.supplier_name}</strong><small>Request #{restock.id} · {restock.reference ?? "No reference"}</small></span><span>{restock.received_at ? new Date(restock.received_at).toLocaleDateString() : "Received"}</span></div>)}</div> : <EmptyState icon="box" title="No deliveries received yet" description="Confirmed supplier deliveries will appear here." />}
       </Panel>
     </div>
-  </>;
+  </div>;
 }

@@ -48,11 +48,19 @@ export async function requireRoles(
 }
 
 export async function requireStaff(): Promise<Response | null> {
-  return requireRoles(["administrator", "front_desk"]);
+  return requireRoles(["administrator", "manager", "front_desk"]);
 }
 
 export async function requireStaffUser(): Promise<PublicUser | Response> {
-  return requireRolesUser(["administrator", "front_desk"]);
+  return requireRolesUser(["administrator", "manager", "front_desk"]);
+}
+
+export async function requireManagement(): Promise<Response | null> {
+  return requireRoles(["administrator", "manager"]);
+}
+
+export async function requireManagementUser(): Promise<PublicUser | Response> {
+  return requireRolesUser(["administrator", "manager"]);
 }
 
 export async function requireAdministrator(): Promise<Response | null> {

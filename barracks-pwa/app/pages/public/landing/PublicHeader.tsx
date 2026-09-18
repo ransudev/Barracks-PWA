@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Logo } from "@/app/components/ui";
+import { Logo } from "@/app/components/ui";
 import { Icon } from "@/app/components/ui/icons";
 import type { ViewId } from "@/app/types/domain";
 
@@ -15,8 +15,9 @@ export function PublicHeader({ go }: { go: (view: ViewId) => void }) {
     <header className="public-header">
       <nav className="public-nav" aria-label="Primary navigation">
         <Logo onClick={() => go("landing")} />
+
         <div className="public-nav__links">
-          <a className="is-active" href="#home">Home</a>
+          <a className="public-nav__link is-active" href="#home">Home</a>
           <div className="public-nav__dropdown">
             <button
               className="public-nav__dropdown-trigger"
@@ -25,30 +26,41 @@ export function PublicHeader({ go }: { go: (view: ViewId) => void }) {
               aria-haspopup="true"
               onClick={() => setAboutOpen((open) => !open)}
             >
-              About <Icon name="chevronDown" size={13} />
+              <span>About</span>
+              <Icon name="chevronDown" size={13} />
             </button>
             {aboutOpen ? (
               <div className="public-nav__dropdown-menu">
                 <a href="#about" onClick={closeAboutMenu}>About Barracks</a>
-                <a href="#services" onClick={closeAboutMenu}>Services</a>
-                <a href="#branches" onClick={closeAboutMenu}>Branches</a>
+                <a href="#studio" onClick={closeAboutMenu}>The Atmosphere</a>
+                <a href="#branches" onClick={closeAboutMenu}>4 Davao HQs</a>
               </div>
             ) : null}
           </div>
-          <a href="#contact">Contact</a>
+
+          <a className="public-nav__link" href="#services">Services</a>
+          <a className="public-nav__link" href="#branches">Branches</a>
+          <a className="public-nav__link" href="#contact">Contact</a>
         </div>
+
         <div className="public-nav__actions">
-          <button className="public-nav__login" type="button" onClick={() => go("login")}>
+          <button
+            className="public-nav__login"
+            type="button"
+            onClick={() => go("login")}
+          >
             Login
           </button>
-          <Button
-            size="sm"
-            icon="calendar"
+
+          <button
+            type="button"
+            className="btn-primary public-nav__book-btn"
             onClick={() => go("customer-booking")}
-            className="public-nav__book"
           >
-            Book Appointment
-          </Button>
+            <Icon name="calendar" size={14} />
+            <span>Book Appointment</span>
+          </button>
+
           <button
             className="public-nav__menu-toggle"
             type="button"
@@ -63,33 +75,33 @@ export function PublicHeader({ go }: { go: (view: ViewId) => void }) {
           </button>
         </div>
       </nav>
+
       {mobileMenuOpen ? (
-        <div className="public-mobile-menu" id="public-mobile-menu">
+        <div className="public-mobile-menu is-open" id="public-mobile-menu">
           <div className="public-mobile-menu__links">
             <a href="#home" onClick={closeMobileMenu}>Home</a>
-            <div className="public-mobile-menu__about">
-              <button
-                type="button"
-                aria-expanded={aboutOpen}
-                onClick={() => setAboutOpen((open) => !open)}
-              >
-                About <Icon name="chevronDown" size={13} />
-              </button>
-              {aboutOpen ? (
-                <div className="public-mobile-menu__sub-links">
-                  <a href="#about" onClick={() => { closeMobileMenu(); closeAboutMenu(); }}>About Barracks</a>
-                  <a href="#services" onClick={() => { closeMobileMenu(); closeAboutMenu(); }}>Services</a>
-                  <a href="#branches" onClick={() => { closeMobileMenu(); closeAboutMenu(); }}>Branches</a>
-                </div>
-              ) : null}
-            </div>
-            <a href="#contact" onClick={closeMobileMenu}>Contact</a>
+            <a href="#about" onClick={closeMobileMenu}>About Barracks</a>
+            <a href="#services" onClick={closeMobileMenu}>Services &amp; Pricing</a>
+            <a href="#branches" onClick={closeMobileMenu}>Davao HQs</a>
+            <a href="#studio" onClick={closeMobileMenu}>The Atmosphere</a>
+            <a href="#contact" onClick={closeMobileMenu}>Contact &amp; Hours</a>
           </div>
           <div className="public-mobile-menu__actions">
-            <button type="button" onClick={() => { closeMobileMenu(); go("login"); }}>Login</button>
-            <Button size="sm" icon="calendar" onClick={() => { closeMobileMenu(); go("customer-booking"); }}>
-              Book Appointment
-            </Button>
+            <button
+              type="button"
+              className="btn-outlined"
+              onClick={() => { closeMobileMenu(); go("login"); }}
+            >
+              Login
+            </button>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => { closeMobileMenu(); go("customer-booking"); }}
+            >
+              <Icon name="calendar" size={16} />
+              <span>Book Appointment</span>
+            </button>
           </div>
         </div>
       ) : null}

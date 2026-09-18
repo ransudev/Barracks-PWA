@@ -173,7 +173,7 @@ export function StaffDashboard({
                   <strong>{name}</strong>
                   <div className="barber-status-card__stats">
                     <span><small>Status</small><strong>{statusLabel(barber.status)}</strong></span>
-                    <span><small>Commission</small><strong>{barber.commissionRate === null ? "—" : `${barber.commissionRate}%`}</strong></span>
+                    <span><small>Services</small><strong>{barber.servicesDone}</strong></span>
                   </div>
                 </article>
               );

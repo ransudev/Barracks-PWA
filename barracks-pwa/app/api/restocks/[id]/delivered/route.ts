@@ -1,4 +1,4 @@
-import { requireAdministrator } from "@/server/auth/require-role";
+import { requireStaff } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { markRestockDelivered } from "@/server/services/restock.service";
 
@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 const parseId = (raw: string) => /^\d+$/.test(raw) && Number(raw) > 0 ? Number(raw) : null;
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const denied = await requireAdministrator();
+  const denied = await requireStaff();
   if (denied) return denied;
   const id = parseId((await params).id);
   if (!id) return Response.json({ success: false, message: "Invalid restock id" }, { status: 400 });

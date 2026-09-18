@@ -5,11 +5,12 @@ import { createInventoryItem, listInventory } from "@/server/services/inventory.
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(request: Request) {
   const authorizationResponse = await requireStaff();
   if (authorizationResponse) return authorizationResponse;
   try {
-    return Response.json({ success: true, items: await listInventory(pool) });
+    const branch = new URL(request.url).searchParams.get("branch")?.trim() || undefined;
+    return Response.json({ success: true, items: await listInventory(pool, branch) });
   } catch (error) {
     console.error("Unable to list inventory", error);
     return Response.json({ success: false, message: "Unable to load inventory" }, { status: 500 });

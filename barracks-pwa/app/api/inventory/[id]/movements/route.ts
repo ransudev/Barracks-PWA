@@ -31,9 +31,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       : code === "INVENTORY_NOT_FOUND"
         ? "Inventory item not found"
         : code === "CUSTOMER_PURCHASE_REQUIRES_PRODUCT"
-          ? "Customer purchases can only be recorded for merchandise/products"
-          : code === "STAFF_USAGE_REQUIRES_SUPPLY"
-            ? "Staff usage can only be recorded for supplies/consumables"
+          ? "Customer purchases can only be recorded for products or supplies"
+        : code === "STAFF_USAGE_REQUIRES_SUPPLY"
+            ? "Barber usage can only be recorded for products or supplies"
             : "Unable to record stock operation";
     return Response.json({success:false,message},{status:400});
   }

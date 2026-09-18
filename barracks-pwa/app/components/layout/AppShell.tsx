@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { adminNavigation, staffNavigation } from "@/app/constants/navigation";
+import { adminNavigation, managerNavigation, staffNavigation } from "@/app/constants/navigation";
+import { roleLabel as sharedRoleLabel } from "@/app/constants/roles";
 import {
   Avatar,
   IconButton,
@@ -9,7 +10,7 @@ import {
 } from "@/app/components/ui";
 import { ThemeToggle } from "@/app/components/ui/ThemeToggle";
 import { Icon } from "@/app/components/ui/icons";
-import { apiRequest, readApiBody, type ApiInventoryItem, type ApiUser } from "@/app/lib/api";
+import { apiRequest, readApiBody, type ApiLowStockAlert, type ApiUser } from "@/app/lib/api";
 import type { ShellArea, ViewId } from "@/app/types/domain";
 import { createInitials } from "@/app/utils/format";
 
@@ -28,10 +29,7 @@ function displayName(user: ApiUser): string {
 }
 
 function roleLabel(user: ApiUser): string {
-  if (user.role === "front_desk") return "Front Desk";
-  if (user.role === "customer") return "Customer";
-  if (user.role === "supplier") return "Supplier";
-  return "Administrator";
+  return sharedRoleLabel(user.role);
 }
 
 function dashboardForArea(area: ShellArea): ViewId {
@@ -47,22 +45,32 @@ function Sidebar({
   onSignOut,
   collapsed,
   onToggle,
+  mobileOpen,
+  onMobileClose,
 }: Omit<AppShellProps, "children"> & {
   collapsed: boolean;
   onToggle: () => void;
+  mobileOpen: boolean;
+  onMobileClose: () => void;
 }) {
   const isManagement = area === "admin";
   const canSwitchWorkspace = currentUser.role === "administrator";
-  const navigation = isManagement ? adminNavigation : staffNavigation;
+  const navigation = isManagement
+    ? currentUser.role === "administrator" ? adminNavigation : managerNavigation
+    : staffNavigation;
   const homeView = dashboardForArea(area);
+  const navigate = (view: ViewId) => {
+    onMobileClose();
+    go(view);
+  };
 
   return (
     <aside
       id="app-sidebar"
-      className={`sidebar ${collapsed ? "is-collapsed" : ""}`}
+      className={`sidebar ${collapsed ? "is-collapsed" : ""} ${mobileOpen ? "is-mobile-open" : ""}`}
     >
       <div className="sidebar__brand">
-        <Logo onClick={() => go(homeView)} />
+        <Logo onClick={() => navigate(homeView)} />
         <IconButton
           className="sidebar__toggle"
           label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -84,7 +92,7 @@ function Sidebar({
               title="Management · Business view"
               onClick={() => {
                 if (!isManagement) {
-                  go("admin-dashboard");
+                  navigate("admin-dashboard");
                   onToast("Switched to management");
                 }
               }}
@@ -101,7 +109,7 @@ function Sidebar({
               title="Shop floor · Live operations"
               onClick={() => {
                 if (isManagement) {
-                  go("staff-dashboard");
+                  navigate("staff-dashboard");
                   onToast("Switched to shop floor");
                 }
               }}
@@ -127,7 +135,7 @@ function Sidebar({
             aria-label={item.label}
             title={item.label}
             key={item.id}
-            onClick={() => go(item.id)}
+            onClick={() => navigate(item.id)}
           >
             <Icon name={item.icon} size={18} />
             <span>{item.label}</span>
@@ -143,6 +151,7 @@ function Sidebar({
           aria-label="Sign out"
           title="Sign out"
           onClick={() => {
+            onMobileClose();
             void onSignOut();
           }}
         >
@@ -160,25 +169,30 @@ function Topbar({
   onToast,
   currentUser,
   onSignOut,
-}: Omit<AppShellProps, "children" | "active">) {
+  mobileNavOpen,
+  onToggleMobileNav,
+}: Omit<AppShellProps, "children" | "active"> & {
+  mobileNavOpen: boolean;
+  onToggleMobileNav: () => void;
+}) {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [lowStock, setLowStock] = useState<ApiInventoryItem[]>([]);
-  const [acknowledgedLowStockIds, setAcknowledgedLowStockIds] = useState<number[]>([]);
+  const [lowStock, setLowStock] = useState<ApiLowStockAlert[]>([]);
+  const [acknowledging, setAcknowledging] = useState(false);
   const isManagement = area === "admin";
   const canSwitchWorkspace = currentUser.role === "administrator";
   const name = displayName(currentUser);
   const initials = createInitials(name);
   const role = roleLabel(currentUser);
   const homeView = dashboardForArea(area);
-  const visibleLowStock = lowStock.filter((item) => !acknowledgedLowStockIds.includes(item.id));
+  const visibleLowStock = lowStock;
 
   async function refreshLowStock() {
     try {
-      const response = await apiRequest("/api/inventory", { cache: "no-store" });
-      const body = await readApiBody<{ success:boolean; items?:ApiInventoryItem[] }>(response);
+      const response = await apiRequest("/api/inventory/alerts", { cache: "no-store" });
+      const body = await readApiBody<{ success:boolean; alerts?:ApiLowStockAlert[] }>(response);
       if (!response.ok || !body?.success) return;
-      setLowStock((body.items ?? []).filter((item) => item.status === "active" && item.quantity <= item.minimumStock));
+      setLowStock(body.alerts ?? []);
     } catch {
       // Notifications should not block the rest of the workspace.
     }
@@ -193,8 +207,17 @@ function Topbar({
 
   return (
     <header className="topbar">
-      <div className="topbar__mobile-logo">
-        <Logo compact onClick={() => go(homeView)} />
+      <div className="topbar__mobile-start">
+        <IconButton
+          className="topbar__mobile-menu"
+          label={mobileNavOpen ? "Close navigation" : "Open navigation"}
+          icon={mobileNavOpen ? "x" : "menu"}
+          active={mobileNavOpen}
+          onClick={onToggleMobileNav}
+        />
+        <div className="topbar__mobile-logo">
+          <Logo compact onClick={() => go(homeView)} />
+        </div>
       </div>
       <div className="topbar__context">
         <span>{isManagement ? "Management" : "Shop floor"}</span>
@@ -225,7 +248,7 @@ function Topbar({
             </div>
             {visibleLowStock.length ? visibleLowStock.map((item) => (
               <div className="notification-item" key={item.id}>
-                <span><strong>{item.quantity === 0 ? "Out of stock" : "Low stock"}: {item.name}</strong><small>{item.branch} · {item.quantity} {item.unit} remaining · threshold {item.minimumStock}</small></span>
+                <span><strong>{item.currentQuantity === 0 ? "Out of stock" : "Low stock"}: {item.itemName}</strong><small>{item.branch} · {item.currentQuantity} {item.unit} remaining · threshold {item.threshold}</small></span>
               </div>
             )) : (
               <div className="notification-item">
@@ -235,13 +258,23 @@ function Topbar({
               {visibleLowStock.length > 0 && <button
                 className="popover__footer"
                 type="button"
+                disabled={acknowledging}
                 onClick={() => {
-                  setAcknowledgedLowStockIds((current) => [...new Set([...current, ...visibleLowStock.map((item) => item.id)])]);
-                  setNotificationsOpen(false);
-                  onToast("Low stock alerts acknowledged");
+                  setAcknowledging(true);
+                  void Promise.all(visibleLowStock.map(async (item) => {
+                    const response = await apiRequest(`/api/inventory/alerts/${item.itemId}/acknowledge`, { method: "POST" });
+                    if (!response.ok) throw new Error("Unable to acknowledge stock alerts");
+                  })).then(() => {
+                    setLowStock([]);
+                    setNotificationsOpen(false);
+                    onToast("Low stock alerts acknowledged");
+                  }).catch((error: unknown) => {
+                    onToast(error instanceof Error ? error.message : "Unable to acknowledge stock alerts");
+                    void refreshLowStock();
+                  }).finally(() => setAcknowledging(false));
                 }}
               >
-                Acknowledge stock alerts
+                {acknowledging ? "Acknowledging…" : "Acknowledge stock alerts"}
               </button>}
             </div>
           )}
@@ -317,6 +350,7 @@ export function AppShell({
   children,
 }: AppShellProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   return (
     <div
@@ -331,6 +365,14 @@ export function AppShell({
         onSignOut={onSignOut}
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed((value) => !value)}
+        mobileOpen={mobileNavOpen}
+        onMobileClose={() => setMobileNavOpen(false)}
+      />
+      <button
+        className={`mobile-nav-backdrop ${mobileNavOpen ? "is-open" : ""}`}
+        type="button"
+        aria-label="Close navigation"
+        onClick={() => setMobileNavOpen(false)}
       />
       <div className="app-main">
         <Topbar
@@ -339,6 +381,8 @@ export function AppShell({
           onToast={onToast}
           currentUser={currentUser}
           onSignOut={onSignOut}
+          mobileNavOpen={mobileNavOpen}
+          onToggleMobileNav={() => setMobileNavOpen((value) => !value)}
         />
         <main className="app-content">{children}</main>
       </div>

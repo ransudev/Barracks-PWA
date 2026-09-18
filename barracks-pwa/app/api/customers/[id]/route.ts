@@ -1,4 +1,5 @@
 import { requireAdministrator } from "@/server/auth/require-admin";
+import { isManagementRole } from "@/app/constants/roles";
 import { requireStaff, requireStaffUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import {
@@ -42,10 +43,10 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   } catch {
     return Response.json({ success: false, message: "Invalid customer information" }, { status: 400 });
   }
-  if (authorizationResult.role !== "administrator" && typeof body === "object" && body !== null && "loyaltyPoints" in body) {
+  if (!isManagementRole(authorizationResult.role) && typeof body === "object" && body !== null && "loyaltyPoints" in body) {
     return Response.json({ success: false, message: "Administrator access is required to change loyalty points" }, { status: 403 });
   }
-  const parsed = (authorizationResult.role === "administrator" ? customerProfileSchema : customerStaffProfileSchema).safeParse(body);
+  const parsed = (isManagementRole(authorizationResult.role) ? customerProfileSchema : customerStaffProfileSchema).safeParse(body);
   if (!parsed.success) {
     return Response.json(
       { success: false, message: "Invalid customer information", errors: formatValidationErrors(parsed.error) },

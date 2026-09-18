@@ -5,12 +5,13 @@ import test from "node:test";
 const databaseConfigured = Boolean(process.env.DATABASE_URL || process.env.POSTGRES_URL);
 
 test("PostgreSQL account, inventory, and barber lifecycle persists safely", { skip: !databaseConfigured }, async () => {
-  const [{ pool }, users, sessions, inventory, inventoryMovements, barbers, customers, bookings] = await Promise.all([
+  const [{ pool }, users, sessions, inventory, inventoryMovements, alerts, barbers, customers, bookings] = await Promise.all([
     import("@/server/db/pool"),
     import("@/server/services/user.service"),
     import("@/server/services/session.service"),
     import("@/server/services/inventory.service"),
     import("@/server/services/inventory-movement.service"),
+    import("@/server/services/inventory-alert.service"),
     import("@/server/services/barber.service"),
     import("@/server/services/customer.service"),
     import("@/server/services/booking.service"),
@@ -21,6 +22,7 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
   let barberId: number | null = null;
   let customerUserId: number | null = null;
   let bookingId: number | null = null;
+  let deletableBookingId: number | null = null;
 
   try {
     const created = await users.createUser(pool, {
@@ -75,6 +77,7 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
     const createdItem = await inventory.createInventory(pool, {
       name: `Codex test item ${randomUUID()}`,
       category: "Supplies",
+      branch: "Main Branch",
       quantity: 4,
       minimumStock: 2,
       unitCost: 12.5,
@@ -83,6 +86,7 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
     const changedItem = await inventory.updateInventory(pool, inventoryId, {
       name: createdItem.name,
       category: "Products",
+      branch: "Main Branch",
       quantity: 0,
       minimumStock: 3,
       unitCost: 15,
@@ -99,6 +103,26 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
       notes: "Stock changes through movement history",
     });
     assert.equal((await inventory.findInventoryById(pool, inventoryId))?.quantity, 0);
+    assert.equal((await alerts.listLowStockAlerts(pool, userId)).some((alert) => alert.itemId === inventoryId), true);
+    await alerts.acknowledgeLowStockAlert(pool, inventoryId, userId);
+    assert.equal((await alerts.listLowStockAlerts(pool, userId)).some((alert) => alert.itemId === inventoryId), false);
+    await inventoryMovements.applyInventoryMovement(pool, inventoryId, userId, {
+      movementType: "RECEIVE",
+      quantity: 4,
+      supplierId: null,
+      unitCost: 15,
+      reference: "replenishment-test",
+      notes: "Replenishment reactivates future alerts",
+    });
+    await inventoryMovements.applyInventoryMovement(pool, inventoryId, userId, {
+      movementType: "CUSTOMER_PURCHASE",
+      quantity: 4,
+      supplierId: null,
+      unitCost: null,
+      reference: "reactivation-test",
+      notes: "Stock falls below the threshold again",
+    });
+    assert.equal((await alerts.listLowStockAlerts(pool, userId)).some((alert) => alert.itemId === inventoryId), true);
     await assert.rejects(
       () => inventoryMovements.applyInventoryMovement(pool, inventoryId!, userId!, {
         movementType: "USE",
@@ -189,11 +213,27 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
       () => bookings.updateBooking(pool, bookingId!, { status: "cancelled" }),
       (error: unknown) => error instanceof bookings.BookingServiceError && error.kind === "not_updatable",
     );
+    await assert.rejects(
+      () => bookings.deleteBooking(pool, bookingId!),
+      (error: unknown) => error instanceof bookings.BookingServiceError && error.kind === "not_deletable",
+    );
+    const deletableBooking = await bookings.createBooking(pool, {
+      customerId: createdCustomer.customer.id,
+      barberId,
+      serviceId: "barracks-basic",
+      date: "2099-01-04",
+      time: "11:00",
+    });
+    deletableBookingId = deletableBooking.id;
+    assert.equal(await bookings.deleteBooking(pool, deletableBookingId), true);
+    assert.equal(await bookings.findBookingById(pool, deletableBookingId), null);
   } finally {
     if (bookingId) await pool.query("DELETE FROM bookings WHERE id = $1", [bookingId]);
+    if (deletableBookingId) await pool.query("DELETE FROM bookings WHERE id = $1", [deletableBookingId]);
     if (barberId) await pool.query("DELETE FROM barbers WHERE id = $1", [barberId]);
     if (inventoryId) {
       await pool.query("DELETE FROM inventory_movements WHERE inventory_item_id = $1", [inventoryId]);
+      await pool.query("DELETE FROM inventory_threshold_history WHERE inventory_item_id = $1", [inventoryId]);
       await pool.query("DELETE FROM inventory_items WHERE id = $1", [inventoryId]);
     }
     if (customerUserId) await pool.query("DELETE FROM users WHERE id = $1", [customerUserId]);

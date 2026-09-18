@@ -76,13 +76,12 @@ export function InventoryReports({ onToast }:{ onToast:(message:string)=>void })
 
   return <>
     <PageHeader title="Inventory reports" description="Track stock activity, usage, waste, sales, and supplier spending by period." />
-    <Panel>
+    <Panel className="inventory-report-period-panel">
       <form className="panel-toolbar panel-toolbar--period" onSubmit={applyRange}>
         <TextField label="From" type="date" value={from} onChange={(event)=>setFrom(event.target.value)} />
         <TextField label="To" type="date" value={to} onChange={(event)=>setTo(event.target.value)} />
         <Button type="submit" disabled={loading}>{loading?"Loading…":"Apply period"}</Button>
       </form>
-      {data?.range && <p className="form-hint">Comparing {data.range.from} to {data.range.to} with the previous period {data.range.previousFrom} to {data.range.previousTo}.</p>}
     </Panel>
 
     <div className="metrics-grid metrics-grid--four">

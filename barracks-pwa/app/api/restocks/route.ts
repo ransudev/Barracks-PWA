@@ -7,15 +7,14 @@ import { supplierIdForUser } from "@/server/services/supplier.service";
 export const runtime = "nodejs";
 
 export async function GET() {
-  const user = await requireRolesUser(["administrator", "front_desk", "supplier"]);
+  const user = await requireRolesUser(["administrator", "manager", "front_desk", "supplier"]);
   if (user instanceof Response) return user;
   try {
     const supplierId = user.role === "supplier" ? await supplierIdForUser(pool, user.id) : undefined;
     if (user.role === "supplier" && !supplierId) {
       return Response.json({ success: false, message: "Supplier account is inactive or not linked" }, { status: 403 });
     }
-    const requestedBy = user.role === "front_desk" ? user.id : undefined;
-    return Response.json({ success: true, restocks: await listRestockRequests(pool, supplierId ?? undefined, requestedBy) });
+    return Response.json({ success: true, restocks: await listRestockRequests(pool, supplierId ?? undefined) });
   } catch (error) {
     console.error("Unable to list restock requests", error);
     return Response.json({ success: false, message: "Unable to load restock requests" }, { status: 500 });
@@ -37,10 +36,14 @@ export async function POST(request: Request) {
     const restock = await createRestockRequest(pool, user.id, parsed.data);
     return Response.json({ success: true, restock }, { status: 201 });
   } catch (error) {
-    const message = error instanceof Error && error.message === "SUPPLIER_UNAVAILABLE"
+      const message = error instanceof Error && error.message === "SUPPLIER_UNAVAILABLE"
       ? "Supplier is inactive or unavailable"
       : error instanceof Error && error.message === "ITEM_NOT_LINKED_TO_SUPPLIER"
         ? "Every restock item must belong to the selected supplier"
+      : error instanceof Error && error.message === "ITEM_NOT_IN_BRANCH"
+          ? "Every restock item must belong to the selected branch"
+        : error instanceof Error && error.message === "DUPLICATE_RESTOCK_ITEM"
+          ? "An item can only appear once per restock request"
         : "Unable to create restock request";
     return Response.json({ success: false, message }, { status: 400 });
   }

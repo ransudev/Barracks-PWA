@@ -68,6 +68,7 @@ export const inventoryItemSchema = z
   .object({
     name: z.string().trim().min(1, "Item name is required").max(160),
     category: inventoryCategorySchema,
+    branch: z.string().trim().min(1, "Branch is required").max(120).default("Main Branch"),
     quantity: z.number().finite().int().min(0, "Quantity cannot be negative").max(2147483647, "Quantity is too large"),
     minimumStock: z.number().finite().int().min(0, "Minimum stock cannot be negative").max(2147483647, "Minimum stock is too large"),
     unitCost: moneySchema,

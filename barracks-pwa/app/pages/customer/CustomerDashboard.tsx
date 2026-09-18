@@ -165,7 +165,6 @@ export function CustomerDashboard({
             <div>
               <p className="customer-page__eyebrow">Customer account</p>
               <h1>Welcome back, {name.split(" ")[0]}.</h1>
-              <p>Your appointments, profile details, and loyalty points in one place.</p>
             </div>
             <Button icon="calendar" onClick={() => go("customer-booking")}>Book appointment</Button>
           </div>

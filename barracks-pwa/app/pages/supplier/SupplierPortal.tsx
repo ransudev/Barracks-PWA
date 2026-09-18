@@ -128,9 +128,6 @@ export function SupplierPortal({ user, onSignOut, onToast }: { user: ApiUser; on
             <Avatar initials={supplierInitials || "SP"} tone="green" size="md" />
             <div>
               <h1>{supplier?.companyName ?? "Barracks supplier"}</h1>
-              <p>
-                Supplier workspace · Signed in as {user.firstName} {user.lastName}
-              </p>
             </div>
           </div>
           <div className="supplier-portal__actions">
@@ -146,7 +143,6 @@ export function SupplierPortal({ user, onSignOut, onToast }: { user: ApiUser; on
         <section className="supplier-portal__intro" aria-labelledby="supplier-page-title">
           <div>
             <h2 id="supplier-page-title">Supply desk</h2>
-            <p>Review your linked inventory, move open requests forward, and keep your account secure.</p>
           </div>
         </section>
 

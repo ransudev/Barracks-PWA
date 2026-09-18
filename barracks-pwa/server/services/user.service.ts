@@ -113,7 +113,7 @@ async function usableAdministratorCount(client: PoolClient): Promise<number> {
 export async function listUsers(db: Pool): Promise<PublicUser[]> {
   const result = await db.query<UserRow>(
     `${userSelect}
-      WHERE r.name IN ('administrator', 'front_desk')
+      WHERE r.name IN ('administrator', 'manager', 'front_desk')
         AND u.deleted_at IS NULL
       ORDER BY u.created_at DESC, u.id DESC`,
   );
@@ -185,7 +185,7 @@ export async function createUser(
     }
 
     const role = await client.query<{ id: number }>(
-      "SELECT id FROM roles WHERE name = $1 AND name IN ('administrator', 'front_desk') LIMIT 1",
+      "SELECT id FROM roles WHERE name = $1 AND name IN ('administrator', 'manager', 'front_desk') LIMIT 1",
       [input.role],
     );
 
@@ -240,7 +240,7 @@ export async function updateStaffUser(
       `${userSelect}
         WHERE u.id = $1
           AND u.deleted_at IS NULL
-          AND r.name IN ('administrator', 'front_desk')
+          AND r.name IN ('administrator', 'manager', 'front_desk')
         FOR UPDATE`,
       [id],
     );
@@ -257,7 +257,7 @@ export async function updateStaffUser(
     }
 
     const role = await client.query<{ id: number }>(
-      "SELECT id FROM roles WHERE name = $1 AND name IN ('administrator', 'front_desk') LIMIT 1",
+      "SELECT id FROM roles WHERE name = $1 AND name IN ('administrator', 'manager', 'front_desk') LIMIT 1",
       [input.role],
     );
     if (!role.rows[0]) {
@@ -316,7 +316,7 @@ export async function updateUserLifecycle(
       `${userSelect}
         WHERE u.id = $1
           AND u.deleted_at IS NULL
-          AND r.name IN ('administrator', 'front_desk')
+          AND r.name IN ('administrator', 'manager', 'front_desk')
         FOR UPDATE`,
       [id],
     );

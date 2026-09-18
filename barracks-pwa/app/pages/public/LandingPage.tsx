@@ -8,6 +8,7 @@ import { PublicFooter } from "./landing/PublicFooter";
 import { PublicHeader } from "./landing/PublicHeader";
 import { ServicesSection } from "./landing/ServicesSection";
 import { StudioSection } from "./landing/StudioSection";
+import { WhyBarracksSection } from "./landing/WhyBarracksSection";
 
 export function LandingPage({ go }: { go: (view: ViewId) => void }) {
   return (
@@ -16,6 +17,7 @@ export function LandingPage({ go }: { go: (view: ViewId) => void }) {
       <main>
         <HeroSection go={go} />
         <ServicesSection go={go} />
+        <WhyBarracksSection />
         <BranchesSection go={go} />
         <StudioSection />
         <FinalCta go={go} />
