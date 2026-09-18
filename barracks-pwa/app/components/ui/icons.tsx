@@ -54,7 +54,8 @@ export type IconName =
   | "checkCircle"
   | "dot"
   | "arrowUp"
-  | "arrowDown";
+  | "arrowDown"
+  | "photo";
 
 const paths: Record<IconName, ReactNode> = {
   home: (
@@ -356,6 +357,13 @@ const paths: Record<IconName, ReactNode> = {
   arrowDown: (
     <>
       <path d="M12 5v14M18 13l-6 6-6-6" />
+    </>
+  ),
+  photo: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <circle cx="8.5" cy="9.5" r="1.6" />
+      <path d="m4 17.5 4.8-4.8 3.4 3.4 2.8-2.8L20 18" />
     </>
   ),
 };

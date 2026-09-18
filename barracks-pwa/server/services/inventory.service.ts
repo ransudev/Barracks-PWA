@@ -18,6 +18,7 @@ type InventoryRow = {
   supplier_id: number | null;
   supplier_name: string | null;
   branch: string;
+  image_url: string | null;
   created_at: Date | string;
   updated_at: Date | string;
 };
@@ -36,6 +37,7 @@ export type InventoryRecord = {
   supplierId: number | null;
   supplierName: string | null;
   branch: string;
+  imageUrl: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -43,13 +45,24 @@ export type InventoryRecord = {
 const inventorySelect = `
   SELECT i.id, i.name, i.category, i.quantity, i.minimum_stock, i.maximum_stock, i.unit_cost,
          i.unit, i.sku, i.status, i.supplier_id, s.company_name AS supplier_name, i.branch,
-         i.created_at, i.updated_at
+         i.image_url, i.created_at, i.updated_at
   FROM inventory_items i
   LEFT JOIN suppliers s ON s.id=i.supplier_id
 `;
 
 function toIso(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+}
+
+// An omitted or blank photo clears the column rather than storing an empty string.
+function normalizedImage(value: string | null | undefined): string | null {
+  return value && value.length ? value : null;
+}
+
+// SKUs are unique per item (case-insensitive), so a collision is reported as a
+// domain error instead of leaking a raw constraint failure as a server error.
+function isUniqueViolation(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && "code" in error && (error as { code?: string }).code === "23505");
 }
 
 function toInventory(row: InventoryRow): InventoryRecord {
@@ -59,6 +72,7 @@ function toInventory(row: InventoryRow): InventoryRecord {
     unitCost: Number(row.unit_cost), unit: row.unit, sku: row.sku, status: row.status,
     supplierId: row.supplier_id === null ? null : Number(row.supplier_id), supplierName: row.supplier_name,
     branch: row.branch,
+    imageUrl: row.image_url,
     createdAt: toIso(row.created_at), updatedAt: toIso(row.updated_at),
   };
 }
@@ -94,13 +108,18 @@ export async function createInventory(db: Pool, input: InventoryItemInput): Prom
 
 export async function createInventoryItem(db: Pool, input: InventoryCreateInput): Promise<InventoryRecord> {
   await assertActiveSupplier(db, input.supplierId);
-  const result = await db.query<{ id: number }>(`
-    INSERT INTO inventory_items
-      (name,category,branch,quantity,minimum_stock,maximum_stock,unit_cost,unit,sku,status,supplier_id)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
-    [input.name,input.category,input.branch,input.initialQuantity,input.minimumStock,input.maximumStock,input.unitCost,
-      input.unit,input.sku,input.status,input.supplierId]);
-  return (await findInventoryById(db,result.rows[0].id))!;
+  try {
+    const result = await db.query<{ id: number }>(`
+      INSERT INTO inventory_items
+        (name,category,branch,quantity,minimum_stock,maximum_stock,unit_cost,unit,sku,status,supplier_id,image_url)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
+      [input.name,input.category,input.branch,input.initialQuantity,input.minimumStock,input.maximumStock,input.unitCost,
+        input.unit,input.sku,input.status,input.supplierId,normalizedImage(input.imageUrl)]);
+    return (await findInventoryById(db,result.rows[0].id))!;
+  } catch (error) {
+    if (isUniqueViolation(error)) throw new Error("DUPLICATE_SKU");
+    throw error;
+  }
 }
 
 // Legacy Sprint 1 editor. Quantity is deliberately no longer changed here.
@@ -143,8 +162,8 @@ export async function updateInventoryMetadata(
     }
     await client.query(`
       UPDATE inventory_items SET name=$1,category=$2,branch=$3,supplier_id=$4,unit=$5,sku=$6,minimum_stock=$7,
-        maximum_stock=$8,unit_cost=$9,status=$10,updated_at=NOW() WHERE id=$11`,
-      [input.name,input.category,input.branch,input.supplierId,input.unit,input.sku,input.minimumStock,input.maximumStock,input.unitCost,input.status,id]);
+        maximum_stock=$8,unit_cost=$9,status=$10,image_url=$11,updated_at=NOW() WHERE id=$12`,
+      [input.name,input.category,input.branch,input.supplierId,input.unit,input.sku,input.minimumStock,input.maximumStock,input.unitCost,input.status,normalizedImage(input.imageUrl),id]);
 
     if (previousMinimum !== input.minimumStock || previousMaximum !== input.maximumStock) {
       await client.query(`
@@ -158,6 +177,7 @@ export async function updateInventoryMetadata(
     return findInventoryById(db, id);
   } catch (error) {
     await client.query("ROLLBACK").catch(() => undefined);
+    if (isUniqueViolation(error)) throw new Error("DUPLICATE_SKU");
     throw error;
   } finally {
     client.release();

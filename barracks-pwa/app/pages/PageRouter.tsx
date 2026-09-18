@@ -8,6 +8,7 @@ import { InventoryPage } from "@/app/pages/staff/InventoryPage";
 import { CustomersPage } from "@/app/pages/staff/CustomersPage";
 import { StaffDashboard } from "@/app/pages/staff/StaffDashboard";
 import { BookingsPage } from "@/app/pages/staff/BookingsPage";
+import { QueuePage } from "@/app/pages/staff/QueuePage";
 import { isManagementRole } from "@/app/constants/roles";
 import type { ApiUser } from "@/app/lib/api";
 import type { ViewId } from "@/app/types/domain";
@@ -43,6 +44,8 @@ export function PageRouter({ view, go, onToast, currentUser }: PageRouterProps) 
       return <BarbersManagement onToast={onToast} canDelete={currentUser.role === "administrator"} isAdministrator={isManagementRole(currentUser.role)} />;
     case "bookings":
       return <BookingsPage onToast={onToast} />;
+    case "queue":
+      return <QueuePage onToast={onToast} />;
     case "inventory":
     case "admin-inventory":
       return <InventoryPage admin={view === "admin-inventory"} onToast={onToast} canDelete={currentUser.role === "administrator"} />;

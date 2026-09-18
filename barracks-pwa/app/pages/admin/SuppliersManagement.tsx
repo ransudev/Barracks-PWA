@@ -3,162 +3,31 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import type { ApiSupplier } from "@/app/lib/api";
 import { apiRequest, readApiBody } from "@/app/lib/api";
-import { Badge, Button, EmptyState, Modal, PageHeader, Panel, SearchInput, SelectField, TextField } from "@/app/components/ui";
+import { Badge, Button, ConfirmDialog, EmptyState, MetricCard, Modal, PageHeader, Panel, SelectField, TextField } from "@/app/components/ui";
 import { Icon } from "@/app/components/ui/icons";
+import { DetailDrawer, DrawerSection, FilterToolbar, RecordCard, ResponsiveTable, ViewToggle, type OperationalViewMode } from "@/app/components/operations/OperationalPrimitives";
 
-type SupplierForm = {
-  companyName: string;
-  contactPerson: string;
-  phone: string;
-  email: string;
-  address: string;
-  notes: string;
-  status: "active" | "inactive";
-};
+type SupplierForm = { companyName: string; contactPerson: string; phone: string; email: string; address: string; notes: string; status: "active" | "inactive" };
+type AccountForm = { firstName: string; lastName: string; email: string; password: string };
+type SupplierProfile = { supplier: ApiSupplier; suppliedItems: Array<{ id: number; name: string; category: string; quantity: number; minimum_stock: number; maximum_stock: number | null; unit: string; sku: string | null; unit_cost: number | string; status: string; branch: string }>; recentDeliveries: Array<{ id: number; status: string; branch: string; reference: string | null; received_at: string | null; created_at: string }>; restockHistory: Array<{ id: number; status: string; branch: string; reference: string | null; notes: string; created_at: string; updated_at: string }> };
+const emptySupplier: SupplierForm = { companyName: "", contactPerson: "", phone: "", email: "", address: "", notes: "", status: "active" }; const emptyAccount: AccountForm = { firstName: "", lastName: "", email: "", password: "" };
+function responseMessage(body: { message?: string; errors?: Record<string, string[]> } | null, fallback: string) { return body?.errors ? Object.values(body.errors).flat().join(" ") || body?.message || fallback : body?.message || fallback; }
 
-type AccountForm = { firstName:string; lastName:string; email:string; password:string };
-type SupplierProfile = {
-  supplier: ApiSupplier;
-  suppliedItems: Array<{ id:number; name:string; category:string; quantity:number; minimum_stock:number; maximum_stock:number|null; unit:string; sku:string|null; unit_cost:number|string; status:string; branch:string }>;
-  recentDeliveries: Array<{ id:number; status:string; branch:string; reference:string|null; received_at:string|null; created_at:string }>;
-  restockHistory: Array<{ id:number; status:string; branch:string; reference:string|null; notes:string; created_at:string; updated_at:string }>;
-};
+export function SuppliersManagement({ onToast, canManageLogins = false }: { onToast: (message: string) => void; canManageLogins?: boolean }) {
+  const [suppliers, setSuppliers] = useState<ApiSupplier[]>([]); const [search, setSearch] = useState(""); const [statusFilter, setStatusFilter] = useState("all"); const [view, setView] = useState<OperationalViewMode>("cards"); const [loading, setLoading] = useState(true); const [loadError, setLoadError] = useState("");
+  const [selected, setSelected] = useState<ApiSupplier | null>(null); const [profile, setProfile] = useState<SupplierProfile | null>(null); const [profileLoading, setProfileLoading] = useState(false); const [editing, setEditing] = useState(false); const [form, setForm] = useState<SupplierForm>(emptySupplier); const [createOpen, setCreateOpen] = useState(false); const [submitting, setSubmitting] = useState(false); const [formError, setFormError] = useState(""); const [accountSupplier, setAccountSupplier] = useState<ApiSupplier | null>(null); const [accountForm, setAccountForm] = useState<AccountForm>(emptyAccount); const [accountSubmitting, setAccountSubmitting] = useState(false); const [pendingDelete, setPendingDelete] = useState<ApiSupplier | null>(null); const [deleteBusy, setDeleteBusy] = useState(false);
+  const load = useCallback(async () => { setLoading(true); try { const response = await apiRequest("/api/suppliers", { cache: "no-store" }); const body = await readApiBody<{ success: boolean; suppliers?: ApiSupplier[]; message?: string }>(response); if (!response.ok || !body?.success) throw new Error(body?.message ?? "Unable to load suppliers"); setSuppliers(body.suppliers ?? []); setLoadError(""); } catch (error) { const message = error instanceof Error ? error.message : "Unable to load suppliers"; setLoadError(message); onToast(message); } finally { setLoading(false); } }, [onToast]);
+  useEffect(() => { const frame = window.requestAnimationFrame(() => { void load(); }); return () => window.cancelAnimationFrame(frame); }, [load]);
+  const visible = useMemo(() => { const query = search.trim().toLowerCase(); return suppliers.filter((supplier) => (!query || `${supplier.companyName} ${supplier.contactPerson} ${supplier.email} ${supplier.phone}`.toLowerCase().includes(query)) && (statusFilter === "all" || supplier.status === statusFilter)); }, [search, statusFilter, suppliers]);
+  const dirty = Boolean(selected && editing && JSON.stringify(form) !== JSON.stringify({ companyName: selected.companyName, contactPerson: selected.contactPerson, phone: selected.phone, email: selected.email, address: selected.address, notes: selected.notes, status: selected.status }));
+  async function openDetails(supplier: ApiSupplier) { setSelected(supplier); setEditing(false); setProfile(null); setProfileLoading(true); try { const response = await apiRequest(`/api/suppliers/${supplier.id}`, { cache: "no-store" }); const body = await readApiBody<{ success: boolean; profile?: SupplierProfile; message?: string }>(response); if (!response.ok || !body?.success || !body.profile) throw new Error(body?.message ?? "Unable to load supplier profile"); setProfile(body.profile); } catch (error) { onToast(error instanceof Error ? error.message : "Unable to load supplier profile"); } finally { setProfileLoading(false); } }
+  function openCreate() { setForm(emptySupplier); setFormError(""); setCreateOpen(true); }
+  function openEdit(supplier: ApiSupplier) { setSelected(supplier); setForm({ companyName: supplier.companyName, contactPerson: supplier.contactPerson, phone: supplier.phone, email: supplier.email, address: supplier.address, notes: supplier.notes, status: supplier.status }); setFormError(""); setEditing(true); }
+  function closeDrawer() { setSelected(null); setProfile(null); setEditing(false); setFormError(""); }
+  async function save(event: FormEvent) { event.preventDefault(); setFormError(""); setSubmitting(true); try { const response = await apiRequest(editing && selected ? `/api/suppliers/${selected.id}` : "/api/suppliers", { method: editing && selected ? "PUT" : "POST", body: JSON.stringify(form) }); const body = await readApiBody<{ success: boolean; supplier?: ApiSupplier; message?: string; errors?: Record<string, string[]> }>(response); if (!response.ok || !body?.success) throw new Error(responseMessage(body, "Unable to save supplier")); setCreateOpen(false); setEditing(false); onToast(editing ? "Supplier updated" : "Supplier created"); await load(); if (editing && selected) { const refreshed = (body.supplier ?? suppliers.find((item) => item.id === selected.id)); if (refreshed) { setSelected(refreshed); void openDetails(refreshed); } } } catch (error) { setFormError(error instanceof Error ? error.message : "Unable to save supplier"); } finally { setSubmitting(false); } }
+  async function deactivate(supplier: ApiSupplier) { setDeleteBusy(true); try { const response = await apiRequest(`/api/suppliers/${supplier.id}`, { method: "DELETE" }); const body = await readApiBody<{ success: boolean; message?: string }>(response); if (!response.ok || !body?.success) throw new Error(body?.message ?? "Unable to deactivate supplier"); onToast("Supplier deactivated"); closeDrawer(); await load(); } catch (error) { onToast(error instanceof Error ? error.message : "Unable to deactivate supplier"); } finally { setDeleteBusy(false); setPendingDelete(null); } }
+  async function createAccount(event: FormEvent) { event.preventDefault(); if (!accountSupplier || !canManageLogins) return; setAccountSubmitting(true); try { const response = await apiRequest(`/api/suppliers/${accountSupplier.id}/account`, { method: "POST", body: JSON.stringify(accountForm) }); const body = await readApiBody<{ success: boolean; message?: string }>(response); if (!response.ok || !body?.success) throw new Error(body?.message ?? "Unable to create supplier account"); setAccountSupplier(null); setAccountForm(emptyAccount); onToast("Supplier login created"); await load(); } catch (error) { onToast(error instanceof Error ? error.message : "Unable to create supplier account"); } finally { setAccountSubmitting(false); } }
+  function supplierForm() { return <form className="operational-drawer-form" onSubmit={save}><TextField required label="Company name" value={form.companyName} onChange={(event) => setForm((current) => ({ ...current, companyName: event.target.value }))} /><TextField label="Contact person" value={form.contactPerson} onChange={(event) => setForm((current) => ({ ...current, contactPerson: event.target.value }))} /><div className="form-grid form-grid--two operational-form-grid"><TextField label="Phone" value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} /><TextField label="Email" type="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} /></div><TextField label="Address" value={form.address} onChange={(event) => setForm((current) => ({ ...current, address: event.target.value }))} /><TextField label="Notes" value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} /><SelectField label="Status" value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value as SupplierForm["status"] }))}><option value="active">Active</option><option value="inactive">Inactive</option></SelectField>{formError && <p className="form-error" role="alert">{formError}</p>}<div className="modal-actions"><Button variant="secondary" type="button" disabled={submitting} onClick={() => editing ? setEditing(false) : setCreateOpen(false)}>Cancel</Button><Button type="submit" disabled={submitting}>{submitting ? "Saving…" : editing ? "Save supplier" : "Create supplier"}</Button></div></form>; }
 
-const emptySupplier: SupplierForm = { companyName:"",contactPerson:"",phone:"",email:"",address:"",notes:"",status:"active" };
-const emptyAccount: AccountForm = { firstName:"",lastName:"",email:"",password:"" };
-
-function responseMessage(body:{message?:string;errors?:Record<string,string[]>}|null,fallback:string){
-  const details=body?.errors?Object.values(body.errors).flat().filter(Boolean).join(" "):"";
-  return details||body?.message||fallback;
-}
-
-export function SuppliersManagement({ onToast, canManageLogins=false }: { onToast:(message:string)=>void; canManageLogins?:boolean }) {
-  const [suppliers,setSuppliers] = useState<ApiSupplier[]>([]);
-  const [search,setSearch] = useState("");
-  const [loading,setLoading] = useState(true);
-  const [editing,setEditing] = useState<ApiSupplier|null>(null);
-  const [form,setForm] = useState<SupplierForm>(emptySupplier);
-  const [modalOpen,setModalOpen] = useState(false);
-  const [submitting,setSubmitting] = useState(false);
-  const [accountSupplier,setAccountSupplier] = useState<ApiSupplier|null>(null);
-  const [accountForm,setAccountForm] = useState<AccountForm>(emptyAccount);
-  const [accountSubmitting,setAccountSubmitting] = useState(false);
-  const [profile,setProfile] = useState<SupplierProfile|null>(null);
-  const [profileLoading,setProfileLoading] = useState(false);
-
-  const load = useCallback(async()=>{
-    setLoading(true);
-    try {
-      const response = await apiRequest("/api/suppliers",{cache:"no-store"});
-      const body = await readApiBody<{success:boolean;suppliers?:ApiSupplier[];message?:string}>(response);
-      if(!response.ok || !body?.success) throw new Error(body?.message ?? "Unable to load suppliers");
-      setSuppliers(body.suppliers ?? []);
-    } catch(error) { onToast(error instanceof Error ? error.message : "Unable to load suppliers"); }
-    finally { setLoading(false); }
-  },[onToast]);
-
-  useEffect(()=>{
-    const frame = window.requestAnimationFrame(() => { void load(); });
-    return () => window.cancelAnimationFrame(frame);
-  },[load]);
-
-  const filtered = useMemo(()=>{
-    const q=search.trim().toLowerCase();
-    return suppliers.filter((s)=>!q || `${s.companyName} ${s.contactPerson} ${s.email} ${s.phone}`.toLowerCase().includes(q));
-  },[search,suppliers]);
-
-  function openCreate(){ setEditing(null); setForm(emptySupplier); setModalOpen(true); }
-  function openEdit(s:ApiSupplier){ setEditing(s); setForm({companyName:s.companyName,contactPerson:s.contactPerson,phone:s.phone,email:s.email,address:s.address,notes:s.notes,status:s.status}); setModalOpen(true); }
-
-  async function openProfile(supplier:ApiSupplier){
-    setProfileLoading(true);
-    try{
-      const response=await apiRequest(`/api/suppliers/${supplier.id}`,{cache:"no-store"});
-      const body=await readApiBody<{success:boolean;profile?:SupplierProfile;message?:string}>(response);
-      if(!response.ok||!body?.success||!body.profile) throw new Error(body?.message??"Unable to load supplier profile");
-      setProfile(body.profile);
-    }catch(error){ onToast(error instanceof Error?error.message:"Unable to load supplier profile"); }
-    finally{ setProfileLoading(false); }
-  }
-
-  async function save(event:FormEvent){
-    event.preventDefault(); setSubmitting(true);
-    try{
-      const response=await apiRequest(editing?`/api/suppliers/${editing.id}`:"/api/suppliers",{method:editing?"PUT":"POST",body:JSON.stringify(form)});
-      const body=await readApiBody<{success:boolean;supplier?:ApiSupplier;message?:string;errors?:Record<string,string[]>}>(response);
-      if(!response.ok || !body?.success) throw new Error(responseMessage(body,"Unable to save supplier"));
-      setModalOpen(false); onToast(editing?"Supplier updated":"Supplier created"); await load();
-    }catch(error){ onToast(error instanceof Error?error.message:"Unable to save supplier"); }
-    finally{ setSubmitting(false); }
-  }
-
-  async function deactivate(s:ApiSupplier){
-    const response=await apiRequest(`/api/suppliers/${s.id}`,{method:"DELETE"});
-    const body=await readApiBody<{success:boolean;message?:string}>(response);
-    if(!response.ok || !body?.success){ onToast(body?.message ?? "Unable to deactivate supplier"); return; }
-    onToast("Supplier deactivated"); await load();
-  }
-
-  async function createAccount(event:FormEvent){
-    event.preventDefault(); if(!accountSupplier||!canManageLogins) return; setAccountSubmitting(true);
-    try{
-      const response=await apiRequest(`/api/suppliers/${accountSupplier.id}/account`,{method:"POST",body:JSON.stringify(accountForm)});
-      const body=await readApiBody<{success:boolean;message?:string}>(response);
-      if(!response.ok || !body?.success) throw new Error(body?.message ?? "Unable to create supplier account");
-      setAccountSupplier(null); setAccountForm(emptyAccount); onToast("Supplier login created"); await load();
-    }catch(error){ onToast(error instanceof Error?error.message:"Unable to create supplier account"); }
-    finally{ setAccountSubmitting(false); }
-  }
-
-  return <>
-    <PageHeader title="Suppliers" action={<Button icon="plus" onClick={openCreate}>Add supplier</Button>} />
-    <Panel>
-      <div className="panel-toolbar"><SearchInput value={search} onChange={setSearch} placeholder="Search suppliers" /></div>
-      <div className="staff-table staff-table--cols-4 supplier-table">
-        <div className="staff-table__head"><span>Supplier</span><span>Contact</span><span>Status</span><span>Actions</span></div>
-        {loading ? <div className="staff-table__empty">Loading suppliers…</div> : filtered.length ? filtered.map((supplier)=><div className="staff-table__row" key={supplier.id}>
-          <span><strong>{supplier.companyName}</strong><small>{supplier.email || "No email"}</small></span>
-          <span><strong>{supplier.contactPerson || "Not set"}</strong><small>{supplier.phone || "No phone"}</small></span>
-          <span><Badge tone={supplier.status==="active"?"success":"danger"}>{supplier.status==="active"?"Active":"Inactive"}</Badge></span>
-          <span className="row-actions">
-            <Button size="sm" variant="secondary" disabled={profileLoading} onClick={()=>void openProfile(supplier)}>Profile</Button>
-            <button className="row-action row-action--icon" type="button" onClick={()=>openEdit(supplier)} aria-label={`Edit ${supplier.companyName}`} title={`Edit ${supplier.companyName}`}><Icon name="edit" size={16}/></button>
-            {canManageLogins && !supplier.hasAccount && <Button size="sm" variant="secondary" onClick={()=>{setAccountSupplier(supplier);setAccountForm({firstName:supplier.contactPerson.split(" ")[0] ?? "",lastName:supplier.contactPerson.split(" ").slice(1).join(" "),email:supplier.email,password:""});}}>Create login</Button>}
-            {supplier.status==="active" && <Button size="sm" variant="secondary" onClick={()=>void deactivate(supplier)}>Deactivate</Button>}
-          </span>
-        </div>) : <EmptyState icon="users" title="No suppliers found" description="Create a supplier profile to link inventory and restock requests." action={<Button size="sm" icon="plus" onClick={openCreate}>Add supplier</Button>} />}
-      </div>
-    </Panel>
-
-    <Modal open={modalOpen} title={editing?"Edit supplier":"Add supplier"} onClose={()=>!submitting&&setModalOpen(false)}>
-      <form className="modal-form" onSubmit={save}>
-        <TextField required label="Company name" value={form.companyName} onChange={(e)=>setForm({...form,companyName:e.target.value})}/>
-        <TextField label="Contact person" value={form.contactPerson} onChange={(e)=>setForm({...form,contactPerson:e.target.value})}/>
-        <div className="form-grid"><TextField label="Phone" value={form.phone} onChange={(e)=>setForm({...form,phone:e.target.value})}/><TextField label="Email" type="email" value={form.email} onChange={(e)=>setForm({...form,email:e.target.value})}/></div>
-        <p className="form-hint">Provide at least a phone number or email address.</p>
-        <TextField label="Address" value={form.address} onChange={(e)=>setForm({...form,address:e.target.value})}/>
-        <TextField label="Notes" value={form.notes} onChange={(e)=>setForm({...form,notes:e.target.value})}/>
-        <SelectField label="Status" value={form.status} onChange={(e)=>setForm({...form,status:e.target.value as SupplierForm["status"]})}><option value="active">Active</option><option value="inactive">Inactive</option></SelectField>
-        <div className="modal-actions"><Button variant="secondary" type="button" onClick={()=>setModalOpen(false)} disabled={submitting}>Cancel</Button><Button type="submit" disabled={submitting}>{submitting?"Saving…":"Save supplier"}</Button></div>
-      </form>
-    </Modal>
-
-    <Modal open={Boolean(profile)} title={profile?.supplier.companyName ?? "Supplier profile"} onClose={()=>setProfile(null)}>
-      {profile && <div className="modal-form">
-        <div className="detail-grid"><div><strong>Contact</strong><p>{profile.supplier.contactPerson||"Not set"}</p></div><div><strong>Phone</strong><p>{profile.supplier.phone||"Not set"}</p></div><div><strong>Email</strong><p>{profile.supplier.email||"Not set"}</p></div><div><strong>Address</strong><p>{profile.supplier.address||"Not set"}</p></div><div><strong>Status</strong><p>{profile.supplier.status}</p></div><div><strong>Notes</strong><p>{profile.supplier.notes||"No notes"}</p></div></div>
-        <h3>Supplied items</h3>{profile.suppliedItems.length?<div className="staff-table staff-table--cols-3">{profile.suppliedItems.map((item)=><div className="staff-table__row" key={item.id}><span><strong>{item.name}</strong><small>{item.category} · {item.sku??"No SKU"} · {item.branch}</small></span><span>{item.quantity} {item.unit}</span><span>{item.minimum_stock} min / {item.maximum_stock??"—"} max</span></div>)}</div>:<p>No supplied items.</p>}
-        <h3>Recent deliveries</h3>{profile.recentDeliveries.length?<div className="staff-table staff-table--cols-2">{profile.recentDeliveries.map((delivery)=><div className="staff-table__row" key={delivery.id}><span><strong>Request #{delivery.id}</strong><small>{delivery.reference??"No reference"} · {delivery.branch}</small></span><span>{delivery.received_at?new Date(delivery.received_at).toLocaleString():"Received"}</span></div>)}</div>:<p>No received deliveries.</p>}
-        <h3>Restock history</h3>{profile.restockHistory.length?<div className="staff-table staff-table--cols-3">{profile.restockHistory.map((restock)=><div className="staff-table__row" key={restock.id}><span><strong>Request #{restock.id}</strong><small>{restock.reference??"No reference"} · {restock.branch}</small></span><span><Badge tone={restock.status==="Received"?"success":restock.status==="Cancelled"?"danger":"warning"}>{restock.status}</Badge></span><span>{restock.notes||"No notes"}</span></div>)}</div>:<p>No restock history.</p>}
-      </div>}
-    </Modal>
-
-    <Modal open={canManageLogins&&Boolean(accountSupplier)} title={accountSupplier?`Create login for ${accountSupplier.companyName}`:"Create supplier login"} onClose={()=>!accountSubmitting&&setAccountSupplier(null)}>
-      <form className="modal-form" onSubmit={createAccount}>
-        <div className="form-grid"><TextField required label="First name" value={accountForm.firstName} onChange={(e)=>setAccountForm({...accountForm,firstName:e.target.value})}/><TextField required label="Last name" value={accountForm.lastName} onChange={(e)=>setAccountForm({...accountForm,lastName:e.target.value})}/></div>
-        <TextField required type="email" label="Email" value={accountForm.email} onChange={(e)=>setAccountForm({...accountForm,email:e.target.value})}/>
-        <TextField required type="password" label="Temporary password" value={accountForm.password} onChange={(e)=>setAccountForm({...accountForm,password:e.target.value})}/>
-        <div className="modal-actions"><Button variant="secondary" type="button" onClick={()=>setAccountSupplier(null)} disabled={accountSubmitting}>Cancel</Button><Button type="submit" disabled={accountSubmitting}>{accountSubmitting?"Creating…":"Create login"}</Button></div>
-      </form>
-    </Modal>
-  </>;
+  return <div className="operational-workspace"><PageHeader title="Suppliers" description="Keep vendor coverage, account access, and restock relationships close at hand." action={<><ViewToggle view={view} onChange={setView} label="Choose supplier view" /><Button icon="plus" onClick={openCreate}>Add supplier</Button></>} /><div className="metrics-grid metrics-grid--three"><MetricCard label="Suppliers" value={String(suppliers.length)} icon="users" accent="blue" /><MetricCard label="Active suppliers" value={String(suppliers.filter((supplier) => supplier.status === "active").length)} icon="check" accent="green" /><MetricCard label="Portal accounts" value={String(suppliers.filter((supplier) => supplier.hasAccount).length)} icon="lock" accent="amber" /></div><Panel className="operational-panel"><div className="inventory-catalog-head"><div><span className="inventory-kicker">Vendor directory</span><h2>Supplier relationships</h2><p>Open any supplier to inspect coverage and restock history.</p></div><div className="inventory-catalog-count"><strong>{visible.length}</strong><span>visible</span></div></div><FilterToolbar search={search} onSearchChange={setSearch} placeholder="Search suppliers" filters={<SelectField value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filter suppliers by status"><option value="all">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option></SelectField>} resultCount={visible.length} />{loading ? <div className="operational-loading" role="status">Loading suppliers…</div> : loadError ? <div className="operational-loading" role="alert">{loadError}</div> : !visible.length ? <EmptyState icon="users" title="No suppliers found" description="Create a supplier profile to link inventory and restock requests." action={<Button size="sm" icon="plus" onClick={openCreate}>Add supplier</Button>} /> : view === "cards" ? <div className="operational-card-grid">{visible.map((supplier) => <RecordCard key={supplier.id} onOpen={() => void openDetails(supplier)} ariaLabel={`Open ${supplier.companyName}`}><div className="operational-card__header"><div className="operational-card__identity"><span className="supplier-card-mark"><Icon name="users" size={21} /></span><div><strong>{supplier.companyName}</strong><small>{supplier.contactPerson || "Contact not set"}</small></div></div><Badge tone={supplier.status === "active" ? "success" : "danger"}>{supplier.status === "active" ? "Active" : "Inactive"}</Badge></div><p className="operational-card__note">{supplier.email || "No email"}<br />{supplier.phone || "No phone"}</p><div className="operational-card__facts"><div><span>Portal access</span><strong>{supplier.hasAccount ? "Connected" : "Not set"}</strong></div><div><span>Contact coverage</span><strong>{supplier.email && supplier.phone ? "Complete" : "Partial"}</strong></div></div></RecordCard>)}</div> : <ResponsiveTable headers={["Supplier", "Contact", "Status", "Account", "Actions"]}>{visible.map((supplier) => <tr key={supplier.id} tabIndex={0} onClick={() => void openDetails(supplier)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); void openDetails(supplier); } }}><td><strong>{supplier.companyName}</strong><small>{supplier.email || "No email"}</small></td><td><strong>{supplier.contactPerson || "Not set"}</strong><small>{supplier.phone || "No phone"}</small></td><td><Badge tone={supplier.status === "active" ? "success" : "danger"}>{supplier.status === "active" ? "Active" : "Inactive"}</Badge></td><td>{supplier.hasAccount ? "Connected" : "Not set"}</td><td><span className="row-actions" onClick={(event) => event.stopPropagation()}><button className="row-action row-action--icon" type="button" onClick={() => openEdit(supplier)} aria-label={`Edit ${supplier.companyName}`} title={`Edit ${supplier.companyName}`}><Icon name="edit" size={16} /></button>{canManageLogins && !supplier.hasAccount && <Button size="sm" variant="secondary" onClick={() => { setAccountSupplier(supplier); setAccountForm({ firstName: supplier.contactPerson.split(" ")[0] ?? "", lastName: supplier.contactPerson.split(" ").slice(1).join(" "), email: supplier.email, password: "" }); }}>Create login</Button>}</span></td></tr>)}</ResponsiveTable>}</Panel><Modal open={createOpen} title="Add supplier" onClose={() => !submitting && setCreateOpen(false)}>{supplierForm()}</Modal><DetailDrawer open={Boolean(selected)} title={selected?.companyName ?? "Supplier profile"} subtitle={selected ? selected.contactPerson || "Supplier relationship" : undefined} eyebrow="Supplier profile" onClose={closeDrawer} dirty={dirty} onDiscard={() => setEditing(false)}>{selected && (editing ? <DrawerSection eyebrow="Edit supplier" title="Update profile">{supplierForm()}</DrawerSection> : profileLoading ? <div className="operational-loading" role="status">Loading supplier profile…</div> : profile ? <><DrawerSection><div className="operational-drawer__identity"><span className="supplier-card-mark supplier-card-mark--large"><Icon name="users" size={25} /></span><div><strong>{profile.supplier.email || "No email"}</strong><span>{profile.supplier.phone || "No phone on file"}</span></div><Badge tone={profile.supplier.status === "active" ? "success" : "danger"}>{profile.supplier.status}</Badge></div></DrawerSection><DrawerSection eyebrow="Coverage" title="Supplier snapshot"><div className="operational-drawer__facts"><div><span>Supplied items</span><strong>{profile.suppliedItems.length}</strong></div><div><span>Restock history</span><strong>{profile.restockHistory.length}</strong></div><div><span>Deliveries</span><strong>{profile.recentDeliveries.length}</strong></div><div><span>Portal access</span><strong>{profile.supplier.hasAccount ? "Connected" : "Not set"}</strong></div></div></DrawerSection><DrawerSection eyebrow="Inventory" title="Supplied items">{profile.suppliedItems.length ? <div className="drawer-mini-list">{profile.suppliedItems.slice(0, 5).map((item) => <div key={item.id}><strong>{item.name}</strong><span>{item.quantity} {item.unit} · {item.branch}</span></div>)}</div> : <p className="form-hint">No supplied items.</p>}</DrawerSection><DrawerSection eyebrow="Actions" title="Manage supplier"><div className="operational-drawer__actions"><Button variant="secondary" icon="edit" onClick={() => openEdit(selected)}>Edit profile</Button>{canManageLogins && !selected.hasAccount && <Button variant="secondary" icon="lock" onClick={() => { setAccountSupplier(selected); setAccountForm({ firstName: selected.contactPerson.split(" ")[0] ?? "", lastName: selected.contactPerson.split(" ").slice(1).join(" "), email: selected.email, password: "" }); }}>Create login</Button>}{selected.status === "active" && <Button variant="danger" onClick={() => setPendingDelete(selected)}>Deactivate</Button>}</div></DrawerSection></> : <p className="form-hint">No profile data is available.</p>)}</DetailDrawer><Modal open={canManageLogins && Boolean(accountSupplier)} title={accountSupplier ? `Create login for ${accountSupplier.companyName}` : "Create supplier login"} onClose={() => !accountSubmitting && setAccountSupplier(null)}><form className="modal-form" onSubmit={createAccount}><div className="form-grid form-grid--two"><TextField required label="First name" value={accountForm.firstName} onChange={(event) => setAccountForm((current) => ({ ...current, firstName: event.target.value }))} /><TextField required label="Last name" value={accountForm.lastName} onChange={(event) => setAccountForm((current) => ({ ...current, lastName: event.target.value }))} /></div><TextField required type="email" label="Email" value={accountForm.email} onChange={(event) => setAccountForm((current) => ({ ...current, email: event.target.value }))} /><TextField required type="password" label="Temporary password" value={accountForm.password} onChange={(event) => setAccountForm((current) => ({ ...current, password: event.target.value }))} /><div className="modal-actions"><Button variant="secondary" type="button" onClick={() => setAccountSupplier(null)}>Cancel</Button><Button type="submit" disabled={accountSubmitting}>{accountSubmitting ? "Creating…" : "Create login"}</Button></div></form></Modal><ConfirmDialog open={Boolean(pendingDelete)} title="Deactivate this supplier?" description={pendingDelete ? `${pendingDelete.companyName} will be hidden from active workflows while the record is retained.` : undefined} confirmLabel="Deactivate supplier" danger busy={deleteBusy} onClose={() => !deleteBusy && setPendingDelete(null)} onConfirm={() => pendingDelete && void deactivate(pendingDelete)} /></div>;
 }

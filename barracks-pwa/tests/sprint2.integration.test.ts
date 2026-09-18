@@ -94,6 +94,24 @@ test("Sprint 2 supplier, restock, and receiving workflow is relational and audit
     });
     inventoryId = item.id;
 
+    await assert.rejects(
+      () => inventory.createInventoryItem(pool, {
+        name: `Duplicate SKU ${randomUUID().slice(0, 8)}`,
+        category: "Supplies",
+        branch: "Main Branch",
+        supplierId,
+        unit: "bottle",
+        sku: item.sku!.toLowerCase(),
+        minimumStock: 1,
+        maximumStock: 10,
+        unitCost: 10,
+        status: "active",
+        initialQuantity: 0,
+      }),
+      (error: unknown) => error instanceof Error && error.message === "DUPLICATE_SKU",
+      "a case-variant duplicate SKU must be reported as a domain error",
+    );
+
     const editedItem = await inventory.updateInventoryMetadata(pool, inventoryId, adminUserId, {
       name: item.name,
       category: item.category,
@@ -128,6 +146,23 @@ test("Sprint 2 supplier, restock, and receiving workflow is relational and audit
       initialQuantity: 1,
     });
     secondInventoryId = secondItem.id;
+
+    await assert.rejects(
+      () => inventory.updateInventoryMetadata(pool, secondInventoryId!, adminUserId!, {
+        name: secondItem.name,
+        category: secondItem.category,
+        branch: secondItem.branch,
+        supplierId: secondItem.supplierId,
+        unit: secondItem.unit,
+        sku: item.sku,
+        minimumStock: secondItem.minimumStock,
+        maximumStock: secondItem.maximumStock,
+        unitCost: secondItem.unitCost,
+        status: secondItem.status,
+      }),
+      (error: unknown) => error instanceof Error && error.message === "DUPLICATE_SKU",
+      "editing an item onto another item's SKU must be reported as a domain error",
+    );
 
     await assert.rejects(
       () => restocks.createRestockRequest(pool, adminUserId!, {

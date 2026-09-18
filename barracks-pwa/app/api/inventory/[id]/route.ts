@@ -45,6 +45,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     if (error instanceof Error && error.message === "SUPPLIER_UNAVAILABLE") {
       return Response.json({ success: false, message: "Supplier is inactive or unavailable" }, { status: 400 });
     }
+    if (error instanceof Error && error.message === "DUPLICATE_SKU") {
+      return Response.json({ success: false, message: "Another inventory item already uses this SKU" }, { status: 409 });
+    }
     console.error("Unable to update inventory item", error);
     return Response.json({ success: false, message: "Unable to update inventory item" }, { status: 500 });
   }

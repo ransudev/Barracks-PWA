@@ -31,6 +31,14 @@ export const supplierAccountSchema = z.object({
   userId: positiveInt,
 }).strict();
 
+const inventoryImage = z.string().trim().max(2000000)
+  .refine(
+    (value) => !value || /^https?:\/\//i.test(value) || /^data:image\/(png|jpe?g|webp|gif|avif);base64,/i.test(value),
+    { message: "Add an image link or upload a PNG, JPG, or WebP file" },
+  )
+  .nullable()
+  .optional();
+
 const inventoryMetadataShape = {
   name: z.string().trim().min(1).max(160),
   category: z.enum(["Supplies", "Equipment", "Products"]),
@@ -38,6 +46,7 @@ const inventoryMetadataShape = {
   supplierId: positiveInt.nullable(),
   unit: z.string().trim().min(1).max(40),
   sku: z.string().trim().max(100).nullable(),
+  imageUrl: inventoryImage,
   minimumStock: nonNegativeInt,
   maximumStock: nonNegativeInt.nullable(),
   unitCost: money,

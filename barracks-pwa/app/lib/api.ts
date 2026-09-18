@@ -42,6 +42,7 @@ export type ApiInventoryItem = {
   supplierId: number | null;
   supplierName: string | null;
   branch: string;
+  imageUrl: string | null;
   createdAt: string;
   updatedAt: string;
 };

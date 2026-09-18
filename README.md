@@ -50,7 +50,7 @@ The active `sprint-1` experience includes:
 
 The app uses URL-backed Next.js routes for the active surfaces. The browser restores the requested page after refresh, and protected routes rehydrate the current account from the HTTP-only session cookie before rendering the workspace.
 
-Queue management, payments, transactions, service management, reports, calendar sync, notifications, email confirmations, and complete visit history remain outside the active sprint backend. Older prototype page components and seed collections for those areas remain in the repository as reference material, but they are not rendered by the current `PageRouter`.
+Queue management is now rendered as a shop-floor-only client-state module; it keeps the existing prototype workflow because no queue API contract exists yet. Payments, transactions, service management, reports, calendar sync, notifications, email confirmations, and complete visit history remain outside the active sprint backend. Older prototype page components and seed collections for those areas remain in the repository as reference material.
 
 ### Roles and access
 
@@ -86,7 +86,7 @@ Dark mode remains the default for operational surfaces. The existing light-mode 
 | Muted | `#B0B0AB` | Supporting copy and control labels |
 | Green / amber / red | semantic tokens | Success, warning, and danger only |
 
-Shared components should consume semantic aliases such as `--ink`, `--surface`, `--text`, `--line`, and the status tokens rather than introducing local hex values. Every status must also have a readable text label and must not rely on color alone.
+Shared components should consume semantic aliases such as `--ink`, `--surface`, `--text`, `--line`, and the status tokens rather than introducing local hex values. Every status must also have a readable text label and must not rely on color alone. Internal operational modules use the shared hybrid primitives in `barracks-pwa/app/components/operations/OperationalPrimitives.tsx` for card/list toggles, filter toolbars, responsive tables, action menus, status badges, and accessible right-side detail drawers that become full-screen mobile sheets.
 
 ### Typography
 
@@ -187,6 +187,7 @@ The current sprint pages use the API for customers, barbers, inventory, bookings
     │   │   ├── customers/             # shared customer form
     │   │   ├── inventory/             # shared inventory form
     │   │   ├── layout/                # AppShell
+    │   │   ├── operations/            # shared card/list/drawer operational primitives
     │   │   └── ui/                    # buttons, fields, panels, dialogs, badges, icons
     │   ├── constants/                 # navigation and role options
     │   ├── data/                      # landing content and legacy prototype seed data
@@ -224,14 +225,17 @@ The current sprint pages use the API for customers, barbers, inventory, bookings
 | Customer dashboard/profile | `app/pages/customer/CustomerDashboard.tsx` — dashboard-style color accents for metrics and appointment state; the empty upcoming state keeps booking in the panel header instead of repeating a second button | `/api/customers/me`, `/api/bookings`, `/api/barbers` |
 | Customer booking | `app/pages/customer/CustomerBookingPage.tsx` | Service catalog plus `/api/barbers` and `/api/bookings` |
 | Staff dashboard | `app/pages/staff/StaffDashboard.tsx` | `/api/barbers` |
-| Staff bookings | `app/pages/staff/BookingsPage.tsx` | `/api/bookings`, `/api/customers`, `/api/barbers` |
-| Staff customers | `app/pages/staff/CustomersPage.tsx` — customer records, profile details, and CRUD | `/api/customers`, `/api/barbers` |
-| Staff/admin barbers | `app/pages/admin/BarbersManagement.tsx` | `/api/barbers` |
+| Staff queue | `app/pages/staff/QueuePage.tsx` — client-state queue workflow with card/list views and action drawer | `app/data/queue.ts` and local page state |
+| Staff bookings | `app/pages/staff/BookingsPage.tsx` — card/list schedule with appointment drawer | `/api/bookings`, `/api/customers`, `/api/barbers` |
+| Staff customers | `app/pages/staff/CustomersPage.tsx` — card/list customer records, profile drawer, and CRUD | `/api/customers`, `/api/barbers` |
+| Staff/admin barbers | `app/pages/admin/BarbersManagement.tsx` — card/list roster with profile drawer | `/api/barbers` |
 | Staff/admin inventory | `app/pages/staff/InventoryPage.tsx` | `/api/inventory` |
 | Admin dashboard | `app/pages/admin/AdminDashboard.tsx` | `/api/barbers`, `/api/bookings`, `/api/customers`, `/api/inventory` |
-| Admin staff accounts | `app/pages/admin/StaffManagement.tsx` | `/api/users` |
+| Admin staff accounts | `app/pages/admin/StaffManagement.tsx` — card/list access roster with lifecycle drawer | `/api/users` |
+| Staff/admin suppliers | `app/pages/admin/SuppliersManagement.tsx` — card/list vendor directory with profile drawer | `/api/suppliers`, `/api/inventory`, `/api/restocks` |
+| Staff/admin restocks | `app/pages/admin/RestockManagement.tsx` — workflow cards/list with request drawer | `/api/restocks`, `/api/suppliers`, `/api/inventory` |
 
-Legacy prototype screens such as `QueuePage`, `PaymentPage`, `ReportsPage`, `ServicesManagement`, and settings pages remain available as source references but are not active destinations in the sprint view switchboard.
+Legacy prototype screens such as `PaymentPage`, `ReportsPage`, `ServicesManagement`, and settings pages remain available as source references but are not active destinations in the sprint view switchboard. `QueuePage` is now an active shop-floor destination, but remains client-state-only until a queue API contract is introduced.
 
 ## API routes
 
@@ -277,6 +281,7 @@ Staff customer management includes search, profile details, contact/preference e
 
 - `GET /api/inventory` and `POST /api/inventory` — administrator/manager/front desk; list/create inventory items. Inventory rows carry an editable branch (default `Main Branch`); `GET` accepts an optional `branch` query filter.
 - `GET /api/inventory/:id` and `PUT /api/inventory/:id` — administrator/manager/front desk; read/update an item.
+- Inventory SKUs are unique across items (case-insensitive, blank SKUs excluded). Creating an item with, or editing an item onto, a SKU that is already in use returns `409` with "Another inventory item already uses this SKU" instead of a generic failure.
 - `DELETE /api/inventory/:id` — administrator only; deletes an item after confirmation in the UI.
 - `GET /api/inventory/:id/movements` and `POST /api/inventory/:id/movements` — staff; list or record auditable stock movements with item branch context.
 - `GET /api/inventory/:id/threshold-history` — staff; returns item/branch threshold changes with actor and timestamp.
@@ -322,7 +327,7 @@ The current migration creates:
 - `sessions` — SHA-256 token hash, user, expiration, and creation time.
 - `barbers` — business name, availability status, commission rate, services completed, revenue, rating, and timestamps.
 - `customers` — one profile per customer user, phone, preferred barber, loyalty points, and timestamps.
-- `inventory_items` — item name, category, quantity, minimum/maximum stock, unit, SKU, supplier link, status, unit cost, and timestamps.
+- `inventory_items` — item name, category, quantity, minimum/maximum stock, unit, SKU, supplier link, status, unit cost, product photo, and timestamps.
 - `bookings` — customer/barber relationships, service snapshot, price, date/time, status, demo key, and timestamps.
 - `suppliers` and `supplier_accounts` — supplier records and one linked supplier login per supplier.
 - `inventory_movements` — auditable stock changes with before/after quantities, supplier, reference, and actor.
@@ -428,7 +433,7 @@ For Next.js-specific changes, read the repository guidance in `barracks-pwa/AGEN
 
 The sprint backend is intentionally partial. The main remaining seams are:
 
-- Out-of-scope modules such as queue, payments, services, reports, and settings still need their own rendered screens and backend workflows.
+- Out-of-scope modules such as payments, services, reports, and settings still need their own rendered screens and backend workflows. Queue has a rendered operational screen, but still needs a backend workflow.
 - The API does not yet cover queue, payments, settings, or complete visit history. Transaction persistence exists for the Sprint 2 relational foundation, while the older payment/report screens still need to be connected to it.
 - Account password reset/invitation flows, MFA, rate limiting, and audit history are not implemented. Account deactivation is a soft delete; the account row is retained and its sessions are revoked.
 - Dashboard and customer/barber summaries cover the sprint entities but do not yet form a complete reporting model.
