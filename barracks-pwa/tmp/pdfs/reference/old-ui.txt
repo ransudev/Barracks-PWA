@@ -1,0 +1,44 @@
+​Milestone 6: UI Design​
+
+
+​LOGIN SCREEN​
+​STAFF SIDE​
+
+​SIDEBAR​      ​SETTINGS​
+​DASHBOARD​
+​QUEUE​
+​BOOKINGS​
+
+
+
+
+​CUSTOMERS​
+​TRANSACTION​
+
+
+
+
+​INVENTORY​
+​MANAGEMENT SIDE​
+
+​SIDEBAR​
+​SETTINGS​
+​DASHBOARD​
+
+
+
+
+​STAFF​
+​BARBERS​
+
+
+
+
+​SERVICES​
+​REPORTS​
+
+
+
+
+​INVENTORY​
+

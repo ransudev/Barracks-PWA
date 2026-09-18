@@ -1,0 +1,57 @@
+import { readdir, readFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { pool } from "../server/db/pool";
+
+const migrationsDirectory = dirname(
+  fileURLToPath(new URL("../server/db/migrations/001_user_management.sql", import.meta.url)),
+);
+
+async function migrate() {
+  const files = (await readdir(migrationsDirectory))
+    .filter((file) => /^\d+_.+\.sql$/.test(file))
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+  const client = await pool.connect();
+
+  try {
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS schema_migrations (
+        name TEXT PRIMARY KEY,
+        applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    for (const file of files) {
+      const applied = await client.query<{ name: string }>(
+        "SELECT name FROM schema_migrations WHERE name = $1",
+        [file],
+      );
+
+      if (applied.rowCount) {
+        console.log(`Skipping already applied migration: ${file}`);
+        continue;
+      }
+
+      const sql = await readFile(join(migrationsDirectory, file), "utf8");
+      try {
+        await client.query("BEGIN");
+        await client.query(sql);
+        await client.query("INSERT INTO schema_migrations (name) VALUES ($1)", [file]);
+        await client.query("COMMIT");
+        console.log(`Applied migration: ${file}`);
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      }
+    }
+  } finally {
+    client.release();
+    await pool.end();
+  }
+}
+
+migrate().catch((error) => {
+  console.error("Database migration failed", error);
+  process.exitCode = 1;
+});
