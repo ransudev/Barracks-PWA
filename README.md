@@ -33,24 +33,28 @@ The full setup sequence is in [running.md](running.md). The demo seed replaces l
 Demo credentials:
 
 - Front Desk: `demo.frontdesk@barracks.local` / `frontdesk123`
+- Manager: `demo.manager@barracks.local` / `manager123`
 - Customer: `demo.customer.ana@barracks.local` / `customer123`
+- Supplier: `demo.supplier.nina@barracks.local` / `supplier123`
 
 ## Product and sprint scope
 
 Barracks connects the daily rhythm of a barbershop—bookings, barber availability, customers, inventory, and management oversight—inside one shared product. Staff need fast scanning and low-friction updates on the shop floor; administrators need a wider business view; customers need a simple account and booking path.
 
-The active `sprint-1` experience includes:
+The active `sprint-2` experience includes:
 
 - Public landing page with Barracks branding, service information, branches, contact details, and login/customer-account actions.
 - Customer signup, login, profile details, preferred barber, loyalty points, booking, and appointment history.
-- Staff workspace with a live barber overview dashboard, bookings, customers, barbers, and inventory.
-- Management workspace with dashboard counts, staff account management, barber management, and inventory.
-- PostgreSQL-backed CRUD for user accounts, barber employee profiles, and inventory, plus database-backed booking creation/editing/status updates.
+- Staff workspace with a live barber overview dashboard, queue, bookings, customers, barbers, inventory, suppliers, and restocks.
+- Management workspace with dashboard counts, staff account management, barber management, inventory, suppliers, restocks, and inventory reporting.
+- Supplier portal for a linked supplier account, its supplied items, deliveries, and restock requests.
+- PostgreSQL-backed CRUD for user accounts, barber employee profiles, inventory, suppliers, and restock requests, plus database-backed booking creation/editing/status updates.
+- Shared operational card/list/drawer modules that give customers, barbers, staff accounts, suppliers, restocks, bookings, queue, and inventory one consistent interaction language.
 - Role-aware workspace switching between Management and Shop floor.
 
 The app uses URL-backed Next.js routes for the active surfaces. The browser restores the requested page after refresh, and protected routes rehydrate the current account from the HTTP-only session cookie before rendering the workspace.
 
-Queue management is now rendered as a shop-floor-only client-state module; it keeps the existing prototype workflow because no queue API contract exists yet. Payments, transactions, service management, reports, calendar sync, notifications, email confirmations, and complete visit history remain outside the active sprint backend. Older prototype page components and seed collections for those areas remain in the repository as reference material.
+Queue management is now rendered as a shop-floor-only client-state module; it keeps the existing prototype workflow because no queue API contract exists yet. Payments, service management, settings, calendar sync, notifications, email confirmations, and complete visit history remain outside the active sprint backend. Inventory reporting is implemented through `GET /api/reports/inventory` and the `/admin/reports` surface, while the larger reporting, payment, and service prototypes remain in the repository as reference material.
 
 ### Roles and access
 
@@ -93,6 +97,7 @@ Shared components should consume semantic aliases such as `--ink`, `--surface`, 
 - `Libre Baskerville` is the display face for public editorial headings and meaningful identity moments.
 - `Geist` is the body and interface face for navigation, controls, descriptions, and operational content.
 - `Geist Mono` is for times, prices, compact labels, metadata, and other system-like notation.
+- `Inter` is the primary interface face inside the Staff, Management, and Customer dashboards, with `Sora` reserved for dashboard display headings.
 
 Keep serif display styling out of dense tables, forms, and operational copy. Public body text should remain readable and comfortably narrow; internal text should favor scanability.
 
@@ -147,11 +152,11 @@ React UI
   -> browser localStorage for retained prototype modules
 ```
 
-The current sprint pages use the API for customers, barbers, inventory, bookings, staff accounts, and customer sessions. The landing page still consumes static content from `app/data/landing.ts`, and booking creation uses the small service catalog in `app/data/services.ts` to resolve a service snapshot.
+The current sprint pages use the API for customers, barbers, inventory, suppliers, restocks, inventory reporting, bookings, staff accounts, supplier accounts, and customer sessions. The landing page still consumes static content from `app/data/landing.ts`, and booking creation uses the small service catalog in `app/data/services.ts` to resolve a service snapshot.
 
 ### Runtime composition
 
-`barracks-pwa/app/layout.tsx` is the root document shell. It loads Geist, Geist Mono, and Libre Baskerville, imports `app/globals.css` followed by the canonical `app/theme.css` layer, bootstraps the stored theme before hydration, and defines page metadata.
+`barracks-pwa/app/layout.tsx` is the root document shell. It loads Geist, Geist Mono, Libre Baskerville, Inter, and Sora, imports `app/globals.css` and the canonical `app/theme.css` layer followed by the landing, login, and booking stylesheets, bootstraps the stored theme before hydration, and defines page metadata.
 
 `barracks-pwa/app/components/BarracksApp.tsx` is the client composition root. It:
 
@@ -159,6 +164,7 @@ The current sprint pages use the API for customers, barbers, inventory, bookings
 - Restores the current session through `GET /api/auth/me` when the app loads.
 - Redirects unauthenticated users to login when a protected view is selected, preserving the requested destination after sign-in.
 - Redirects customers to the customer area and prevents them from entering staff views.
+- Redirects supplier accounts to the supplier portal and keeps them out of staff and management views.
 - Chooses the Management or Shop floor shell for authenticated staff.
 - Handles sign-out through `POST /api/auth/logout`.
 
@@ -171,6 +177,7 @@ The current sprint pages use the API for customers, barbers, inventory, bookings
 ├── README.md                         # Canonical product, design, system, and codebase guide
 ├── DEMO_README.md                    # Focused demo walkthrough and showcase accounts
 ├── running.md                        # Focused local setup and troubleshooting guide
+├── IMPLEMENTATION_PLAN.md            # Shared operational module redesign plan
 └── barracks-pwa/
     ├── app/
     │   ├── api/                      # Next.js Route Handlers
@@ -179,7 +186,11 @@ The current sprint pages use the API for customers, barbers, inventory, bookings
     │   │   ├── bookings/              # booking list/create/edit/status update
     │   │   ├── customers/             # staff list/create/update and customer self-service
     │   │   ├── health/                # unauthenticated health response
-    │   │   ├── inventory/             # inventory list and CRUD
+    │   │   ├── inventory/             # inventory list, CRUD, movements, alerts, thresholds
+    │   │   ├── reports/               # management inventory reporting
+    │   │   ├── restocks/              # restock requests, status, delivery, receiving
+    │   │   ├── supplier/              # supplier portal self-service
+    │   │   ├── suppliers/             # supplier CRUD and supplier accounts
     │   │   └── users/                 # administrator-only staff account APIs
     │   ├── components/
     │   │   ├── BarracksApp.tsx          # persistent client app and session hydration
@@ -193,10 +204,11 @@ The current sprint pages use the API for customers, barbers, inventory, bookings
     │   ├── data/                      # landing content and legacy prototype seed data
     │   ├── hooks/                     # browser persistence hook for legacy modules
     │   ├── lib/                       # frontend API wrapper and response types
-    │   ├── pages/                     # public, auth, customer, staff, and admin screens
+    │   ├── pages/                     # public, auth, customer, supplier, staff, and admin screens
     │   ├── types/                     # shared frontend domain types
     │   ├── utils/                     # formatting, CSV download, view helpers, and route mapping
     │   ├── globals.css                # tokens, shared styles, shell, modules, responsive rules
+    │   ├── theme.css                  # canonical dashboard theme layer
     │   ├── layout.tsx                 # document shell and metadata
     │   ├── page.tsx                   # public root route
     │   ├── [...slug]/page.tsx         # validated URL-backed app routes
@@ -229,13 +241,15 @@ The current sprint pages use the API for customers, barbers, inventory, bookings
 | Staff bookings | `app/pages/staff/BookingsPage.tsx` — card/list schedule with appointment drawer | `/api/bookings`, `/api/customers`, `/api/barbers` |
 | Staff customers | `app/pages/staff/CustomersPage.tsx` — card/list customer records, profile drawer, and CRUD | `/api/customers`, `/api/barbers` |
 | Staff/admin barbers | `app/pages/admin/BarbersManagement.tsx` — card/list roster with profile drawer | `/api/barbers` |
-| Staff/admin inventory | `app/pages/staff/InventoryPage.tsx` | `/api/inventory` |
+| Staff/admin inventory | `app/pages/staff/InventoryPage.tsx` — item cards/list with photo, branch, and stock state plus an item drawer | `/api/inventory` |
 | Admin dashboard | `app/pages/admin/AdminDashboard.tsx` | `/api/barbers`, `/api/bookings`, `/api/customers`, `/api/inventory` |
 | Admin staff accounts | `app/pages/admin/StaffManagement.tsx` — card/list access roster with lifecycle drawer | `/api/users` |
 | Staff/admin suppliers | `app/pages/admin/SuppliersManagement.tsx` — card/list vendor directory with profile drawer | `/api/suppliers`, `/api/inventory`, `/api/restocks` |
 | Staff/admin restocks | `app/pages/admin/RestockManagement.tsx` — workflow cards/list with request drawer | `/api/restocks`, `/api/suppliers`, `/api/inventory` |
+| Admin inventory reports | `app/pages/admin/InventoryReports.tsx` — valuation, low-stock, supplier-spend, and usage summaries | `/api/reports/inventory` |
+| Supplier portal | `app/pages/supplier/SupplierPortal.tsx` — profile, supplied items, open requests, delivery history, and account settings | `/api/supplier/me`, `/api/restocks`, `/api/supplier/account` |
 
-Legacy prototype screens such as `PaymentPage`, `ReportsPage`, `ServicesManagement`, and settings pages remain available as source references but are not active destinations in the sprint view switchboard. `QueuePage` is now an active shop-floor destination, but remains client-state-only until a queue API contract is introduced.
+Legacy prototype screens such as `PaymentPage`, `ReportsPage`, `ServicesManagement`, and settings pages remain available as source references but are not active destinations in the sprint view switchboard; the `/admin/reports` destination renders `InventoryReports` instead. `QueuePage` is now an active shop-floor destination, but remains client-state-only until a queue API contract is introduced.
 
 ## API routes
 
@@ -318,9 +332,9 @@ Booking creation and editing validate the date/time, confirm that the customer a
 
 The backend uses raw parameterized SQL through `pg`. It does not use Prisma, Drizzle, Express, Hono, or another backend framework. The same server layer works with either a local PostgreSQL database or a hosted Supabase PostgreSQL database; the active target is selected by `DATABASE_URL`, with `POSTGRES_URL` as the Vercel Supabase-integration fallback.
 
-`server/db/pool.ts` creates the PostgreSQL pool from `DATABASE_URL` or `POSTGRES_URL`, optionally enables SSL through `DATABASE_SSL`, and uses `DATABASE_POOL_MAX` with a default of `10`. Migrations are stored in `server/db/migrations/001_user_management.sql` through `005_manager_role.sql`, and run transactionally by `scripts/db-migrate.ts`.
+`server/db/pool.ts` creates the PostgreSQL pool from `DATABASE_URL` or `POSTGRES_URL`, optionally enables SSL through `DATABASE_SSL`, and uses `DATABASE_POOL_MAX` with a default of `10`. Migrations are stored in `server/db/migrations/001_user_management.sql` through `007_inventory_item_image.sql`, and run transactionally by `scripts/db-migrate.ts`, which records each applied file in `schema_migrations` and skips it on later runs.
 
-The current migration creates:
+Together these migrations create:
 
 - `roles` — supported role names and descriptions.
 - `users` — account identity, scrypt password hash, role, `is_verified`, `is_blocked`, optional `deleted_at`, and timestamps. Deactivated accounts remain stored but cannot sign in.
@@ -339,7 +353,7 @@ The current migration creates:
 
 The migration is compatible with the existing Supabase project `simplecrudapp`. The Next.js server connects through the database connection string and keeps authorization in the application session/role guards; no Supabase secret or database credential is sent to the browser.
 
-Important database constraints include case-insensitive unique user email, explicit account lifecycle columns, valid role/status/category values, non-blank names, non-negative quantities and monetary values with two-decimal precision, commission bounds, customer/user uniqueness, foreign keys, and a unique active barber slot for upcoming bookings.
+Important database constraints include case-insensitive unique user email, explicit account lifecycle columns, valid role/status/category values, non-blank names, non-negative quantities and monetary values with two-decimal precision, commission bounds, customer/user uniqueness, foreign keys, and a unique active barber slot for upcoming bookings. Inventory adds a case-insensitive unique SKU (ignoring blank SKUs) and a maximum-stock check that tracks the minimum, suppliers add a case-insensitive unique active company name plus one account per supplier and per user, and restock requests enforce one line per item with a constrained status set.
 
 `scripts/seed-admin.ts` creates the initial administrator from `INITIAL_ADMIN_*` variables and is safe to rerun for the same administrator email. `scripts/seed-demo.ts` is the local Sprint 2 replacement seed: it runs in one transaction, preserves administrator accounts, removes existing local business/demo records, and loads the current supplier, inventory, restock, customer, booking, and transaction showcase records. Rerunning it is deterministic but intentionally destructive to non-administrator local data; do not run it against production data.
 
@@ -359,8 +373,9 @@ Zod schemas live under `server/schemas/`:
 
 - `user.schema.ts` validates login, staff account creation/update, and lifecycle actions.
 - `sprint.schema.ts` validates barber, inventory, booking, customer signup, and customer profile input.
+- `sprint2.schema.ts` validates supplier records, supplier accounts, inventory metadata/create/movement payloads, and restock create/status/receive payloads.
 
-Schemas are strict, reject unknown fields, enforce bounds and enum values, and are applied before service/database work. `requireAdministrator`, `requireStaff`, and `requireRoles` resolve the current session and return `401` or `403` responses before protected operations run. Account lifecycle changes use transactions and a PostgreSQL advisory lock to keep the last administrator rule safe under concurrent requests.
+Schemas are strict, reject unknown fields, enforce bounds and enum values, and are applied before service/database work. `requireAdministrator`, `requireManagement`, `requireStaff`, `requireSupplier`, and `requireRoles` resolve the current session and return `401` or `403` responses before protected operations run. Account lifecycle changes use transactions and a PostgreSQL advisory lock to keep the last administrator rule safe under concurrent requests.
 
 The browser does not send an admin token. Private credentials, database URLs, and seed passwords must remain server-only and must not use a `NEXT_PUBLIC_` prefix.
 
@@ -433,8 +448,8 @@ For Next.js-specific changes, read the repository guidance in `barracks-pwa/AGEN
 
 The sprint backend is intentionally partial. The main remaining seams are:
 
-- Out-of-scope modules such as payments, services, reports, and settings still need their own rendered screens and backend workflows. Queue has a rendered operational screen, but still needs a backend workflow.
-- The API does not yet cover queue, payments, settings, or complete visit history. Transaction persistence exists for the Sprint 2 relational foundation, while the older payment/report screens still need to be connected to it.
+- Out-of-scope modules such as payments, services, and settings still need their own rendered screens and backend workflows. Queue has a rendered operational screen, but still needs a backend workflow.
+- The API does not yet cover queue, payments, settings, services, or complete visit history. Inventory reporting is implemented, while transaction persistence exists only as the Sprint 2 relational foundation and the older payment, service, and general report prototypes still need to be connected to it.
 - Account password reset/invitation flows, MFA, rate limiting, and audit history are not implemented. Account deactivation is a soft delete; the account row is retained and its sessions are revoked.
 - Dashboard and customer/barber summaries cover the sprint entities but do not yet form a complete reporting model.
 - Inventory movements and restock receiving are transactional and auditable; broader stock-use workflows and concurrency coverage remain to be expanded.

@@ -95,6 +95,7 @@ The second seeded supplier account is `demo.supplier.marco@barracks.local` with 
 13. Sign out and sign in as the demo Customer to show the unified customer account dashboard, including profile details and appointments.
 14. Open **Book**, choose a service, barber, date, and time, then confirm the appointment.
 15. Sign back in as Front Desk and open **Bookings** to see the saved appointment and mark it completed or cancelled.
+16. Sign out and sign in as the demo Supplier to show the supplier portal: the linked profile, supplied items, open restock requests, and delivery history. Suppliers can only advance their own requests from Pending through Accepted, Preparing, and Shipped — receiving stays with staff.
 
 ## Seeded showcase data
 
