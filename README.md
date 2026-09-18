@@ -92,6 +92,8 @@ Dark mode remains the default for operational surfaces. The existing light-mode 
 
 Shared components should consume semantic aliases such as `--ink`, `--surface`, `--text`, `--line`, and the status tokens rather than introducing local hex values. Every status must also have a readable text label and must not rely on color alone. Internal operational modules use the shared hybrid primitives in `barracks-pwa/app/components/operations/OperationalPrimitives.tsx` for card/list toggles, filter toolbars, responsive tables, action menus, status badges, and accessible right-side detail drawers that become full-screen mobile sheets.
 
+The inventory item drawer and the shared detail drawer mirror the app sidebar collapse: the panel slides in from the right edge and back out over 240ms with the `ease` curve, the scrim fades over the same timing, the drawer holds its populated content while sliding back out, and it stops accepting input as soon as the close begins. `barracks-pwa/app/hooks/useDrawerPresence.ts` keeps a closing drawer mounted until the exit transition finishes and publishes `entering`, `entered`, and `exiting` as `data-state` on the drawer layer, which the drawer rules in `app/globals.css` animate from. Like the sidebar, drawer movement is not suppressed by `prefers-reduced-motion`; the dashboard entrance effects still are.
+
 ### Typography
 
 - `Libre Baskerville` is the display face for public editorial headings and meaningful identity moments.

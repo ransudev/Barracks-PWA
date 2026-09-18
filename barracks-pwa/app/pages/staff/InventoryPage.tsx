@@ -16,6 +16,7 @@ import {
 } from "react";
 import type { ApiInventoryItem, ApiSupplier } from "@/app/lib/api";
 import { apiRequest, readApiBody } from "@/app/lib/api";
+import { useDrawerPresence } from "@/app/hooks/useDrawerPresence";
 import { downloadCsv } from "@/app/utils/download";
 import { formatCurrency } from "@/app/utils/format";
 import {
@@ -309,6 +310,7 @@ function LoadingCards() {
 }
 
 function InventoryDrawer({
+  open,
   item,
   form,
   editing,
@@ -331,6 +333,7 @@ function InventoryDrawer({
   onHistory,
   onDeactivate,
 }: {
+  open: boolean;
   item: ApiInventoryItem;
   form: ItemForm;
   editing: boolean;
@@ -356,10 +359,12 @@ function InventoryDrawer({
   const drawerRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const onRequestCloseRef = useRef(onRequestClose);
+  const { mounted, phase } = useDrawerPresence(open);
 
   useEffect(() => { onRequestCloseRef.current = onRequestClose; }, [onRequestClose]);
 
   useEffect(() => {
+    if (!mounted) return;
     const drawer = drawerRef.current;
     if (!drawer) return;
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -379,12 +384,14 @@ function InventoryDrawer({
     const frame = window.requestAnimationFrame(() => closeRef.current?.focus());
     document.addEventListener("keydown", handleKeyDown);
     return () => { window.cancelAnimationFrame(frame); document.removeEventListener("keydown", handleKeyDown); document.body.style.overflow = previousOverflow; previousFocus?.focus(); };
-  }, []);
+  }, [mounted]);
 
   const disabledActions = item.status === "inactive";
 
+  if (!mounted) return null;
+
   return (
-    <div className="inventory-drawer-layer" role="presentation">
+    <div className="inventory-drawer-layer" role="presentation" data-state={phase}>
       <button className="inventory-drawer-scrim" type="button" aria-label="Close item details" onClick={onRequestClose} />
       <aside className="inventory-drawer" ref={drawerRef} role="dialog" aria-modal="true" aria-labelledby="inventory-drawer-title">
         <header className="inventory-drawer__header"><div><span className="inventory-kicker">Inventory item</span><h2 id="inventory-drawer-title">{item.name}</h2><p>{item.category} · {item.branch}</p></div><button ref={closeRef} className="icon-button" type="button" aria-label="Close item details" title="Close item details" onClick={onRequestClose}><Icon name="x" size={18} /></button></header>
@@ -425,6 +432,7 @@ export function InventoryPage({ onToast, admin = false, canDelete }: { onToast: 
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [drawerItem, setDrawerItem] = useState<ApiInventoryItem | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerForm, setDrawerForm] = useState<ItemForm>(emptyForm);
   const [drawerEditing, setDrawerEditing] = useState(false);
   const [drawerSaving, setDrawerSaving] = useState(false);
@@ -509,9 +517,9 @@ export function InventoryPage({ onToast, admin = false, canDelete }: { onToast: 
 
   function openCreate() { setForm(emptyForm); setFormError(""); setModalOpen(true); }
   function closeEditor() { if (!submitting) { setModalOpen(false); setFormError(""); } }
-  function openDrawer(item: ApiInventoryItem) { setDrawerItem(item); setDrawerForm(formFromItem(item)); setDrawerEditing(false); setDrawerClosePrompt(false); setDrawerHistory([]); void loadDrawerHistory(item); }
-  function requestDrawerClose() { if (drawerSaving) return; if (drawerDirty) setDrawerClosePrompt(true); else { setDrawerItem(null); setDrawerEditing(false); } }
-  function confirmDrawerClose() { setDrawerClosePrompt(false); setDrawerItem(null); setDrawerEditing(false); }
+  function openDrawer(item: ApiInventoryItem) { setDrawerItem(item); setDrawerOpen(true); setDrawerForm(formFromItem(item)); setDrawerEditing(false); setDrawerClosePrompt(false); setDrawerHistory([]); void loadDrawerHistory(item); }
+  function requestDrawerClose() { if (drawerSaving) return; if (drawerDirty) setDrawerClosePrompt(true); else { setDrawerOpen(false); setDrawerEditing(false); } }
+  function confirmDrawerClose() { setDrawerClosePrompt(false); setDrawerOpen(false); setDrawerEditing(false); }
 
   async function loadDrawerHistory(item: ApiInventoryItem) {
     setDrawerHistoryLoading(true);
@@ -597,7 +605,7 @@ export function InventoryPage({ onToast, admin = false, canDelete }: { onToast: 
       const response = await apiRequest(`/api/inventory/${item.id}`, { method: "DELETE" });
       const body = await readApiBody<{ success: boolean; message?: string }>(response);
       if (!response.ok || !body?.success) throw new Error(body?.message ?? "Unable to deactivate inventory item");
-      setPendingDelete(null); if (drawerItem?.id === item.id) setDrawerItem(null); onToast(`${item.name} deactivated`); await loadInventory();
+      setPendingDelete(null); if (drawerItem?.id === item.id) setDrawerOpen(false); onToast(`${item.name} deactivated`); await loadInventory();
     } catch (error) { onToast(error instanceof Error ? error.message : "Unable to deactivate inventory item"); }
     finally { setDeleting(false); }
   }
@@ -621,7 +629,7 @@ export function InventoryPage({ onToast, admin = false, canDelete }: { onToast: 
 
       <Modal open={modalOpen} title="Add inventory item" description="Create a trackable item for the selected branch." onClose={closeEditor}><form className="modal-form" onSubmit={saveItem}><TextField label="Item name" required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /><ItemPhotoField value={form.imageUrl} disabled={submitting} onChange={(imageUrl) => setForm({ ...form, imageUrl })} /><div className="form-grid form-grid--three"><SelectField label="Category" required value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value as ItemForm["category"] })}><option>Supplies</option><option>Equipment</option><option>Products</option></SelectField><TextField label="Branch" required value={form.branch} onChange={(event) => setForm({ ...form, branch: event.target.value })} placeholder="Main Branch" /><TextField label="Unit" required value={form.unit} onChange={(event) => setForm({ ...form, unit: event.target.value })} /></div><TextField label="SKU" value={form.sku} onChange={(event) => setForm({ ...form, sku: event.target.value })} /><SelectField label="Supplier" value={form.supplierId} onChange={(event) => setForm({ ...form, supplierId: event.target.value })}><option value="">No supplier</option>{suppliers.filter((supplier) => supplier.status === "active").map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.companyName}</option>)}</SelectField><div className="form-grid form-grid--three"><TextField label="Initial quantity" required type="number" min="0" step="1" value={form.initialQuantity} onChange={(event) => setForm({ ...form, initialQuantity: event.target.value })} /><TextField label="Minimum stock" required type="number" min="0" step="1" value={form.minimumStock} onChange={(event) => setForm({ ...form, minimumStock: event.target.value })} /><TextField label="Maximum stock" type="number" min="0" step="1" value={form.maximumStock} onChange={(event) => setForm({ ...form, maximumStock: event.target.value })} /></div><div className="form-grid"><TextField label="Unit cost" required type="number" min="0" step="0.01" value={form.unitCost} onChange={(event) => setForm({ ...form, unitCost: event.target.value })} /><SelectField label="Status" value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as ItemForm["status"] })}><option value="active">Active</option><option value="inactive">Inactive</option></SelectField></div>{formError && <p className="form-error" role="alert">{formError}</p>}<div className="modal-actions"><Button variant="secondary" type="button" disabled={submitting} onClick={closeEditor}>Cancel</Button><Button type="submit" icon="check" disabled={submitting}>{submitting ? "Saving…" : "Save item"}</Button></div></form></Modal>
 
-      {drawerItem && <InventoryDrawer item={drawerItem} form={drawerForm} editing={drawerEditing} dirty={drawerDirty} canDelete={canDelete} saving={drawerSaving} history={drawerHistory} historyLoading={drawerHistoryLoading} suppliers={suppliers} onRequestClose={requestDrawerClose} onEdit={() => setDrawerEditing(true)} onFormChange={(field, value) => setDrawerForm((current) => ({ ...current, [field]: value }))} onSave={saveDrawerItem} onCancelEdit={() => { setDrawerForm(formFromItem(drawerItem)); setDrawerEditing(false); }} onReceive={() => openMovement(drawerItem, "RECEIVE")} onUsage={() => openMovement(drawerItem, "STAFF_USAGE")} onAdjust={() => openMovement(drawerItem, "ADJUSTMENT")} onDamage={() => openMovement(drawerItem, "DAMAGE")} onRestock={() => openRestock(drawerItem)} onHistory={() => void openHistory(drawerItem)} onDeactivate={() => setPendingDelete(drawerItem)} />}
+      {drawerItem && <InventoryDrawer open={drawerOpen} item={drawerItem} form={drawerForm} editing={drawerEditing} dirty={drawerDirty} canDelete={canDelete} saving={drawerSaving} history={drawerHistory} historyLoading={drawerHistoryLoading} suppliers={suppliers} onRequestClose={requestDrawerClose} onEdit={() => setDrawerEditing(true)} onFormChange={(field, value) => setDrawerForm((current) => ({ ...current, [field]: value }))} onSave={saveDrawerItem} onCancelEdit={() => { setDrawerForm(formFromItem(drawerItem)); setDrawerEditing(false); }} onReceive={() => openMovement(drawerItem, "RECEIVE")} onUsage={() => openMovement(drawerItem, "STAFF_USAGE")} onAdjust={() => openMovement(drawerItem, "ADJUSTMENT")} onDamage={() => openMovement(drawerItem, "DAMAGE")} onRestock={() => openRestock(drawerItem)} onHistory={() => void openHistory(drawerItem)} onDeactivate={() => setPendingDelete(drawerItem)} />}
 
       <Modal open={Boolean(movementItem)} title={movementItem ? `Stock operation · ${movementItem.name}` : "Stock operation"} onClose={() => !movementSubmitting && setMovementItem(null)}><form className="modal-form" onSubmit={submitMovement}><SelectField label="Operation" value={movementForm.movementType} onChange={(event) => setMovementForm({ ...movementForm, movementType: event.target.value as MovementType })}><option value="RECEIVE">Receive stock</option>{(movementItem?.category === "Products" || movementItem?.category === "Supplies") && <option value="CUSTOMER_PURCHASE">Sold to customer</option>}{(movementItem?.category === "Products" || movementItem?.category === "Supplies") && <option value="STAFF_USAGE">Used by barber</option>}<option value="DAMAGE">Damaged stock</option><option value="DISCARD">Discard stock</option><option value="RETURN">Return stock</option><option value="ADJUSTMENT">Manual adjustment</option></SelectField><TextField required label="Quantity" type="number" min="1" step="1" value={movementForm.quantity} onChange={(event) => setMovementForm({ ...movementForm, quantity: event.target.value })} />{movementForm.movementType === "ADJUSTMENT" && <SelectField label="Adjustment direction" value={movementForm.adjustmentDirection} onChange={(event) => setMovementForm({ ...movementForm, adjustmentDirection: event.target.value as MovementForm["adjustmentDirection"] })}><option value="increase">Increase</option><option value="decrease">Decrease</option></SelectField>}{(movementForm.movementType === "RECEIVE" || movementForm.movementType === "RETURN") && <TextField label="Unit cost" type="number" min="0" step="0.01" value={movementForm.unitCost} onChange={(event) => setMovementForm({ ...movementForm, unitCost: event.target.value })} />}<TextField label="Reference" value={movementForm.reference} onChange={(event) => setMovementForm({ ...movementForm, reference: event.target.value })} placeholder="PO, delivery receipt, sale or service ref" /><TextField label={movementForm.movementType === "ADJUSTMENT" ? "Reason" : "Notes"} required={movementForm.movementType === "ADJUSTMENT"} value={movementForm.notes} onChange={(event) => setMovementForm({ ...movementForm, notes: event.target.value })} placeholder={movementForm.movementType === "STAFF_USAGE" ? "Barber, service, or purpose" : movementForm.movementType === "CUSTOMER_PURCHASE" ? "Sale or receipt reference" : undefined} />{movementError && <p className="form-error" role="alert">{movementError}</p>}<div className="modal-actions"><Button variant="secondary" type="button" disabled={movementSubmitting} onClick={() => setMovementItem(null)}>Cancel</Button><Button type="submit" disabled={movementSubmitting}>{movementSubmitting ? "Recording…" : "Record operation"}</Button></div></form></Modal>
 

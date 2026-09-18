@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Badge, Button, SearchInput } from "@/app/components/ui";
 import { Icon, type IconName } from "@/app/components/ui/icons";
+import { useDrawerPresence } from "@/app/hooks/useDrawerPresence";
 
 export type OperationalViewMode = "cards" | "table";
 
@@ -185,7 +186,21 @@ export function DetailDrawer({
   const onCloseRef = useRef(onClose);
   const titleId = useId();
   const [confirmDiscard, setConfirmDiscard] = useState(false);
-  const closeLabel = title.toLowerCase().endsWith("details") ? `Close ${title}` : `Close ${title} details`;
+  const { mounted, phase } = useDrawerPresence(open);
+
+  // Every consumer clears its selected record the moment the drawer closes, so
+  // hold the last populated content to give the exit transition something to
+  // animate out instead of emptying first.
+  const lastContent = useRef({ title, subtitle, eyebrow, children, footer });
+  useEffect(() => {
+    if (open) lastContent.current = { title, subtitle, eyebrow, children, footer };
+  });
+  // Reading the cache during render is deliberate: it is the only way a drawer
+  // that every consumer empties on close can still animate out with its content.
+  // eslint-disable-next-line react-hooks/refs
+  const cached = lastContent.current;
+  const content = phase === "exiting" ? cached : { title, subtitle, eyebrow, children, footer };
+  const closeLabel = content.title.toLowerCase().endsWith("details") ? `Close ${content.title}` : `Close ${content.title} details`;
 
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
 
@@ -222,7 +237,7 @@ export function DetailDrawer({
     };
   }, [dirty, open]);
 
-  if (!open) return null;
+  if (!mounted) return null;
 
   function requestClose() {
     if (dirty) setConfirmDiscard(true); else onClose();
@@ -235,16 +250,16 @@ export function DetailDrawer({
   }
 
   return (
-    <div className="operational-drawer-layer" role="presentation">
+    <div className="operational-drawer-layer" role="presentation" data-state={phase}>
       <button className="operational-drawer-scrim" type="button" aria-label={closeLabel} onClick={requestClose} />
       <aside ref={drawerRef} className="operational-drawer" role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <header className="operational-drawer__header">
-          <div><span className="inventory-kicker">{eyebrow}</span><h2 id={titleId}>{title}</h2>{subtitle && <p>{subtitle}</p>}</div>
+          <div><span className="inventory-kicker">{content.eyebrow}</span><h2 id={titleId}>{content.title}</h2>{content.subtitle && <p>{content.subtitle}</p>}</div>
           <button ref={closeRef} className="icon-button" type="button" aria-label={closeLabel} title="Close details" onClick={requestClose}><Icon name="x" size={18} /></button>
         </header>
-        <div className="operational-drawer__body">{children}</div>
+        <div className="operational-drawer__body">{content.children}</div>
         {confirmDiscard && <div className="operational-drawer__unsaved" role="alert"><div><strong>Discard unsaved changes?</strong><span>Your edits will be lost.</span></div><div><Button size="sm" variant="ghost" type="button" onClick={() => setConfirmDiscard(false)}>Keep editing</Button><Button size="sm" variant="danger" type="button" onClick={discardChanges}>Discard</Button></div></div>}
-        {footer && <footer className="operational-drawer__footer">{footer}</footer>}
+        {content.footer && <footer className="operational-drawer__footer">{content.footer}</footer>}
       </aside>
     </div>
   );
