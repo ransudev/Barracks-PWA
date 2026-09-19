@@ -107,13 +107,20 @@ export const bookingEditSchema = z
   })
   .strict();
 
+export const customerBookingEditSchema = bookingEditSchema.omit({ customerId: true }).strict();
+
+const phoneSchema = z
+  .string()
+  .trim()
+  .max(11, "Phone number cannot exceed 11 characters");
+
 export const customerSignupSchema = z
   .object({
     firstName: z.string().trim().min(1, "First name is required").max(100),
     lastName: z.string().trim().min(1, "Last name is required").max(100),
     email: z.string().trim().toLowerCase().email("Enter a valid email address").max(320),
     password: z.string().min(8, "Password must be at least 8 characters").max(128),
-    phone: z.string().trim().max(40).default(""),
+    phone: phoneSchema.default(""),
     preferredBarberId: z.number().int().positive().nullable().default(null),
   })
   .strict();
@@ -123,7 +130,7 @@ export const customerProfileSchema = z
     firstName: z.string().trim().min(1, "First name is required").max(100),
     lastName: z.string().trim().min(1, "Last name is required").max(100),
     email: z.string().trim().toLowerCase().email("Enter a valid email address").max(320),
-    phone: z.string().trim().max(40),
+    phone: phoneSchema,
     preferredBarberId: z.number().int().positive().nullable(),
     loyaltyPoints: loyaltyPointsSchema.optional(),
   })
@@ -138,5 +145,6 @@ export type InventoryItemInput = z.infer<typeof inventoryItemSchema>;
 export type BookingCreateInput = z.infer<typeof bookingCreateSchema>;
 export type BookingUpdateInput = z.infer<typeof bookingUpdateSchema>;
 export type BookingEditInput = z.infer<typeof bookingEditSchema>;
+export type CustomerBookingEditInput = z.infer<typeof customerBookingEditSchema>;
 export type CustomerSignupInput = z.infer<typeof customerSignupSchema>;
 export type CustomerProfileInput = z.infer<typeof customerProfileSchema>;

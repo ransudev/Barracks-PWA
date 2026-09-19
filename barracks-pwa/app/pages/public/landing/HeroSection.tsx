@@ -7,8 +7,8 @@ import type { ViewId } from "@/app/types/domain";
 
 export function HeroSection({ go }: { go: (view: ViewId) => void }) {
   return (
-    <section className="hero-gogrin" id="home" style={{ position: "relative", overflow: "hidden" }}>
-      <div className="hero-gogrin__bg" style={{ position: "absolute", inset: 0 }}>
+    <section className="hero-gogrin" id="home">
+      <div className="hero-gogrin__bg">
         <Image
           src={landingEditorialImages.hero}
           alt="Barracks barber styling a client at Bajada HQ"
@@ -20,23 +20,27 @@ export function HeroSection({ go }: { go: (view: ViewId) => void }) {
       <div className="hero-gogrin__overlay" />
 
       <div className="hero-gogrin__content">
-        <div className="barbershop-crest">
-          <div className="barbershop-crest__icon">
+        <div className="hero-kicker">
+          <span className="hero-kicker__rule" />
+          <div className="hero-kicker__icon">
             <Image
               src="/barracks/tab-icon.png"
               alt=""
-              width={34}
-              height={34}
-              className="barbershop-crest__mark"
+              width={42}
+              height={42}
+              className="hero-kicker__mark"
             />
           </div>
-          <span className="barbershop-crest__badge">EST. 2017 · HOMEGROWN IN DAVAO</span>
-          <span className="barbershop-crest__meta">Davao&apos;s Premier Barber Café &amp; Grooming HQ</span>
+          <span className="hero-kicker__label">Est. 2017 · Homegrown in Davao</span>
+          <span className="hero-kicker__rule" />
         </div>
+        <p className="hero-gogrin__eyebrow">Davao&apos;s premier barber café &amp; grooming HQ</p>
 
         <h1>
-          GIVING A MODERN TWIST<br />
-          <span className="accent-crimson">TO A TRADITIONAL BARBERSHOP.</span>
+          <span>Giving a modern</span>
+          <span>twist</span>
+          <span className="accent-crimson">to a traditional</span>
+          <span className="accent-crimson">barbershop.</span>
         </h1>
 
         <p className="hero-gogrin__lead">
@@ -61,10 +65,11 @@ export function HeroSection({ go }: { go: (view: ViewId) => void }) {
         </div>
       </div>
 
-      <div className="hero-dots" aria-hidden="true">
-        <span className="hero-dot is-active" />
-        <span className="hero-dot" />
-        <span className="hero-dot" />
+      <div className="hero-footline" aria-hidden="true">
+        <span>More than a haircut</span>
+        <span className="hero-footline__rule" />
+        <span>Davao City <b>×</b> Est. 2017</span>
+        <span className="hero-footline__rule hero-footline__rule--short" />
       </div>
     </section>
   );

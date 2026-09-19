@@ -954,6 +954,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .customer-booking-list { display: flex; flex-direction: column; padding: 0 22px 18px; }
 .customer-booking-card { align-items: center; display: flex; justify-content: space-between; gap: 14px; min-width: 0; padding: 13px 0; border-top: 1px solid var(--line); }
 .customer-booking-card > div { min-width: 0; }
+.customer-booking-card__content { flex: 1; }
+.customer-booking-card__actions { align-items: center; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .customer-booking-card strong, .customer-booking-card span, .customer-booking-card small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .customer-booking-card strong { color: var(--text); font-size: 12px; }
 .customer-booking-card span { margin-top: 4px; color: var(--text-soft); font-size: 11px; }
@@ -1746,3 +1748,21 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .inventory-drawer-layer[data-state="exiting"] .inventory-drawer-scrim,
 .operational-drawer-layer[data-state="exiting"] .operational-drawer,
 .operational-drawer-layer[data-state="exiting"] .operational-drawer-scrim { pointer-events: none; }
+
+/* Promote the animating properties to their own compositor layers only while a
+   transition is actually running; a settled drawer keeps no spare layer alive. */
+.inventory-drawer-layer[data-state="entering"] .inventory-drawer,
+.inventory-drawer-layer[data-state="exiting"] .inventory-drawer,
+.operational-drawer-layer[data-state="entering"] .operational-drawer,
+.operational-drawer-layer[data-state="exiting"] .operational-drawer { will-change: transform; }
+.inventory-drawer-layer[data-state="entering"] .inventory-drawer-scrim,
+.inventory-drawer-layer[data-state="exiting"] .inventory-drawer-scrim,
+.operational-drawer-layer[data-state="entering"] .operational-drawer-scrim,
+.operational-drawer-layer[data-state="exiting"] .operational-drawer-scrim { will-change: opacity; }
+
+/* Reduced motion skips the slide entirely instead of stuttering through it on
+   low-power devices, which is where the transition is most likely to glitch. */
+@media (prefers-reduced-motion: reduce) {
+  .inventory-drawer, .operational-drawer { transition: none; }
+  .inventory-drawer-scrim, .operational-drawer-scrim { transition: none; }
+}

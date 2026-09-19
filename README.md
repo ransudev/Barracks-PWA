@@ -43,7 +43,9 @@ Barracks connects the daily rhythm of a barbershop—bookings, barber availabili
 
 The active `sprint-2` experience includes:
 
-- Public landing page with Barracks branding, service information, branches, contact details, and login/customer-account actions.
+- Public landing page with Barracks branding, service information, branches, contact details, and login/customer-account actions. Its full-bleed hero and craftsmanship collage use original AI-generated editorial imagery from `barracks-pwa/public/barracks/`, with a left-aligned editorial headline, appointment actions, responsive navigation/footer rules, smooth anchor scrolling, scroll-linked image depth, staged section reveals, fully visible responsive service numerals, and compact inline icon labels; the public marketing surface does not reuse real-world shop photography.
+- Customer and supplier phone inputs are capped at 11 characters in the UI and server schemas, with the API enforcing the same limit for signup, profile, customer-management, and supplier-management payloads.
+- Staff management is available to administrators and managers: administrators can create and edit administrator, manager, and front-desk accounts; managers can view manager/front-desk accounts and promote front-desk staff to managers, but cannot create or modify administrator accounts.
 - Customer signup, login, profile details, preferred barber, loyalty points, booking, and appointment history.
 - Staff workspace with a live barber overview dashboard, queue, bookings, customers, barbers, inventory, suppliers, and restocks.
 - Management workspace with dashboard counts, staff account management, barber management, inventory, suppliers, restocks, and inventory reporting.
@@ -62,8 +64,8 @@ There are five account roles:
 
 - `administrator`: can enter Management and Shop floor, manage staff accounts, and access all sprint data.
 - `manager`: can enter Management and Shop floor and manage day-to-day business operations, including customers, barbers, suppliers, inventory, restocks, reports, and bookings. Staff account administration remains administrator-only.
-- `front_desk`: works in Shop floor and can manage customers, barbers, bookings, and inventory. It can create/read/update inventory and barber records, but barber commission rates and ratings are administrator-only. It cannot enter Management, manage user accounts, or delete inventory/barber records.
-- `customer`: can access only their own customer dashboard/profile and booking flow.
+- `front_desk`: works in Shop floor and can manage customers, barbers, bookings, and inventory. It can create/read/update inventory and barber records, but barber commission rates and ratings are administrator-only. It can edit and update booking status for operations, but only administrators and managers can permanently delete bookings. It cannot enter Management, manage user accounts, or delete inventory/barber records.
+- `customer`: can access only their own customer dashboard/profile and booking flow, including editing or cancelling their own upcoming bookings; customers cannot complete or delete bookings.
 - `supplier`: can access the supplier portal for the linked supplier account and its restock requests.
 
 Barbers are business records, not login identities. They do not have accounts or sessions. The migration reassigns legacy `barber` user rows to `front_desk` and removes the obsolete role.
@@ -92,7 +94,7 @@ Dark mode remains the default for operational surfaces. The existing light-mode 
 
 Shared components should consume semantic aliases such as `--ink`, `--surface`, `--text`, `--line`, and the status tokens rather than introducing local hex values. Every status must also have a readable text label and must not rely on color alone. Internal operational modules use the shared hybrid primitives in `barracks-pwa/app/components/operations/OperationalPrimitives.tsx` for card/list toggles, filter toolbars, responsive tables, action menus, status badges, and accessible right-side detail drawers that become full-screen mobile sheets.
 
-The inventory item drawer and the shared detail drawer mirror the app sidebar collapse: the panel slides in from the right edge and back out over 240ms with the `ease` curve, the scrim fades over the same timing, the drawer holds its populated content while sliding back out, and it stops accepting input as soon as the close begins. `barracks-pwa/app/hooks/useDrawerPresence.ts` keeps a closing drawer mounted until the exit transition finishes and publishes `entering`, `entered`, and `exiting` as `data-state` on the drawer layer, which the drawer rules in `app/globals.css` animate from. Like the sidebar, drawer movement is not suppressed by `prefers-reduced-motion`; the dashboard entrance effects still are.
+The inventory item drawer and the shared detail drawer mirror the app sidebar collapse: the panel slides in from the right edge and back out over 240ms with the `ease` curve, the scrim fades over the same timing, the drawer holds its populated content while sliding back out, and it stops accepting input as soon as the close begins. `barracks-pwa/app/hooks/useDrawerPresence.ts` starts even a newly mounted open drawer in `entering`, keeps a closing drawer mounted until the exit transition finishes, and publishes `entering`, `entered`, and `exiting` as `data-state` on the drawer layer, which the drawer rules in `app/globals.css` animate from. Like the sidebar, drawer movement is not suppressed by `prefers-reduced-motion`; the dashboard entrance effects still are.
 
 ### Typography
 
@@ -207,6 +209,7 @@ The current sprint pages use the API for customers, barbers, inventory, supplier
     │   ├── hooks/                     # browser persistence hook for legacy modules
     │   ├── lib/                       # frontend API wrapper and response types
     │   ├── pages/                     # public, auth, customer, supplier, staff, and admin screens
+    │   │   └── public/landing-motion.css # landing-page scroll motion and entrance choreography
     │   ├── types/                     # shared frontend domain types
     │   ├── utils/                     # formatting, CSV download, view helpers, and route mapping
     │   ├── globals.css                # tokens, shared styles, shell, modules, responsive rules
@@ -311,6 +314,7 @@ Inventory state is derived from quantity and the branch-specific minimum stock: 
 - `GET /api/suppliers/:id`, `PUT /api/suppliers/:id`, and `DELETE /api/suppliers/:id` — administrator/manager/front desk; read, edit, and deactivate suppliers.
 - `POST /api/suppliers/:id/account` — administrator only; creates or links one supplier portal account.
 - `GET /api/supplier/me` — supplier only; returns the linked profile, supplied items, deliveries, and restock history.
+- `PATCH /api/supplier/me` — the linked supplier can update its company name, contact person, phone, email, address, and notes; status remains staff-managed.
 - `GET /api/restocks` — administrator/manager/front desk receive staff-visible requests; supplier accounts receive only requests for their active supplier.
 - `POST /api/restocks` — administrator/manager/front desk; creates a branch-scoped request with one or more unique items linked to the selected active supplier and branch. The staff Restocks workspace supports adding, removing, and editing lines.
 - `PATCH /api/restocks/:id/status` — the linked supplier advances Pending → Accepted → Preparing → Shipped.
@@ -318,17 +322,17 @@ Inventory state is derived from quantity and the branch-specific minimum stock: 
 - `POST /api/restocks/:id/receive` — administrator/manager/front desk; receives every line of a delivered request transactionally, rejects duplicate/invalid transitions, updates stock, and writes `RECEIVE` movement records with item, supplier, branch, timestamp, and responsible user.
 - `GET /api/reports/inventory` — administrator/manager; returns valuation, low-stock, supplier-spend, and movement summaries.
 
-The supplier portal is a responsive supplier-specific workspace with a split overview: the supplier profile occupies the left half while linked items, open requests, deliveries, and account status form a 2×2 summary grid on the right. Supplier-facing status actions remain limited to the documented request transition flow. On wider screens, the lower supplied-items panel aligns with the bottom of the combined restock and delivery-history column before returning to natural stacked heights on smaller screens.
+The supplier portal is a responsive supplier-specific workspace with a split overview: a compact clickable supplier profile card sits beside linked-item, open-request, delivery, and account-status metrics. Selecting the profile card opens the shared operational detail drawer for editing supplier details, while the restock and delivery panels preview the newest records and expose full queue/archive drawers when there are more to browse. Restock request and delivery-history rows also open read-focused drawers with status, branch, timestamps, notes, and line-item context. Supplier-facing status actions remain limited to the documented request transition flow. On wider screens, the lower supplied-items panel aligns with the bottom of the combined restock and delivery-history column before returning to natural stacked heights on smaller screens.
 
 ### Bookings
 
 - `GET /api/bookings` — administrator/manager/front desk receive all bookings; customers receive only their own bookings.
 - `POST /api/bookings` — administrator/manager/front desk can select a customer; customers can create only their own booking. The request includes barber, service, date, and time.
-- `PUT /api/bookings/:id` — administrator/manager/front desk can edit an upcoming booking's customer, barber, service, date, and time.
-- `PATCH /api/bookings/:id` — administrator/manager/front desk can mark an upcoming booking `completed` or `cancelled`; completed and cancelled bookings are terminal in Sprint 1.
-- `DELETE /api/bookings/:id` — administrator/manager/front desk can delete an upcoming booking after confirmation. Completed and cancelled historical bookings are retained and return a conflict.
+- `PUT /api/bookings/:id` — administrator/manager/front desk can edit an upcoming booking's customer, barber, service, date, and time; customers can edit only their own upcoming booking and cannot change its customer ownership.
+- `PATCH /api/bookings/:id` — administrator/manager/front desk can mark an upcoming booking `completed` or `cancelled`; customers can cancel only their own upcoming booking. Completed and cancelled bookings are terminal in Sprint 1.
+- `DELETE /api/bookings/:id` — administrator/manager can delete an upcoming booking after confirmation. Front desk and customers must use cancellation, so historical records are retained; completed and cancelled bookings return a conflict.
 
-Booking creation and editing validate the date/time, confirm that the customer and barber exist, resolve the service from the local catalog, and prevent an active duplicate barber/date/time slot with a database constraint. Staff booking cancellation and upcoming-booking deletion use separate explicit confirmation steps. Booking-load failures have an error state and never fall through to “No bookings found.”
+Booking creation and editing validate the date/time, confirm that the customer and barber exist, resolve the service from the local catalog, and prevent an active duplicate barber/date/time slot with a database constraint. Customer booking changes are owner-scoped, staff booking cancellation and customer cancellation use explicit confirmation steps, and only management roles can permanently delete an upcoming booking. Booking-load failures have an error state and never fall through to “No bookings found.”
 
 ## Database and server layer
 
@@ -479,3 +483,5 @@ The recommended evolution is incremental: add URL-backed routes, expand authenti
 Staff and Management workspaces (`.app-shell`) and the Customer Dashboard (`.customer-page--dashboard`) use the Barracks precision-grooming theme from the supplied brand board. Inter is the primary interface typeface, with Sora for dashboard display headings and the explicit fallback stack `Inter, Sora, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`. KPI metrics, prices, dates, timestamps, operational statistics, and table rows enable tabular lining figures (`lnum` + `tnum`) for consistent numeric alignment. Primary actions use Barracks red (`#dc2626`), information and links use cyan (`#0ea5e9`), and text uses cool white (`#e2e8f0`) over near-black (`#0b0d10`) surfaces. The dark dashboard follows a compact command-console style: a deep near-black workspace, visibly raised near-flat panels, crisp low-contrast borders, 6–7px corner radii, minimal shadows, a neutral active-navigation fill, and restrained red/cyan functional accents. The sidebar brand rail and sticky topbar share a 64px header line so their dividers align across the shell. Staff, management, and customer dashboards use a fluid staggered entrance sequence with a soft deceleration curve plus restrained card, icon, arrow, and row hover responses; reduced-motion preferences collapse these effects to an effectively instant state. Existing content, components, and page structure remain unchanged. Light mode maps the same semantic palette onto off-white surfaces. Reduced-transparency preferences remain supported.
 
 Existing dashboard grids, workflows, and semantic status colors remain unchanged. Table rows stay flat for readability. Public landing/marketing styles are isolated in their own stylesheet modules.
+
+The supplier portal shares the staff and management dashboard theme: the same dashboard typography, charcoal/glass panel hierarchy, 7px card treatment, red primary actions, semantic status colors, responsive spacing, and reduced-motion-safe entrance transitions. Its supplier profile, inventory, restock, delivery, and account-security workflows remain backed by the existing API routes.

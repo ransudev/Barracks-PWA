@@ -1,0 +1,267 @@
+/* ==========================================================================
+   MOTION SYSTEM
+   Editorial entrances, scroll reveals, and restrained ambient movement.
+   ========================================================================== */
+
+@keyframes barracks-nav-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes barracks-hero-image-in {
+  from {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes barracks-image-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes barracks-hero-content-in {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes barracks-hero-line-in {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes barracks-rule-draw {
+  from {
+    transform: scaleX(0);
+    transform-origin: left center;
+  }
+
+  to {
+    transform: scaleX(1);
+    transform-origin: left center;
+  }
+}
+
+@keyframes barracks-scroll-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(32px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes barracks-soft-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 5px rgba(5, 7, 8, 0.2), 0 0 26px rgba(220, 38, 38, 0.22);
+  }
+
+  50% {
+    box-shadow: 0 0 0 5px rgba(5, 7, 8, 0.2), 0 0 36px rgba(220, 38, 38, 0.38);
+  }
+}
+
+/* The class is added after hydration, so users with scripting disabled still
+   receive the complete page instead of an invisible one. */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 84px;
+}
+
+.public-site main > section {
+  scroll-margin-top: 84px;
+}
+
+.public-site .public-header {
+  animation: barracks-nav-drop 720ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.public-site .hero-gogrin__bg img {
+  animation: barracks-hero-image-in 1600ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform-origin: center center;
+}
+
+.public-site .hero-gogrin__bg {
+  transform: translate3d(0, var(--hero-parallax, 0px), 0) scale(1.04);
+  transition: transform 90ms linear;
+  will-change: transform;
+}
+
+.public-site .collage-quad__cell img,
+.public-site .services-menu-feature__image,
+.public-site .branches-carousel__media img,
+.public-site .studio-visual-frame img {
+  transform: translate3d(0, var(--scroll-shift, 0px), 0) scale(1.018);
+  transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+
+.public-site .hero-gogrin__bg::after {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 76% 42%, rgba(239, 68, 68, 0.11), transparent 34%);
+  content: "";
+  pointer-events: none;
+}
+
+.public-site .hero-gogrin__overlay {
+  animation: barracks-hero-content-in 1100ms ease-out 120ms both;
+}
+
+.public-site .hero-gogrin__content > * {
+  animation: barracks-hero-content-in 760ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.public-site .hero-gogrin__content > .hero-kicker {
+  animation-delay: 220ms;
+}
+
+.public-site .hero-gogrin__content > .hero-gogrin__eyebrow {
+  animation-delay: 360ms;
+}
+
+.public-site .hero-gogrin__content > h1 {
+  animation-delay: 460ms;
+}
+
+.public-site .hero-gogrin__content > .hero-gogrin__lead {
+  animation-delay: 760ms;
+}
+
+.public-site .hero-gogrin__content > .hero-gogrin__actions {
+  animation-delay: 900ms;
+}
+
+.public-site .hero-gogrin h1 span {
+  opacity: 0;
+  animation: barracks-hero-line-in 720ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.public-site .hero-gogrin h1 span:nth-child(1) {
+  animation-delay: 540ms;
+}
+
+.public-site .hero-gogrin h1 span:nth-child(2) {
+  animation-delay: 620ms;
+}
+
+.public-site .hero-gogrin h1 span:nth-child(3) {
+  animation-delay: 700ms;
+}
+
+.public-site .hero-gogrin h1 span:nth-child(4) {
+  animation-delay: 780ms;
+}
+
+.public-site .hero-kicker__rule {
+  animation: barracks-rule-draw 700ms cubic-bezier(0.16, 1, 0.3, 1) 260ms both;
+}
+
+.public-site .hero-kicker__icon {
+  animation: barracks-soft-pulse 4.5s ease-in-out 1.2s infinite;
+}
+
+.public-site .hero-footline {
+  animation: barracks-hero-content-in 900ms ease-out 1100ms both;
+}
+
+/* Scroll reveal is opt-in after hydration so the no-JS fallback remains
+   readable. Each direct section gets one reveal, then its editorial pieces
+   follow in a small, deliberate cascade. */
+.public-site.motion-ready main > section:not(#home) {
+  opacity: 0;
+  transform: translate3d(0, 52px, 0);
+  will-change: opacity, transform;
+}
+
+.public-site.motion-ready main > section:not(#home).is-visible {
+  animation: barracks-scroll-reveal 820ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.public-site.motion-ready .section-craft.is-visible > *,
+.public-site.motion-ready .section-studio-gogrin.is-visible > *,
+.public-site.motion-ready .section-final-cta-gogrin.is-visible .final-cta-card > *,
+.public-site.motion-ready .section-branches.is-visible .branches-carousel > *,
+.public-site.motion-ready .section-services-provide.is-visible > * {
+  animation: barracks-scroll-reveal 720ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.public-site.motion-ready .section-craft.is-visible > *:nth-child(2),
+.public-site.motion-ready .section-studio-gogrin.is-visible > *:nth-child(2),
+.public-site.motion-ready .section-final-cta-gogrin.is-visible .final-cta-card > *:nth-child(2),
+.public-site.motion-ready .section-branches.is-visible .branches-carousel > *:nth-child(2) {
+  animation-delay: 120ms;
+}
+
+.public-site.motion-ready .section-services-provide.is-visible > .services-menu-mode {
+  animation-delay: 80ms;
+}
+
+.public-site.motion-ready .section-services-provide.is-visible > .services-menu-categories {
+  animation-delay: 140ms;
+}
+
+.public-site.motion-ready .section-services-provide.is-visible > .services-menu-layout {
+  animation-delay: 220ms;
+}
+
+.public-site.motion-ready .section-services-provide.is-visible > .services-menu-footer {
+  animation-delay: 300ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .public-site:not([data-motion="full"]) .public-header,
+  .public-site:not([data-motion="full"]) .hero-gogrin__bg img,
+  .public-site:not([data-motion="full"]) .hero-gogrin__overlay,
+  .public-site:not([data-motion="full"]) .hero-gogrin__content > *,
+  .public-site:not([data-motion="full"]) .hero-gogrin h1 span,
+  .public-site:not([data-motion="full"]) .hero-kicker__rule,
+  .public-site:not([data-motion="full"]) .hero-kicker__icon,
+  .public-site:not([data-motion="full"]) .hero-footline,
+  .public-site:not([data-motion="full"]).motion-ready main > section:not(#home),
+  .public-site:not([data-motion="full"]).motion-ready main > section:not(#home).is-visible,
+  .public-site:not([data-motion="full"]).motion-ready .section-craft.is-visible > *,
+  .public-site:not([data-motion="full"]).motion-ready .section-studio-gogrin.is-visible > *,
+  .public-site:not([data-motion="full"]).motion-ready .section-final-cta-gogrin.is-visible .final-cta-card > *,
+  .public-site:not([data-motion="full"]).motion-ready .section-branches.is-visible .branches-carousel > *,
+  .public-site:not([data-motion="full"]).motion-ready .section-services-provide.is-visible > * {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}

@@ -61,7 +61,7 @@
   font-family: var(--font-body);
   font-size: 14px;
   line-height: 1.6;
-  overflow-x: hidden;
+  overflow-x: clip;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -91,6 +91,26 @@
 
 .public-site .accent-cyan {
   color: var(--color-secondary-bright) !important;
+}
+
+.public-site .barbershop-crest__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  color: var(--color-secondary-bright);
+  font-family: var(--font-headline);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.public-site .barbershop-crest__badge svg {
+  display: block;
+  flex: 0 0 auto;
+  color: var(--color-primary-bright);
 }
 
 /* ==========================================================================

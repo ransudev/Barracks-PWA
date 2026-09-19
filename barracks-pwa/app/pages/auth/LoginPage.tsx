@@ -136,8 +136,8 @@ export function LoginPage({ go, onLogin }: LoginPageProps) {
       <div className="login-page__aside">
         <div className="login-page__aside-bg">
           <Image
-            src="/barracks/bangkal-interior-enhanced.png"
-            alt="Barracks Barbershop interior"
+            src="/barracks/craft-interior-editorial-ai.png"
+            alt="Original cinematic barbershop interior"
             fill
             priority
             sizes="(max-width: 960px) 100vw, 460px"
@@ -298,10 +298,13 @@ export function LoginPage({ go, onLogin }: LoginPageProps) {
               />
               <TextField
                 label="Phone number"
+                type="tel"
+                inputMode="numeric"
+                maxLength={11}
                 value={signupPhone}
                 onChange={(event) => setSignupPhone(event.target.value)}
                 icon="phone"
-                placeholder="+63 917 000 0000"
+                placeholder="09170000000"
               />
               <label className="field">
                 <span className="field__label">Password <span aria-hidden="true">*</span></span>

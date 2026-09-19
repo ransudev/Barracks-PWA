@@ -1136,13 +1136,13 @@
 }
 
 .public-site .services-menu-feature__number {
-  bottom: -11px;
+  bottom: 2px;
   color: rgba(255, 255, 255, 0.86);
   font-family: var(--font-headline);
   font-size: clamp(88px, 10vw, 142px);
   font-weight: 800;
   left: 18px;
-  line-height: 0.8;
+  line-height: 0.86;
   position: absolute;
   user-select: none;
   z-index: 1;

@@ -15,13 +15,16 @@ export const landingContact = {
 };
 
 export const landingEditorialImages = {
-  // Real Barracks photography: the service shots come from the Barracks
-  // booking page, while the interior shots come from Barracks HQ listings.
-  hero: "/barracks/bajada-styling.jpg",
-  heroCollageLeft: "/barracks/bangkal-interior-enhanced.png",
-  heroCollageRight: "/barracks/bajada-interior.jpg",
-  detail: "/barracks/bangkal-interior-enhanced.png",
-  studio: "/barracks/bangkal-interior-enhanced.png",
+  // Original AI-generated editorial imagery keeps the public marketing surface
+  // visually consistent without reusing real-world shop photography.
+  hero: "/barracks/hero-editorial-ai.png",
+  craftCollage: [
+    "/barracks/craft-barber-editorial-ai.png",
+    "/barracks/craft-interior-editorial-ai.png",
+    "/barracks/craft-tools-editorial-ai.png",
+    "/barracks/craft-chair-editorial-ai.png",
+  ],
+  studio: "/barracks/craft-interior-editorial-ai.png",
 };
 
 type LandingMenuPrice = {

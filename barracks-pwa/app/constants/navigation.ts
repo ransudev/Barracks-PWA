@@ -23,7 +23,7 @@ export const adminNavigation: Array<NavigationItem & { icon: IconName }> = [
   { id: "admin-inventory", label: "Inventory", icon: "box" },
 ];
 
-export const managerNavigation = adminNavigation.filter((item) => item.id !== "staff-management");
+export const managerNavigation = adminNavigation;
 
 export const adminViews: ViewId[] = [
   "admin-dashboard",
@@ -37,7 +37,6 @@ export const adminViews: ViewId[] = [
 ];
 
 export const administratorOnlyViews: ViewId[] = [
-  "staff-management",
 ];
 
 export const managementOnlyViews: ViewId[] = adminViews.filter((view) => !administratorOnlyViews.includes(view));

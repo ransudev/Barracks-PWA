@@ -113,6 +113,9 @@ export function AdminSettings({
             />
             <TextField
               label="Phone"
+              type="tel"
+              inputMode="numeric"
+              maxLength={11}
               value={phone}
               onChange={(event) => setPhone(event.target.value)}
             />

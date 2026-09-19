@@ -1,39 +1,42 @@
 import Image from "next/image";
 import { Icon } from "@/app/components/ui/icons";
+import { landingEditorialImages } from "@/app/data/landing";
 
 export function WhyBarracksSection() {
+  const collageImages = landingEditorialImages.craftCollage;
+
   return (
     <section className="section-craft" id="about">
       {/* GoGrin 4-Photo Quadrant Collage */}
       <div className="collage-quad" aria-label="Barracks craftsmanship collage" style={{ position: "relative" }}>
         <div className="collage-quad__cell" style={{ position: "relative", overflow: "hidden" }}>
           <Image
-            src="/barracks/bajada-styling.jpg"
-            alt="Barracks barber precision styling at Bajada HQ"
+            src={collageImages[0]}
+            alt="Barber precision styling in an original Barracks editorial scene"
             fill
             sizes="(max-width: 1024px) 50vw, 240px"
           />
         </div>
         <div className="collage-quad__cell" style={{ position: "relative", overflow: "hidden" }}>
           <Image
-            src="/barracks/bangkal-interior-enhanced.png"
-            alt="Barracks Bangkal HQ interior stations"
+            src={collageImages[1]}
+            alt="Original cinematic barbershop interior"
             fill
             sizes="(max-width: 1024px) 50vw, 240px"
           />
         </div>
         <div className="collage-quad__cell" style={{ position: "relative", overflow: "hidden" }}>
           <Image
-            src="/barracks/lanang-styling.jpg"
-            alt="Barracks Lanang HQ haircut in progress"
+            src={collageImages[2]}
+            alt="Original barber workstation and grooming tools"
             fill
             sizes="(max-width: 1024px) 50vw, 240px"
           />
         </div>
         <div className="collage-quad__cell" style={{ position: "relative", overflow: "hidden" }}>
           <Image
-            src="/barracks/bajada-interior.jpg"
-            alt="Barracks Bajada lounge and heritage chairs"
+            src={collageImages[3]}
+            alt="Original leather barber chair and station detail"
             fill
             sizes="(max-width: 1024px) 50vw, 240px"
           />

@@ -1,5 +1,6 @@
-import { requireAdministratorUser } from "@/server/auth/require-role";
+import { requireManagementUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
+import { canAssignStaffRole, canManageStaffRole } from "@/app/constants/roles";
 import type { PublicUser } from "@/server/services/user.service";
 import {
   findUserById,
@@ -25,14 +26,14 @@ function parseUserId(rawId: string): number | Response {
   return Number(rawId);
 }
 
-async function allowedTarget(administrator: PublicUser, id: number): Promise<PublicUser | Response> {
+async function allowedTarget(manager: PublicUser, id: number): Promise<PublicUser | Response> {
   const target = await findUserById(pool, id);
   if (!target) {
     return Response.json({ success: false, message: "User not found" }, { status: 404 });
   }
-  if (target.role === "administrator" && target.id !== administrator.id) {
+  if (!canManageStaffRole(manager.role, target.role)) {
     return Response.json(
-      { success: false, message: "You cannot view or manage another administrator account" },
+      { success: false, message: "Managers cannot view or manage administrator accounts" },
       { status: 403 },
     );
   }
@@ -43,14 +44,14 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const administrator = await requireAdministratorUser();
-  if (administrator instanceof Response) return administrator;
+  const manager = await requireManagementUser();
+  if (manager instanceof Response) return manager;
 
   const id = parseUserId((await params).id);
   if (id instanceof Response) return id;
 
   try {
-    const target = await allowedTarget(administrator, id);
+    const target = await allowedTarget(manager, id);
     if (target instanceof Response) return target;
     return Response.json({ success: true, user: target });
   } catch (error) {
@@ -63,14 +64,14 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const administrator = await requireAdministratorUser();
-  if (administrator instanceof Response) return administrator;
+  const manager = await requireManagementUser();
+  if (manager instanceof Response) return manager;
 
   const id = parseUserId((await params).id);
   if (id instanceof Response) return id;
 
   try {
-    const target = await allowedTarget(administrator, id);
+    const target = await allowedTarget(manager, id);
     if (target instanceof Response) return target;
 
     const result = await softDeleteUser(pool, id);
@@ -97,8 +98,8 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const administrator = await requireAdministratorUser();
-  if (administrator instanceof Response) return administrator;
+  const manager = await requireManagementUser();
+  if (manager instanceof Response) return manager;
 
   const id = parseUserId((await params).id);
   if (id instanceof Response) return id;
@@ -129,8 +130,15 @@ export async function PUT(
     );
   }
 
+  if (!canAssignStaffRole(manager.role, parsed.data.role)) {
+    return Response.json(
+      { success: false, message: "Managers cannot assign the administrator role" },
+      { status: 403 },
+    );
+  }
+
   try {
-    const target = await allowedTarget(administrator, id);
+    const target = await allowedTarget(manager, id);
     if (target instanceof Response) return target;
 
     const result = await updateStaffUser(pool, id, parsed.data);
@@ -160,8 +168,8 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const administrator = await requireAdministratorUser();
-  if (administrator instanceof Response) return administrator;
+  const manager = await requireManagementUser();
+  if (manager instanceof Response) return manager;
 
   const id = parseUserId((await params).id);
   if (id instanceof Response) return id;
@@ -193,7 +201,7 @@ export async function PATCH(
   }
 
   try {
-    const target = await allowedTarget(administrator, id);
+    const target = await allowedTarget(manager, id);
     if (target instanceof Response) return target;
 
     const result = await updateUserLifecycle(pool, id, parsed.data);

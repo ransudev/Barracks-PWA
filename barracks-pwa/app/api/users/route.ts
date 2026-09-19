@@ -1,5 +1,6 @@
-import { requireAdministratorUser } from "@/server/auth/require-role";
+import { requireManagementUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
+import { canAssignStaffRole } from "@/app/constants/roles";
 import {
   createStaffUserSchema,
   formatValidationErrors,
@@ -9,8 +10,8 @@ import { createUser, listUsers } from "@/server/services/user.service";
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  const administrator = await requireAdministratorUser();
-  if (administrator instanceof Response) return administrator;
+  const manager = await requireManagementUser();
+  if (manager instanceof Response) return manager;
 
   let body: unknown;
 
@@ -37,6 +38,13 @@ export async function POST(request: Request) {
         errors: formatValidationErrors(parsed.error),
       },
       { status: 400 },
+    );
+  }
+
+  if (!canAssignStaffRole(manager.role, parsed.data.role)) {
+    return Response.json(
+      { success: false, message: "Managers cannot create administrator accounts" },
+      { status: 403 },
     );
   }
 
@@ -84,14 +92,14 @@ export async function POST(request: Request) {
 }
 
 export async function GET() {
-  const administrator = await requireAdministratorUser();
-  if (administrator instanceof Response) return administrator;
+  const manager = await requireManagementUser();
+  if (manager instanceof Response) return manager;
 
   try {
     const users = await listUsers(pool);
-    const visibleUsers = users.filter(
-      (user) => user.role !== "administrator" || user.id === administrator.id,
-    );
+    const visibleUsers = manager.role === "administrator"
+      ? users
+      : users.filter((user) => user.role !== "administrator");
     return Response.json({ success: true, users: visibleUsers });
   } catch (error) {
     console.error("Unable to list users", error);

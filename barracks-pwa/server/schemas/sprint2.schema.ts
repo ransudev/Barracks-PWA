@@ -3,20 +3,22 @@ import { z } from "zod";
 const money = z.number().finite().min(0).max(9999999999.99);
 const positiveInt = z.number().int().positive();
 const nonNegativeInt = z.number().int().min(0).max(2147483647);
+const phoneSchema = z.string().trim().max(11, "Phone number cannot exceed 11 characters");
 const optionalEmail = z.string().trim().max(320).refine(
   (value) => !value || z.string().email().safeParse(value).success,
   { message: "Enter a valid email address" },
 );
 
-export const supplierSchema = z.object({
+const supplierDetailsShape = {
   companyName: z.string().trim().min(1).max(180),
   contactPerson: z.string().trim().max(180).default(""),
-  phone: z.string().trim().max(40).default(""),
+  phone: phoneSchema.default(""),
   email: optionalEmail.default(""),
   address: z.string().trim().max(2000).default(""),
   notes: z.string().trim().max(4000).default(""),
-  status: z.enum(["active", "inactive"]).default("active"),
-}).strict().superRefine((data, ctx) => {
+} as const;
+
+function requireSupplierContact(data: { phone: string; email: string }, ctx: z.RefinementCtx) {
   if (!data.phone && !data.email) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
@@ -24,7 +26,16 @@ export const supplierSchema = z.object({
       message: "Provide a phone number or email address",
     });
   }
-});
+}
+
+export const supplierSchema = z.object({
+  ...supplierDetailsShape,
+  status: z.enum(["active", "inactive"]).default("active"),
+}).strict().superRefine(requireSupplierContact);
+
+export const supplierProfileUpdateSchema = z.object(supplierDetailsShape)
+  .strict()
+  .superRefine(requireSupplierContact);
 
 export const supplierAccountSchema = z.object({
   supplierId: positiveInt,

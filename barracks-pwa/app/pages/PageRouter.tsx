@@ -25,7 +25,7 @@ export function PageRouter({ view, go, onToast, currentUser }: PageRouterProps) 
     case "admin-dashboard":
       return <AdminDashboard go={go} onToast={onToast} currentUser={currentUser} />;
     case "staff-management":
-      return <StaffManagement onToast={onToast} />;
+      return <StaffManagement onToast={onToast} currentUserRole={currentUser.role} />;
     case "admin-suppliers":
       return <SuppliersManagement onToast={onToast} canManageLogins />;
     case "staff-suppliers":
@@ -43,7 +43,7 @@ export function PageRouter({ view, go, onToast, currentUser }: PageRouterProps) 
     case "barbers":
       return <BarbersManagement onToast={onToast} canDelete={currentUser.role === "administrator"} isAdministrator={isManagementRole(currentUser.role)} />;
     case "bookings":
-      return <BookingsPage onToast={onToast} />;
+      return <BookingsPage onToast={onToast} canDelete={isManagementRole(currentUser.role)} />;
     case "queue":
       return <QueuePage onToast={onToast} />;
     case "inventory":

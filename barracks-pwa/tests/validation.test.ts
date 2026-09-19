@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createStaffUserSchema, userLifecycleSchema, updateStaffUserSchema } from "@/server/schemas/user.schema";
-import { barberSchema, barberStaffSchema, bookingEditSchema, bookingUpdateSchema, customerProfileSchema, customerSelfProfileSchema, inventoryItemSchema } from "@/server/schemas/sprint.schema";
-import { receiveRestockSchema, restockCreateSchema } from "@/server/schemas/sprint2.schema";
+import { barberSchema, barberStaffSchema, bookingEditSchema, bookingUpdateSchema, customerBookingEditSchema, customerProfileSchema, customerSelfProfileSchema, customerSignupSchema, inventoryItemSchema } from "@/server/schemas/sprint.schema";
+import { receiveRestockSchema, restockCreateSchema, supplierSchema } from "@/server/schemas/sprint2.schema";
 import { bookingListState } from "@/app/utils/booking-state";
+import { canAssignStaffRole, canManageBooking, canManageStaffRole } from "@/app/constants/roles";
 
 test("staff account schemas are strict and validate lifecycle input", () => {
   const valid = createStaffUserSchema.safeParse({
@@ -117,6 +118,54 @@ test("inventory and barber schemas reject unsafe values", () => {
     preferredBarberId: null,
     loyaltyPoints: 100,
   }).success, false);
+  assert.equal(customerSignupSchema.safeParse({
+    firstName: "Test",
+    lastName: "Customer",
+    email: "customer@example.com",
+    password: "password123",
+    phone: "09000000000",
+    preferredBarberId: null,
+  }).success, true);
+  assert.equal(customerSignupSchema.safeParse({
+    firstName: "Test",
+    lastName: "Customer",
+    email: "customer@example.com",
+    password: "password123",
+    phone: "090000000000",
+    preferredBarberId: null,
+  }).success, false);
+  assert.equal(supplierSchema.safeParse({
+    companyName: "Test Supplier",
+    phone: "09000000000",
+  }).success, true);
+  assert.equal(supplierSchema.safeParse({
+    companyName: "Test Supplier",
+    phone: "090000000000",
+  }).success, false);
+});
+
+test("staff management permissions preserve administrator control and manager elevation", () => {
+  assert.equal(canAssignStaffRole("administrator", "administrator"), true);
+  assert.equal(canAssignStaffRole("manager", "manager"), true);
+  assert.equal(canAssignStaffRole("manager", "front_desk"), true);
+  assert.equal(canAssignStaffRole("manager", "administrator"), false);
+  assert.equal(canManageStaffRole("manager", "front_desk"), true);
+  assert.equal(canManageStaffRole("manager", "manager"), true);
+  assert.equal(canManageStaffRole("manager", "administrator"), false);
+  assert.equal(canManageStaffRole("administrator", "customer"), false);
+  assert.equal(canAssignStaffRole("administrator", "supplier"), false);
+});
+
+test("booking permissions keep customer changes owner-scoped and limit destructive staff actions", () => {
+  assert.equal(canManageBooking("customer", "edit", true), true);
+  assert.equal(canManageBooking("customer", "cancel", true), true);
+  assert.equal(canManageBooking("customer", "edit", false), false);
+  assert.equal(canManageBooking("customer", "complete", true), false);
+  assert.equal(canManageBooking("customer", "delete", true), false);
+  assert.equal(canManageBooking("front_desk", "edit"), true);
+  assert.equal(canManageBooking("front_desk", "cancel"), true);
+  assert.equal(canManageBooking("front_desk", "delete"), false);
+  assert.equal(canManageBooking("manager", "delete"), true);
 });
 
 test("booking schemas keep status transitions terminal and edits explicit", () => {
@@ -136,6 +185,19 @@ test("booking schemas keep status transitions terminal and edits explicit", () =
     barberId: 2,
     serviceId: "barracks-basic",
     date: "2099-02-30",
+    time: "10:00",
+  }).success, false);
+  assert.equal(customerBookingEditSchema.safeParse({
+    barberId: 2,
+    serviceId: "barracks-basic",
+    date: "2099-01-02",
+    time: "10:00",
+  }).success, true);
+  assert.equal(customerBookingEditSchema.safeParse({
+    customerId: 99,
+    barberId: 2,
+    serviceId: "barracks-basic",
+    date: "2099-01-02",
     time: "10:00",
   }).success, false);
 });

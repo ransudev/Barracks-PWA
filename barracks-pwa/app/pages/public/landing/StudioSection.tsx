@@ -18,11 +18,6 @@ export function StudioSection() {
       </div>
 
       <div className="studio-text">
-        <div className="barbershop-crest__badge">
-          <Icon name="spark" size={13} />
-          <span>THE BARBER CAFÉ ATMOSPHERE</span>
-        </div>
-
         <h2>
           THE BARBER CAFÉ EXPERIENCE <br />
           <span className="accent-crimson">IN DAVAO CITY.</span>

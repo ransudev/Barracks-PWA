@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { BookingForm, type BookingFormValue } from "@/app/components/bookings/BookingForm";
 import type { ApiBarberAvailability, ApiBooking, ApiCustomer, ApiUser } from "@/app/lib/api";
 import { apiRequest, readApiBody } from "@/app/lib/api";
 import type { ViewId } from "@/app/types/domain";
+import { services } from "@/app/data/services";
 import {
   Avatar,
   Badge,
   Button,
+  ConfirmDialog,
   EmptyState,
   MetricCard,
   Modal,
@@ -59,6 +62,16 @@ function formatMemberSince(date: string) {
   });
 }
 
+function bookingFormValue(booking: ApiBooking): BookingFormValue {
+  return {
+    customerId: String(booking.customerId),
+    serviceId: booking.serviceId,
+    barberId: String(booking.barberId),
+    date: booking.date,
+    time: booking.time,
+  };
+}
+
 export function CustomerDashboard({
   go,
   onToast,
@@ -83,6 +96,11 @@ export function CustomerDashboard({
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [editingBooking, setEditingBooking] = useState<ApiBooking | null>(null);
+  const [bookingDraft, setBookingDraft] = useState<BookingFormValue | null>(null);
+  const [bookingSaving, setBookingSaving] = useState(false);
+  const [pendingCancellation, setPendingCancellation] = useState<ApiBooking | null>(null);
+  const [cancellingBookingId, setCancellingBookingId] = useState<number | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -152,6 +170,63 @@ export function CustomerDashboard({
     }
   }
 
+  function openBookingEditor(booking: ApiBooking) {
+    setEditingBooking(booking);
+    setBookingDraft(bookingFormValue(booking));
+  }
+
+  async function saveBooking(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingBooking || !bookingDraft) return;
+    setBookingSaving(true);
+
+    try {
+      const response = await apiRequest(`/api/bookings/${editingBooking.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          serviceId: bookingDraft.serviceId,
+          barberId: Number(bookingDraft.barberId),
+          date: bookingDraft.date,
+          time: bookingDraft.time,
+        }),
+      });
+      const body = await readApiBody<{ success: boolean; booking?: ApiBooking; message?: string }>(response);
+      if (!response.ok || !body?.success || !body.booking) {
+        throw new Error(body?.message ?? "Unable to update your appointment");
+      }
+      setBookings((current) => current.map((booking) => booking.id === body.booking!.id ? body.booking! : booking));
+      setEditingBooking(null);
+      setBookingDraft(null);
+      onToast("Appointment updated");
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : "Unable to update your appointment");
+    } finally {
+      setBookingSaving(false);
+    }
+  }
+
+  async function cancelBooking(booking: ApiBooking) {
+    setCancellingBookingId(booking.id);
+
+    try {
+      const response = await apiRequest(`/api/bookings/${booking.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "cancelled" }),
+      });
+      const body = await readApiBody<{ success: boolean; booking?: ApiBooking; message?: string }>(response);
+      if (!response.ok || !body?.success || !body.booking) {
+        throw new Error(body?.message ?? "Unable to cancel your appointment");
+      }
+      setBookings((current) => current.map((item) => item.id === body.booking!.id ? body.booking! : item));
+      setPendingCancellation(null);
+      onToast("Appointment cancelled");
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : "Unable to cancel your appointment");
+    } finally {
+      setCancellingBookingId(null);
+    }
+  }
+
   const name = customer ? `${customer.firstName} ${customer.lastName}` : `${user.firstName} ${user.lastName}`;
   const upcoming = bookings.filter((booking) => booking.status === "upcoming");
   const past = bookings.filter((booking) => booking.status !== "upcoming");
@@ -209,12 +284,16 @@ export function CustomerDashboard({
                     <div className="customer-booking-list">
                       {upcoming.map((booking) => (
                         <div className="customer-booking-card" key={booking.id}>
-                          <div>
+                          <div className="customer-booking-card__content">
                             <strong>{formatDate(booking.date)}</strong>
                             <span>{formatTime(booking.time)} · {booking.serviceName}</span>
                             <small>with {booking.barberName}</small>
                           </div>
-                          <Badge tone="warning">Upcoming</Badge>
+                          <div className="customer-booking-card__actions">
+                            <Badge tone="warning">Upcoming</Badge>
+                            <Button size="sm" variant="secondary" icon="edit" onClick={() => openBookingEditor(booking)}>Manage</Button>
+                            <Button size="sm" variant="danger" onClick={() => setPendingCancellation(booking)}>Cancel</Button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -256,6 +335,38 @@ export function CustomerDashboard({
       </main>
 
       <Modal
+        open={Boolean(editingBooking && bookingDraft)}
+        title="Update your appointment"
+        description="You can adjust your own upcoming appointment. Changes are subject to barber availability."
+        onClose={() => !bookingSaving && setEditingBooking(null)}
+      >
+        {bookingDraft && (
+          <BookingForm
+            value={bookingDraft}
+            services={services}
+            barbers={barbers.filter((barber) => barber.status !== "unavailable")}
+            hideCustomer
+            submitLabel="Save appointment"
+            submitting={bookingSaving}
+            onChange={setBookingDraft}
+            onSubmit={saveBooking}
+            onCancel={() => setEditingBooking(null)}
+          />
+        )}
+      </Modal>
+
+      <ConfirmDialog
+        open={Boolean(pendingCancellation)}
+        title="Cancel this appointment?"
+        description={pendingCancellation ? `${formatDate(pendingCancellation.date)} at ${formatTime(pendingCancellation.time)} will be marked cancelled.` : undefined}
+        confirmLabel="Cancel appointment"
+        danger
+        busy={cancellingBookingId !== null}
+        onClose={() => cancellingBookingId === null && setPendingCancellation(null)}
+        onConfirm={() => pendingCancellation && void cancelBooking(pendingCancellation)}
+      />
+
+      <Modal
         open={editing}
         title="Edit your profile"
         description="Keep your contact details and barber preference up to date."
@@ -267,7 +378,7 @@ export function CustomerDashboard({
             <TextField label="Last name" value={draft.lastName} onChange={(event) => setDraft({ ...draft, lastName: event.target.value })} />
           </div>
           <TextField label="Email address" type="email" value={draft.email} onChange={(event) => setDraft({ ...draft, email: event.target.value })} icon="mail" />
-          <TextField label="Phone number" value={draft.phone} onChange={(event) => setDraft({ ...draft, phone: event.target.value })} icon="phone" />
+          <TextField label="Phone number" type="tel" inputMode="numeric" maxLength={11} value={draft.phone} onChange={(event) => setDraft({ ...draft, phone: event.target.value })} icon="phone" />
           <SelectField label="Preferred barber" value={draft.preferredBarberId} onChange={(event) => setDraft({ ...draft, preferredBarberId: event.target.value })}>
             <option value="">Not set</option>
             {barbers.map((barber) => <option key={barber.id} value={barber.id}>{barber.firstName} {barber.lastName}</option>)}

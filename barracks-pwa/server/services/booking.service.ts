@@ -42,7 +42,7 @@ export type BookingRecord = {
 
 export class BookingServiceError extends Error {
   constructor(
-    public readonly kind: "not_found" | "unavailable" | "conflict" | "past" | "not_updatable" | "not_deletable",
+    public readonly kind: "not_found" | "unavailable" | "conflict" | "past" | "not_updatable" | "not_deletable" | "forbidden",
     message: string,
   ) {
     super(message);
@@ -204,21 +204,27 @@ export async function updateBooking(
   db: Pool,
   id: number,
   input: BookingUpdateInput,
+  scope?: { customerId?: number },
 ): Promise<BookingRecord | null> {
+  const customerScope = scope?.customerId ? " AND customer_id = $3" : "";
+  const values = scope?.customerId ? [input.status, id, scope.customerId] : [input.status, id];
   const result = await db.query<{ id: number }>(
     `
       UPDATE bookings
       SET status = $1, updated_at = NOW()
-      WHERE id = $2 AND status = 'upcoming'
+      WHERE id = $2 AND status = 'upcoming'${customerScope}
       RETURNING id
     `,
-    [input.status, id],
+    values,
   );
   if (!result.rows[0]) {
-    const existing = await db.query<{ id: number; status: BookingRow["status"] }>(
-      "SELECT id, status FROM bookings WHERE id = $1 LIMIT 1",
+    const existing = await db.query<{ id: number; status: BookingRow["status"]; customer_id: number }>(
+      "SELECT id, status, customer_id FROM bookings WHERE id = $1 LIMIT 1",
       [id],
     );
+    if (scope?.customerId && existing.rows[0] && Number(existing.rows[0].customer_id) !== scope.customerId) {
+      throw new BookingServiceError("forbidden", "You can only manage your own bookings");
+    }
     if (existing.rows[0]?.status !== "upcoming") {
       if (existing.rows[0]) {
         throw new BookingServiceError("not_updatable", "Only upcoming bookings can be updated");
@@ -233,6 +239,7 @@ export async function updateBookingDetails(
   db: Pool,
   id: number,
   input: BookingEditInput,
+  scope?: { customerId?: number },
 ): Promise<BookingRecord | null> {
   const slot = new Date(`${input.date}T${input.time}:00+08:00`);
   if (Number.isNaN(slot.getTime()) || slot.getTime() <= Date.now()) {
@@ -271,31 +278,29 @@ export async function updateBookingDetails(
   }
 
   try {
+    const customerScope = scope?.customerId ? " AND customer_id = $9" : "";
+    const values = scope?.customerId
+      ? [input.customerId, input.barberId, service.id, service.name, service.price, input.date, input.time, id, scope.customerId]
+      : [input.customerId, input.barberId, service.id, service.name, service.price, input.date, input.time, id];
     const updated = await db.query<{ id: number }>(
       `
         UPDATE bookings
         SET customer_id = $1, barber_id = $2, service_id = $3, service_name = $4,
             service_price = $5, booking_date = $6, booking_time = $7, updated_at = NOW()
-        WHERE id = $8 AND status = 'upcoming'
+        WHERE id = $8 AND status = 'upcoming'${customerScope}
         RETURNING id
       `,
-      [
-        input.customerId,
-        input.barberId,
-        service.id,
-        service.name,
-        service.price,
-        input.date,
-        input.time,
-        id,
-      ],
+      values,
     );
 
     if (!updated.rows[0]) {
-      const existing = await db.query<{ status: BookingRow["status"] }>(
-        "SELECT status FROM bookings WHERE id = $1 LIMIT 1",
+      const existing = await db.query<{ status: BookingRow["status"]; customer_id: number }>(
+        "SELECT status, customer_id FROM bookings WHERE id = $1 LIMIT 1",
         [id],
       );
+      if (scope?.customerId && existing.rows[0] && Number(existing.rows[0].customer_id) !== scope.customerId) {
+        throw new BookingServiceError("forbidden", "You can only manage your own bookings");
+      }
       if (existing.rows[0]?.status !== "upcoming") {
         if (existing.rows[0]) {
           throw new BookingServiceError("not_updatable", "Only upcoming bookings can be updated");

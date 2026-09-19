@@ -36,7 +36,7 @@ export function CustomerForm({ value, barbers, editing = false, submitting = fal
         <TextField label="Last name" value={value.lastName} required onChange={(event) => onChange({ ...value, lastName: event.target.value })} />
       </div>
       <TextField label="Email address" type="email" value={value.email} required onChange={(event) => onChange({ ...value, email: event.target.value })} icon="mail" />
-      <TextField label="Phone number" value={value.phone} onChange={(event) => onChange({ ...value, phone: event.target.value })} icon="phone" />
+      <TextField label="Phone number" type="tel" inputMode="numeric" maxLength={11} value={value.phone} onChange={(event) => onChange({ ...value, phone: event.target.value })} icon="phone" />
       {!editing && <TextField label="Temporary password" type="password" value={value.password} required minLength={8} onChange={(event) => onChange({ ...value, password: event.target.value })} placeholder="At least 8 characters" icon="lock" />}
       <SelectField label="Preferred barber" value={value.preferredBarberId} onChange={(event) => onChange({ ...value, preferredBarberId: event.target.value })}>
         <option value="">Not set</option>

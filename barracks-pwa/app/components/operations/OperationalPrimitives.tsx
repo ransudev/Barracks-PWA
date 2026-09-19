@@ -7,6 +7,30 @@ import { useDrawerPresence } from "@/app/hooks/useDrawerPresence";
 
 export type OperationalViewMode = "cards" | "table";
 
+let operationalDrawerScrollLocks = 0;
+let operationalDrawerPreviousOverflow = "";
+
+function acquireOperationalDrawerScrollLock() {
+  if (operationalDrawerScrollLocks === 0) {
+    operationalDrawerPreviousOverflow = document.body.style.overflow;
+  }
+  operationalDrawerScrollLocks += 1;
+  document.body.style.overflow = "hidden";
+
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    operationalDrawerScrollLocks = Math.max(0, operationalDrawerScrollLocks - 1);
+    if (operationalDrawerScrollLocks === 0) {
+      document.body.style.overflow = operationalDrawerPreviousOverflow;
+      operationalDrawerPreviousOverflow = "";
+    } else {
+      document.body.style.overflow = "hidden";
+    }
+  };
+}
+
 export function ViewToggle({
   view,
   onChange,
@@ -184,6 +208,8 @@ export function DetailDrawer({
   const drawerRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const onCloseRef = useRef(onClose);
+  const dirtyRef = useRef(dirty);
+  const openRef = useRef(open);
   const titleId = useId();
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const { mounted, phase } = useDrawerPresence(open);
@@ -199,23 +225,23 @@ export function DetailDrawer({
   // that every consumer empties on close can still animate out with its content.
   // eslint-disable-next-line react-hooks/refs
   const cached = lastContent.current;
-  const content = phase === "exiting" ? cached : { title, subtitle, eyebrow, children, footer };
+  const content = !open || phase === "exiting" ? cached : { title, subtitle, eyebrow, children, footer };
   const closeLabel = content.title.toLowerCase().endsWith("details") ? `Close ${content.title}` : `Close ${content.title} details`;
 
-  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+  useEffect(() => { onCloseRef.current = onClose; dirtyRef.current = dirty; openRef.current = open; }, [onClose, dirty, open]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!mounted) return;
     const drawer = drawerRef.current;
     if (!drawer) return;
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const releaseScrollLock = acquireOperationalDrawerScrollLock();
     const focusableSelector = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
     const handleKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        if (dirty) setConfirmDiscard(true); else onCloseRef.current();
+        if (!openRef.current) return;
+        if (dirtyRef.current) setConfirmDiscard(true); else onCloseRef.current();
         return;
       }
       if (event.key !== "Tab") return;
@@ -231,11 +257,15 @@ export function DetailDrawer({
     return () => {
       window.cancelAnimationFrame(frame);
       document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = previousOverflow;
+      releaseScrollLock();
       previousFocus?.focus();
       setConfirmDiscard(false);
     };
-  }, [dirty, open]);
+    // dirty changes rerender the drawer many times per keystroke; reading it
+    // through a ref instead of the dependency array keeps this effect mounted
+    // for the whole drawer session so focus capture and the body scroll lock
+    // are not torn down and reapplied while the user edits.
+  }, [mounted]);
 
   if (!mounted) return null;
 
