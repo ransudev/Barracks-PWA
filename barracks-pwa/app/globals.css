@@ -146,9 +146,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .avatar--xl { width: 76px; height: 76px; font-size: 18px; border-width: 2px; }
 .avatar--blue, .avatar--green, .avatar--violet, .avatar--amber, .avatar--red, .avatar--slate { background: var(--surface-hover); color: var(--text); border-color: var(--line-strong); }
 .metric-card { position: relative; min-width: 0; min-height: 132px; overflow: hidden; padding: 17px 18px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
-.metric-card::before, .metric-card::after { position: absolute; right: 12%; left: 12%; pointer-events: none; content: ""; opacity: 0; transition: opacity .22s ease; }
-.metric-card::before { z-index: 2; bottom: 0; height: 2px; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .82) 18%, rgba(255, 255, 255, .82) 82%, transparent); }
-.metric-card::after { z-index: 1; bottom: -19px; height: 56px; border-radius: 50%; background: radial-gradient(ellipse at center, rgba(194, 62, 62, .42) 0%, rgba(194, 62, 62, .22) 34%, rgba(194, 62, 62, 0) 75%); filter: blur(9px); }
+.metric-card::before, .metric-card::after { position: absolute; right: 6%; left: 6%; pointer-events: none; content: ""; opacity: 0; transition: opacity .22s ease; }
+.metric-card::before { z-index: 2; bottom: 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .82) 11%, rgba(255, 255, 255, .82) 89%, transparent); }
+.metric-card::after { z-index: 1; bottom: -24px; height: 72px; border-radius: 50%; background: radial-gradient(ellipse at center, rgba(194, 62, 62, .42) 0%, rgba(194, 62, 62, .22) 38%, rgba(194, 62, 62, 0) 82%); filter: blur(12px); }
 .metric-card:hover::before, .metric-card:hover::after { opacity: 1; }
 .metric-card > * { position: relative; z-index: 3; }
 .metric-card__top { align-items: center; display: flex; justify-content: space-between; gap: 12px; }
