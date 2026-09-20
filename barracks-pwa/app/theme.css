@@ -143,7 +143,7 @@
   color: #ffffff;
 }
 
-:root[data-theme="light"] .logo-image {
+:root[data-theme="light"] :is(.app-shell, .customer-page, .supplier-portal) .logo-image {
   filter: invert(1);
 }
 
