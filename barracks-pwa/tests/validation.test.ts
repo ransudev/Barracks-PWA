@@ -4,7 +4,7 @@ import { createStaffUserSchema, userLifecycleSchema, updateStaffUserSchema } fro
 import { barberSchema, barberStaffSchema, bookingEditSchema, bookingUpdateSchema, customerBookingEditSchema, customerProfileSchema, customerSelfProfileSchema, customerSignupSchema, inventoryItemSchema } from "@/server/schemas/sprint.schema";
 import { receiveRestockSchema, restockCreateSchema, supplierSchema } from "@/server/schemas/sprint2.schema";
 import { bookingListState } from "@/app/utils/booking-state";
-import { canAssignStaffRole, canManageBooking, canManageStaffRole } from "@/app/constants/roles";
+import { canManageBooking } from "@/app/constants/roles";
 
 test("staff account schemas are strict and validate lifecycle input", () => {
   const valid = createStaffUserSchema.safeParse({
@@ -142,18 +142,6 @@ test("inventory and barber schemas reject unsafe values", () => {
     companyName: "Test Supplier",
     phone: "090000000000",
   }).success, false);
-});
-
-test("staff management permissions preserve administrator control and manager elevation", () => {
-  assert.equal(canAssignStaffRole("administrator", "administrator"), true);
-  assert.equal(canAssignStaffRole("manager", "manager"), true);
-  assert.equal(canAssignStaffRole("manager", "front_desk"), true);
-  assert.equal(canAssignStaffRole("manager", "administrator"), false);
-  assert.equal(canManageStaffRole("manager", "front_desk"), true);
-  assert.equal(canManageStaffRole("manager", "manager"), true);
-  assert.equal(canManageStaffRole("manager", "administrator"), false);
-  assert.equal(canManageStaffRole("administrator", "customer"), false);
-  assert.equal(canAssignStaffRole("administrator", "supplier"), false);
 });
 
 test("booking permissions keep customer changes owner-scoped and limit destructive staff actions", () => {

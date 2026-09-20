@@ -25,7 +25,7 @@ export function PageRouter({ view, go, onToast, currentUser }: PageRouterProps) 
     case "admin-dashboard":
       return <AdminDashboard go={go} onToast={onToast} currentUser={currentUser} />;
     case "staff-management":
-      return <StaffManagement onToast={onToast} currentUserRole={currentUser.role} />;
+      return <StaffManagement onToast={onToast} currentUserId={currentUser.id} currentUserRole={currentUser.role} />;
     case "admin-suppliers":
       return <SuppliersManagement onToast={onToast} canManageLogins />;
     case "staff-suppliers":

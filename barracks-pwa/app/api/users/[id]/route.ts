@@ -1,6 +1,11 @@
 import { requireManagementUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
-import { canAssignStaffRole, canManageStaffRole } from "@/app/constants/roles";
+import {
+  canChangeStaffLifecycle,
+  canDeactivateStaffUser,
+  canUpdateStaffUser,
+  canViewStaffUser,
+} from "@/app/constants/roles";
 import type { PublicUser } from "@/server/services/user.service";
 import {
   findUserById,
@@ -26,16 +31,10 @@ function parseUserId(rawId: string): number | Response {
   return Number(rawId);
 }
 
-async function allowedTarget(manager: PublicUser, id: number): Promise<PublicUser | Response> {
+async function findTarget(id: number): Promise<PublicUser | Response> {
   const target = await findUserById(pool, id);
   if (!target) {
     return Response.json({ success: false, message: "User not found" }, { status: 404 });
-  }
-  if (!canManageStaffRole(manager.role, target.role)) {
-    return Response.json(
-      { success: false, message: "Managers cannot view or manage administrator accounts" },
-      { status: 403 },
-    );
   }
   return target;
 }
@@ -51,8 +50,14 @@ export async function GET(
   if (id instanceof Response) return id;
 
   try {
-    const target = await allowedTarget(manager, id);
+    const target = await findTarget(id);
     if (target instanceof Response) return target;
+    if (!canViewStaffUser(manager.role, target.role)) {
+      return Response.json(
+        { success: false, message: "You do not have permission to view this staff account" },
+        { status: 403 },
+      );
+    }
     return Response.json({ success: true, user: target });
   } catch (error) {
     console.error("Unable to load user", error);
@@ -71,8 +76,14 @@ export async function DELETE(
   if (id instanceof Response) return id;
 
   try {
-    const target = await allowedTarget(manager, id);
+    const target = await findTarget(id);
     if (target instanceof Response) return target;
+    if (!canDeactivateStaffUser(manager.role, target.role, manager.id, target.id)) {
+      return Response.json(
+        { success: false, message: "You do not have permission to deactivate this staff account" },
+        { status: 403 },
+      );
+    }
 
     const result = await softDeleteUser(pool, id);
     if (result.kind === "not_found") {
@@ -130,16 +141,15 @@ export async function PUT(
     );
   }
 
-  if (!canAssignStaffRole(manager.role, parsed.data.role)) {
-    return Response.json(
-      { success: false, message: "Managers cannot assign the administrator role" },
-      { status: 403 },
-    );
-  }
-
   try {
-    const target = await allowedTarget(manager, id);
+    const target = await findTarget(id);
     if (target instanceof Response) return target;
+    if (!canUpdateStaffUser(manager.role, target.role, manager.id, target.id, parsed.data.role)) {
+      return Response.json(
+        { success: false, message: "You do not have permission to update this staff account" },
+        { status: 403 },
+      );
+    }
 
     const result = await updateStaffUser(pool, id, parsed.data);
     if (result.kind === "not_found") {
@@ -201,8 +211,14 @@ export async function PATCH(
   }
 
   try {
-    const target = await allowedTarget(manager, id);
+    const target = await findTarget(id);
     if (target instanceof Response) return target;
+    if (!canChangeStaffLifecycle(manager.role, target.role, manager.id, target.id)) {
+      return Response.json(
+        { success: false, message: "You do not have permission to change this account status" },
+        { status: 403 },
+      );
+    }
 
     const result = await updateUserLifecycle(pool, id, parsed.data);
     if (result.kind === "not_found") {

@@ -45,7 +45,7 @@ The active `sprint-2` experience includes:
 
 - Public landing page with Barracks branding, service information, branches, contact details, and login/customer-account actions. Its full-bleed hero and craftsmanship collage use original AI-generated editorial imagery from `barracks-pwa/public/barracks/`, including the dedicated shaving scene in `hero-shave-editorial.png`, with a left-aligned Barracks lockup, red establishment kicker, appointment/service actions, bottom benefits rail, responsive navigation/footer rules, smooth anchor scrolling, scroll-linked image depth, staged section reveals, fully visible responsive service numerals, and compact inline icon labels; the public marketing surface does not reuse real-world shop photography.
 - Customer and supplier phone inputs are capped at 11 characters in the UI and server schemas, with the API enforcing the same limit for signup, profile, customer-management, and supplier-management payloads.
-- Staff management is available to administrators and managers: administrators can create and edit administrator, manager, and front-desk accounts; managers can view manager/front-desk accounts and promote front-desk staff to managers, but cannot create or modify administrator accounts.
+- Staff management is available to administrators and managers: administrators can create, edit, manage lifecycle, and deactivate staff accounts, but cannot deactivate themselves; managers can view manager/front-desk accounts, but can create, edit, manage lifecycle, and deactivate front-desk accounts only.
 - Customer signup, login, profile details, preferred barber, loyalty points, booking, and appointment history.
 - Staff workspace with a live barber overview dashboard, queue, bookings, customers, barbers, inventory, suppliers, and restocks.
 - Management workspace with dashboard counts, staff account management, barber management, inventory, suppliers, restocks, and inventory reporting.
@@ -63,7 +63,7 @@ Queue management is now rendered as a shop-floor-only client-state module; it ke
 There are five account roles:
 
 - `administrator`: can enter Management and Shop floor, manage staff accounts, and access all sprint data.
-- `manager`: can enter Management and Shop floor and manage day-to-day business operations, including customers, barbers, suppliers, inventory, restocks, reports, and bookings. Staff account administration remains administrator-only.
+- `manager`: can enter Management and Shop floor and manage day-to-day business operations, including customers, barbers, suppliers, inventory, restocks, reports, and bookings. Managers can also create, edit, manage lifecycle, and deactivate front-desk staff accounts only.
 - `front_desk`: works in Shop floor and can manage customers, barbers, bookings, and inventory. It can create/read/update inventory and barber records, but barber commission rates and ratings are administrator-only. It can edit and update booking status for operations, but only administrators and managers can permanently delete bookings. It cannot enter Management, manage user accounts, or delete inventory/barber records.
 - `customer`: can access only their own customer dashboard/profile and booking flow, including editing or cancelling their own upcoming bookings; customers cannot complete or delete bookings.
 - `supplier`: can access the supplier portal for the linked supplier account and its restock requests.
@@ -195,7 +195,7 @@ The current sprint pages use the API for customers, barbers, inventory, supplier
     │   │   ├── restocks/              # restock requests, status, delivery, receiving
     │   │   ├── supplier/              # supplier portal self-service
     │   │   ├── suppliers/             # supplier CRUD and supplier accounts
-    │   │   └── users/                 # administrator-only staff account APIs
+    │   │   └── users/                 # management-role staff account APIs
     │   ├── components/
     │   │   ├── BarracksApp.tsx          # persistent client app and session hydration
     │   │   ├── bookings/              # shared booking form
@@ -270,12 +270,12 @@ All protected routes use the HTTP-only `barracks_session` cookie. JSON errors fo
 
 ### User management
 
-- `GET /api/users` — administrator only; lists public administrator/manager/front-desk account records.
-- `POST /api/users` — administrator only; creates an administrator, manager, or front-desk account.
-- `GET /api/users/:id` — administrator only; reads one public user record, including verification, blocked, and active state.
-- `PUT /api/users/:id` — administrator only; updates identity, email, role, and optionally resets the password.
-- `PATCH /api/users/:id` — administrator only; accepts `verify`, `unverify`, `block`, or `unblock`, revoking sessions whenever access is disabled.
-- `DELETE /api/users/:id` — administrator only; soft-deactivates the account, revokes its sessions, and keeps the database record. The last administrator cannot be disabled, blocked, unverified, or deleted.
+- `GET /api/users` — administrator/manager; lists public staff account records visible to the actor: administrators see administrator/manager/front-desk accounts, while managers see manager/front-desk accounts.
+- `POST /api/users` — administrator/manager; administrators can create administrator, manager, or front-desk accounts; managers can create front-desk accounts only.
+- `GET /api/users/:id` — administrator/manager; reads one visible public staff record, including verification, blocked, and active state. Managers can view manager and front-desk accounts, but can only manage front-desk accounts.
+- `PUT /api/users/:id` — administrator/manager; updates identity, email, role, and optionally resets the password. Managers can edit front-desk accounts only.
+- `PATCH /api/users/:id` — administrator/manager; accepts `verify`, `unverify`, `block`, or `unblock`, revoking sessions whenever access is disabled. Managers can change lifecycle for front-desk accounts only.
+- `DELETE /api/users/:id` — administrator/manager; soft-deactivates a permitted account, revokes its sessions, and keeps the database record. Managers can deactivate front-desk accounts only; administrators cannot deactivate themselves, and the last administrator cannot be disabled, blocked, unverified, or deleted.
 
 New staff accounts start unverified and unblocked. Login rejects unverified, blocked, or deactivated accounts. Account management provides search, role/status filters, a details view, and explicit lifecycle controls; passwords are hashed and never returned.
 

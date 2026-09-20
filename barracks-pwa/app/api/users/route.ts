@@ -1,6 +1,6 @@
 import { requireManagementUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
-import { canAssignStaffRole } from "@/app/constants/roles";
+import { canCreateStaffUser, canViewStaffUser } from "@/app/constants/roles";
 import {
   createStaffUserSchema,
   formatValidationErrors,
@@ -41,9 +41,9 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!canAssignStaffRole(manager.role, parsed.data.role)) {
+  if (!canCreateStaffUser(manager.role, parsed.data.role)) {
     return Response.json(
-      { success: false, message: "Managers cannot create administrator accounts" },
+      { success: false, message: "You do not have permission to create this staff role" },
       { status: 403 },
     );
   }
@@ -97,9 +97,7 @@ export async function GET() {
 
   try {
     const users = await listUsers(pool);
-    const visibleUsers = manager.role === "administrator"
-      ? users
-      : users.filter((user) => user.role !== "administrator");
+    const visibleUsers = users.filter((user) => canViewStaffUser(manager.role, user.role));
     return Response.json({ success: true, users: visibleUsers });
   } catch (error) {
     console.error("Unable to list users", error);

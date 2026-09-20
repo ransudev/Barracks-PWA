@@ -25,12 +25,49 @@ export function isStaffRole(role: string): boolean {
   return role === "administrator" || role === "manager" || role === "front_desk";
 }
 
-export function canManageStaffRole(actorRole: string, targetRole: string): boolean {
-  return isStaffRole(targetRole) && (actorRole === "administrator" || (actorRole === "manager" && targetRole !== "administrator"));
+export function canViewStaffUser(actorRole: string, targetRole: string): boolean {
+  return isStaffRole(targetRole)
+    && (actorRole === "administrator" || (actorRole === "manager" && targetRole !== "administrator"));
 }
 
-export function canAssignStaffRole(actorRole: string, desiredRole: string): boolean {
-  return isStaffRole(desiredRole) && (actorRole === "administrator" || (actorRole === "manager" && desiredRole !== "administrator"));
+export function canCreateStaffUser(actorRole: string, desiredRole: string): boolean {
+  return actorRole === "administrator"
+    ? isStaffRole(desiredRole)
+    : actorRole === "manager" && desiredRole === "front_desk";
+}
+
+export function canUpdateStaffUser(
+  actorRole: string,
+  targetRole: string,
+  actorId: number,
+  targetId: number,
+  desiredRole: string,
+): boolean {
+  if (!isStaffRole(targetRole) || !isStaffRole(desiredRole)) return false;
+  return actorRole === "administrator"
+    || (actorRole === "manager" && actorId !== targetId && targetRole === "front_desk" && desiredRole === "front_desk");
+}
+
+export function canChangeStaffLifecycle(
+  actorRole: string,
+  targetRole: string,
+  actorId: number,
+  targetId: number,
+): boolean {
+  if (!isStaffRole(targetRole)) return false;
+  return actorRole === "administrator"
+    || (actorRole === "manager" && actorId !== targetId && targetRole === "front_desk");
+}
+
+export function canDeactivateStaffUser(
+  actorRole: string,
+  targetRole: string,
+  actorId: number,
+  targetId: number,
+): boolean {
+  if (!isStaffRole(targetRole) || actorId === targetId) return false;
+  return actorRole === "administrator"
+    || (actorRole === "manager" && targetRole === "front_desk");
 }
 
 export function canManageBooking(actorRole: string, action: BookingAction, ownsBooking = false): boolean {
