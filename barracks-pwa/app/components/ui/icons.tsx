@@ -11,6 +11,7 @@ export type IconName =
   | "chart"
   | "briefcase"
   | "scissors"
+  | "coffee"
   | "comb"
   | "razor"
   | "droplet"
@@ -128,6 +129,13 @@ const paths: Record<IconName, ReactNode> = {
       <circle cx="6.5" cy="7" r="2.5" />
       <circle cx="6.5" cy="17" r="2.5" />
       <path d="m8.6 8.4 10.1 10.1M8.6 15.6 18.7 5.5" />
+    </>
+  ),
+  coffee: (
+    <>
+      <path d="M5 9h12v5.5A4.5 4.5 0 0 1 12.5 19h-3A4.5 4.5 0 0 1 5 14.5V9Z" />
+      <path d="M17 11h1.5a2.5 2.5 0 0 1 0 5H17M7 5.5h10M9 3v2.5M13 3v2.5" />
+      <path d="M4 21h16" />
     </>
   ),
   comb: (

@@ -43,7 +43,7 @@ Barracks connects the daily rhythm of a barbershop—bookings, barber availabili
 
 The active `sprint-2` experience includes:
 
-- Public landing page with Barracks branding, service information, branches, contact details, and login/customer-account actions. Its full-bleed hero and craftsmanship collage use original AI-generated editorial imagery from `barracks-pwa/public/barracks/`, with a left-aligned editorial headline, appointment actions, responsive navigation/footer rules, smooth anchor scrolling, scroll-linked image depth, staged section reveals, fully visible responsive service numerals, and compact inline icon labels; the public marketing surface does not reuse real-world shop photography.
+- Public landing page with Barracks branding, service information, branches, contact details, and login/customer-account actions. Its full-bleed hero and craftsmanship collage use original AI-generated editorial imagery from `barracks-pwa/public/barracks/`, including the dedicated shaving scene in `hero-shave-editorial.png`, with a left-aligned Barracks lockup, red establishment kicker, appointment/service actions, bottom benefits rail, responsive navigation/footer rules, smooth anchor scrolling, scroll-linked image depth, staged section reveals, fully visible responsive service numerals, and compact inline icon labels; the public marketing surface does not reuse real-world shop photography.
 - Customer and supplier phone inputs are capped at 11 characters in the UI and server schemas, with the API enforcing the same limit for signup, profile, customer-management, and supplier-management payloads.
 - Staff management is available to administrators and managers: administrators can create and edit administrator, manager, and front-desk accounts; managers can view manager/front-desk accounts and promote front-desk staff to managers, but cannot create or modify administrator accounts.
 - Customer signup, login, profile details, preferred barber, loyalty points, booking, and appointment history.
@@ -98,7 +98,7 @@ The inventory item drawer and the shared detail drawer mirror the app sidebar co
 
 ### Typography
 
-- `Libre Baskerville` is the display face for public editorial headings and meaningful identity moments.
+- The public hero uses the bundled Barracks lockup image for the oversized brand moment, with Sora and Inter retained for navigation, controls, and supporting editorial UI.
 - `Geist` is the body and interface face for navigation, controls, descriptions, and operational content.
 - `Geist Mono` is for times, prices, compact labels, metadata, and other system-like notation.
 - `Inter` is the primary interface face inside the Staff, Management, and Customer dashboards, with `Sora` reserved for dashboard display headings.

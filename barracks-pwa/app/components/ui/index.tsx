@@ -26,6 +26,7 @@ export function Logo({
         alt={onClick ? "" : "Barracks Barbers & Shaves"}
         width={994}
         height={444}
+        priority
         sizes={compact ? "92px" : "120px"}
       />
     </span>

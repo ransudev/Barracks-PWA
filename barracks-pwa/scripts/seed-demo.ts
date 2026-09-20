@@ -1,5 +1,6 @@
 import type { PoolClient } from "pg";
 import { landingProducts, type LandingProduct } from "../app/data/landing";
+import { inventoryImageByKey } from "../app/data/inventory-images";
 import { pool } from "../server/db/pool";
 import { hashPassword } from "../server/services/password.service";
 
@@ -112,14 +113,15 @@ const demoProductInventory = landingProducts.map((product, index) => ({
   unit: "piece",
   sku: `BRX-${String(index + 1).padStart(3, "0")}`,
   supplierKey: "davao-essentials" as const,
+  imageUrl: inventoryImageByKey[product.id as keyof typeof inventoryImageByKey],
 }));
 
 const demoInventory = [
-  { key: "neck-strips", name: "Neck strips", category: "Supplies", quantity: 480, minimumStock: 120, maximumStock: 1000, unitCost: 0.75, unit: "pack", sku: "NS-NECK-001", supplierKey: "northstar" },
-  { key: "disinfectant", name: "Disinfectant spray", category: "Supplies", quantity: 9, minimumStock: 12, maximumStock: 30, unitCost: 280, unit: "bottle", sku: "NS-DIS-001", supplierKey: "northstar" },
-  { key: "capes", name: "Barber capes", category: "Supplies", quantity: 24, minimumStock: 12, maximumStock: 40, unitCost: 420, unit: "piece", sku: "DBE-CAP-001", supplierKey: "davao-essentials" },
-  { key: "clippers", name: "Cordless clippers", category: "Equipment", quantity: 6, minimumStock: 3, maximumStock: 10, unitCost: 7800, unit: "piece", sku: "DBE-CLI-001", supplierKey: "davao-essentials" },
-  { key: "steamer", name: "Hot towel steamer", category: "Equipment", quantity: 2, minimumStock: 1, maximumStock: 4, unitCost: 6200, unit: "piece", sku: "DBE-STE-001", supplierKey: "davao-essentials" },
+  { key: "neck-strips", name: "Neck strips", category: "Supplies", quantity: 480, minimumStock: 120, maximumStock: 1000, unitCost: 0.75, unit: "pack", sku: "NS-NECK-001", supplierKey: "northstar", imageUrl: inventoryImageByKey["neck-strips"] },
+  { key: "disinfectant", name: "Disinfectant spray", category: "Supplies", quantity: 9, minimumStock: 12, maximumStock: 30, unitCost: 280, unit: "bottle", sku: "NS-DIS-001", supplierKey: "northstar", imageUrl: inventoryImageByKey.disinfectant },
+  { key: "capes", name: "Barber capes", category: "Supplies", quantity: 24, minimumStock: 12, maximumStock: 40, unitCost: 420, unit: "piece", sku: "DBE-CAP-001", supplierKey: "davao-essentials", imageUrl: inventoryImageByKey.capes },
+  { key: "clippers", name: "Cordless clippers", category: "Equipment", quantity: 6, minimumStock: 3, maximumStock: 10, unitCost: 7800, unit: "piece", sku: "DBE-CLI-001", supplierKey: "davao-essentials", imageUrl: inventoryImageByKey.clippers },
+  { key: "steamer", name: "Hot towel steamer", category: "Equipment", quantity: 2, minimumStock: 1, maximumStock: 4, unitCost: 6200, unit: "piece", sku: "DBE-STE-001", supplierKey: "davao-essentials", imageUrl: inventoryImageByKey.steamer },
   ...demoProductInventory,
 ] as const;
 
@@ -292,9 +294,9 @@ async function seedInventory(
     if (!supplier) throw new Error(`Unable to resolve inventory supplier ${item.supplierKey}`);
     const result = await client.query<{ id: number }>(
       `INSERT INTO inventory_items
-        (name,category,quantity,minimum_stock,maximum_stock,unit_cost,unit,sku,status,supplier_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'active',$9) RETURNING id`,
-      [item.name, item.category, item.quantity, item.minimumStock, item.maximumStock, item.unitCost, item.unit, item.sku, supplier.id],
+        (name,category,quantity,minimum_stock,maximum_stock,unit_cost,unit,sku,status,supplier_id,image_url)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'active',$9,$10) RETURNING id`,
+      [item.name, item.category, item.quantity, item.minimumStock, item.maximumStock, item.unitCost, item.unit, item.sku, supplier.id, item.imageUrl],
     );
     ids.set(item.key, Number(result.rows[0].id));
   }

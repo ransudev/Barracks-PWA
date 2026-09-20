@@ -1,6 +1,7 @@
 import type { Pool, PoolClient } from "pg";
 import type { InventoryItemInput } from "@/server/schemas/sprint.schema";
 import type { InventoryCreateInput, InventoryMetadataInput } from "@/server/schemas/sprint2.schema";
+import { getInventoryImageForName } from "../../app/data/inventory-images";
 
 type Queryable = Pool | PoolClient;
 
@@ -72,7 +73,7 @@ function toInventory(row: InventoryRow): InventoryRecord {
     unitCost: Number(row.unit_cost), unit: row.unit, sku: row.sku, status: row.status,
     supplierId: row.supplier_id === null ? null : Number(row.supplier_id), supplierName: row.supplier_name,
     branch: row.branch,
-    imageUrl: row.image_url,
+    imageUrl: row.image_url || getInventoryImageForName(row.name),
     createdAt: toIso(row.created_at), updatedAt: toIso(row.updated_at),
   };
 }

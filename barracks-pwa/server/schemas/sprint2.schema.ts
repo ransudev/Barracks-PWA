@@ -44,8 +44,11 @@ export const supplierAccountSchema = z.object({
 
 const inventoryImage = z.string().trim().max(2000000)
   .refine(
-    (value) => !value || /^https?:\/\//i.test(value) || /^data:image\/(png|jpe?g|webp|gif|avif);base64,/i.test(value),
-    { message: "Add an image link or upload a PNG, JPG, or WebP file" },
+    (value) => !value
+      || /^https?:\/\//i.test(value)
+      || /^data:image\/(png|jpe?g|webp|gif|avif);base64,/i.test(value)
+      || /^\/[A-Za-z0-9._/-]+$/.test(value),
+    { message: "Add an image link, local catalog image, or upload a PNG, JPG, or WebP file" },
   )
   .nullable()
   .optional();
