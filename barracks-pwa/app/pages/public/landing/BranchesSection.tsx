@@ -6,26 +6,22 @@ import { Icon } from "@/app/components/ui/icons";
 import { landingBranches, landingHours } from "@/app/data/landing";
 import type { ViewId } from "@/app/types/domain";
 
-const branchImages: Record<string, { src: string; alt: string; label: string }> = {
+const branchImages: Record<string, { src: string; alt: string }> = {
   bajada: {
     src: "/barracks/hq-editorial-bajada.png",
     alt: "Editorial concept of a premium Barracks-style barber floor for Bajada HQ",
-    label: "Editorial concept · Bajada HQ",
   },
   lanang: {
     src: "/barracks/hq-editorial-lanang.png",
     alt: "Editorial concept of a premium Barracks-style barber café for Lanang HQ",
-    label: "Editorial concept · Lanang HQ",
   },
   bangkal: {
     src: "/barracks/hq-editorial-bangkal.png",
     alt: "Editorial concept of a lively Barracks-style barber floor for Bangkal HQ",
-    label: "Editorial concept · Bangkal HQ",
   },
   maa: {
     src: "/barracks/hq-editorial-maa.png",
     alt: "Editorial concept of a refined Barracks-style barber floor for Maa HQ",
-    label: "Editorial concept · Maa HQ",
   },
 };
 
@@ -41,10 +37,6 @@ export function BranchesSection({ go }: { go: (view: ViewId) => void }) {
   return (
     <section className="section-branches" id="branches">
       <div className="section-header-center">
-        <div className="barbershop-crest__badge">
-          <Icon name="mapPin" size={13} />
-          <span>DAVAO CITY LOCATIONS</span>
-        </div>
         <h2>
           OUR 4 <span className="accent-crimson">HEADQUARTERS</span>
         </h2>
@@ -65,7 +57,6 @@ export function BranchesSection({ go }: { go: (view: ViewId) => void }) {
           />
           <div className="branches-carousel__media-overlay" aria-hidden="true" />
           <div className="branches-carousel__media-caption">
-            <span>{image.label}</span>
             <strong>0{activeIndex + 1} / 04</strong>
           </div>
         </div>
@@ -92,7 +83,7 @@ export function BranchesSection({ go }: { go: (view: ViewId) => void }) {
           </div>
 
           <div className="branch-card-luxury__roster">
-            <span>Barber roster</span>
+            <span>Barbers</span>
             <strong>{branch.barbers}</strong>
           </div>
 

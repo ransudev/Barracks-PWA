@@ -85,17 +85,6 @@
   }
 }
 
-@keyframes barracks-soft-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 5px rgba(5, 7, 8, 0.2), 0 0 26px rgba(220, 38, 38, 0.22);
-  }
-
-  50% {
-    box-shadow: 0 0 0 5px rgba(5, 7, 8, 0.2), 0 0 36px rgba(220, 38, 38, 0.38);
-  }
-}
-
 /* The class is added after hydration, so users with scripting disabled still
    receive the complete page instead of an invisible one. */
 html {
@@ -192,10 +181,6 @@ html {
   animation: barracks-rule-draw 700ms cubic-bezier(0.16, 1, 0.3, 1) 260ms both;
 }
 
-.public-site .hero-kicker__icon {
-  animation: barracks-soft-pulse 4.5s ease-in-out 1.2s infinite;
-}
-
 .public-site .hero-footline {
   animation: barracks-hero-content-in 900ms ease-out 1100ms both;
 }
@@ -251,7 +236,6 @@ html {
   .public-site:not([data-motion="full"]) .hero-gogrin__content > *,
   .public-site:not([data-motion="full"]) .hero-gogrin h1 span,
   .public-site:not([data-motion="full"]) .hero-kicker__rule,
-  .public-site:not([data-motion="full"]) .hero-kicker__icon,
   .public-site:not([data-motion="full"]) .hero-footline,
   .public-site:not([data-motion="full"]).motion-ready main > section:not(#home),
   .public-site:not([data-motion="full"]).motion-ready main > section:not(#home).is-visible,

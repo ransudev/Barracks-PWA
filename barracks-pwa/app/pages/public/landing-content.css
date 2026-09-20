@@ -60,7 +60,6 @@
   background: var(--color-primary);
   border-color: var(--color-primary-bright);
   color: #FFFFFF;
-  box-shadow: 0 6px 18px var(--color-primary-glow);
 }
 
 .public-site .category-pill__label {
@@ -132,7 +131,7 @@
   border-radius: 50%;
   background: var(--bg-surface-raised);
   border: 2px solid var(--color-primary-bright);
-  box-shadow: 0 0 24px rgba(0, 0, 0, 0.8), 0 0 16px var(--color-primary-glow);
+  box-shadow: 0 0 24px rgba(0, 0, 0, 0.8);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -163,18 +162,6 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 20px;
-}
-
-.public-site .craft-story__eyebrow {
-  font-family: var(--font-headline);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--color-secondary-bright);
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .public-site .craft-story h2 {
@@ -282,7 +269,6 @@
   height: 6px;
   border-radius: 50%;
   background: var(--color-primary-bright);
-  box-shadow: 0 0 8px var(--color-primary-glow);
   flex-shrink: 0;
 }
 
@@ -350,7 +336,6 @@
   background: var(--color-primary);
   border-color: var(--color-primary-bright);
   color: #FFFFFF;
-  box-shadow: 0 4px 14px var(--color-primary-glow);
 }
 
 .public-site .service-card-frame__header {
@@ -423,7 +408,6 @@
 .public-site .service-card-frame:hover .service-card-frame__icon {
   background: var(--color-primary);
   color: #FFFFFF;
-  box-shadow: 0 0 16px var(--color-primary-glow);
 }
 
 .public-site .service-card-frame h3 {
@@ -651,7 +635,7 @@
   left: 24px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 16px;
   color: rgba(255, 255, 255, 0.78);
   font-size: 10px;
@@ -887,18 +871,6 @@
   box-shadow: 0 28px 70px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
-.public-site .final-cta-card::before {
-  content: "";
-  position: absolute;
-  top: -80px;
-  right: -80px;
-  width: 260px;
-  height: 260px;
-  border-radius: 50%;
-  background: radial-gradient(circle, var(--color-primary-glow), transparent 70%);
-  pointer-events: none;
-}
-
 .public-site .final-cta-card__left {
   display: flex;
   flex-direction: column;
@@ -907,6 +879,7 @@
 
 .public-site .final-cta-card__left h2 {
   font-size: clamp(32px, 4vw, 46px);
+  line-height: 0.95;
   color: #FFFFFF;
 }
 
@@ -953,15 +926,6 @@
   gap: 12px;
   text-align: center;
   margin-bottom: 34px;
-}
-
-.public-site .services-menu-heading__eyebrow {
-  color: var(--color-primary-bright);
-  font-family: var(--font-headline);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
 }
 
 .public-site .services-menu-heading h2 {

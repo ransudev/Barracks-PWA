@@ -82,7 +82,6 @@ export function ServicesSection({ go }: { go: (view: ViewId) => void }) {
   return (
     <section className="section-services-provide" id="services">
       <div className="services-menu-heading" id="services-grid">
-        <span className="services-menu-heading__eyebrow">THE BARRACKS MENU</span>
         <h2>
           GROOMING, <span className="accent-crimson">REFINED.</span>
         </h2>

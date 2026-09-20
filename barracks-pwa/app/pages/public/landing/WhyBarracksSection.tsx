@@ -52,11 +52,6 @@ export function WhyBarracksSection() {
 
       {/* Right Side Editorial Story & Pillars */}
       <div className="craft-story">
-        <div className="craft-story__eyebrow">
-          <Icon name="scissors" size={13} />
-          <span>BORN IN DAVAO · EST. 2017</span>
-        </div>
-
         <h2>
           Modern grooming. <br />
           <span className="accent-crimson">Dabawenyo craft &amp; culture.</span>

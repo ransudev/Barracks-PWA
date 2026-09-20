@@ -52,24 +52,6 @@ export function HeroSection({ go }: { go: (view: ViewId) => void }) {
         </div>
       </div>
 
-      <div className="hero-benefits" aria-label="The Barracks difference">
-        <span className="hero-benefits__rule" />
-        <div className="hero-benefits__items">
-          <div className="hero-benefit">
-            <Icon name="scissors" size={25} strokeWidth={1.55} />
-            <span>Skilled<br />Barbers</span>
-          </div>
-          <div className="hero-benefit">
-            <Icon name="coffee" size={25} strokeWidth={1.55} />
-            <span>Great<br />Coffee</span>
-          </div>
-          <div className="hero-benefit">
-            <Icon name="users" size={25} strokeWidth={1.55} />
-            <span>A Stronger<br />Community</span>
-          </div>
-        </div>
-      </div>
-
       <div className="hero-footline" aria-hidden="true">
         <span className="hero-footline__rule" />
         <span>Davao City <b>•</b> Est. 2017</span>

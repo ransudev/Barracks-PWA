@@ -7,10 +7,6 @@ export function FinalCta({ go }: { go: (view: ViewId) => void }) {
     <section className="section-final-cta-gogrin" id="booking">
       <div className="final-cta-card">
         <div className="final-cta-card__left">
-          <div className="barbershop-crest__badge">
-            <Icon name="scissors" size={13} />
-            <span>BOOK YOUR CHAIR ONLINE</span>
-          </div>
           <h2>
             READY FOR YOUR <br />
             <span className="accent-crimson">NEXT FRESH CUT?</span>
