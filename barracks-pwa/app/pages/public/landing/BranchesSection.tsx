@@ -73,7 +73,6 @@ export function BranchesSection({ go }: { go: (view: ViewId) => void }) {
           </div>
 
           <div className="branches-carousel__title-block">
-            <span className="branches-carousel__kicker">Headquarters {String(activeIndex + 1).padStart(2, "0")}</span>
             <h3>{branch.name}</h3>
           </div>
 

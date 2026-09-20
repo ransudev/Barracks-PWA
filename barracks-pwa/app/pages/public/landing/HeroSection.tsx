@@ -52,10 +52,6 @@ export function HeroSection({ go }: { go: (view: ViewId) => void }) {
         </div>
       </div>
 
-      <div className="hero-footline" aria-hidden="true">
-        <span className="hero-footline__rule" />
-        <span>Davao City <b>•</b> Est. 2017</span>
-      </div>
     </section>
   );
 }

@@ -36,7 +36,7 @@
 .login-page__aside-bg img {
   object-fit: cover;
   opacity: 0.28;
-  filter: saturate(0.85) contrast(1.1);
+  filter: saturate(0.45) contrast(1.1);
 }
 
 .login-page__aside-overlay {
@@ -44,7 +44,7 @@
   inset: 0;
   z-index: 1;
   background:
-    radial-gradient(circle at 20% 25%, rgba(220, 38, 38, 0.18), transparent 60%),
+    radial-gradient(circle at 20% 25%, rgba(255, 255, 255, 0.035), transparent 60%),
     radial-gradient(circle at 80% 85%, rgba(242, 240, 234, 0.045), transparent 55%),
     linear-gradient(180deg, rgba(11, 13, 16, 0.88) 0%, rgba(17, 19, 23, 0.96) 100%);
 }
@@ -79,7 +79,6 @@
   background: rgba(226, 226, 230, 0.12);
   color: #ffffff;
   border-color: rgba(226, 226, 230, 0.25);
-  transform: translateX(-2px);
 }
 
 .login-aside__brand {
@@ -177,11 +176,15 @@
 .login-page__main::before {
   content: "";
   position: absolute;
-  top: 10%;
-  right: 15%;
-  width: 400px;
-  height: 400px;
-  background: radial-gradient(circle, rgba(220, 38, 38, 0.06), transparent 70%);
+  top: 50%;
+  left: 50%;
+  width: min(720px, 88%);
+  height: min(620px, 86%);
+  transform: translate(-50%, -50%);
+  background:
+    radial-gradient(ellipse at 38% 34%, rgba(255, 255, 255, 0.05), transparent 58%),
+    radial-gradient(ellipse at 68% 72%, rgba(255, 255, 255, 0.035), transparent 52%);
+  filter: blur(1px);
   pointer-events: none;
 }
 
@@ -329,8 +332,8 @@
 .login-form .input-wrap input:focus,
 .login-form input:focus {
   outline: none;
-  border-color: #ef4444;
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+  border-color: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08);
   background: #101211;
 }
 
@@ -399,8 +402,8 @@
   font-size: 14px !important;
   font-weight: 600 !important;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.35);
+  transition: background 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
+  box-shadow: none;
   margin-top: 6px;
 }
 
@@ -408,12 +411,7 @@
 .login-submit-btn:hover:not(:disabled),
 .login-form button[type="submit"]:hover:not(:disabled) {
   background: linear-gradient(180deg, #f87171 0%, #ef4444 100%) !important;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(220, 38, 38, 0.45);
-}
-
-.login-submit-btn:active:not(:disabled) {
-  transform: translateY(0);
+  box-shadow: none;
 }
 
 .login-submit-btn:disabled {

@@ -12,14 +12,13 @@
   color: var(--text-soft);
   font-size: 12px;
   font-weight: 700;
-  transition: background .2s ease, border-color .2s ease, color .2s ease, transform .2s ease;
+  transition: background .2s ease, border-color .2s ease, color .2s ease;
 }
 
 .theme-toggle:hover {
   background: var(--surface-hover);
   border-color: var(--line-strong);
   color: var(--text);
-  transform: translateY(-1px);
 }
 
 .theme-toggle:focus-visible {
@@ -1360,13 +1359,12 @@
 .supplier-portal__metrics .metric-card {
   min-height: 116px;
   padding: 16px 17px;
-  transition: border-color .2s ease, background .2s ease, transform .2s ease;
+  transition: border-color .2s ease, background .2s ease;
 }
 
 .supplier-portal__metrics .metric-card:hover {
   border-color: var(--line-strong);
   background: var(--surface-raised);
-  transform: translateY(-2px);
 }
 
 .supplier-portal__metrics .metric-card__value {
@@ -1703,7 +1701,7 @@
 
 .supplier-portal__metrics .metric-card {
   min-height: 116px;
-  transition: background .2s ease, border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+  transition: background .2s ease, border-color .2s ease, box-shadow .2s ease;
 }
 
 .supplier-portal .metric-card__label {
@@ -1754,7 +1752,7 @@
     background: linear-gradient(180deg, #242424, #1b1b1b);
     border-color: var(--line-strong);
     box-shadow: var(--glass-shadow-hover);
-    transform: translateY(-1px);
+    transform: none;
   }
 }
 
@@ -1955,14 +1953,6 @@
   font-weight: 650;
 }
 
-.supplier-portal .supplier-profile-card__trigger-hint svg {
-  transition: transform .25s cubic-bezier(.22, 1, .36, 1);
-}
-
-.supplier-portal .supplier-profile-card__trigger:hover .supplier-profile-card__trigger-hint svg {
-  transform: translateX(3px);
-}
-
 .supplier-portal .supplier-profile-form textarea {
   width: 100%;
   min-height: 94px;
@@ -2072,15 +2062,6 @@
   transition: color .2s ease;
 }
 
-.supplier-portal .supplier-row-link svg {
-  transition: transform .25s cubic-bezier(.22, 1, .36, 1);
-}
-
-.supplier-portal .supplier-request-row__trigger:hover .supplier-row-link svg,
-.supplier-portal .supplier-delivery-row:hover .supplier-row-link svg {
-  transform: translateX(3px);
-}
-
 .supplier-portal .supplier-delivery-row {
   width: 100%;
   padding: 15px 0;
@@ -2175,14 +2156,6 @@
   border-radius: 4px;
   outline: 2px solid var(--blue);
   outline-offset: 4px;
-}
-
-.supplier-portal .supplier-collection-trigger svg {
-  transition: transform .25s cubic-bezier(.22, 1, .36, 1);
-}
-
-.supplier-portal .supplier-collection-trigger:hover svg {
-  transform: translateX(3px);
 }
 
 .supplier-portal .supplier-request-list--drawer {

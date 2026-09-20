@@ -76,6 +76,13 @@ export function InventoryReports({ onToast }:{ onToast:(message:string)=>void })
 
   return <>
     <PageHeader title="Inventory reports" description="Track stock activity, usage, waste, sales, and supplier spending by period." />
+    <div className="metrics-grid metrics-grid--four">
+      <MetricCard label="Inventory valuation" value={loading||!valuation?"—":formatCurrency(valuation.totalValue)} icon="box" accent="blue" />
+      <MetricCard label="Active items" value={loading||!valuation?"—":String(valuation.activeItems)} icon="check" accent="green" />
+      <MetricCard label="Low stock items" value={loading||!valuation?"—":String(valuation.lowStockItems)} icon="info" accent="amber" />
+      <MetricCard label="Suppliers with spend" value={loading?"—":String((data?.supplierSpending??[]).filter((s)=>s.totalSpend>0).length)} icon="users" accent="violet" />
+    </div>
+
     <Panel className="inventory-report-period-panel">
       <form className="panel-toolbar panel-toolbar--period" onSubmit={applyRange}>
         <TextField label="From" type="date" value={from} onChange={(event)=>setFrom(event.target.value)} />
@@ -83,13 +90,6 @@ export function InventoryReports({ onToast }:{ onToast:(message:string)=>void })
         <Button type="submit" disabled={loading}>{loading?"Loading…":"Apply period"}</Button>
       </form>
     </Panel>
-
-    <div className="metrics-grid metrics-grid--four">
-      <MetricCard label="Inventory valuation" value={loading||!valuation?"—":formatCurrency(valuation.totalValue)} icon="box" accent="blue" />
-      <MetricCard label="Active items" value={loading||!valuation?"—":String(valuation.activeItems)} icon="check" accent="green" />
-      <MetricCard label="Low stock items" value={loading||!valuation?"—":String(valuation.lowStockItems)} icon="info" accent="amber" />
-      <MetricCard label="Suppliers with spend" value={loading?"—":String((data?.supplierSpending??[]).filter((s)=>s.totalSpend>0).length)} icon="users" accent="violet" />
-    </div>
 
     <Panel>
       <SectionHeading title="Inventory usage analytics" description="Movement totals are grouped by item and branch for the selected period." />

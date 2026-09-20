@@ -30,11 +30,6 @@
   border: 0;
   cursor: pointer;
   text-decoration: none;
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.public-site .category-pill:hover {
-  transform: translateY(-4px);
 }
 
 .public-site .category-pill__circle {
@@ -1074,7 +1069,7 @@
 
 .public-site .services-menu-feature__visual {
   height: 250px;
-  margin: 34px -36px 26px;
+  margin: 0 -36px 26px;
   overflow: hidden;
   position: relative;
 }

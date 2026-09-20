@@ -238,7 +238,6 @@ export function CustomerDashboard({
         <div className="customer-dashboard">
           <div className="customer-dashboard__heading">
             <div>
-              <p className="customer-page__eyebrow">Customer account</p>
               <h1>Welcome back, {name.split(" ")[0]}.</h1>
             </div>
             <Button icon="calendar" onClick={() => go("customer-booking")}>Book appointment</Button>

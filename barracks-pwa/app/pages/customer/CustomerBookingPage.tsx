@@ -89,10 +89,6 @@ export function CustomerBookingPage({
       <main className="customer-content">
         <div className="booking-hero-header">
           <div className="booking-hero-header__left">
-            <div className="booking-crest-badge">
-              <Icon name="scissors" size={13} />
-              <span>CHAIR RESERVATION · 4 DAVAO HQS</span>
-            </div>
             <h1>
               BOOK YOUR <span className="accent-crimson">CHAIR.</span>
             </h1>
@@ -191,7 +187,7 @@ export function CustomerBookingPage({
             <div className="booking-perks-card">
               <div className="booking-perk-item">
                 <div className="booking-perk-item__icon">
-                  <Icon name="spark" size={13} />
+                  <Icon name="coffee" size={13} />
                 </div>
                 <div className="booking-perk-item__text">
                   <strong>Barber Café Experience</strong>
@@ -201,7 +197,7 @@ export function CustomerBookingPage({
 
               <div className="booking-perk-item">
                 <div className="booking-perk-item__icon">
-                  <Icon name="calendar" size={13} />
+                  <Icon name="clock" size={13} />
                 </div>
                 <div className="booking-perk-item__text">
                   <strong>10-Minute Grace Period</strong>

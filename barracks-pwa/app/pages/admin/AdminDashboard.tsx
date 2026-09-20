@@ -72,7 +72,7 @@ export function AdminDashboard({ go, onToast, currentUser }: { go: (view: ViewId
   const dashboardTitle = currentUser.role === "manager" ? "Manager dashboard" : "Admin dashboard";
 
   return <div className="admin-dashboard">
-    <PageHeader title={dashboardTitle} description="A clear view of today’s operations, stock health, and supplier activity." action={<Button icon="plus" onClick={() => go("admin-restocks")}>New restock</Button>} />
+    <PageHeader title={dashboardTitle} action={<Button icon="plus" onClick={() => go("admin-restocks")}>New restock</Button>} />
     <div className="admin-dashboard__metric-groups">
       <div className="admin-dashboard__primary-metrics">
         <MetricCard className="metric-card--hero" label="Inventory value" value={loading || loadError ? "—" : formatCurrency(inventoryValue)} icon="box" accent="blue" />

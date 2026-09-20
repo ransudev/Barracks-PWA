@@ -2,23 +2,11 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { Icon, type IconName } from "@/app/components/ui/icons";
+import { Icon } from "@/app/components/ui/icons";
 import { landingServices, type LandingMenuItem, type LandingServiceSection } from "@/app/data/landing";
 import type { ViewId } from "@/app/types/domain";
 
 type CatalogMode = "services" | "products";
-
-function getServiceIcon(categoryId: string, serviceName: string): IconName {
-  const name = serviceName.toLowerCase();
-  if (categoryId === "barracks-products" || categoryId === "retrobee" || categoryId === "loreal-pro") return "shoppingBag";
-  if (name.includes("shave") || name.includes("razor")) return "razor";
-  if (name.includes("cut") || name.includes("basic") || name.includes("premium")) return "comb";
-  if (name.includes("color") || name.includes("dye") || name.includes("majicover") || name.includes("inoa")) return "palette";
-  if (name.includes("scalp") || name.includes("spa") || name.includes("repair") || name.includes("hydrate")) return "droplet";
-  if (name.includes("massage") || name.includes("facial")) return "hand";
-  if (name.includes("pomade") || name.includes("tonic") || name.includes("powder") || name.includes("wax") || name.includes("clay") || name.includes("kit")) return "shoppingBag";
-  return "palette";
-}
 
 function isProductSection(section: LandingServiceSection) {
   return section.duration === "PRODUCTS";
@@ -36,14 +24,6 @@ function getFeaturedItem(section: LandingServiceSection, items: LandingMenuItem[
   };
 
   return items.find((item) => item.id === featuredIds[section.id]) ?? items[0];
-}
-
-function getFeatureLabel(mode: CatalogMode, sectionId: string) {
-  if (mode === "products") {
-    return sectionId === "loreal-pro" ? "Professional Range" : "Barracks Pick";
-  }
-
-  return sectionId === "cut-and-shave" ? "Signature Service" : "Barber's Edit";
 }
 
 function getItemMeta(item: LandingMenuItem, mode: CatalogMode) {
@@ -126,11 +106,6 @@ export function ServicesSection({ go }: { go: (view: ViewId) => void }) {
 
       <div className="services-menu-layout">
         <aside className="services-menu-feature" aria-label={`Featured ${catalogMode.slice(0, -1)}: ${featuredItem.name}`}>
-          <div className="services-menu-feature__topline">
-            <span>{activeService.number} / {activeService.name}</span>
-            <Icon name={getServiceIcon(activeService.id, featuredItem.name)} size={20} />
-          </div>
-
           <div className="services-menu-feature__visual">
             <Image
               src={productMode ? "/barracks/products-editorial.png" : "/barracks/services-editorial.png"}
@@ -141,7 +116,6 @@ export function ServicesSection({ go }: { go: (view: ViewId) => void }) {
             />
             <span className="services-menu-feature__number" aria-hidden="true">{activeService.number}</span>
           </div>
-          <span className="services-menu-feature__label">{getFeatureLabel(catalogMode, activeService.id)}</span>
           <h3>{featuredItem.name}</h3>
           <p>{activeService.description}</p>
 

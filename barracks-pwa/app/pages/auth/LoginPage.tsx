@@ -162,10 +162,6 @@ export function LoginPage({ go, onLogin }: LoginPageProps) {
           </div>
 
           <div className="login-aside__crest">
-            <div className="login-aside__crest-badge">
-              <Icon name="scissors" size={12} />
-              <span>EST. 2017 · DAVAO CITY</span>
-            </div>
             <h2>
               GIVING A MODERN TWIST <br />
               <span className="accent-crimson">TO A TRADITIONAL BARBERSHOP.</span>
@@ -216,10 +212,6 @@ export function LoginPage({ go, onLogin }: LoginPageProps) {
           </div>
 
           <div className="login-card__head">
-            <span className="login-card__eyebrow">
-              <Icon name={authMode === "login" ? "spark" : "userPlus"} size={13} />
-              <span>{authMode === "login" ? "ACCOUNT ACCESS" : "NEW CLIENT REGISTRATION"}</span>
-            </span>
             <h1>
               {authMode === "login" ? (
                 <>WELCOME <span className="accent-crimson">BACK.</span></>
@@ -260,7 +252,6 @@ export function LoginPage({ go, onLogin }: LoginPageProps) {
                 </span>
               </label>
               <div className="login-form__meta">
-                <span className="login-form__session-note">Sessions remain active 7 days.</span>
                 <button
                   type="button"
                   className="link-button"
