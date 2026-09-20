@@ -1715,33 +1715,32 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @media (max-width: 480px) { .operational-workspace .page-header__actions { align-items: stretch; flex-direction: column-reverse; }.operational-workspace .page-header__actions > .button { width: 100%; }.operational-view-toggle { width: 100%; }.operational-view-toggle button { flex: 1; justify-content: center; }.operational-drawer__actions { grid-template-columns: 1fr; }.operational-drawer__facts { grid-template-columns: 1fr 1fr; } }
 @media (prefers-reduced-motion: reduce) { .operational-card { animation: none; transition: none; } }
 
-/* Drawer motion ---------------------------------------------------------------
-   The drawer mirrors the app sidebar collapse: one 240ms ease transition, the
-   same timing in both directions, and no fade, so the panel is pure movement
-   like the sidebar's grid-template-columns change. useDrawerPresence sets
-   data-state on the layer (entering / entered / exiting) and keeps a closing
-   drawer mounted until the exit transition ends, so a single rule set covers
-   both directions. This replaces the original 18px inventory-drawer-in nudge.
-
-   The sidebar animates regardless of prefers-reduced-motion, so the drawer does
-   too. Add these selectors back to the reduced-motion overrides above to make
-   the drawer respect the preference instead. */
+/* Drawer motion: one closed position, one open position, one short transition. */
 :root {
-  --drawer-duration: 240ms;
-  --drawer-ease: ease;
+  --drawer-duration: 180ms;
+  --drawer-ease: cubic-bezier(.2, .8, .2, 1);
 }
 .inventory-drawer-layer, .operational-drawer-layer { overflow: hidden; }
-.inventory-drawer, .operational-drawer { transition: transform var(--drawer-duration) var(--drawer-ease); }
-.inventory-drawer-scrim, .operational-drawer-scrim { transition: opacity var(--drawer-duration) var(--drawer-ease); }
+.inventory-drawer, .operational-drawer {
+  transform: translateX(100%);
+  transition: transform var(--drawer-duration) var(--drawer-ease);
+}
+.inventory-drawer-scrim, .operational-drawer-scrim {
+  opacity: 0;
+  transition: opacity var(--drawer-duration) var(--drawer-ease);
+}
 
+.inventory-drawer-layer[data-state="entered"] .inventory-drawer,
+.operational-drawer-layer[data-state="entered"] .operational-drawer { transform: translateX(0); }
+.inventory-drawer-layer[data-state="entered"] .inventory-drawer-scrim,
+.operational-drawer-layer[data-state="entered"] .operational-drawer-scrim { opacity: 1; }
+
+/* The opening surface is transparent and the panel is still offscreen. Do not
+   let that invisible transition surface consume a fast follow-up tap. */
 .inventory-drawer-layer[data-state="entering"] .inventory-drawer,
-.inventory-drawer-layer[data-state="exiting"] .inventory-drawer,
-.operational-drawer-layer[data-state="entering"] .operational-drawer,
-.operational-drawer-layer[data-state="exiting"] .operational-drawer { transform: translateX(100%); }
 .inventory-drawer-layer[data-state="entering"] .inventory-drawer-scrim,
-.inventory-drawer-layer[data-state="exiting"] .inventory-drawer-scrim,
-.operational-drawer-layer[data-state="entering"] .operational-drawer-scrim,
-.operational-drawer-layer[data-state="exiting"] .operational-drawer-scrim { opacity: 0; }
+.operational-drawer-layer[data-state="entering"] .operational-drawer,
+.operational-drawer-layer[data-state="entering"] .operational-drawer-scrim { pointer-events: none; }
 
 /* A drawer on its way out no longer accepts clicks. */
 .inventory-drawer-layer[data-state="exiting"] .inventory-drawer,
@@ -1749,19 +1748,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .operational-drawer-layer[data-state="exiting"] .operational-drawer,
 .operational-drawer-layer[data-state="exiting"] .operational-drawer-scrim { pointer-events: none; }
 
-/* Promote the animating properties to their own compositor layers only while a
-   transition is actually running; a settled drawer keeps no spare layer alive. */
-.inventory-drawer-layer[data-state="entering"] .inventory-drawer,
-.inventory-drawer-layer[data-state="exiting"] .inventory-drawer,
-.operational-drawer-layer[data-state="entering"] .operational-drawer,
-.operational-drawer-layer[data-state="exiting"] .operational-drawer { will-change: transform; }
-.inventory-drawer-layer[data-state="entering"] .inventory-drawer-scrim,
-.inventory-drawer-layer[data-state="exiting"] .inventory-drawer-scrim,
-.operational-drawer-layer[data-state="entering"] .operational-drawer-scrim,
-.operational-drawer-layer[data-state="exiting"] .operational-drawer-scrim { will-change: opacity; }
-
-/* Reduced motion skips the slide entirely instead of stuttering through it on
-   low-power devices, which is where the transition is most likely to glitch. */
+/* Reduced motion skips the transition entirely. */
 @media (prefers-reduced-motion: reduce) {
   .inventory-drawer, .operational-drawer { transition: none; }
   .inventory-drawer-scrim, .operational-drawer-scrim { transition: none; }

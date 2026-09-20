@@ -115,6 +115,28 @@ test("reopening mid-exit reverses from the current position instead of retreatin
   }
 });
 
+test("closing before the first open frame does not mount an exit-only drawer", async () => {
+  const env = installFakeEnvironment();
+  const seen: Array<{ mounted: boolean; phase: string }> = [];
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  try {
+    await act(async () => {
+      root.render(createElement(Harness, { onPresence: (presence) => seen.push({ ...presence }) }));
+    });
+
+    await act(async () => (container.querySelector("button") as HTMLElement).click());
+    await act(async () => (container.querySelector("button") as HTMLElement).click());
+    await act(async () => env.advance(0));
+
+    assert.equal(seen.at(-1)?.mounted, false);
+    assert.ok(!seen.some((entry) => entry.mounted), "a canceled open must never mount an exit-only drawer");
+  } finally {
+    await act(async () => root.unmount());
+    env.restore();
+  }
+});
+
 test("a newly mounted closed drawer stays unmounted", async () => {
   const env = installFakeEnvironment();
   const seen: Array<{ mounted: boolean; phase: string }> = [];

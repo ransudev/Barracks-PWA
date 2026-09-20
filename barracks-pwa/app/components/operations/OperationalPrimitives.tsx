@@ -252,7 +252,7 @@ export function DetailDrawer({
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     };
-    const frame = window.requestAnimationFrame(() => closeRef.current?.focus());
+    const frame = window.requestAnimationFrame(() => closeRef.current?.focus({ preventScroll: true }));
     document.addEventListener("keydown", handleKeyDown);
     return () => {
       window.cancelAnimationFrame(frame);
