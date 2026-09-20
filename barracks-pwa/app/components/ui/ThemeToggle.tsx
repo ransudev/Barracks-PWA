@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Icon } from "./icons";
 
 export type DashboardTheme = "dark" | "light";
 
@@ -11,7 +12,7 @@ function applyTheme(theme: DashboardTheme) {
   document.documentElement.style.colorScheme = theme;
 }
 
-export function ThemeToggle({ compact = false }: { compact?: boolean }) {
+export function ThemeToggle() {
   const [theme, setTheme] = useState<DashboardTheme>(() => {
     if (typeof document === "undefined") return "dark";
     return document.documentElement.dataset.theme === "light" ? "light" : "dark";
@@ -37,7 +38,7 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
 
   return (
     <button
-      className={`theme-toggle ${compact ? "theme-toggle--compact" : ""}`}
+      className="theme-toggle"
       type="button"
       aria-label={`Switch to ${nextLabel} mode`}
       title={`Switch to ${nextLabel} mode`}
@@ -45,9 +46,9 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
       onClick={toggleTheme}
     >
       <span className="theme-toggle__icon" aria-hidden="true">
-        {theme === "dark" ? "☀" : "☾"}
+        <Icon name={theme === "dark" ? "sun" : "moon"} size={16} strokeWidth={2} />
       </span>
-      {!compact && <span>{theme === "dark" ? "Light mode" : "Dark mode"}</span>}
+      <span>{theme === "dark" ? "Light mode" : "Dark mode"}</span>
     </button>
   );
 }

@@ -271,21 +271,6 @@
   gap: 18px;
 }
 
-/* Selected Service Callout Chip */
-.booking-form__summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 18px;
-  background: rgba(242, 240, 234, 0.07);
-  border: 1px solid rgba(242, 240, 234, 0.18);
-  border-radius: 9px;
-  color: #d2d0c8;
-  font-size: 13px;
-  font-weight: 600;
-  margin: 4px 0 0 0;
-}
-
 /* Actions in Form */
 .customer-booking-view .modal-actions {
   display: flex;
@@ -538,12 +523,6 @@
 :root[data-theme="light"] .customer-booking-view select option {
   background-color: var(--surface);
   color: var(--text);
-}
-
-:root[data-theme="light"] .booking-form__summary {
-  border-color: var(--line);
-  background: var(--surface-raised-2);
-  color: var(--text-soft);
 }
 
 :root[data-theme="light"] .customer-booking-view .modal-actions {

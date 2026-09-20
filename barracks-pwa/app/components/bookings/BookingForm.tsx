@@ -35,8 +35,6 @@ export function BookingForm({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onCancel: () => void;
 }) {
-  const selectedService = services.find((service) => service.id === value.serviceId);
-
   return (
     <form className="modal-form" onSubmit={onSubmit}>
       {!hideCustomer && (
@@ -57,7 +55,6 @@ export function BookingForm({
         <TextField label="Date" required type="date" value={value.date} min={dateInputValue()} onChange={(event) => onChange({ ...value, date: event.target.value })} />
         <TextField label="Time" required type="time" value={value.time} onChange={(event) => onChange({ ...value, time: event.target.value })} />
       </div>
-      {selectedService && <p className="booking-form__summary">{selectedService.duration} · ₱{selectedService.price.toLocaleString()}</p>}
       <div className="modal-actions">
         <Button variant="secondary" type="button" disabled={submitting} onClick={onCancel}>Cancel</Button>
         <Button type="submit" icon="calendar" disabled={submitting}>{submitting ? "Saving…" : submitLabel}</Button>

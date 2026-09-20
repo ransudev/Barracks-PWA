@@ -31,6 +31,8 @@ export type IconName =
   | "stockIn"
   | "logOut"
   | "spark"
+  | "sun"
+  | "moon"
   | "lock"
   | "mail"
   | "phone"
@@ -226,6 +228,15 @@ const paths: Record<IconName, ReactNode> = {
     <>
       <path d="m12 3 1.6 5.4L19 10l-5.4 1.6L12 17l-1.6-5.4L5 10l5.4-1.6L12 3ZM19 16l.7 2.3L22 19l-2.3.7L19 22l-.7-2.3L16 19l2.3-.7L19 16Z" />
     </>
+  ),
+  sun: (
+    <>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+    </>
+  ),
+  moon: (
+    <path d="M20.5 15.2A8.5 8.5 0 0 1 8.8 3.5 8.5 8.5 0 1 0 20.5 15.2Z" />
   ),
   lock: (
     <>

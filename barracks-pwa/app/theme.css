@@ -26,28 +26,12 @@
   outline-offset: 3px;
 }
 
-.theme-toggle--compact {
-  width: 38px;
-  height: 38px;
-  min-height: 38px;
-  justify-content: center;
-  padding: 0;
-  background: transparent;
-  border-color: transparent;
-}
-
-.theme-toggle--compact:hover {
-  background: var(--surface-raised-2);
-  border-color: var(--line);
-}
-
 .theme-toggle__icon {
   align-items: center;
   display: inline-flex;
   justify-content: center;
   width: 18px;
   height: 18px;
-  font-size: 16px;
   line-height: 1;
 }
 
@@ -164,12 +148,14 @@
 }
 
 @media (max-width: 720px) {
-  .customer-topbar .theme-toggle:not(.theme-toggle--compact) span:last-child {
+  .theme-toggle > span:last-child {
     display: none;
   }
 
-  .customer-topbar .theme-toggle:not(.theme-toggle--compact) {
+  .theme-toggle {
     width: 38px;
+    min-height: 38px;
+    height: 38px;
     padding: 0;
     justify-content: center;
   }
@@ -627,16 +613,6 @@
   .supplier-portal__actions {
     flex: 0 0 auto;
     gap: 7px;
-  }
-
-  .supplier-portal .theme-toggle:not(.theme-toggle--compact) {
-    width: 38px;
-    justify-content: center;
-    padding: 0;
-  }
-
-  .supplier-portal .theme-toggle:not(.theme-toggle--compact) span:last-child {
-    display: none;
   }
 
   .supplier-portal__content {

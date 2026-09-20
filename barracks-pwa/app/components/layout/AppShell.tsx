@@ -228,7 +228,7 @@ function Topbar({
       </div>
 
       <div className="topbar__actions">
-        <ThemeToggle compact />
+        <ThemeToggle />
 
         <div className="topbar__popover-wrap">
           <IconButton
