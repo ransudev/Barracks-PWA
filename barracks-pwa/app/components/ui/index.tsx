@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { useEffect, useId, useRef, type ButtonHTMLAttributes, type ChangeEvent, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
 import type { Tone } from "@/app/types/domain";
+import { useBodyScrollLock } from "@/app/hooks/useBodyScrollLock";
 import { Icon, type IconName } from "./icons";
 
 export type ButtonVariant =
@@ -460,6 +461,8 @@ function OpenModal({
   const titleId = useId();
   const descriptionId = useId();
 
+  useBodyScrollLock(true);
+
   useEffect(() => {
     onCloseRef.current = onClose;
   }, [onClose]);
@@ -471,9 +474,6 @@ function OpenModal({
     const previousFocus = document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
     const focusableSelector =
       'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
     const focusFirstControl = () => {
@@ -506,7 +506,6 @@ function OpenModal({
     return () => {
       window.cancelAnimationFrame(frame);
       document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = previousOverflow;
       previousFocus?.focus();
     };
   }, []);

@@ -44,8 +44,11 @@ export function canUpdateStaffUser(
   desiredRole: string,
 ): boolean {
   if (!isStaffRole(targetRole) || !isStaffRole(desiredRole)) return false;
-  return actorRole === "administrator"
-    || (actorRole === "manager" && actorId !== targetId && targetRole === "front_desk" && desiredRole === "front_desk");
+  if (actorRole === "administrator") {
+    return targetRole !== "administrator"
+      || (actorId === targetId && desiredRole === "administrator");
+  }
+  return actorRole === "manager" && actorId !== targetId && targetRole === "front_desk" && desiredRole === "front_desk";
 }
 
 export function canChangeStaffLifecycle(
@@ -54,9 +57,9 @@ export function canChangeStaffLifecycle(
   actorId: number,
   targetId: number,
 ): boolean {
-  if (!isStaffRole(targetRole)) return false;
+  if (!isStaffRole(targetRole) || actorId === targetId || targetRole === "administrator") return false;
   return actorRole === "administrator"
-    || (actorRole === "manager" && actorId !== targetId && targetRole === "front_desk");
+    || (actorRole === "manager" && targetRole === "front_desk");
 }
 
 export function canDeactivateStaffUser(
@@ -65,7 +68,7 @@ export function canDeactivateStaffUser(
   actorId: number,
   targetId: number,
 ): boolean {
-  if (!isStaffRole(targetRole) || actorId === targetId) return false;
+  if (!isStaffRole(targetRole) || actorId === targetId || targetRole === "administrator") return false;
   return actorRole === "administrator"
     || (actorRole === "manager" && targetRole === "front_desk");
 }

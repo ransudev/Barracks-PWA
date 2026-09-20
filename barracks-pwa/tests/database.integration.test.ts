@@ -17,7 +17,9 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
     import("@/server/services/booking.service"),
   ]);
   const email = `codex.test.${randomUUID()}@barracks.local`;
+  const adminEmail = `codex.admin.${randomUUID()}@barracks.local`;
   let userId: number | null = null;
+  let adminUserId: number | null = null;
   let inventoryId: number | null = null;
   let barberId: number | null = null;
   let customerUserId: number | null = null;
@@ -25,6 +27,19 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
   let deletableBookingId: number | null = null;
 
   try {
+    const createdAdmin = await users.createUser(pool, {
+      firstName: "Created",
+      lastName: "Administrator",
+      email: adminEmail,
+      password: "password123",
+      role: "administrator",
+    });
+    assert.equal(createdAdmin.kind, "created");
+    if (createdAdmin.kind !== "created") return;
+    adminUserId = createdAdmin.user.id;
+    assert.equal(createdAdmin.user.isVerified, true);
+    assert.equal(createdAdmin.user.isBlocked, false);
+
     const created = await users.createUser(pool, {
       firstName: "Lifecycle",
       lastName: "Test",
@@ -238,6 +253,7 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
     }
     if (customerUserId) await pool.query("DELETE FROM users WHERE id = $1", [customerUserId]);
     if (userId) await pool.query("DELETE FROM users WHERE id = $1", [userId]);
+    if (adminUserId) await pool.query("DELETE FROM users WHERE id = $1", [adminUserId]);
     await pool.end();
   }
 });

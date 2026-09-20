@@ -1580,6 +1580,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .inventory-catalog-count strong { color: var(--text); font-family: var(--font-geist-mono), monospace; font-size: 21px; letter-spacing: -.05em; }
 .inventory-filter-bar { align-items: center; display: flex; flex-wrap: wrap; gap: 9px; padding: 16px 23px 13px; background: color-mix(in srgb, var(--surface-raised) 54%, transparent); }
 .inventory-filter-bar .field { width: 146px; }
+.inventory-filter-bar .inventory-status-filter { width: 162px; }
 .inventory-filter-bar .inventory-search { width: min(260px, 100%); }
 .inventory-results-bar { align-items: center; display: flex; justify-content: space-between; gap: 12px; min-height: 42px; padding: 0 23px; color: var(--text-muted); font-size: 11px; }
 .inventory-card-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 0 23px 23px; }

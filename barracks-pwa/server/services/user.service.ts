@@ -199,10 +199,10 @@ export async function createUser(
       `
         INSERT INTO users
           (first_name, last_name, email, password_hash, role_id, is_verified, is_blocked)
-        VALUES ($1, $2, $3, $4, $5, FALSE, FALSE)
+        VALUES ($1, $2, $3, $4, $5, $6, FALSE)
         RETURNING id
       `,
-      [input.firstName, input.lastName, input.email, passwordHash, role.rows[0].id],
+      [input.firstName, input.lastName, input.email, passwordHash, role.rows[0].id, input.role === "administrator"],
     );
 
     const created = await client.query<UserRow>(

@@ -4,6 +4,7 @@ import { act, createElement, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { JSDOM } from "jsdom";
 import { DetailDrawer } from "../app/components/operations/OperationalPrimitives";
+import { Modal } from "../app/components/ui";
 
 const dom = new JSDOM("<!doctype html><body><div id=root></div></body>");
 const document = dom.window.document;
@@ -80,6 +81,21 @@ function Harness() {
   );
 }
 
+function OverlayHarness() {
+  const [open, setOpen] = useState(true);
+  return (
+    <>
+      <button id="unmount-overlays" type="button" onClick={() => setOpen(false)}>close overlays</button>
+      <DetailDrawer open={open} title="Inventory item" onClose={() => setOpen(false)}>
+        <p>Drawer body</p>
+      </DetailDrawer>
+      <Modal open={open} title="Confirm action" onClose={() => setOpen(false)}>
+        <p>Modal body</p>
+      </Modal>
+    </>
+  );
+}
+
 test("switching drawers keeps page scroll locked until the replacement closes", async () => {
   const env = installFakeEnvironment();
   const container = document.createElement("div");
@@ -98,6 +114,31 @@ test("switching drawers keeps page scroll locked until the replacement closes", 
     await act(async () => env.advance(330));
 
     assert.equal(document.body.style.overflow, "hidden");
+  } finally {
+    await act(async () => root.unmount());
+    document.body.style.overflow = "";
+    env.restore();
+  }
+});
+
+test("closing overlapping drawer and modal overlays restores page scrolling", async () => {
+  const env = installFakeEnvironment();
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  document.body.style.overflow = "";
+  try {
+    await act(async () => root.render(createElement(OverlayHarness)));
+    await act(async () => env.flushFrames());
+    await act(async () => env.flushFrames());
+    assert.equal(document.body.style.overflow, "hidden");
+
+    await act(async () => (container.querySelector("#unmount-overlays") as HTMLButtonElement).click());
+    await act(async () => env.advance(0));
+    await act(async () => env.flushFrames());
+    await act(async () => env.flushFrames());
+    await act(async () => env.advance(330));
+
+    assert.equal(document.body.style.overflow, "");
   } finally {
     await act(async () => root.unmount());
     document.body.style.overflow = "";

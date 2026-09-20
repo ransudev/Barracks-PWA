@@ -3,33 +3,10 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Badge, Button, SearchInput } from "@/app/components/ui";
 import { Icon, type IconName } from "@/app/components/ui/icons";
+import { useBodyScrollLock } from "@/app/hooks/useBodyScrollLock";
 import { useDrawerPresence } from "@/app/hooks/useDrawerPresence";
 
 export type OperationalViewMode = "cards" | "table";
-
-let operationalDrawerScrollLocks = 0;
-let operationalDrawerPreviousOverflow = "";
-
-function acquireOperationalDrawerScrollLock() {
-  if (operationalDrawerScrollLocks === 0) {
-    operationalDrawerPreviousOverflow = document.body.style.overflow;
-  }
-  operationalDrawerScrollLocks += 1;
-  document.body.style.overflow = "hidden";
-
-  let released = false;
-  return () => {
-    if (released) return;
-    released = true;
-    operationalDrawerScrollLocks = Math.max(0, operationalDrawerScrollLocks - 1);
-    if (operationalDrawerScrollLocks === 0) {
-      document.body.style.overflow = operationalDrawerPreviousOverflow;
-      operationalDrawerPreviousOverflow = "";
-    } else {
-      document.body.style.overflow = "hidden";
-    }
-  };
-}
 
 export function ViewToggle({
   view,
@@ -214,6 +191,8 @@ export function DetailDrawer({
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const { mounted, phase } = useDrawerPresence(open);
 
+  useBodyScrollLock(mounted);
+
   // Every consumer clears its selected record the moment the drawer closes, so
   // hold the last populated content to give the exit transition something to
   // animate out instead of emptying first.
@@ -235,7 +214,6 @@ export function DetailDrawer({
     const drawer = drawerRef.current;
     if (!drawer) return;
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const releaseScrollLock = acquireOperationalDrawerScrollLock();
     const focusableSelector = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
     const handleKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -257,7 +235,6 @@ export function DetailDrawer({
     return () => {
       window.cancelAnimationFrame(frame);
       document.removeEventListener("keydown", handleKeyDown);
-      releaseScrollLock();
       previousFocus?.focus();
       setConfirmDiscard(false);
     };
