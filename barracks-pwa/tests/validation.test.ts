@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createStaffUserSchema, userLifecycleSchema, updateStaffUserSchema } from "@/server/schemas/user.schema";
-import { barberSchema, barberStaffSchema, bookingEditSchema, bookingUpdateSchema, customerBookingEditSchema, customerProfileSchema, customerSelfProfileSchema, customerSignupSchema, inventoryItemSchema } from "@/server/schemas/sprint.schema";
+import { barberSchema, barberStaffSchema, bookingCreateSchema, bookingEditSchema, bookingStatusSchema, bookingUpdateSchema, customerBookingEditSchema, customerProfileSchema, customerSelfProfileSchema, customerSignupSchema, inventoryItemSchema } from "@/server/schemas/sprint.schema";
+import { serviceSchema } from "@/server/schemas/service.schema";
 import { receiveRestockSchema, restockCreateSchema, supplierSchema } from "@/server/schemas/sprint2.schema";
 import { bookingListState } from "@/app/utils/booking-state";
 import { canManageBooking } from "@/app/constants/roles";
@@ -157,6 +158,13 @@ test("booking permissions keep customer changes owner-scoped and limit destructi
 });
 
 test("booking schemas keep status transitions terminal and edits explicit", () => {
+  assert.equal(bookingStatusSchema.safeParse("confirmed").success, true);
+  assert.equal(bookingStatusSchema.safeParse("checked_in").success, true);
+  assert.equal(bookingStatusSchema.safeParse("in_progress").success, true);
+  assert.equal(bookingStatusSchema.safeParse("no_show").success, true);
+  assert.equal(bookingStatusSchema.safeParse("upcoming").success, false);
+  assert.equal(bookingCreateSchema.safeParse({ barberId: 1, serviceId: "barracks-basic", date: "2099-01-02", time: "10:00", notes: "  hello  " }).data?.notes, "hello");
+  assert.equal(bookingCreateSchema.safeParse({ barberId: 1, serviceId: "barracks-basic", date: "2099-01-02", time: "10:00", notes: "x".repeat(501) }).success, false);
   assert.equal(bookingUpdateSchema.safeParse({ status: "completed" }).success, true);
   assert.equal(bookingUpdateSchema.safeParse({ status: "cancelled" }).success, true);
   assert.equal(bookingUpdateSchema.safeParse({ status: "upcoming" }).success, false);
@@ -188,6 +196,16 @@ test("booking schemas keep status transitions terminal and edits explicit", () =
     date: "2099-01-02",
     time: "10:00",
   }).success, false);
+});
+
+test("service schema validates numeric duration, price, and status", () => {
+  const valid = { id: "test-cut", name: "Test cut", description: "A cut", price: 250, durationMinutes: 45, active: true };
+  assert.equal(serviceSchema.safeParse(valid).success, true);
+  assert.equal(serviceSchema.safeParse({ ...valid, durationMinutes: 0 }).success, false);
+  assert.equal(serviceSchema.safeParse({ ...valid, durationMinutes: 45.5 }).success, false);
+  assert.equal(serviceSchema.safeParse({ ...valid, price: -1 }).success, false);
+  assert.equal(serviceSchema.safeParse({ ...valid, price: 1.001 }).success, false);
+  assert.equal(serviceSchema.safeParse({ ...valid, active: "true" }).success, false);
 });
 
 test("branch-aware inventory and restock schemas preserve safe defaults and reject duplicate lines", () => {

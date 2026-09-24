@@ -5,7 +5,7 @@ import test from "node:test";
 const databaseConfigured = Boolean(process.env.DATABASE_URL || process.env.POSTGRES_URL);
 
 test("PostgreSQL account, inventory, and barber lifecycle persists safely", { skip: !databaseConfigured }, async () => {
-  const [{ pool }, users, sessions, inventory, inventoryMovements, alerts, barbers, customers, bookings] = await Promise.all([
+  const [{ pool }, users, sessions, inventory, inventoryMovements, alerts, barbers, customers, bookings, services] = await Promise.all([
     import("@/server/db/pool"),
     import("@/server/services/user.service"),
     import("@/server/services/session.service"),
@@ -15,6 +15,7 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
     import("@/server/services/barber.service"),
     import("@/server/services/customer.service"),
     import("@/server/services/booking.service"),
+    import("@/server/services/service.service"),
   ]);
   const email = `codex.test.${randomUUID()}@barracks.local`;
   const adminEmail = `codex.admin.${randomUUID()}@barracks.local`;
@@ -25,6 +26,7 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
   let customerUserId: number | null = null;
   let bookingId: number | null = null;
   let deletableBookingId: number | null = null;
+  const serviceId = `codex-test-${randomUUID().slice(0, 8)}`;
 
   try {
     const createdAdmin = await users.createUser(pool, {
@@ -205,14 +207,36 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
     });
     assert.equal(contactOnlyEdit?.loyaltyPoints, 125);
 
+    const createdService = await services.createService(pool, {
+      id: serviceId, name: "Test cut", description: "Testing snapshots", price: 425,
+      durationMinutes: 50, active: true,
+    });
+    assert.equal(createdService.durationMinutes, 50);
+    assert.equal((await services.listServices(pool, true)).some((service) => service.id === serviceId), true);
     const createdBooking = await bookings.createBooking(pool, {
       customerId: createdCustomer.customer.id,
       barberId,
-      serviceId: "barracks-basic",
+      serviceId,
       date: "2099-01-02",
       time: "11:00",
+      notes: "  Please be gentle  ",
     });
     bookingId = createdBooking.id;
+    assert.equal(createdBooking.status, "confirmed");
+    assert.equal(createdBooking.serviceName, "Test cut");
+    assert.equal(createdBooking.price, 425);
+    assert.equal(createdBooking.durationMinutes, 50);
+    assert.equal(createdBooking.endTime, "11:50");
+    assert.equal(createdBooking.notes, "Please be gentle");
+    await services.updateService(pool, serviceId, { name: "Changed cut", price: 500, durationMinutes: 70 });
+    const historical = await bookings.findBookingById(pool, bookingId);
+    assert.equal(historical?.serviceName, "Test cut");
+    assert.equal(historical?.price, 425);
+    assert.equal(historical?.durationMinutes, 50);
+    assert.equal(historical?.endTime, "11:50");
+    assert.equal((await services.updateService(pool, serviceId, { active: false }))?.active, false);
+    await assert.rejects(() => bookings.createBooking(pool, { customerId: createdCustomer.customer.id, barberId: barberId!, serviceId, date: "2099-01-05", time: "11:00" }),
+      (error: unknown) => error instanceof bookings.BookingServiceError && error.kind === "not_found");
     const editedBooking = await bookings.updateBookingDetails(pool, bookingId, {
       customerId: createdCustomer.customer.id,
       barberId,
@@ -222,6 +246,8 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
     });
     assert.equal(editedBooking?.serviceId, "signature-shave");
     assert.equal(editedBooking?.date, "2099-01-03");
+    assert.equal(editedBooking?.durationMinutes, 30);
+    assert.equal(editedBooking?.endTime, "12:30");
     const completedBooking = await bookings.updateBooking(pool, bookingId, { status: "completed" });
     assert.equal(completedBooking?.status, "completed");
     await assert.rejects(
@@ -245,6 +271,7 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
   } finally {
     if (bookingId) await pool.query("DELETE FROM bookings WHERE id = $1", [bookingId]);
     if (deletableBookingId) await pool.query("DELETE FROM bookings WHERE id = $1", [deletableBookingId]);
+    await pool.query("DELETE FROM services WHERE id = $1", [serviceId]);
     if (barberId) await pool.query("DELETE FROM barbers WHERE id = $1", [barberId]);
     if (inventoryId) {
       await pool.query("DELETE FROM inventory_movements WHERE inventory_item_id = $1", [inventoryId]);
