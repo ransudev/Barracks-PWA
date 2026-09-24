@@ -107,6 +107,23 @@ export type ApiBooking = {
   updatedAt: string;
 };
 
+export type ApiQueueEntry = {
+  id: number;
+  bookingId: number | null;
+  customerId: number;
+  customerName: string;
+  serviceId: string;
+  serviceName: string;
+  barberId: number | null;
+  barberName: string | null;
+  status: "waiting" | "ready" | "in_progress" | "completed" | "removed";
+  joinedAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ApiErrorBody = {
   success: false;
   message?: string;

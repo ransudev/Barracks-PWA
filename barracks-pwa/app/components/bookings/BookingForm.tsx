@@ -21,6 +21,7 @@ export function BookingForm({
   barbers,
   hideCustomer = false,
   excludeBookingId,
+  availabilityVersion = 0,
   submitLabel = "Save booking",
   submitting = false,
   onChange,
@@ -33,6 +34,7 @@ export function BookingForm({
   barbers: ApiBarberAvailability[];
   hideCustomer?: boolean;
   excludeBookingId?: number;
+  availabilityVersion?: number;
   submitLabel?: string;
   submitting?: boolean;
   onChange: (value: BookingFormValue) => void;
@@ -63,7 +65,7 @@ export function BookingForm({
     }
     void load();
     return () => { active = false; };
-  }, [serviceId, barberId, date, excludeBookingId]);
+  }, [serviceId, barberId, date, excludeBookingId, availabilityVersion]);
   const selectedSlot = slots.find((slot) => slot.startTime === value.time);
   const selectedService = services.find((service) => service.id === value.serviceId);
   const selectedBarber = barbers.find((barber) => String(barber.id) === value.barberId);

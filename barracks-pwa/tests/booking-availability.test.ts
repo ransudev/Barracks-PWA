@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { Pool } from "pg";
-import { calculateSlots, getBookingAvailability, isBookingSlotAvailable, overlaps } from "@/server/services/booking-availability.service";
+import { calculateSlots, findAvailableBarbers, getAnyBarberAvailability, getBookingAvailability, isBookingSlotAvailable, overlaps } from "@/server/services/booking-availability.service";
 import { weeklyScheduleSchema, unavailabilitySchema, hoursSchema } from "@/server/schemas/schedule.schema";
 
 const date = "2026-10-05";
@@ -76,4 +76,22 @@ test("active bookings block overlaps and reusable selected-slot validation allow
   const input = { serviceId: "cut", barberId: 1, date };
   assert.equal(await isBookingSlotAvailable(db, { ...input, time: "10:15" }, { now }), false);
   assert.equal(await isBookingSlotAvailable(db, { ...input, time: "10:45" }, { now }), true);
+});
+
+test("Any Available Barber includes free slots and orders eligible barbers by load then ID", async () => {
+  const db = { query: async (sql: string, params?: unknown[]) => {
+    if (sql.includes("FROM services")) return { rows: [{ id: "cut", name: "Cut", description: "", current_price: "100", duration_minutes: 45, active: true, created_at: new Date(), updated_at: new Date() }] };
+    if (sql.includes("COUNT(*) AS appointment_count")) return { rows: [{ barber_id: 5, appointment_count: "2" }, { barber_id: 2, appointment_count: "1" }, { barber_id: 9, appointment_count: "1" }] };
+    if (sql.includes("FROM barbers")) {
+      const ids = params?.length ? [Number(params[0])] : [5, 2, 9, 3];
+      return { rows: ids.map((id) => ({ id, first_name: "A", last_name: "B", status: id === 3 ? "unavailable" : "available", commission_rate: null, services_done: 0, revenue: 0, rating: null, created_at: new Date(), updated_at: new Date() })) };
+    }
+    if (sql.includes("FROM shop_operating_hours")) return { rows: [{ day_of_week: 1, open_time: "09:00:00", close_time: "19:30:00", is_closed: false }] };
+    if (sql.includes("FROM barber_schedules")) return { rows: [{ id: 1, day_of_week: 1, is_working: true, start_time: "09:00:00", end_time: "19:30:00" }] };
+    if (sql.includes("FROM barber_schedule_breaks") || sql.includes("FROM barber_unavailability") || sql.includes("FROM bookings")) return { rows: [] };
+    throw new Error(`Unexpected query: ${sql}`);
+  } } as unknown as Pool;
+  assert.deepEqual(await findAvailableBarbers(db, { serviceId: "cut", date, time: "10:00" }, { now }), [2, 9, 5]);
+  assert.equal((await getAnyBarberAvailability(db, { serviceId: "cut", date }, { now })).slots.some((slot) => slot.startTime === "10:00"), true);
+  assert.deepEqual(await findAvailableBarbers(db, { serviceId: "cut", date, time: "19:15" }, { now }), []);
 });

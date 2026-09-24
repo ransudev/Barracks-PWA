@@ -26,6 +26,7 @@ export function CustomerBookingPage({
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [confirmation, setConfirmation] = useState<ApiBooking | null>(null);
+  const [availabilityVersion, setAvailabilityVersion] = useState(0);
   const [value, setValue] = useState<BookingFormValue>({
     customerId: "",
     serviceId: "",
@@ -84,6 +85,7 @@ export function CustomerBookingPage({
     } catch (error) {
       onToast(error instanceof Error ? error.message : "Unable to create booking");
       setValue((current) => ({ ...current, time: "" }));
+      setAvailabilityVersion((current) => current + 1);
     } finally {
       setSubmitting(false);
     }
@@ -135,6 +137,7 @@ export function CustomerBookingPage({
                 hideCustomer
                 submitLabel="Confirm appointment"
                 submitting={submitting}
+                availabilityVersion={availabilityVersion}
                 onChange={setValue}
                 onSubmit={createBooking}
                 onCancel={() => go("customer-dashboard")}

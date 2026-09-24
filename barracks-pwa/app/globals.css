@@ -223,6 +223,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .modal__header p { margin: 5px 0 0; color: var(--text-muted); font-size: 12px; }
 .modal-form { display: flex; flex-direction: column; gap: 16px; padding: 22px; }
 .modal-form .form-grid { padding: 0; }
+.booking-form-review { border: 1px solid color-mix(in srgb, currentColor 22%, transparent); border-radius: 10px; padding: 18px; display: grid; gap: 9px; }
+.booking-form-review h2, .booking-form-review h3, .booking-form-review p { margin: 0; }
+.booking-form-review p { line-height: 1.5; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 9px; padding-top: 5px; }
 .modal-actions--dialog { align-items: center; flex-wrap: wrap; gap: 9px; width: 100%; padding: 12px 22px 18px; }
 .modal-actions--stack { flex-direction: column; align-items: stretch; }

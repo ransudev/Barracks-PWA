@@ -150,9 +150,15 @@ test("booking permissions keep customer changes owner-scoped and limit destructi
   assert.equal(canManageBooking("customer", "cancel", true), true);
   assert.equal(canManageBooking("customer", "edit", false), false);
   assert.equal(canManageBooking("customer", "complete", true), false);
+  assert.equal(canManageBooking("customer", "check_in", true), false);
+  assert.equal(canManageBooking("customer", "start", true), false);
+  assert.equal(canManageBooking("customer", "no_show", true), false);
   assert.equal(canManageBooking("customer", "delete", true), false);
   assert.equal(canManageBooking("front_desk", "edit"), true);
   assert.equal(canManageBooking("front_desk", "cancel"), true);
+  assert.equal(canManageBooking("front_desk", "check_in"), true);
+  assert.equal(canManageBooking("front_desk", "start"), true);
+  assert.equal(canManageBooking("front_desk", "no_show"), true);
   assert.equal(canManageBooking("front_desk", "delete"), false);
   assert.equal(canManageBooking("manager", "delete"), true);
 });

@@ -100,6 +100,7 @@ export function CustomerDashboard({
   const [editingBooking, setEditingBooking] = useState<ApiBooking | null>(null);
   const [bookingDraft, setBookingDraft] = useState<BookingFormValue | null>(null);
   const [bookingSaving, setBookingSaving] = useState(false);
+  const [availabilityVersion, setAvailabilityVersion] = useState(0);
   const [pendingCancellation, setPendingCancellation] = useState<ApiBooking | null>(null);
   const [cancellingBookingId, setCancellingBookingId] = useState<number | null>(null);
 
@@ -205,6 +206,8 @@ export function CustomerDashboard({
       onToast("Appointment updated");
     } catch (error) {
       onToast(error instanceof Error ? error.message : "Unable to update your appointment");
+      setBookingDraft((current) => current ? { ...current, time: "" } : current);
+      setAvailabilityVersion((current) => current + 1);
     } finally {
       setBookingSaving(false);
     }
@@ -351,6 +354,7 @@ export function CustomerDashboard({
             barbers={barbers.filter((barber) => barber.status !== "unavailable")}
             hideCustomer
             excludeBookingId={editingBooking?.id}
+            availabilityVersion={availabilityVersion}
             submitLabel="Save appointment"
             submitting={bookingSaving}
             onChange={setBookingDraft}

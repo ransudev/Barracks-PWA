@@ -31,8 +31,15 @@ export function BookingsPage({ onToast, canDelete = true }: { onToast: (message:
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState<BookingFormValue>(freshForm());
   const [busy, setBusy] = useState(false);
+  const [availabilityVersion, setAvailabilityVersion] = useState(0);
   const [pendingCancellation, setPendingCancellation] = useState<ApiBooking | null>(null);
   const [pendingDeletion, setPendingDeletion] = useState<ApiBooking | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 10_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -69,7 +76,7 @@ export function BookingsPage({ onToast, canDelete = true }: { onToast: (message:
   const visible = useMemo(() => items.filter((item) => (tab === "today" ? item.date === dateInputValue() : item.status === tab) &&
     `${item.customerName} ${item.barberName} ${item.serviceName}`.toLowerCase().includes(search.trim().toLowerCase()))
     .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)), [items, tab, search]);
-  const bookingForm = <BookingForm value={draft} customers={customers} services={services} barbers={barbers} excludeBookingId={editing ? selected?.id : undefined}
+  const bookingForm = <BookingForm value={draft} customers={customers} services={services} barbers={barbers} excludeBookingId={editing ? selected?.id : undefined} availabilityVersion={availabilityVersion}
     submitLabel={editing ? "Save booking" : "Create booking"} submitting={busy} onChange={setDraft} onSubmit={saveBooking} onCancel={() => { setCreating(false); setEditing(false); }} />;
 
   async function saveBooking(event: FormEvent<HTMLFormElement>) {
@@ -90,6 +97,7 @@ export function BookingsPage({ onToast, canDelete = true }: { onToast: (message:
     } catch (error) {
       onToast(error instanceof Error ? error.message : "Unable to save booking");
       setDraft((current) => ({ ...current, time: "" }));
+      setAvailabilityVersion((current) => current + 1);
     } finally { setBusy(false); }
   }
 
@@ -140,7 +148,7 @@ export function BookingsPage({ onToast, canDelete = true }: { onToast: (message:
         <DrawerSection><div className="operational-drawer__identity"><Avatar initials={createInitials(selected.customerName)} tone="slate" size="lg" /><div><strong>{selected.customerName}</strong><span>{selected.customerEmail}</span></div><Badge tone={tone(selected.status)}>{label(selected.status)}</Badge></div></DrawerSection>
         <DrawerSection eyebrow="Appointment facts" title="Schedule snapshot"><div className="operational-drawer__facts"><div><span>When</span><strong>{selected.date} · {selected.time}–{selected.endTime ?? "?"}</strong></div><div><span>Service</span><strong>{selected.serviceName} · {selected.durationMinutes ?? "?"} min</strong></div><div><span>Barber</span><strong>{selected.barberName}</strong></div><div><span>Price</span><strong>{formatCurrency(selected.price)}</strong></div><div><span>Notes</span><strong>{selected.notes || "None"}</strong></div></div></DrawerSection>
         {!["completed", "cancelled", "no_show"].includes(selected.status) && <DrawerSection eyebrow="Actions" title="Manage appointment"><div className="operational-drawer__actions">
-          {selected.status === "confirmed" && <><Button variant="secondary" disabled={busy} onClick={() => openEdit(selected)}>Edit</Button><Button disabled={busy} onClick={() => void updateStatus(selected, "checked_in")}>Check In</Button><Button variant="secondary" disabled={busy || !mayMarkNoShow(selected.date, selected.time)} onClick={() => void updateStatus(selected, "no_show")}>Mark No Show</Button></>}
+          {selected.status === "confirmed" && <><Button variant="secondary" disabled={busy} onClick={() => openEdit(selected)}>Edit</Button><Button disabled={busy} onClick={() => void updateStatus(selected, "checked_in")}>Check In</Button><Button variant="secondary" disabled={busy || !mayMarkNoShow(selected.date, selected.time, new Date(now))} onClick={() => void updateStatus(selected, "no_show")}>Mark No Show</Button></>}
           {selected.status === "checked_in" && <Button disabled={busy} onClick={() => void updateStatus(selected, "in_progress")}>Start Service</Button>}
           {selected.status === "in_progress" && <Button disabled={busy} onClick={() => void updateStatus(selected, "completed")}>Complete</Button>}
           {(selected.status === "confirmed" || selected.status === "checked_in") && <Button variant="danger" disabled={busy} onClick={() => setPendingCancellation(selected)}>Cancel</Button>}
