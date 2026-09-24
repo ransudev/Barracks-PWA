@@ -8,51 +8,153 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-## README synchronization
+# AGENTS.md
 
-For every code, configuration, dependency, database, API, or architecture change made in this project, update the repository root `../README.md` in the same change.
+## Purpose
 
-Keep the README's system overview accurate and beginner-friendly. Update the relevant sections when a change affects the project structure, request flow, API routes, database layer, validation, authorization, environment variables, dependencies, implemented features, or unfinished work.
+This file defines the rules that AI coding agents must follow when working in this repository.
 
-Before finishing a task, verify that the README describes the resulting system and that no new behavior is left undocumented.
+The main goals are:
 
-## Git Branch Workflow
+- Keep main stable.
+- Use feature branches for new work.
+- Make small, meaningful commits that act as savepoints.
+- Avoid losing or overwriting existing work.
+- Test changes before considering them complete.
+- Keep Git history clean and easy to understand.
 
-- Treat `main` as the stable branch.
-- Do not implement new features directly on `main`.
-- Before starting a new feature, create a dedicated branch from the latest `main`.
-- Use branch names such as:
-  - `feature/<name>`
-  - `fix/<name>`
-  - `refactor/<name>`
-  - `test/<name>`
-- Commit each completed logical milestone.
-- Keep unrelated work out of the feature branch.
-- Run tests and checks before considering the branch complete.
-- Do not merge into `main` automatically unless explicitly instructed.
-- Prefer merging through a Pull Request so changes can be reviewed first.
+## 1. General Development Rules
 
-## Git Commit and Savepoint Rules
+Before changing code:
 
-After every meaningful code change, create a Git commit so there is always a restore point.
+1. Inspect the existing implementation first.
+2. Understand the current architecture and patterns.
+3. Reuse existing components, services, utilities, and conventions when possible.
+4. Do not redesign working modules unless the task requires it.
+5. Avoid unnecessary changes outside the requested scope.
+6. Do not modify unrelated files just for cleanup or formatting.
+7. Preserve existing behavior unless the requested change intentionally replaces it.
 
-### Required workflow
+Prefer small, focused changes over large rewrites.
 
-1. Before making changes, check the current Git status.
-2. Make only one logical change at a time.
-3. After completing the change:
-   - Review the modified files.
-   - Run the relevant tests, linting, type checking, or build if available.
-   - Stage only the files related to that change.
-   - Create a Git commit immediately.
-4. Do not combine unrelated changes into one commit.
-5. Continue to the next task only after the previous change has been committed.
+## 2. Git Branch Rules
 
-### Commit messages
+### main is the stable branch
 
-Use clear and descriptive commit messages following this format:
+Treat main as production-ready or stable code.
 
-`type: short description`
+Do not implement new features, fixes, refactors, or experiments directly on main.
+
+Before starting new work:
+
+```bash
+git checkout main
+git pull
+git status
+```
+
+The working tree should be clean before creating a new branch.
+
+### Create a dedicated branch
+
+Create one branch for one logical piece of work.
+
+Examples:
+
+- `feature/booking-system`
+- `feature/inventory-module`
+- `feature/supplier-profile`
+- `fix/booking-conflict`
+- `fix/customer-login`
+- `refactor/booking-service`
+- `ui/dashboard-redesign`
+- `test/booking-workflow`
+
+Example:
+
+```bash
+git checkout -b feature/booking-system
+```
+
+Do not use vague branch names such as:
+
+- changes
+- update
+- new
+- test123
+- my-branch
+
+## 3. Never Automatically Merge Into main
+
+Agents must not automatically merge a feature branch into main.
+
+When implementation is complete:
+
+1. Run the required checks.
+2. Review the changes.
+3. Ensure all work is committed.
+4. Report that the branch is ready for review.
+5. Let the user decide when to merge or create a Pull Request.
+
+Do not run:
+
+```bash
+git checkout main
+git merge <branch>
+```
+
+unless the user explicitly asks for the merge.
+
+## 4. Commit and Savepoint Rules
+
+Create a Git commit after every meaningful completed change.
+
+Commits are used as restore points.
+
+Do not wait until the entire feature is finished before committing.
+
+Good commit sequence
+
+```
+feat: add booking database fields
+feat: add barber availability service
+feat: expose availability through booking api
+feat: connect availability to booking form
+test: add booking availability tests
+```
+
+Bad commit sequence
+
+```
+update stuff
+more changes
+final
+fix
+fix again
+```
+
+Each commit should represent one logical change.
+
+Do not create a separate commit for every edited line or tiny formatting change.
+
+## 5. Commit Message Format
+
+Use:
+
+```
+type: short description
+```
+
+Recommended types:
+
+- `feat:` new feature
+- `fix:` bug fix
+- `refactor:` internal code improvement
+- `ui:` interface or styling change
+- `test:` tests
+- `docs:` documentation
+- `chore:` maintenance
+- `perf:` performance improvement
 
 Examples:
 
@@ -61,51 +163,437 @@ Examples:
 - `refactor: simplify booking service logic`
 - `ui: improve booking form layout`
 - `test: add booking conflict tests`
-- `chore: update dependencies`
+- `docs: document booking workflow`
 
-### Savepoint commits
+Keep commit messages short but descriptive.
 
-If a large task requires several steps, create intermediate savepoint commits after each working milestone.
+## 6. Required Workflow for Every Change
+
+For each logical implementation step:
+
+### Step 1: Inspect
+
+Before changing anything:
+
+```bash
+git status
+```
+
+Review relevant files and understand the current implementation.
+
+### Step 2: Implement
+
+Make one focused logical change.
+
+Avoid mixing unrelated changes.
+
+### Step 3: Review
+
+Review the changes before staging:
+
+```bash
+git diff
+git status
+```
+
+Check for:
+
+- accidental file changes
+- debug code
+- temporary files
+- secrets
+- unrelated formatting changes
+- unintended deletions
+
+### Step 4: Validate
+
+Run the relevant checks when available.
+
+Examples:
+
+```bash
+npm run lint
+npm run typecheck
+npm test
+npm run build
+```
+
+Use the scripts that actually exist in the project.
+
+Do not invent commands that the repository does not support.
+
+### Step 5: Stage Only Relevant Files
+
+Prefer:
+
+```bash
+git add path/to/file1 path/to/file2
+```
+
+instead of blindly using:
+
+```bash
+git add .
+```
+
+when unrelated changes are present.
+
+### Step 6: Commit
 
 Example:
-```yaml
-feat: add booking time slot calculation
-feat: add barber availability filtering
-feat: connect availability to booking form
-test: add booking availability tests
+
+```bash
+git commit -m "feat: add booking availability service"
 ```
 
-Do not wait until the entire task is finished before committing.
+### Step 7: Continue
 
-### Safety rules
+Only move to the next logical implementation step after the previous step has been committed.
 
-- Never use `git push --force`.
-- Never rewrite existing Git history unless explicitly instructed.
-- Never delete or reset existing user changes.
-- Do not use `git reset --hard` unless explicitly instructed.
-- Do not commit secrets, `.env` files, API keys, tokens, credentials, or generated sensitive data.
-- Do not commit unrelated existing changes made by the user.
-- If the working tree already contains unrelated changes, leave them untouched and stage only files related to the current task.
-- Do not automatically push commits to the remote repository unless explicitly instructed.
+## 7. Existing User Changes Must Be Protected
 
-### Before each commit
+Never overwrite or discard changes that existed before the current task.
 
-Verify:
+If `git status` shows files already modified before the agent starts:
+
+- Treat them as user-owned changes.
+- Do not reset them.
+- Do not revert them.
+- Do not include them in a commit unless they are clearly part of the requested task.
+
+Stage only files relevant to the current work.
+
+Never use destructive commands to clean the repository without explicit permission.
+
+## 8. Prohibited Git Commands
+
+Do not use the following unless the user explicitly requests them and understands the consequences:
+
+```bash
+git reset --hard
+git clean -fd
+git push --force
+git push --force-with-lease
+git rebase -i
+git checkout -- .
+git restore .
 ```
-git status
-git diff
+
+Never rewrite shared Git history automatically.
+
+Never delete branches unless the user explicitly requests it or the branch has already been safely merged and branch cleanup was requested.
+
+## 9. Pushing to Remote
+
+Do not automatically push commits unless the user explicitly instructs you to push.
+
+Local commits should normally be created first as savepoints.
+
+If pushing is requested:
+
+```bash
+git push -u origin <branch-name>
 ```
 
-Then stage only the relevant files:
+Do not force push.
+
+## 10. Pull Request Workflow
+
+Preferred workflow:
+
 ```
-git add <relevant-files>
+main
+  ↓
+feature branch
+  ↓
+small commits
+  ↓
+tests and validation
+  ↓
+push branch
+  ↓
+Pull Request
+  ↓
+review
+  ↓
+merge into main
 ```
 
-Commit:
-```sql
-git commit -m "type: description"
+Before declaring a branch ready for a Pull Request:
+
+- Working tree should be clean.
+- Relevant tests should pass.
+- Build should pass when applicable.
+- No secrets should be included.
+- No unrelated files should be changed.
+- Commits should have meaningful messages.
+
+## 11. Updating a Feature Branch
+
+If main changes while working on a feature branch, update carefully.
+
+Preferred safe approach for collaborative work:
+
+```bash
+git checkout main
+git pull
+
+git checkout <feature-branch>
+git merge main
 ```
 
-### Goal
+Resolve conflicts carefully.
 
-Git history should act as a series of safe restore points. Every completed logical change should have its own commit so the project can easily be rolled back to the state before that change.
+Do not automatically choose one side of a conflict without understanding both versions.
+
+Do not use destructive conflict resolution.
+
+## 12. Large Features
+
+For large modules, split implementation into milestones.
+
+Example:
+
+```
+feature/inventory-module
+
+commit 1:
+feat: add inventory schema
+
+commit 2:
+feat: add inventory service
+
+commit 3:
+feat: add inventory api routes
+
+commit 4:
+feat: add inventory management interface
+
+commit 5:
+test: add inventory workflow tests
+```
+
+Each milestone should leave the repository in a reasonably working state when possible.
+
+## 13. Bug Fix Workflow
+
+For bug fixes:
+
+1. Understand and reproduce the bug when possible.
+2. Identify the root cause.
+3. Make the smallest reasonable fix.
+4. Test the affected workflow.
+5. Check for regressions.
+6. Commit the fix.
+
+Example:
+
+```
+fix: prevent double booking for the same time slot
+```
+
+Avoid unrelated refactors inside a bug-fix commit.
+
+## 14. Refactoring Rules
+
+A refactor should not intentionally change application behavior.
+
+Before refactoring:
+
+- Understand the current behavior.
+- Ensure tests exist when possible.
+- Keep refactors focused.
+
+Separate refactoring from new feature implementation when practical.
+
+Example:
+
+```
+refactor: extract booking validation service
+```
+
+Then later:
+
+```
+feat: add booking conflict validation
+```
+
+## 15. Database Changes
+
+Database changes must be handled carefully.
+
+Before modifying schemas:
+
+- Inspect the existing schema.
+- Check relationships and foreign keys.
+- Consider existing data.
+- Use the project's existing migration system.
+
+Do not delete tables, columns, or production data unless explicitly requested.
+
+Keep schema changes in their own logical commit when possible.
+
+Example:
+
+```
+feat: add barber_id to bookings
+```
+
+## 16. API Changes
+
+When changing APIs:
+
+- Preserve existing contracts unless the change explicitly requires breaking them.
+- Validate input.
+- Handle expected errors.
+- Respect authentication and authorization.
+- Avoid exposing sensitive information.
+
+Update related frontend code and tests when necessary.
+
+## 17. Role and Permission Rules
+
+Never bypass existing role or permission checks just to make a feature work.
+
+When adding functionality:
+
+- Identify which roles may access it.
+- Reuse the existing authorization system.
+- Test unauthorized access.
+- Do not rely only on hiding frontend buttons.
+
+Authorization should also be enforced on the backend when applicable.
+
+## 18. Testing Expectations
+
+For every meaningful feature or fix, consider:
+
+- Functional testing
+- Workflow testing
+- Validation testing
+- Edge-case testing
+- Regression testing
+- Role and permission testing
+- UI testing
+- Integration testing
+
+Do not claim something is tested unless the relevant check was actually performed.
+
+If tests cannot be run, clearly state that.
+
+## 19. Secrets and Sensitive Files
+
+Never commit:
+
+- `.env`
+- `.env.local`
+- `.env.production`
+- API keys
+- access tokens
+- passwords
+- private keys
+- database credentials
+- authentication secrets
+
+Before committing, inspect staged changes:
+
+```bash
+git diff --cached
+```
+
+If sensitive information appears, remove it before committing.
+
+## 20. Generated and Temporary Files
+
+Do not commit temporary or generated files unless the repository intentionally tracks them.
+
+Examples that usually should not be committed:
+
+- `node_modules/`
+- `dist/`
+- `build/`
+- `coverage/`
+- `*.log`
+- temporary screenshots
+- debug files
+
+Follow the existing `.gitignore`.
+
+## 21. Definition of Done
+
+A task is complete only when:
+
+- The requested feature or fix is implemented.
+- Existing architecture was respected where reasonable.
+- Relevant tests/checks were run.
+- No known unrelated functionality was broken.
+- No secrets were introduced.
+- Changes were reviewed using `git diff`.
+- All intended work was committed.
+- The working tree is clean or any remaining changes are explained.
+- The branch has not been merged into main unless explicitly requested.
+
+## 22. Final Agent Report
+
+After finishing a task, report:
+
+```text
+Branch:
+feature/example
+
+Commits:
+- abc1234 feat: add example service
+- def5678 feat: add example api
+- ghi9012 test: add example tests
+
+Validation:
+- Lint: passed
+- Typecheck: passed
+- Tests: passed
+- Build: passed
+
+Status:
+Ready for review / Pull Request.
+```
+
+If a check was not run, say so.
+
+Never report a test as passing unless it actually passed.
+
+## Core Rule
+
+The repository should always have safe restore points.
+
+The expected workflow is:
+
+```
+main
+  ↓
+create feature branch
+  ↓
+make one logical change
+  ↓
+review
+  ↓
+test
+  ↓
+commit savepoint
+  ↓
+repeat
+  ↓
+final validation
+  ↓
+Pull Request
+  ↓
+merge only with user approval
+```
+
+Keep main stable, keep commits meaningful, and never destroy existing work.
+
+## README synchronization
+
+For every code, configuration, dependency, database, API, or architecture change made in this project, update the repository root `../README.md` in the same change.
+
+Keep the README's system overview accurate and beginner-friendly. Update the relevant sections when a change affects the project structure, request flow, API routes, database layer, validation, authorization, environment variables, dependencies, implemented features, or unfinished work.
+
+Before finishing a task, verify that the README describes the resulting system and that no new behavior is left undocumented.
