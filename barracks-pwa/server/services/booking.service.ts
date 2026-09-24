@@ -1,5 +1,6 @@
 import type { Pool } from "pg";
 import { findServiceById } from "@/server/services/service.service";
+import { findAvailableBarbers, isBookingSlotAvailable } from "@/server/services/booking-availability.service";
 import type {
   BookingEditInput,
   BookingCreateInput,
@@ -163,28 +164,21 @@ export async function createBooking(
     throw new BookingServiceError("not_found", "Customer not found");
   }
 
-  const barber = await db.query<{ id: number; status: string }>(
-    "SELECT id, status FROM barbers WHERE id = $1 LIMIT 1",
-    [input.barberId],
-  );
-  if (!barber.rows[0]) {
-    throw new BookingServiceError("not_found", "Barber not found");
-  }
-  if (barber.rows[0].status === "unavailable") {
-    throw new BookingServiceError("unavailable", "That barber is currently unavailable");
-  }
-
-  try {
-    const inserted = await db.query<{ id: number }>(
+  const candidates = await bookingCandidates(db, input);
+  for (const barberId of candidates) {
+    // Recheck immediately before writing. The exclusion constraints still decide races.
+    if (!await isBookingSlotAvailable(db, { ...input, barberId })) continue;
+    try {
+      const inserted = await db.query<{ id: number }>(
       `
         INSERT INTO bookings
           (customer_id, barber_id, service_id, service_name, service_price, service_duration_minutes, booking_date, booking_time, end_time, notes)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, ($8::time + $6 * INTERVAL '1 minute')::time, $9)
+        VALUES ($1, $2, $3, $4, $5, $6::integer, $7, $8, ($8::time + $6::integer * INTERVAL '1 minute')::time, $9)
         RETURNING id
       `,
       [
         input.customerId,
-        input.barberId,
+        barberId,
         service.id,
         service.name,
         service.price,
@@ -194,13 +188,27 @@ export async function createBooking(
         input.notes?.trim() || null,
       ],
     );
-    return (await findBookingById(db, inserted.rows[0].id)) as BookingRecord;
-  } catch (error) {
-    if (isUniqueViolation(error)) {
-      throw new BookingServiceError("conflict", "That barber is already booked for this time");
+      return (await findBookingById(db, inserted.rows[0].id)) as BookingRecord;
+    } catch (error) {
+      if (isOverlapViolation(error, "bookings_active_customer_overlap")) {
+        throw new BookingServiceError("conflict", "You already have an appointment that overlaps this time");
+      }
+      if (isOverlapViolation(error, "bookings_active_barber_overlap") || isUniqueViolation(error)) {
+        if (!input.barberId) continue;
+        throw new BookingServiceError("conflict", "That barber was just booked. Choose another time or barber");
+      }
+      throw error;
     }
-    throw error;
   }
+  throw new BookingServiceError("conflict", "No barber is available at that time. Please choose another slot");
+}
+
+async function bookingCandidates(db: Pool, input: { serviceId: string; barberId?: number | null; date: string; time: string }, excludeBookingId?: number): Promise<number[]> {
+  if (!input.barberId) return findAvailableBarbers(db, input, { excludeBookingId });
+  const barber = await db.query<{ id: number; status: string }>("SELECT id, status FROM barbers WHERE id=$1", [input.barberId]);
+  if (!barber.rows[0]) throw new BookingServiceError("not_found", "Barber not found");
+  if (barber.rows[0].status === "unavailable") throw new BookingServiceError("unavailable", "That barber is currently unavailable");
+  return [input.barberId];
 }
 
 export async function findBookingById(
@@ -280,28 +288,20 @@ export async function updateBookingDetails(
     throw new BookingServiceError("not_found", "Customer not found");
   }
 
-  const barber = await db.query<{ id: number; status: string }>(
-    "SELECT id, status FROM barbers WHERE id = $1 LIMIT 1",
-    [input.barberId],
-  );
-  if (!barber.rows[0]) {
-    throw new BookingServiceError("not_found", "Barber not found");
-  }
-  if (barber.rows[0].status === "unavailable") {
-    throw new BookingServiceError("unavailable", "That barber is currently unavailable");
-  }
-
-  try {
+  const candidates = await bookingCandidates(db, input, id);
+  for (const barberId of candidates) {
+    if (!await isBookingSlotAvailable(db, { ...input, barberId }, { excludeBookingId: id })) continue;
+    try {
     const customerScope = scope?.customerId ? " AND customer_id = $11" : "";
     const values = scope?.customerId
-      ? [input.customerId, input.barberId, service.id, service.name, service.price, service.durationMinutes, input.date, input.time, input.notes?.trim() || null, id, scope.customerId]
-      : [input.customerId, input.barberId, service.id, service.name, service.price, service.durationMinutes, input.date, input.time, input.notes?.trim() || null, id];
+      ? [input.customerId, barberId, service.id, service.name, service.price, service.durationMinutes, input.date, input.time, input.notes?.trim() || null, id, scope.customerId]
+      : [input.customerId, barberId, service.id, service.name, service.price, service.durationMinutes, input.date, input.time, input.notes?.trim() || null, id];
     const updated = await db.query<{ id: number }>(
       `
         UPDATE bookings
         SET customer_id = $1, barber_id = $2, service_id = $3, service_name = $4,
             service_price = $5, service_duration_minutes = $6, booking_date = $7, booking_time = $8,
-            end_time = ($8::time + $6 * INTERVAL '1 minute')::time, notes = $9, updated_at = NOW()
+            end_time = ($8::time + $6::integer * INTERVAL '1 minute')::time, notes = $9, updated_at = NOW()
         WHERE id = $10 AND status = 'confirmed'${customerScope}
         RETURNING id
       `,
@@ -325,12 +325,16 @@ export async function updateBookingDetails(
     }
 
     return updated.rows[0] ? findBookingById(db, id) : null;
-  } catch (error) {
-    if (isUniqueViolation(error)) {
-      throw new BookingServiceError("conflict", "That barber is already booked for this time");
+    } catch (error) {
+      if (isOverlapViolation(error, "bookings_active_customer_overlap")) throw new BookingServiceError("conflict", "Customer already has an appointment that overlaps this time");
+      if (isOverlapViolation(error, "bookings_active_barber_overlap") || isUniqueViolation(error)) {
+        if (!input.barberId) continue;
+        throw new BookingServiceError("conflict", "That barber was just booked. Choose another time or barber");
+      }
+      throw error;
     }
-    throw error;
   }
+  throw new BookingServiceError("conflict", "No barber is available at that time. Please choose another slot");
 }
 
 /**
@@ -359,4 +363,10 @@ function isUniqueViolation(error: unknown): error is { code: string } {
       "code" in error &&
       (error as { code?: unknown }).code === "23505",
   );
+}
+
+function isOverlapViolation(error: unknown, constraint: string): boolean {
+  return Boolean(error && typeof error === "object" && "code" in error && "constraint" in error &&
+    (error as { code?: string; constraint?: string }).code === "23P01" &&
+    (error as { constraint?: string }).constraint === constraint);
 }

@@ -18,4 +18,4 @@ export const weeklyScheduleSchema = z.object({ dayOfWeek: daySchema, isWorking: 
   });
 export const unavailabilitySchema = z.object({ startsAt: z.iso.datetime({ offset: true }), endsAt: z.iso.datetime({ offset: true }), reason: z.string().trim().min(1).max(200) }).strict()
   .refine((value) => Date.parse(value.startsAt) < Date.parse(value.endsAt), { message: "End must follow start", path: ["endsAt"] });
-export const availabilityQuerySchema = z.object({ serviceId: z.string().trim().min(1).max(80), barberId: z.coerce.number().int().positive(), date: dateSchema }).strict();
+export const availabilityQuerySchema = z.object({ serviceId: z.string().trim().min(1).max(80), barberId: z.coerce.number().int().positive().optional(), date: dateSchema }).strict();

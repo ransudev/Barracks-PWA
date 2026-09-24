@@ -84,7 +84,7 @@ export const barberCommissionSchema = z
 export const bookingCreateSchema = z
   .object({
     customerId: z.number().int().positive().optional(),
-    barberId: z.number().int().positive(),
+    barberId: z.number().int().positive().nullable().optional(),
     serviceId: z.string().trim().min(1).max(80),
     date: bookingDateSchema,
     time: bookingTimeSchema,
@@ -101,7 +101,7 @@ export const bookingUpdateSchema = z
 export const bookingEditSchema = z
   .object({
     customerId: z.number().int().positive(),
-    barberId: z.number().int().positive(),
+    barberId: z.number().int().positive().nullable().optional(),
     serviceId: z.string().trim().min(1).max(80),
     date: bookingDateSchema,
     time: bookingTimeSchema,

@@ -1,6 +1,6 @@
 import type { Pool } from "pg";
 import { findServiceById } from "@/server/services/service.service";
-import { findBarberById } from "@/server/services/barber.service";
+import { findBarberById, listBarberAvailability } from "@/server/services/barber.service";
 import { listBarberSchedules, listBarberUnavailability, listShopHours, type ShopHours, type WeeklySchedule } from "@/server/services/schedule.service";
 
 export type AvailabilitySlot = { startTime: string; endTime: string };
@@ -62,4 +62,33 @@ export async function getBookingAvailability(db: Pool, input: { serviceId: strin
 export async function isBookingSlotAvailable(db: Pool, input: { serviceId: string; barberId: number; date: string; time: string }, options: { now?: Date; excludeBookingId?: number } = {}): Promise<boolean> {
   const result = await getBookingAvailability(db, input, options);
   return result.slots.some((slot) => slot.startTime === input.time);
+}
+
+export async function findAvailableBarbers(db: Pool, input: { serviceId: string; date: string; time: string }, options: { now?: Date; excludeBookingId?: number } = {}): Promise<number[]> {
+  const barbers = (await listBarberAvailability(db)).filter((barber) => barber.status !== "unavailable");
+  const [counts, eligible] = await Promise.all([
+    db.query<{ barber_id: number; appointment_count: string }>(
+      `SELECT barber_id, COUNT(*) AS appointment_count FROM bookings
+       WHERE booking_date=$1 AND status IN ('confirmed','checked_in','in_progress')
+       AND ($2::bigint IS NULL OR id<>$2) GROUP BY barber_id`,
+      [input.date, options.excludeBookingId ?? null],
+    ),
+    Promise.all(barbers.map(async (barber) => ({
+      id: barber.id,
+      available: await isBookingSlotAvailable(db, { ...input, barberId: barber.id }, options),
+    }))),
+  ]);
+  const countByBarber = new Map(counts.rows.map((row) => [Number(row.barber_id), Number(row.appointment_count)]));
+  return eligible.filter((barber) => barber.available).map((barber) => barber.id)
+    .sort((a, b) => (countByBarber.get(a) ?? 0) - (countByBarber.get(b) ?? 0) || a - b);
+}
+
+export async function getAnyBarberAvailability(db: Pool, input: { serviceId: string; date: string }, options: { now?: Date; excludeBookingId?: number } = {}): Promise<AvailabilityResult> {
+  const service = await findServiceById(db, input.serviceId);
+  if (!service?.active || !service.durationMinutes) throw new AvailabilityError("service_not_found", "Service is not available");
+  const barbers = (await listBarberAvailability(db)).filter((barber) => barber.status !== "unavailable");
+  const results = await Promise.all(barbers.map((barber) => getBookingAvailability(db, { ...input, barberId: barber.id }, options)));
+  const slots = new Map<string, AvailabilitySlot>();
+  results.forEach((result) => result.slots.forEach((slot) => slots.set(slot.startTime, slot)));
+  return { date: input.date, durationMinutes: service.durationMinutes, slots: [...slots.values()].sort((a, b) => a.startTime.localeCompare(b.startTime)) };
 }
