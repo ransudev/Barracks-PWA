@@ -56,6 +56,14 @@ The active `sprint-2` experience includes:
 
 The app uses URL-backed Next.js routes for the active surfaces. The browser restores the requested page after refresh, and protected routes rehydrate the current account from the HTTP-only session cookie before rendering the workspace.
 
+### Scheduling foundation
+
+Migration `010_scheduling_availability.sql` stores seven shop operating days, recurring barber shifts and breaks, and timestamped barber unavailable periods. Hours are initially 9:00 AM–7:30 PM daily in Asia/Manila. Existing barbers receive matching shifts during migration; newly created barbers receive matching shifts when added. Administrators and managers can edit these in Barber Management. Front Desk and customers can read shop hours but cannot change schedules.
+
+`GET /api/shop-hours` returns the weekly hours and timezone; `PUT /api/shop-hours` updates one day for management roles. Management can use `GET/PUT/POST/DELETE /api/barbers/:id/schedule` to read or change shifts, breaks, and unavailable periods. `GET /api/bookings/availability?serviceId=...&barberId=...&date=YYYY-MM-DD` is available to customers, Front Desk, managers, and administrators. It returns 15-minute start slots with expected end times for one active service and one barber. Slots respect shop hours, working shifts, breaks, temporary absences, active bookings, current Philippine time, and the barber's globally unavailable status. A busy barber remains schedulable for future free times. The shared server availability service also exposes selected-slot validation for later booking creation.
+
+The current booking create/edit screens and mutations still use their Phase 1 workflow; they do not yet consume or enforce the new availability result. Concurrent booking exclusion, Any Available Barber assignment, booking flow redesign, queue integration, branches, and notifications remain deferred.
+
 Queue management is now rendered as a shop-floor-only client-state module; it keeps the existing prototype workflow because no queue API contract exists yet. Payments, settings, calendar sync, notifications, email confirmations, and complete visit history remain outside the active sprint backend. Service management uses the PostgreSQL catalog. Inventory reporting is implemented through `GET /api/reports/inventory` and the `/admin/reports` surface, while the larger reporting and payment prototypes remain in the repository as reference material.
 
 ### Roles and access

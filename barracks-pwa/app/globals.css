@@ -1768,3 +1768,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .inventory-drawer, .operational-drawer { transition: none; }
   .inventory-drawer-scrim, .operational-drawer-scrim { transition: none; }
 }
+.schedule-rows { display: grid; gap: .75rem; margin: 1rem 0 1.5rem; }
+.schedule-row { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; padding: .75rem; border: 1px solid var(--border, #555); border-radius: .5rem; }
+.schedule-row > strong { min-width: 7rem; }
+.schedule-row input, .schedule-row select, .schedule-row button, .operational-panel select { font: inherit; }
+.schedule-row input[type="time"], .schedule-row input[type="datetime-local"], .schedule-row input:not([type]) { max-width: 12rem; padding: .35rem; border-radius: .35rem; }
+.schedule-breaks { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; width: 100%; }
+.schedule-row input, .schedule-row select, .operational-panel > label select { color: inherit; background: transparent; border: 1px solid currentColor; }
+.schedule-row button:not(.btn), .schedule-breaks button { color: inherit; background: transparent; border: 1px solid currentColor; border-radius: .35rem; padding: .35rem .6rem; cursor: pointer; }

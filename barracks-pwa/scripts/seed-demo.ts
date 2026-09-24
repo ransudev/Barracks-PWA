@@ -264,6 +264,8 @@ async function seedBarbers(client: DatabaseClient): Promise<Map<string, number>>
       [barber.firstName, barber.lastName, barber.status, barber.commissionRate, barber.servicesDone, barber.revenue, barber.rating],
     );
     ids.set(`${barber.firstName} ${barber.lastName}`, Number(result.rows[0].id));
+    await client.query(`INSERT INTO barber_schedules (barber_id,day_of_week,is_working,start_time,end_time)
+      SELECT $1, day, TRUE, '09:00', '19:30' FROM generate_series(0,6) AS day`, [result.rows[0].id]);
   }
   return ids;
 }

@@ -92,9 +92,14 @@ export async function createBarber(db: Pool, input: BarberMutationInput): Promis
   const rating = "rating" in input ? input.rating : null;
   const result = await db.query<{ id: number }>(
       `
-      INSERT INTO barbers (first_name, last_name, status, commission_rate, rating)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING id
+      WITH inserted AS (
+        INSERT INTO barbers (first_name, last_name, status, commission_rate, rating)
+        VALUES ($1, $2, $3, $4, $5) RETURNING id
+      ), scheduled AS (
+        INSERT INTO barber_schedules (barber_id, day_of_week, is_working, start_time, end_time)
+        SELECT inserted.id, day, TRUE, '09:00', '19:30' FROM inserted CROSS JOIN generate_series(0, 6) AS day
+        RETURNING barber_id
+      ) SELECT id FROM inserted
     `,
     [input.firstName, input.lastName, input.status, commissionRate, rating ?? null],
   );
