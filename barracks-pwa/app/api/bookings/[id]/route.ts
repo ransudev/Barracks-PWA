@@ -127,6 +127,7 @@ export async function PUT(
       serviceId: parsed.data.serviceId,
       date: parsed.data.date,
       time: parsed.data.time,
+      notes: parsed.data.notes,
     };
     const booking = await updateBookingDetails(
       pool,

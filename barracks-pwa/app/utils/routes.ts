@@ -23,6 +23,7 @@ export const viewPaths: Record<ViewId, string> = {
   "admin-reports": "/admin/reports",
   barbers: "/staff/barbers",
   "admin-inventory": "/admin/inventory",
+  "admin-services": "/admin/services",
 };
 
 const pathsToViews = new Map(Object.entries(viewPaths).map(([view, path]) => [path, view as ViewId]));

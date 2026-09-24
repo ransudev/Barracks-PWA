@@ -85,7 +85,7 @@ export type ApiCustomer = {
   updatedAt: string;
 };
 
-export type ApiBookingStatus = "upcoming" | "completed" | "cancelled";
+export type ApiBookingStatus = "confirmed" | "checked_in" | "in_progress" | "completed" | "cancelled" | "no_show";
 
 export type ApiBooking = {
   id: number;
@@ -99,6 +99,9 @@ export type ApiBooking = {
   serviceId: string;
   serviceName: string;
   price: number;
+  durationMinutes: number | null;
+  endTime: string | null;
+  notes: string | null;
   status: ApiBookingStatus;
   createdAt: string;
   updatedAt: string;

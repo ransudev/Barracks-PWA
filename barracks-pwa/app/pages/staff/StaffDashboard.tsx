@@ -95,7 +95,7 @@ export function StaffDashboard({
   );
   const upcomingBookings = useMemo(
     () => bookings
-      .filter((booking) => booking.status === "upcoming" && booking.date >= today)
+      .filter((booking) => booking.status === "confirmed" && booking.date >= today)
       .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)),
     [bookings, today],
   );

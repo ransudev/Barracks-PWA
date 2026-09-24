@@ -135,7 +135,7 @@ const demoBookings = [
     servicePrice: 300,
     dayOffset: 1,
     time: "10:00",
-    status: "upcoming",
+    status: "confirmed",
   },
   {
     demoKey: "demo-paulo-shave",
@@ -146,7 +146,7 @@ const demoBookings = [
     servicePrice: 300,
     dayOffset: 2,
     time: "14:00",
-    status: "upcoming",
+    status: "confirmed",
   },
   {
     demoKey: "demo-samira-premium",
@@ -248,10 +248,10 @@ async function clearBusinessData(client: DatabaseClient): Promise<void> {
 
 async function seedServices(client: DatabaseClient): Promise<void> {
   await client.query(
-    `INSERT INTO services (id,name,current_price,active) VALUES
-      ('barracks-basic','Barracks Basic',300,TRUE),
-      ('signature-shave','Signature Shave',300,TRUE),
-      ('barracks-premium','Barracks Premium',550,TRUE)`,
+    `INSERT INTO services (id,name,description,current_price,duration_minutes,active) VALUES
+      ('barracks-basic','Barracks Basic','A clean, tailored cut finished to your preference.',300,45,TRUE),
+      ('signature-shave','Signature Shave','A close shave with a warm towel finish.',300,30,TRUE),
+      ('barracks-premium','Barracks Premium','A complete cut, styling, and premium finish.',550,75,TRUE)`,
   );
 }
 
@@ -330,8 +330,8 @@ async function seedBookings(
     if (!customerId || !barberId) throw new Error(`Unable to resolve booking ${booking.demoKey}`);
     const result = await client.query<{ id: number }>(
       `INSERT INTO bookings
-        (customer_id,barber_id,service_id,service_name,service_price,booking_date,booking_time,status,demo_key)
-       VALUES ($1,$2,$3,$4,$5,CURRENT_DATE + $6::integer,$7,$8,$9) RETURNING id`,
+        (customer_id,barber_id,service_id,service_name,service_price,service_duration_minutes,booking_date,booking_time,end_time,status,demo_key)
+       VALUES ($1,$2,$3,$4,$5,(SELECT duration_minutes FROM services WHERE id=$3),CURRENT_DATE + $6::integer,$7,($7::time + (SELECT duration_minutes FROM services WHERE id=$3) * INTERVAL '1 minute')::time,$8,$9) RETURNING id`,
       [customerId, barberId, booking.serviceId, booking.serviceName, booking.servicePrice, booking.dayOffset, booking.time, booking.status, booking.demoKey],
     );
     ids.set(booking.demoKey, Number(result.rows[0].id));

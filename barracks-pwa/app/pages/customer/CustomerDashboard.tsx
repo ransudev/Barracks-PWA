@@ -4,8 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { BookingForm, type BookingFormValue } from "@/app/components/bookings/BookingForm";
 import type { ApiBarberAvailability, ApiBooking, ApiCustomer, ApiUser } from "@/app/lib/api";
 import { apiRequest, readApiBody } from "@/app/lib/api";
-import type { ViewId } from "@/app/types/domain";
-import { services } from "@/app/data/services";
+import type { Service, ViewId } from "@/app/types/domain";
 import {
   Avatar,
   Badge,
@@ -69,6 +68,7 @@ function bookingFormValue(booking: ApiBooking): BookingFormValue {
     barberId: String(booking.barberId),
     date: booking.date,
     time: booking.time,
+    notes: booking.notes ?? "",
   };
 }
 
@@ -86,6 +86,7 @@ export function CustomerDashboard({
   const [customer, setCustomer] = useState<ApiCustomer | null>(null);
   const [barbers, setBarbers] = useState<ApiBarberAvailability[]>([]);
   const [bookings, setBookings] = useState<ApiBooking[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
   const [draft, setDraft] = useState<ProfileDraft>({
     firstName: "",
     lastName: "",
@@ -105,14 +106,16 @@ export function CustomerDashboard({
   useEffect(() => {
     async function load() {
       try {
-        const [customerResponse, bookingResponse, barberResponse] = await Promise.all([
+        const [customerResponse, bookingResponse, barberResponse, serviceResponse] = await Promise.all([
           apiRequest("/api/customers/me"),
           apiRequest("/api/bookings"),
           apiRequest("/api/barbers"),
+          apiRequest("/api/services"),
         ]);
         const customerBody = await readApiBody<{ success: boolean; customer?: ApiCustomer; message?: string }>(customerResponse);
         const bookingBody = await readApiBody<{ success: boolean; bookings?: ApiBooking[]; message?: string }>(bookingResponse);
         const barberBody = await readApiBody<{ success: boolean; barbers?: ApiBarberAvailability[] }>(barberResponse);
+        const serviceBody = await readApiBody<{ success: boolean; services?: Service[] }>(serviceResponse);
 
         if (!customerResponse.ok || !customerBody?.success || !customerBody.customer) {
           throw new Error(customerBody?.message ?? "Unable to load customer dashboard");
@@ -125,6 +128,7 @@ export function CustomerDashboard({
         setDraft(profileForm(customerBody.customer));
         setBookings(bookingBody.bookings ?? []);
         if (barberResponse.ok && barberBody?.success) setBarbers(barberBody.barbers ?? []);
+        if (serviceResponse.ok && serviceBody?.success) setServices(serviceBody.services ?? []);
       } catch (error) {
         onToast(error instanceof Error ? error.message : "Unable to load customer dashboard");
       } finally {
@@ -188,6 +192,7 @@ export function CustomerDashboard({
           barberId: Number(bookingDraft.barberId),
           date: bookingDraft.date,
           time: bookingDraft.time,
+          notes: bookingDraft.notes,
         }),
       });
       const body = await readApiBody<{ success: boolean; booking?: ApiBooking; message?: string }>(response);
@@ -228,8 +233,8 @@ export function CustomerDashboard({
   }
 
   const name = customer ? `${customer.firstName} ${customer.lastName}` : `${user.firstName} ${user.lastName}`;
-  const upcoming = bookings.filter((booking) => booking.status === "upcoming");
-  const past = bookings.filter((booking) => booking.status !== "upcoming");
+  const upcoming = bookings.filter((booking) => ["confirmed", "checked_in", "in_progress"].includes(booking.status));
+  const past = bookings.filter((booking) => ["completed", "cancelled", "no_show"].includes(booking.status));
 
   return (
     <div className="customer-page customer-page--dashboard">
@@ -289,9 +294,9 @@ export function CustomerDashboard({
                             <small>with {booking.barberName}</small>
                           </div>
                           <div className="customer-booking-card__actions">
-                            <Badge tone="warning">Upcoming</Badge>
-                            <Button size="sm" variant="secondary" icon="edit" onClick={() => openBookingEditor(booking)}>Manage</Button>
-                            <Button size="sm" variant="danger" onClick={() => setPendingCancellation(booking)}>Cancel</Button>
+                            <Badge tone="warning">{booking.status === "confirmed" ? "Confirmed" : booking.status === "checked_in" ? "Checked in" : "In progress"}</Badge>
+                            {booking.status === "confirmed" && <Button size="sm" variant="secondary" icon="edit" onClick={() => openBookingEditor(booking)}>Manage</Button>}
+                            {booking.status === "confirmed" && <Button size="sm" variant="danger" onClick={() => setPendingCancellation(booking)}>Cancel</Button>}
                           </div>
                         </div>
                       ))}
@@ -317,7 +322,7 @@ export function CustomerDashboard({
                           <span>{booking.serviceName} · {booking.barberName}</span>
                         </div>
                         <Badge tone={booking.status === "completed" ? "success" : "danger"}>
-                          {booking.status === "completed" ? "Completed" : "Cancelled"}
+                          {booking.status === "completed" ? "Completed" : booking.status === "no_show" ? "No show" : "Cancelled"}
                         </Badge>
                       </div>
                     ))}

@@ -1,5 +1,5 @@
 import type { Pool } from "pg";
-import { services } from "@/app/data/services";
+import { findServiceById } from "@/server/services/service.service";
 import type {
   BookingEditInput,
   BookingCreateInput,
@@ -18,7 +18,10 @@ type BookingRow = {
   service_id: string;
   service_name: string;
   service_price: number | string;
-  status: "upcoming" | "completed" | "cancelled";
+  service_duration_minutes: number | null;
+  end_time: string | Date | null;
+  notes: string | null;
+  status: "confirmed" | "checked_in" | "in_progress" | "completed" | "cancelled" | "no_show";
   created_at: string | Date;
   updated_at: string | Date;
 };
@@ -35,6 +38,9 @@ export type BookingRecord = {
   serviceId: string;
   serviceName: string;
   price: number;
+  durationMinutes: number | null;
+  endTime: string | null;
+  notes: string | null;
   status: BookingRow["status"];
   createdAt: string;
   updatedAt: string;
@@ -63,6 +69,9 @@ const bookingSelect = `
     b.service_id,
     b.service_name,
     b.service_price,
+    b.service_duration_minutes,
+    b.end_time,
+    b.notes,
     b.status,
     b.created_at,
     b.updated_at
@@ -103,6 +112,9 @@ function toBooking(row: BookingRow): BookingRecord {
     serviceId: row.service_id,
     serviceName: row.service_name,
     price: Number(row.service_price),
+    durationMinutes: row.service_duration_minutes,
+    endTime: row.end_time === null ? null : toTimeOnly(row.end_time),
+    notes: row.notes,
     status: row.status,
     createdAt: toIso(row.created_at),
     updatedAt: toIso(row.updated_at),
@@ -131,8 +143,8 @@ export async function createBooking(
     throw new BookingServiceError("past", "Choose a future booking time");
   }
 
-  const service = services.find((item) => item.id === input.serviceId && item.active);
-  if (!service) {
+  const service = await findServiceById(db, input.serviceId);
+  if (!service?.active || !service.durationMinutes) {
     throw new BookingServiceError("not_found", "That service is not available");
   }
 
@@ -166,8 +178,8 @@ export async function createBooking(
     const inserted = await db.query<{ id: number }>(
       `
         INSERT INTO bookings
-          (customer_id, barber_id, service_id, service_name, service_price, booking_date, booking_time)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+          (customer_id, barber_id, service_id, service_name, service_price, service_duration_minutes, booking_date, booking_time, end_time, notes)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, ($8::time + $6 * INTERVAL '1 minute')::time, $9)
         RETURNING id
       `,
       [
@@ -176,8 +188,10 @@ export async function createBooking(
         service.id,
         service.name,
         service.price,
+        service.durationMinutes,
         input.date,
         input.time,
+        input.notes?.trim() || null,
       ],
     );
     return (await findBookingById(db, inserted.rows[0].id)) as BookingRecord;
@@ -212,7 +226,7 @@ export async function updateBooking(
     `
       UPDATE bookings
       SET status = $1, updated_at = NOW()
-      WHERE id = $2 AND status = 'upcoming'${customerScope}
+      WHERE id = $2 AND status = 'confirmed'${customerScope}
       RETURNING id
     `,
     values,
@@ -225,9 +239,9 @@ export async function updateBooking(
     if (scope?.customerId && existing.rows[0] && Number(existing.rows[0].customer_id) !== scope.customerId) {
       throw new BookingServiceError("forbidden", "You can only manage your own bookings");
     }
-    if (existing.rows[0]?.status !== "upcoming") {
+    if (existing.rows[0]?.status !== "confirmed") {
       if (existing.rows[0]) {
-        throw new BookingServiceError("not_updatable", "Only upcoming bookings can be updated");
+        throw new BookingServiceError("not_updatable", "Only confirmed bookings can be updated");
       }
       return null;
     }
@@ -246,8 +260,8 @@ export async function updateBookingDetails(
     throw new BookingServiceError("past", "Choose a future booking time");
   }
 
-  const service = services.find((item) => item.id === input.serviceId && item.active);
-  if (!service) {
+  const service = await findServiceById(db, input.serviceId);
+  if (!service?.active || !service.durationMinutes) {
     throw new BookingServiceError("not_found", "That service is not available");
   }
 
@@ -278,16 +292,17 @@ export async function updateBookingDetails(
   }
 
   try {
-    const customerScope = scope?.customerId ? " AND customer_id = $9" : "";
+    const customerScope = scope?.customerId ? " AND customer_id = $11" : "";
     const values = scope?.customerId
-      ? [input.customerId, input.barberId, service.id, service.name, service.price, input.date, input.time, id, scope.customerId]
-      : [input.customerId, input.barberId, service.id, service.name, service.price, input.date, input.time, id];
+      ? [input.customerId, input.barberId, service.id, service.name, service.price, service.durationMinutes, input.date, input.time, input.notes?.trim() || null, id, scope.customerId]
+      : [input.customerId, input.barberId, service.id, service.name, service.price, service.durationMinutes, input.date, input.time, input.notes?.trim() || null, id];
     const updated = await db.query<{ id: number }>(
       `
         UPDATE bookings
         SET customer_id = $1, barber_id = $2, service_id = $3, service_name = $4,
-            service_price = $5, booking_date = $6, booking_time = $7, updated_at = NOW()
-        WHERE id = $8 AND status = 'upcoming'${customerScope}
+            service_price = $5, service_duration_minutes = $6, booking_date = $7, booking_time = $8,
+            end_time = ($8::time + $6 * INTERVAL '1 minute')::time, notes = $9, updated_at = NOW()
+        WHERE id = $10 AND status = 'confirmed'${customerScope}
         RETURNING id
       `,
       values,
@@ -301,9 +316,9 @@ export async function updateBookingDetails(
       if (scope?.customerId && existing.rows[0] && Number(existing.rows[0].customer_id) !== scope.customerId) {
         throw new BookingServiceError("forbidden", "You can only manage your own bookings");
       }
-      if (existing.rows[0]?.status !== "upcoming") {
+      if (existing.rows[0]?.status !== "confirmed") {
         if (existing.rows[0]) {
-          throw new BookingServiceError("not_updatable", "Only upcoming bookings can be updated");
+          throw new BookingServiceError("not_updatable", "Only confirmed bookings can be updated");
         }
         return null;
       }
@@ -319,12 +334,12 @@ export async function updateBookingDetails(
 }
 
 /**
- * Only upcoming bookings may be physically removed. Completed and cancelled
+ * Only confirmed bookings may be physically removed. Completed and cancelled
  * records are historical facts and remain available for reporting/audit.
  */
 export async function deleteBooking(db: Pool, id: number): Promise<boolean> {
   const deleted = await db.query<{ id: number }>(
-    "DELETE FROM bookings WHERE id=$1 AND status='upcoming' RETURNING id",
+    "DELETE FROM bookings WHERE id=$1 AND status='confirmed' RETURNING id",
     [id],
   );
   if (deleted.rows[0]) return true;
@@ -334,7 +349,7 @@ export async function deleteBooking(db: Pool, id: number): Promise<boolean> {
     [id],
   );
   if (!existing.rows[0]) return false;
-  throw new BookingServiceError("not_deletable", "Only upcoming bookings can be deleted");
+  throw new BookingServiceError("not_deletable", "Only confirmed bookings can be deleted");
 }
 
 function isUniqueViolation(error: unknown): error is { code: string } {

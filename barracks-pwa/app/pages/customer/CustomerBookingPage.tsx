@@ -6,8 +6,7 @@ import { Button, EmptyState } from "@/app/components/ui";
 import { Icon } from "@/app/components/ui/icons";
 import type { ApiBarberAvailability, ApiUser } from "@/app/lib/api";
 import { apiRequest, readApiBody } from "@/app/lib/api";
-import { services } from "@/app/data/services";
-import type { ViewId } from "@/app/types/domain";
+import type { Service, ViewId } from "@/app/types/domain";
 import { CustomerTopbar } from "@/app/pages/customer/CustomerTopbar";
 import { futureDateInputValue } from "@/app/utils/format";
 
@@ -23,14 +22,16 @@ export function CustomerBookingPage({
   user: ApiUser;
 }) {
   const [barbers, setBarbers] = useState<ApiBarberAvailability[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [value, setValue] = useState<BookingFormValue>({
     customerId: "",
-    serviceId: services[0]?.id ?? "",
+    serviceId: "",
     barberId: "",
     date: futureDateInputValue(),
     time: "10:00",
+    notes: "",
   });
 
   const selectedService = services.find((service) => service.id === value.serviceId);
@@ -39,12 +40,15 @@ export function CustomerBookingPage({
   useEffect(() => {
     async function loadBarbers() {
       try {
-        const response = await apiRequest("/api/barbers");
+        const [response, serviceResponse] = await Promise.all([apiRequest("/api/barbers"), apiRequest("/api/services")]);
         const body = await readApiBody<{ success: boolean; barbers?: ApiBarberAvailability[]; message?: string }>(response);
+        const serviceBody = await readApiBody<{ success: boolean; services?: Service[]; message?: string }>(serviceResponse);
         if (!response.ok || !body?.success) throw new Error(body?.message ?? "Unable to load barbers");
+        if (!serviceResponse.ok || !serviceBody?.success) throw new Error(serviceBody?.message ?? "Unable to load services");
         const available = (body.barbers ?? []).filter((barber) => barber.status !== "unavailable");
         setBarbers(available);
-        setValue((current) => ({ ...current, barberId: current.barberId || String(available[0]?.id ?? "") }));
+        setServices(serviceBody.services ?? []);
+        setValue((current) => ({ ...current, serviceId: current.serviceId || serviceBody.services?.[0]?.id || "", barberId: current.barberId || String(available[0]?.id ?? "") }));
       } catch (error) {
         onToast(error instanceof Error ? error.message : "Unable to load barbers");
       } finally {
@@ -70,6 +74,7 @@ export function CustomerBookingPage({
           barberId: Number(value.barberId),
           date: value.date,
           time: value.time,
+          notes: value.notes,
         }),
       });
       const body = await readApiBody<{ success: boolean; message?: string }>(response);
@@ -145,7 +150,7 @@ export function CustomerBookingPage({
                   <span>Selected Service</span>
                   <strong>{selectedService?.name ?? "No service selected"}</strong>
                   <span className="booking-summary-item__meta">
-                    Duration: {selectedService?.duration ?? "—"}
+                    Duration: {selectedService?.durationMinutes ? `${selectedService.durationMinutes} mins` : "—"}
                   </span>
                 </div>
 

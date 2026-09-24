@@ -50,13 +50,13 @@ The active `sprint-2` experience includes:
 - Staff workspace with a live barber overview dashboard, queue, bookings, customers, barbers, inventory, suppliers, and restocks.
 - Management workspace with dashboard counts, staff account management, barber management, inventory, suppliers, restocks, and inventory reporting.
 - Supplier portal for a linked supplier account, its supplied items, deliveries, and restock requests.
-- PostgreSQL-backed CRUD for user accounts, barber employee profiles, inventory, suppliers, and restock requests, plus database-backed booking creation/editing/status updates.
+- PostgreSQL-backed CRUD for user accounts, barber employee profiles, services, inventory, suppliers, and restock requests, plus database-backed booking creation/editing/status updates.
 - Shared operational card/list/drawer modules that give customers, barbers, staff accounts, suppliers, restocks, bookings, queue, and inventory one consistent interaction language.
 - Role-aware workspace switching between Management and Shop floor.
 
 The app uses URL-backed Next.js routes for the active surfaces. The browser restores the requested page after refresh, and protected routes rehydrate the current account from the HTTP-only session cookie before rendering the workspace.
 
-Queue management is now rendered as a shop-floor-only client-state module; it keeps the existing prototype workflow because no queue API contract exists yet. Payments, service management, settings, calendar sync, notifications, email confirmations, and complete visit history remain outside the active sprint backend. Inventory reporting is implemented through `GET /api/reports/inventory` and the `/admin/reports` surface, while the larger reporting, payment, and service prototypes remain in the repository as reference material.
+Queue management is now rendered as a shop-floor-only client-state module; it keeps the existing prototype workflow because no queue API contract exists yet. Payments, settings, calendar sync, notifications, email confirmations, and complete visit history remain outside the active sprint backend. Service management uses the PostgreSQL catalog. Inventory reporting is implemented through `GET /api/reports/inventory` and the `/admin/reports` surface, while the larger reporting and payment prototypes remain in the repository as reference material.
 
 ### Roles and access
 
@@ -156,7 +156,7 @@ React UI
   -> browser localStorage for retained prototype modules
 ```
 
-The current sprint pages use the API for customers, barbers, inventory, suppliers, restocks, inventory reporting, bookings, staff accounts, supplier accounts, and customer sessions. The landing page still consumes static content from `app/data/landing.ts`, and booking creation uses the small service catalog in `app/data/services.ts` to resolve a service snapshot.
+The current sprint pages use the API for customers, barbers, inventory, suppliers, restocks, inventory reporting, services, bookings, staff accounts, supplier accounts, and customer sessions. The landing page still consumes static marketing content from `app/data/landing.ts`. Booking creation and editing load services from PostgreSQL and store name, price, and numeric duration snapshots with an expected end time and optional notes. `app/data/services.ts` is reference data only.
 
 ### Runtime composition
 
@@ -254,7 +254,7 @@ The current sprint pages use the API for customers, barbers, inventory, supplier
 | Admin inventory reports | `app/pages/admin/InventoryReports.tsx` — valuation, low-stock, supplier-spend, and usage summaries | `/api/reports/inventory` |
 | Supplier portal | `app/pages/supplier/SupplierPortal.tsx` — profile, supplied items, open requests, delivery history, and account settings | `/api/supplier/me`, `/api/restocks`, `/api/supplier/account` |
 
-Legacy prototype screens such as `PaymentPage`, `ReportsPage`, `ServicesManagement`, and settings pages remain available as source references but are not active destinations in the sprint view switchboard; the `/admin/reports` destination renders `InventoryReports` instead. `QueuePage` is now an active shop-floor destination, but remains client-state-only until a queue API contract is introduced.
+Legacy prototype screens such as `PaymentPage`, `ReportsPage`, and settings pages remain available as source references but are not active destinations in the sprint view switchboard; the `/admin/reports` destination renders `InventoryReports` instead. `ServicesManagement` is available at `/admin/services` to managers and administrators. `QueuePage` is now an active shop-floor destination, but remains client-state-only until a queue API contract is introduced.
 
 ## API routes
 
@@ -326,19 +326,22 @@ The supplier portal is a responsive supplier-specific workspace with a split ove
 
 ### Bookings
 
+- `GET /api/services` — customer, front desk, manager, or administrator; customers receive active services only.
+- `GET /api/services/:id` — the same roles; customers may read active services only.
+- `POST /api/services` and `PATCH /api/services/:id` — manager or administrator; validate ID, name, description, nonnegative price, positive integer duration, and active state. `PATCH` can enable or disable a service.
 - `GET /api/bookings` — administrator/manager/front desk receive all bookings; customers receive only their own bookings.
-- `POST /api/bookings` — administrator/manager/front desk can select a customer; customers can create only their own booking. The request includes barber, service, date, and time.
-- `PUT /api/bookings/:id` — administrator/manager/front desk can edit an upcoming booking's customer, barber, service, date, and time; customers can edit only their own upcoming booking and cannot change its customer ownership.
-- `PATCH /api/bookings/:id` — administrator/manager/front desk can mark an upcoming booking `completed` or `cancelled`; customers can cancel only their own upcoming booking. Completed and cancelled bookings are terminal in Sprint 1.
-- `DELETE /api/bookings/:id` — administrator/manager can delete an upcoming booking after confirmation. Front desk and customers must use cancellation, so historical records are retained; completed and cancelled bookings return a conflict.
+- `POST /api/bookings` — administrator/manager/front desk can select a customer; customers can create only their own booking. The request includes barber, service, date, time, and optional notes (500 characters maximum).
+- `PUT /api/bookings/:id` — administrator/manager/front desk can edit a confirmed booking's customer, barber, service, date, time, and notes; customers can edit only their own confirmed booking and cannot change its customer ownership.
+- `PATCH /api/bookings/:id` — administrator/manager/front desk can mark a confirmed booking `completed` or `cancelled`; customers can cancel only their own confirmed booking. The other new statuses are stored and displayed but lifecycle transitions are deferred.
+- `DELETE /api/bookings/:id` — administrator/manager can delete a confirmed booking after confirmation. Front desk and customers must use cancellation, so historical records are retained; completed and cancelled bookings return a conflict.
 
-Booking creation and editing validate the date/time, confirm that the customer and barber exist, resolve the service from the local catalog, and prevent an active duplicate barber/date/time slot with a database constraint. Customer booking changes are owner-scoped, staff booking cancellation and customer cancellation use explicit confirmation steps, and only management roles can permanently delete an upcoming booking. Booking-load failures have an error state and never fall through to “No bookings found.”
+Booking creation and editing validate the date/time, confirm that the customer and barber exist, resolve an active service from PostgreSQL, and prevent an active duplicate barber/date/time slot with the existing database constraint. The booking stores the service name, price, duration, and expected end time; notes are trimmed and stored as null when blank. Customer booking changes are owner-scoped, staff booking cancellation and customer cancellation use explicit confirmation steps, and only management roles can permanently delete a confirmed booking. Booking-load failures have an error state and never fall through to “No bookings found.”
 
 ## Database and server layer
 
 The backend uses raw parameterized SQL through `pg`. It does not use Prisma, Drizzle, Express, Hono, or another backend framework. The same server layer works with either a local PostgreSQL database or a hosted Supabase PostgreSQL database; the active target is selected by `DATABASE_URL`, with `POSTGRES_URL` as the Vercel Supabase-integration fallback.
 
-`server/db/pool.ts` creates the PostgreSQL pool from `DATABASE_URL` or `POSTGRES_URL`, optionally enables SSL through `DATABASE_SSL`, and uses `DATABASE_POOL_MAX` with a default of `10`. Migrations are stored in `server/db/migrations/001_user_management.sql` through `007_inventory_item_image.sql`, and run transactionally by `scripts/db-migrate.ts`, which records each applied file in `schema_migrations` and skips it on later runs.
+`server/db/pool.ts` creates the PostgreSQL pool from `DATABASE_URL` or `POSTGRES_URL`, optionally enables SSL through `DATABASE_SSL`, and uses `DATABASE_POOL_MAX` with a default of `10`. Migrations are stored in `server/db/migrations/001_user_management.sql` through `009_services_booking_foundation.sql`, and run transactionally by `scripts/db-migrate.ts`, which records each applied file in `schema_migrations` and skips it on later runs.
 
 Together these migrations create:
 
@@ -354,7 +357,7 @@ Together these migrations create:
 - `inventory_threshold_history` — branch-aware minimum/maximum threshold changes with the responsible user and timestamp.
 - `inventory_alert_acknowledgements` — per-user persisted low-stock acknowledgement cycles that reset after replenishment.
 - `restock_requests` and `restock_request_items` — supplier-linked requests, status transitions, delivery receiving, and line quantities.
-- `services` — canonical service catalog referenced by bookings and transactions.
+- `services` — canonical service catalog with descriptions, numeric durations, prices, and active flags, referenced by bookings and transactions. Historical services with unknown durations are inactive until updated.
 - `transactions` — persisted transaction records linked to customers, bookings, barbers, and services.
 
 The migration is compatible with the existing Supabase project `simplecrudapp`. The Next.js server connects through the database connection string and keeps authorization in the application session/role guards; no Supabase secret or database credential is sent to the browser.
@@ -454,8 +457,8 @@ For Next.js-specific changes, read the repository guidance in `barracks-pwa/AGEN
 
 The sprint backend is intentionally partial. The main remaining seams are:
 
-- Out-of-scope modules such as payments, services, and settings still need their own rendered screens and backend workflows. Queue has a rendered operational screen, but still needs a backend workflow.
-- The API does not yet cover queue, payments, settings, services, or complete visit history. Inventory reporting is implemented, while transaction persistence exists only as the Sprint 2 relational foundation and the older payment, service, and general report prototypes still need to be connected to it.
+- Out-of-scope modules such as payments and settings still need their own rendered screens and backend workflows. Queue has a rendered operational screen, but still needs a backend workflow.
+- The API does not yet cover queue, payments, settings, or complete visit history. Inventory reporting is implemented, while transaction persistence exists only as the Sprint 2 relational foundation and the older payment, service, and general report prototypes still need to be connected to it.
 - Account password reset/invitation flows, MFA, rate limiting, and audit history are not implemented. Account deactivation is a soft delete; the account row is retained and its sessions are revoked.
 - Dashboard and customer/barber summaries cover the sprint entities but do not yet form a complete reporting model.
 - Inventory movements and restock receiving are transactional and auditable; broader stock-use workflows and concurrency coverage remain to be expanded.
@@ -485,3 +488,7 @@ Staff and Management workspaces (`.app-shell`) and the Customer Dashboard (`.cus
 Existing dashboard grids, workflows, and semantic status colors remain unchanged. Table rows stay flat for readability. Public landing/marketing styles are isolated in their own stylesheet modules.
 
 The supplier portal shares the staff and management dashboard theme: the same dashboard typography, charcoal/glass panel hierarchy, 7px card treatment, red primary actions, semantic status colors, responsive spacing, and reduced-motion-safe entrance transitions. Its supplier profile, inventory, restock, delivery, and account-security workflows remain backed by the existing API routes.
+
+## Booking foundation (Phase 1)
+
+Migration `009_services_booking_foundation.sql` adds service descriptions and integer durations, booking duration snapshots, expected end times, optional notes, and the statuses `confirmed`, `checked_in`, `in_progress`, `completed`, `cancelled`, and `no_show`. Existing `upcoming` bookings migrate to `confirmed`; their stored service names and prices remain unchanged. Unknown historical durations remain null. The service API exposes active services to customers, all services to front desk, and service creation/editing/enablement to managers and administrators. The service management screen and customer/staff booking forms read the API. Scheduling, availability slots, branches, queue integration, notifications, and payments are deferred.

@@ -10,6 +10,7 @@ export type BookingFormValue = {
   barberId: string;
   date: string;
   time: string;
+  notes: string;
 };
 
 export function BookingForm({
@@ -45,7 +46,7 @@ export function BookingForm({
       )}
       <SelectField label="Service" required value={value.serviceId} onChange={(event) => onChange({ ...value, serviceId: event.target.value })}>
         <option value="">Choose a service</option>
-        {services.filter((service) => service.active).map((service) => <option key={service.id} value={service.id}>{service.name} · {service.duration}</option>)}
+        {services.filter((service) => service.active).map((service) => <option key={service.id} value={service.id}>{service.name} · {service.durationMinutes} mins</option>)}
       </SelectField>
       <SelectField label="Barber" required value={value.barberId} onChange={(event) => onChange({ ...value, barberId: event.target.value })}>
         <option value="">Choose a barber</option>
@@ -55,6 +56,7 @@ export function BookingForm({
         <TextField label="Date" required type="date" value={value.date} min={dateInputValue()} onChange={(event) => onChange({ ...value, date: event.target.value })} />
         <TextField label="Time" required type="time" value={value.time} onChange={(event) => onChange({ ...value, time: event.target.value })} />
       </div>
+      <TextField label="Notes (optional)" value={value.notes} maxLength={500} onChange={(event) => onChange({ ...value, notes: event.target.value })} />
       <div className="modal-actions">
         <Button variant="secondary" type="button" disabled={submitting} onClick={onCancel}>Cancel</Button>
         <Button type="submit" icon="calendar" disabled={submitting}>{submitting ? "Saving…" : submitLabel}</Button>

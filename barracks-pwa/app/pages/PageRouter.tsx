@@ -4,6 +4,7 @@ import { StaffManagement } from "@/app/pages/admin/StaffManagement";
 import { SuppliersManagement } from "@/app/pages/admin/SuppliersManagement";
 import { RestockManagement } from "@/app/pages/admin/RestockManagement";
 import { InventoryReports } from "@/app/pages/admin/InventoryReports";
+import { ServicesManagement } from "@/app/pages/admin/ServicesManagement";
 import { InventoryPage } from "@/app/pages/staff/InventoryPage";
 import { CustomersPage } from "@/app/pages/staff/CustomersPage";
 import { StaffDashboard } from "@/app/pages/staff/StaffDashboard";
@@ -36,6 +37,8 @@ export function PageRouter({ view, go, onToast, currentUser }: PageRouterProps) 
       return <RestockManagement onToast={onToast} />;
     case "admin-reports":
       return <InventoryReports onToast={onToast} />;
+    case "admin-services":
+      return <ServicesManagement onToast={onToast} />;
     case "admin-customers":
     case "customers":
       return <CustomersPage onToast={onToast} canDelete={currentUser.role === "administrator"} isAdministrator={isManagementRole(currentUser.role)} />;

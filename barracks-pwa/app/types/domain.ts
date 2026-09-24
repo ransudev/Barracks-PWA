@@ -22,7 +22,8 @@ export type ViewId =
   | "admin-restocks"
   | "admin-reports"
   | "barbers"
-  | "admin-inventory";
+  | "admin-inventory"
+  | "admin-services";
 
 export type ShellArea = "staff" | "admin";
 
@@ -92,9 +93,11 @@ export type Service = {
   id: string;
   name: string;
   description: string;
-  duration: string;
+  durationMinutes: number | null;
   price: number;
   active: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type Transaction = {

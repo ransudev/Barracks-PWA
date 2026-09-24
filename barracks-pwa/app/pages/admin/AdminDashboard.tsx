@@ -65,7 +65,7 @@ export function AdminDashboard({ go, onToast, currentUser }: { go: (view: ViewId
   const recentDeliveries = restocks.filter((restock) => restock.status === "Received").slice(0, 5);
   const today = dateInputValue();
   const todayBookings = bookings.filter((booking) => booking.date === today && booking.status !== "cancelled").length;
-  const upcomingBookings = bookings.filter((booking) => booking.status === "upcoming" && booking.date >= today).length;
+  const upcomingBookings = bookings.filter((booking) => booking.status === "confirmed" && booking.date >= today).length;
   const activeBarbers = barbers.filter((barber) => barber.status !== "unavailable").length;
   const metricValue = (value: number) => loading || loadError ? "—" : String(value);
 

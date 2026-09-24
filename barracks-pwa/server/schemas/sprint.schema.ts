@@ -5,7 +5,7 @@ export { formatValidationErrors };
 
 export const barberStatusSchema = z.enum(["available", "busy", "unavailable"]);
 export const inventoryCategorySchema = z.enum(["Supplies", "Equipment", "Products"]);
-export const bookingStatusSchema = z.enum(["upcoming", "completed", "cancelled"]);
+export const bookingStatusSchema = z.enum(["confirmed", "checked_in", "in_progress", "completed", "cancelled", "no_show"]);
 
 const percentageSchema = z
   .number()
@@ -88,6 +88,7 @@ export const bookingCreateSchema = z
     serviceId: z.string().trim().min(1).max(80),
     date: bookingDateSchema,
     time: bookingTimeSchema,
+    notes: z.string().trim().max(500).nullable().optional(),
   })
   .strict();
 
@@ -104,6 +105,7 @@ export const bookingEditSchema = z
     serviceId: z.string().trim().min(1).max(80),
     date: bookingDateSchema,
     time: bookingTimeSchema,
+    notes: z.string().trim().max(500).nullable().optional(),
   })
   .strict();
 
