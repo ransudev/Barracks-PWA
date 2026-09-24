@@ -6,7 +6,8 @@ const configured = Boolean(process.env.DATABASE_URL || process.env.POSTGRES_URL)
 
 test("PostgreSQL rejects overlapping barber and customer bookings under concurrent writes", { skip: !configured }, async () => {
   const { pool } = await import("@/server/db/pool");
-  const { createBooking, BookingServiceError } = await import("@/server/services/booking.service");
+  const { createBooking, updateBooking, BookingServiceError } = await import("@/server/services/booking.service");
+  const { mayMarkNoShow } = await import("@/app/constants/booking");
   const tag = randomUUID().slice(0, 8);
   const date = new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10);
   const users: number[] = [];
@@ -49,6 +50,20 @@ test("PostgreSQL rejects overlapping barber and customer bookings under concurre
     const databaseRace = await Promise.allSettled(customers.map(direct));
     assert.equal(databaseRace.filter((result) => result.status === "fulfilled").length, 1);
     assert.equal(databaseRace.filter((result) => result.status === "rejected" && result.reason.code === "23P01").length, 1);
+    assert.equal(mayMarkNoShow("2026-10-05", "10:00", new Date("2026-10-05T02:09:00Z")), false);
+    assert.equal(mayMarkNoShow("2026-10-05", "10:00", new Date("2026-10-05T02:10:00Z")), true);
+    await assert.rejects(updateBooking(pool, adjacent.id, { status: "completed" }), { kind: "not_updatable" });
+    assert.equal((await updateBooking(pool, adjacent.id, { status: "checked_in" }))?.status, "checked_in");
+    assert.equal((await updateBooking(pool, adjacent.id, { status: "in_progress" }))?.status, "in_progress");
+    assert.equal((await updateBooking(pool, adjacent.id, { status: "completed" }))?.status, "completed");
+    await assert.rejects(updateBooking(pool, adjacent.id, { status: "cancelled" }), { kind: "not_updatable" });
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    const late = await pool.query<{ id: number }>(
+      `INSERT INTO bookings(customer_id,barber_id,service_id,service_name,service_price,service_duration_minutes,booking_date,booking_time,end_time)
+       VALUES($1,$2,$3,'Concurrency cut',100,45,$4,'10:00','10:45') RETURNING id`,
+      [customers[0], barbers[1], serviceId, yesterday],
+    );
+    assert.equal((await updateBooking(pool, late.rows[0].id, { status: "no_show" }))?.status, "no_show");
   } finally {
     await pool.query("DELETE FROM bookings WHERE service_id=ANY($1::text[])", [[serviceId, longServiceId]]);
     await pool.query("DELETE FROM customers WHERE user_id=ANY($1::int[])", [users]);

@@ -8,7 +8,7 @@ export const roleOptions = [
 
 export type UserRole = (typeof userRoles)[number];
 
-export type BookingAction = "edit" | "cancel" | "complete" | "delete";
+export type BookingAction = "edit" | "cancel" | "check_in" | "start" | "complete" | "no_show" | "delete";
 
 export function roleLabel(role: string): string {
   if (role === "manager") return "Manager";

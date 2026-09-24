@@ -6,16 +6,13 @@ export function formatCurrency(amount: number) {
 }
 
 export function dateInputValue(date = new Date()) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
 }
 
 export function futureDateInputValue() {
-  const date = new Date();
-  date.setDate(date.getDate() + 1);
-  return dateInputValue(date);
+  return dateInputValue(new Date(Date.now() + 86_400_000));
 }
 
 export function createInitials(name: string) {

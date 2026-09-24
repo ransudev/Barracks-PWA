@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { BookingForm, type BookingFormValue } from "@/app/components/bookings/BookingForm";
 import { Button, EmptyState } from "@/app/components/ui";
 import { Icon } from "@/app/components/ui/icons";
-import type { ApiBarberAvailability, ApiUser } from "@/app/lib/api";
+import type { ApiBarberAvailability, ApiBooking, ApiUser } from "@/app/lib/api";
 import { apiRequest, readApiBody } from "@/app/lib/api";
 import type { Service, ViewId } from "@/app/types/domain";
 import { CustomerTopbar } from "@/app/pages/customer/CustomerTopbar";
@@ -25,12 +25,13 @@ export function CustomerBookingPage({
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmation, setConfirmation] = useState<ApiBooking | null>(null);
   const [value, setValue] = useState<BookingFormValue>({
     customerId: "",
     serviceId: "",
     barberId: "",
     date: futureDateInputValue(),
-    time: "10:00",
+    time: "",
     notes: "",
   });
 
@@ -48,7 +49,7 @@ export function CustomerBookingPage({
         const available = (body.barbers ?? []).filter((barber) => barber.status !== "unavailable");
         setBarbers(available);
         setServices(serviceBody.services ?? []);
-        setValue((current) => ({ ...current, serviceId: current.serviceId || serviceBody.services?.[0]?.id || "", barberId: current.barberId || String(available[0]?.id ?? "") }));
+        setValue((current) => ({ ...current, serviceId: current.serviceId || serviceBody.services?.find((service) => service.active)?.id || "" }));
       } catch (error) {
         onToast(error instanceof Error ? error.message : "Unable to load barbers");
       } finally {
@@ -60,8 +61,8 @@ export function CustomerBookingPage({
 
   async function createBooking(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!value.serviceId || !value.barberId || !value.date || !value.time) {
-      onToast("Choose a service, barber, date, and time");
+    if (!value.serviceId || !value.date || !value.time) {
+      onToast("Choose a service, date, and available time");
       return;
     }
 
@@ -71,18 +72,18 @@ export function CustomerBookingPage({
         method: "POST",
         body: JSON.stringify({
           serviceId: value.serviceId,
-          barberId: Number(value.barberId),
+          barberId: value.barberId ? Number(value.barberId) : null,
           date: value.date,
           time: value.time,
           notes: value.notes,
         }),
       });
-      const body = await readApiBody<{ success: boolean; message?: string }>(response);
-      if (!response.ok || !body?.success) throw new Error(body?.message ?? "Unable to create booking");
-      onToast("Appointment booked");
-      go("customer-dashboard");
+      const body = await readApiBody<{ success: boolean; booking?: ApiBooking; message?: string }>(response);
+      if (!response.ok || !body?.success || !body.booking) throw new Error(body?.message ?? "Unable to create booking");
+      setConfirmation(body.booking);
     } catch (error) {
       onToast(error instanceof Error ? error.message : "Unable to create booking");
+      setValue((current) => ({ ...current, time: "" }));
     } finally {
       setSubmitting(false);
     }
@@ -111,7 +112,18 @@ export function CustomerBookingPage({
         <div className="booking-workspace-grid">
           {/* Main Form Column */}
           <div className="booking-form-card">
-            {loading ? (
+            {confirmation ? (
+              <div className="booking-form-review" role="status">
+                <h2>Appointment confirmed</h2>
+                <p>Booking #{confirmation.id} · {confirmation.status}</p>
+                <p>{confirmation.customerName} · {confirmation.serviceName}</p>
+                <p>Assigned barber: {confirmation.barberName}</p>
+                <p>{confirmation.date} · {confirmation.time}–{confirmation.endTime}</p>
+                <p>{confirmation.durationMinutes} minutes · ₱{confirmation.price}</p>
+                <p>Notes: {confirmation.notes || "None"}</p>
+                <div className="modal-actions"><Button onClick={() => go("customer-dashboard")}>View My Appointments</Button><Button variant="secondary" onClick={() => go("customer-dashboard")}>Back to Dashboard</Button></div>
+              </div>
+            ) : loading ? (
               <div className="booking-loading">
                 Loading available barbers…
               </div>

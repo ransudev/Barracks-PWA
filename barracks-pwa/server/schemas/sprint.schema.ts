@@ -94,7 +94,7 @@ export const bookingCreateSchema = z
 
 export const bookingUpdateSchema = z
   .object({
-    status: z.enum(["completed", "cancelled"]),
+    status: z.enum(["checked_in", "in_progress", "completed", "cancelled", "no_show"]),
   })
   .strict();
 

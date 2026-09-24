@@ -248,6 +248,8 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
     assert.equal(editedBooking?.date, "2099-01-03");
     assert.equal(editedBooking?.durationMinutes, 30);
     assert.equal(editedBooking?.endTime, "12:30");
+    assert.equal((await bookings.updateBooking(pool, bookingId, { status: "checked_in" }))?.status, "checked_in");
+    assert.equal((await bookings.updateBooking(pool, bookingId, { status: "in_progress" }))?.status, "in_progress");
     const completedBooking = await bookings.updateBooking(pool, bookingId, { status: "completed" });
     assert.equal(completedBooking?.status, "completed");
     await assert.rejects(

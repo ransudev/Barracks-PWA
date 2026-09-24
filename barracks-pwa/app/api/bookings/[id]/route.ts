@@ -65,7 +65,7 @@ export async function PATCH(
     const authorization = await authorizeBookingAction(
       id,
       actor,
-      parsed.data.status === "cancelled" ? "cancel" : "complete",
+      ({ cancelled: "cancel", checked_in: "check_in", in_progress: "start", completed: "complete", no_show: "no_show" } as const)[parsed.data.status],
     );
     if (authorization instanceof Response) return authorization;
 

@@ -1,6 +1,7 @@
 import type { Pool } from "pg";
 import { findServiceById } from "@/server/services/service.service";
 import { findAvailableBarbers, isBookingSlotAvailable } from "@/server/services/booking-availability.service";
+import { BOOKING_GRACE_MINUTES, mayMarkNoShow } from "@/app/constants/booking";
 import type {
   BookingEditInput,
   BookingCreateInput,
@@ -228,33 +229,35 @@ export async function updateBooking(
   input: BookingUpdateInput,
   scope?: { customerId?: number },
 ): Promise<BookingRecord | null> {
-  const customerScope = scope?.customerId ? " AND customer_id = $3" : "";
-  const values = scope?.customerId ? [input.status, id, scope.customerId] : [input.status, id];
+  const existing = await findBookingById(db, id);
+  if (!existing) return null;
+  if (scope?.customerId && existing.customerId !== scope.customerId) {
+    throw new BookingServiceError("forbidden", "You can only manage your own bookings");
+  }
+  const expected: Record<BookingUpdateInput["status"], BookingRow["status"]> = {
+    checked_in: "confirmed", in_progress: "checked_in", completed: "in_progress",
+    cancelled: existing.status === "checked_in" ? "checked_in" : "confirmed", no_show: "confirmed",
+  };
+  if (existing.status !== expected[input.status] || (scope?.customerId && input.status !== "cancelled")) {
+    throw new BookingServiceError("not_updatable", `Cannot mark a ${existing.status} booking ${input.status}`);
+  }
+  if (input.status === "no_show" && !mayMarkNoShow(existing.date, existing.time)) {
+    throw new BookingServiceError("not_updatable", `No-show is available ${BOOKING_GRACE_MINUTES} minutes after the appointment starts`);
+  }
+  const customerScope = scope?.customerId ? " AND customer_id = $4" : "";
+  const values = scope?.customerId ? [input.status, id, expected[input.status], scope.customerId] : [input.status, id, expected[input.status]];
   const result = await db.query<{ id: number }>(
     `
       UPDATE bookings
       SET status = $1, updated_at = NOW()
-      WHERE id = $2 AND status = 'confirmed'${customerScope}
+      WHERE id = $2 AND status = $3${customerScope}
+        ${input.status === "no_show" ? `AND NOW() >= (booking_date + booking_time) AT TIME ZONE 'Asia/Manila' + INTERVAL '${BOOKING_GRACE_MINUTES} minutes'` : ""}
       RETURNING id
     `,
     values,
   );
-  if (!result.rows[0]) {
-    const existing = await db.query<{ id: number; status: BookingRow["status"]; customer_id: number }>(
-      "SELECT id, status, customer_id FROM bookings WHERE id = $1 LIMIT 1",
-      [id],
-    );
-    if (scope?.customerId && existing.rows[0] && Number(existing.rows[0].customer_id) !== scope.customerId) {
-      throw new BookingServiceError("forbidden", "You can only manage your own bookings");
-    }
-    if (existing.rows[0]?.status !== "confirmed") {
-      if (existing.rows[0]) {
-        throw new BookingServiceError("not_updatable", "Only confirmed bookings can be updated");
-      }
-      return null;
-    }
-  }
-  return result.rows[0] ? findBookingById(db, id) : null;
+  if (!result.rows[0]) throw new BookingServiceError("not_updatable", "Booking changed while you were updating it. Reload and try again");
+  return findBookingById(db, id);
 }
 
 export async function updateBookingDetails(

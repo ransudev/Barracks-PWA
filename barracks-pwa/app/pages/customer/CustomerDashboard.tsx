@@ -189,7 +189,7 @@ export function CustomerDashboard({
         method: "PUT",
         body: JSON.stringify({
           serviceId: bookingDraft.serviceId,
-          barberId: Number(bookingDraft.barberId),
+          barberId: bookingDraft.barberId ? Number(bookingDraft.barberId) : null,
           date: bookingDraft.date,
           time: bookingDraft.time,
           notes: bookingDraft.notes,
@@ -350,6 +350,7 @@ export function CustomerDashboard({
             services={services}
             barbers={barbers.filter((barber) => barber.status !== "unavailable")}
             hideCustomer
+            excludeBookingId={editingBooking?.id}
             submitLabel="Save appointment"
             submitting={bookingSaving}
             onChange={setBookingDraft}

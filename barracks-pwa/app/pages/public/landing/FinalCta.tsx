@@ -37,7 +37,7 @@ export function FinalCta({ go }: { go: (view: ViewId) => void }) {
               {landingContact.phone}
             </a>
             <br />
-            <span>Check your email for confirmation. A 10-minute grace period is provided.</span>
+            <span>See your confirmation on screen and in your dashboard. A 10-minute grace period is provided.</span>
           </div>
         </div>
       </div>
