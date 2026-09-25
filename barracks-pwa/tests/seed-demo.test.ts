@@ -30,6 +30,14 @@ test("demo reseed clears walk-ins and appointment queue entries before reference
       "INSERT INTO queue_entries(customer_id,service_id,barber_id) VALUES($1,$2,$3)",
       [booking.customer_id, booking.service_id, booking.barber_id],
     );
+    await db.query(`CREATE FUNCTION reject_seed_delete() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN RAISE EXCEPTION 'blocked for rollback test'; END $$`);
+    await db.query("CREATE TRIGGER reject_seed_delete BEFORE DELETE ON bookings FOR EACH STATEMENT EXECUTE FUNCTION reject_seed_delete()");
+    await assert.rejects(runSeed(), /blocked for rollback test/);
+    assert.equal(Number((await db.query("SELECT count(*) AS count FROM queue_entries")).rows[0].count), 1);
+    assert.equal(Number((await db.query("SELECT count(*) AS count FROM bookings WHERE id=$1", [booking.id])).rows[0].count), 1);
+    await db.query("DROP TRIGGER reject_seed_delete ON bookings");
+    await db.query("DROP FUNCTION reject_seed_delete()");
     await runSeed();
     assert.equal(Number((await db.query("SELECT count(*) AS count FROM queue_entries")).rows[0].count), 0);
     assert.equal(Number((await db.query("SELECT count(*) AS count FROM customers")).rows[0].count), 4);
