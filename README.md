@@ -47,7 +47,7 @@ The active `sprint-2` experience includes:
 - Customer and supplier phone inputs are capped at 11 characters in the UI and server schemas, with the API enforcing the same limit for signup, profile, customer-management, and supplier-management payloads.
 - Staff management is available to administrators and managers: administrators can create, edit, manage lifecycle, and deactivate staff accounts, but cannot deactivate themselves; managers can view manager/front-desk accounts, but can create, edit, manage lifecycle, and deactivate front-desk accounts only.
 - Customer signup, login, profile details, preferred barber, loyalty points, booking, and appointment history.
-- Staff workspace with a live barber overview dashboard, queue, bookings, customers, barbers, inventory, suppliers, and restocks.
+- Staff workspace with a live barber overview dashboard, queue, bookings, customers, barbers, inventory, suppliers, and restocks. The dashboard shows the active queue count and a preview from `/api/queue`.
 - Management workspace with dashboard counts, staff account management, barber management, inventory, suppliers, restocks, and inventory reporting.
 - Supplier portal for a linked supplier account, its supplied items, deliveries, and restock requests.
 - PostgreSQL-backed CRUD for user accounts, barber employee profiles, services, inventory, suppliers, and restock requests, plus database-backed booking creation/editing/status updates.

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { ApiBarber, ApiBooking, ApiInventoryItem } from "@/app/lib/api";
+import type { ApiBarber, ApiBooking, ApiInventoryItem, ApiQueueEntry } from "@/app/lib/api";
 import { apiRequest, readApiBody } from "@/app/lib/api";
 import type { ViewId } from "@/app/types/domain";
 import { createInitials, dateInputValue, formatCurrency } from "@/app/utils/format";
@@ -48,6 +48,10 @@ export function StaffDashboard({
   const [barbers, setBarbers] = useState<ApiBarber[]>([]);
   const [bookings, setBookings] = useState<ApiBooking[]>([]);
   const [inventory, setInventory] = useState<ApiInventoryItem[]>([]);
+  const [queue, setQueue] = useState<ApiQueueEntry[]>([]);
+  const [queueAsOf, setQueueAsOf] = useState(0);
+  const [queueLoading, setQueueLoading] = useState(true);
+  const [queueError, setQueueError] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
@@ -82,7 +86,19 @@ export function StaffDashboard({
       }
     }
 
+    async function loadQueue() {
+      try {
+        const response = await apiRequest("/api/queue", { cache: "no-store" });
+        const body = await readApiBody<{ success: boolean; queue?: ApiQueueEntry[]; message?: string }>(response);
+        if (!response.ok || !body?.success || !body.queue) throw new Error(body?.message ?? "Unable to load queue");
+        if (!cancelled) { setQueue(body.queue); setQueueAsOf(Date.now()); setQueueError(""); }
+      } catch (error) {
+        if (!cancelled) setQueueError(error instanceof Error ? error.message : "Unable to load queue");
+      } finally { if (!cancelled) setQueueLoading(false); }
+    }
+
     void load();
+    void loadQueue();
     return () => {
       cancelled = true;
     };
@@ -101,12 +117,13 @@ export function StaffDashboard({
   );
   const activeBarbers = barbers.filter((barber) => barber.status !== "unavailable").length;
   const lowStockCount = inventory.filter((item) => item.quantity <= item.minimumStock).length;
+  const activeQueue = queue.filter((entry) => entry.status !== "completed" && entry.status !== "removed");
 
   return (
     <div className="staff-dashboard">
       <PageHeader title="Dashboard" description="Overview of today’s shop floor operations" action={<Button icon="scissors" onClick={() => go("barbers")}>Manage roster</Button>} />
       <div className="metrics-grid metrics-grid--four">
-        <MetricCard label="Customers in queue" value="—" change="Queue tracking not connected" changeTone="warning" icon="queue" accent="blue" />
+        <MetricCard label="Customers in queue" value={queueLoading || queueError ? "—" : String(activeQueue.length)} change={queueError ? "Unable to load queue" : undefined} changeTone="warning" icon="queue" accent="blue" />
         <MetricCard label="Today’s bookings" value={loading ? "—" : String(todayBookings.length)} icon="calendar" accent="amber" />
         <MetricCard label="Active barbers" value={loading ? "—" : String(activeBarbers)} icon="scissors" accent="green" />
         <MetricCard label="Stock alerts" value={loading ? "—" : String(lowStockCount)} change={lowStockCount ? "Needs attention" : undefined} changeTone="warning" icon="box" accent="red" />
@@ -132,8 +149,19 @@ export function StaffDashboard({
 
       <div className="dashboard-grid dashboard-grid--wide">
         <Panel className="queue-preview">
-          <SectionHeading title="Quick queue view" description="Walk-ins waiting for service" />
-          <EmptyState icon="queue" title="No customers in queue" description="Walk-in entries will appear here when queue tracking is connected." />
+          <SectionHeading title="Quick queue view" description="Walk-ins and checked-in appointments" action={<Button variant="ghost" size="sm" iconAfter="arrowRight" onClick={() => go("queue")}>View all</Button>} />
+          {queueLoading ? <p role="status" className="staff-table__empty">Loading queue…</p>
+            : queueError ? <p role="alert" className="staff-table__empty">{queueError}</p>
+            : activeQueue.length ? <div className="queue-preview__list">{activeQueue.slice(0, 3).map((entry) => (
+              <button type="button" className="queue-preview__row" key={entry.id} onClick={() => go("queue")}>
+                <span className="queue-number">#{entry.id}</span>
+                <Avatar initials={createInitials(entry.customerName)} tone="slate" size="sm" />
+                <span className="queue-preview__name"><strong>{entry.customerName}</strong><small>{entry.serviceName} · {entry.barberName ?? "Awaiting barber"}</small></span>
+                <span className={`queue-stage queue-stage--${entry.status === "in_progress" ? "active" : entry.status === "ready" ? "ready" : "waiting"}`}>{entry.status === "in_progress" ? "In progress" : entry.status === "ready" ? "Ready" : "Waiting"}</span>
+                <span className="queue-preview__wait">{entry.status === "in_progress" ? "Serving" : `${Math.max(0, Math.floor((queueAsOf - Date.parse(entry.joinedAt)) / 60_000))}m`}</span>
+                <Icon name="arrowRight" size={15} />
+              </button>
+            ))}</div> : <EmptyState icon="queue" title="No customers in queue" description="Check in an appointment or add a walk-in from Queue management." />}
         </Panel>
 
         <Panel className="schedule-preview">
