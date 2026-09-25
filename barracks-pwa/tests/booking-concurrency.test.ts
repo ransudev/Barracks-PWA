@@ -49,7 +49,8 @@ test("PostgreSQL rejects overlapping barber and customer bookings under concurre
     );
     const databaseRace = await Promise.allSettled(customers.map(direct));
     assert.equal(databaseRace.filter((result) => result.status === "fulfilled").length, 1);
-    assert.equal(databaseRace.filter((result) => result.status === "rejected" && result.reason.code === "23P01").length, 1);
+    assert.equal(databaseRace.filter((result) => result.status === "rejected" && result.reason.code === "23P01").length, 1,
+      databaseRace.map((result) => result.status === "rejected" ? `${result.reason.code}: ${result.reason.message}` : "success").join("; "));
     assert.equal(mayMarkNoShow("2026-10-05", "10:00", new Date("2026-10-05T02:09:00Z")), false);
     assert.equal(mayMarkNoShow("2026-10-05", "10:00", new Date("2026-10-05T02:10:00Z")), true);
     await assert.rejects(updateBooking(pool, adjacent.id, { status: "completed" }), { kind: "not_updatable" });
