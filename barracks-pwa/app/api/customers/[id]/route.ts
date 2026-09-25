@@ -74,10 +74,17 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   if (!id) return Response.json({ success: false, message: "Invalid customer id" }, { status: 400 });
 
   try {
-    if (!(await deleteCustomer(pool, id))) {
+    const result = await deleteCustomer(pool, id);
+    if (result === "active_bookings") {
+      return Response.json(
+        { success: false, message: "Customer cannot be deactivated while active appointments exist." },
+        { status: 409 },
+      );
+    }
+    if (result === "not_found") {
       return Response.json({ success: false, message: "Customer not found" }, { status: 404 });
     }
-    return Response.json({ success: true, message: "Customer deleted" });
+    return Response.json({ success: true, message: "Customer deactivated" });
   } catch (error) {
     console.error("Unable to delete customer", error);
     return Response.json({ success: false, message: "Unable to delete customer" }, { status: 500 });

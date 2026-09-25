@@ -223,7 +223,9 @@ export async function updateCustomer(
   }
 }
 
-export async function deleteCustomer(db: Pool, id: number): Promise<boolean> {
+export type DeleteCustomerResult = "deleted" | "not_found" | "active_bookings";
+
+export async function deleteCustomer(db: Pool, id: number): Promise<DeleteCustomerResult> {
   const client = await db.connect();
 
   try {
@@ -236,13 +238,25 @@ export async function deleteCustomer(db: Pool, id: number): Promise<boolean> {
         INNER JOIN roles r ON r.id = u.role_id AND r.name = 'customer'
         WHERE c.id = $1 AND u.deleted_at IS NULL
         LIMIT 1
+        FOR UPDATE OF c, u
       `,
       [id],
     );
 
     if (!target.rows[0]) {
       await client.query("ROLLBACK");
-      return false;
+      return "not_found";
+    }
+
+    const activeBooking = await client.query<{ id: number }>(
+      `SELECT id FROM bookings
+       WHERE customer_id = $1 AND status IN ('confirmed', 'checked_in', 'in_progress')
+       LIMIT 1`,
+      [id],
+    );
+    if (activeBooking.rowCount) {
+      await client.query("ROLLBACK");
+      return "active_bookings";
     }
 
     const deleted = await client.query<{ id: number }>(
@@ -257,12 +271,12 @@ export async function deleteCustomer(db: Pool, id: number): Promise<boolean> {
 
     if (!deleted.rowCount) {
       await client.query("ROLLBACK");
-      return false;
+      return "not_found";
     }
 
     await client.query("DELETE FROM sessions WHERE user_id = $1", [deleted.rows[0].id]);
     await client.query("COMMIT");
-    return true;
+    return "deleted";
   } catch (error) {
     await client.query("ROLLBACK").catch(() => undefined);
     throw error;

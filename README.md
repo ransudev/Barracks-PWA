@@ -294,7 +294,7 @@ New staff accounts start unverified and unblocked. Login rejects unverified, blo
 - `GET /api/customers/:id` and `PUT /api/customers/:id` — administrator/manager/front desk; read/update a customer profile. Loyalty points are administrator/manager-only; Front Desk updates are limited to contact and preference fields.
 - `GET /api/customers/me` and `PUT /api/customers/me` — customer only; read/update the profile linked to the current session.
 
-Staff customer management includes search, profile details, contact/preference editing, loyalty-point updates for administrators, and account deactivation. The profile view is opened from the first action in each customer row and uses the same detail-modal pattern as barber profiles.
+Staff customer management includes search, profile details, contact/preference editing, loyalty-point updates for administrators, and account deactivation. Deactivation returns a conflict while the customer has a confirmed, checked-in, or in-progress appointment; completed, cancelled, and no-show history remains available after deactivation. Booking writes recheck customer activity while locking the account/profile rows so a concurrent deactivation cannot leave a new active appointment hidden. The profile view is opened from the first action in each customer row and uses the same detail-modal pattern as barber profiles.
 
 ### Barbers
 

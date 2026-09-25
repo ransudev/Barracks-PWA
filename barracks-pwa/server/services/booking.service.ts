@@ -175,7 +175,12 @@ export async function createBooking(
       `
         INSERT INTO bookings
           (customer_id, barber_id, service_id, service_name, service_price, service_duration_minutes, booking_date, booking_time, end_time, notes)
-        VALUES ($1, $2, $3, $4, $5, $6::integer, $7, $8, ($8::time + $6::integer * INTERVAL '1 minute')::time, $9)
+        SELECT $1, $2, $3, $4, $5, $6::integer, $7, $8,
+          ($8::time + $6::integer * INTERVAL '1 minute')::time, $9
+        FROM customers c
+        INNER JOIN users u ON u.id = c.user_id
+        WHERE c.id = $1 AND u.deleted_at IS NULL
+        FOR SHARE OF c, u
         RETURNING id
       `,
       [
@@ -190,6 +195,7 @@ export async function createBooking(
         input.notes?.trim() || null,
       ],
     );
+      if (!inserted.rows[0]) throw new BookingServiceError("not_found", "Customer not found");
       return (await findBookingById(db, inserted.rows[0].id)) as BookingRecord;
     } catch (error) {
       if (isOverlapViolation(error, "bookings_active_customer_overlap")) {
@@ -319,6 +325,12 @@ export async function updateBookingDetails(
             service_price = $5, service_duration_minutes = $6, booking_date = $7, booking_time = $8,
             end_time = ($8::time + $6::integer * INTERVAL '1 minute')::time, notes = $9, updated_at = NOW()
         WHERE id = $10 AND status = 'confirmed'${customerScope}
+          AND EXISTS (
+            SELECT 1 FROM customers c
+            INNER JOIN users u ON u.id = c.user_id
+            WHERE c.id = $1 AND u.deleted_at IS NULL
+            FOR SHARE OF c, u
+          )
         RETURNING id
       `,
       values,
