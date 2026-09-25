@@ -1,12 +1,11 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
-
-const databaseConfigured = Boolean(process.env.DATABASE_URL || process.env.POSTGRES_URL);
+import { createDisposableSchema, databaseConfigured } from "./helpers/database";
 
 test("PostgreSQL account, inventory, and barber lifecycle persists safely", { skip: !databaseConfigured }, async () => {
-  const [{ pool }, users, sessions, inventory, inventoryMovements, alerts, barbers, customers, bookings, services] = await Promise.all([
-    import("@/server/db/pool"),
+  const { db: pool, cleanup } = await createDisposableSchema();
+  const [users, sessions, inventory, inventoryMovements, alerts, barbers, customers, bookings, services] = await Promise.all([
     import("@/server/services/user.service"),
     import("@/server/services/session.service"),
     import("@/server/services/inventory.service"),
@@ -20,13 +19,12 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
   const email = `codex.test.${randomUUID()}@barracks.local`;
   const adminEmail = `codex.admin.${randomUUID()}@barracks.local`;
   let userId: number | null = null;
-  let adminUserId: number | null = null;
   let inventoryId: number | null = null;
   let barberId: number | null = null;
-  let customerUserId: number | null = null;
   let bookingId: number | null = null;
   let deletableBookingId: number | null = null;
   const serviceId = `codex-test-${randomUUID().slice(0, 8)}`;
+  const futureDate = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
 
   try {
     const createdAdmin = await users.createUser(pool, {
@@ -38,7 +36,6 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
     });
     assert.equal(createdAdmin.kind, "created");
     if (createdAdmin.kind !== "created") return;
-    adminUserId = createdAdmin.user.id;
     assert.equal(createdAdmin.user.isVerified, true);
     assert.equal(createdAdmin.user.isBlocked, false);
 
@@ -160,6 +157,12 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
       rating: 4.5,
     });
     barberId = createdBarber.id;
+    assert.equal(createdBarber.scheduleDayCount, 7);
+    const initialSchedules = await pool.query<{ day_of_week: number; is_working: boolean; start_time: string; end_time: string }>(
+      "SELECT day_of_week, is_working, start_time, end_time FROM barber_schedules WHERE barber_id=$1 ORDER BY day_of_week", [barberId],
+    );
+    assert.deepEqual(initialSchedules.rows.map((row) => row.day_of_week), [0, 1, 2, 3, 4, 5, 6]);
+    assert.equal(initialSchedules.rows.every((row) => row.is_working && row.start_time === "09:00:00" && row.end_time === "19:30:00"), true);
     const changedBarber = await barbers.updateBarber(pool, barberId, {
       firstName: createdBarber.firstName,
       lastName: createdBarber.lastName,
@@ -187,7 +190,6 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
     });
     assert.equal(createdCustomer.kind, "created");
     if (createdCustomer.kind !== "created") return;
-    customerUserId = createdCustomer.customer.userId;
     const changedCustomer = await customers.updateCustomer(pool, createdCustomer.customer.id, {
       firstName: createdCustomer.customer.firstName,
       lastName: createdCustomer.customer.lastName,
@@ -217,7 +219,7 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
       customerId: createdCustomer.customer.id,
       barberId,
       serviceId,
-      date: "2099-01-02",
+      date: futureDate(14),
       time: "11:00",
       notes: "  Please be gentle  ",
     });
@@ -235,17 +237,17 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
     assert.equal(historical?.durationMinutes, 50);
     assert.equal(historical?.endTime, "11:50");
     assert.equal((await services.updateService(pool, serviceId, { active: false }))?.active, false);
-    await assert.rejects(() => bookings.createBooking(pool, { customerId: createdCustomer.customer.id, barberId: barberId!, serviceId, date: "2099-01-05", time: "11:00" }),
+    await assert.rejects(() => bookings.createBooking(pool, { customerId: createdCustomer.customer.id, barberId: barberId!, serviceId, date: futureDate(17), time: "11:00" }),
       (error: unknown) => error instanceof bookings.BookingServiceError && error.kind === "not_found");
     const editedBooking = await bookings.updateBookingDetails(pool, bookingId, {
       customerId: createdCustomer.customer.id,
       barberId,
       serviceId: "signature-shave",
-      date: "2099-01-03",
+      date: futureDate(15),
       time: "12:00",
     });
     assert.equal(editedBooking?.serviceId, "signature-shave");
-    assert.equal(editedBooking?.date, "2099-01-03");
+    assert.equal(editedBooking?.date, futureDate(15));
     assert.equal(editedBooking?.durationMinutes, 30);
     assert.equal(editedBooking?.endTime, "12:30");
     assert.equal((await bookings.updateBooking(pool, bookingId, { status: "checked_in" }))?.status, "checked_in");
@@ -264,25 +266,13 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
       customerId: createdCustomer.customer.id,
       barberId,
       serviceId: "barracks-basic",
-      date: "2099-01-04",
+      date: futureDate(16),
       time: "11:00",
     });
     deletableBookingId = deletableBooking.id;
     assert.equal(await bookings.deleteBooking(pool, deletableBookingId), true);
     assert.equal(await bookings.findBookingById(pool, deletableBookingId), null);
   } finally {
-    if (bookingId) await pool.query("DELETE FROM bookings WHERE id = $1", [bookingId]);
-    if (deletableBookingId) await pool.query("DELETE FROM bookings WHERE id = $1", [deletableBookingId]);
-    await pool.query("DELETE FROM services WHERE id = $1", [serviceId]);
-    if (barberId) await pool.query("DELETE FROM barbers WHERE id = $1", [barberId]);
-    if (inventoryId) {
-      await pool.query("DELETE FROM inventory_movements WHERE inventory_item_id = $1", [inventoryId]);
-      await pool.query("DELETE FROM inventory_threshold_history WHERE inventory_item_id = $1", [inventoryId]);
-      await pool.query("DELETE FROM inventory_items WHERE id = $1", [inventoryId]);
-    }
-    if (customerUserId) await pool.query("DELETE FROM users WHERE id = $1", [customerUserId]);
-    if (userId) await pool.query("DELETE FROM users WHERE id = $1", [userId]);
-    if (adminUserId) await pool.query("DELETE FROM users WHERE id = $1", [adminUserId]);
-    await pool.end();
+    await cleanup();
   }
 });

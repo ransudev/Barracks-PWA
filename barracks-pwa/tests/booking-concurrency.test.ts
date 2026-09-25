@@ -1,11 +1,10 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
+import { createDisposableSchema, databaseConfigured } from "./helpers/database";
 
-const configured = Boolean(process.env.DATABASE_URL || process.env.POSTGRES_URL);
-
-test("PostgreSQL rejects overlapping barber and customer bookings under concurrent writes", { skip: !configured }, async () => {
-  const { pool } = await import("@/server/db/pool");
+test("PostgreSQL rejects overlapping barber and customer bookings under concurrent writes", { skip: !databaseConfigured }, async () => {
+  const { db: pool, cleanup } = await createDisposableSchema();
   const { createBooking, updateBooking, BookingServiceError } = await import("@/server/services/booking.service");
   const { mayMarkNoShow } = await import("@/app/constants/booking");
   const queue = await import("@/server/services/queue.service");
@@ -100,13 +99,6 @@ test("PostgreSQL rejects overlapping barber and customer bookings under concurre
     await assert.rejects(updateBooking(pool, early, { status: "no_show" }), { kind: "not_updatable" });
     assert.equal((await updateBooking(pool, eligible, { status: "no_show" }))?.status, "no_show");
   } finally {
-    await pool.query("DELETE FROM queue_entries WHERE service_id=ANY($1::text[])", [[serviceId, longServiceId]]);
-    await pool.query("DELETE FROM bookings WHERE service_id=ANY($1::text[])", [[serviceId, longServiceId]]);
-    await pool.query("DELETE FROM customers WHERE user_id=ANY($1::int[])", [users]);
-    await pool.query("DELETE FROM users WHERE id=ANY($1::int[])", [users]);
-    await pool.query("DELETE FROM barbers WHERE id=ANY($1::int[])", [barbers]);
-    await pool.query("DELETE FROM services WHERE id=$1", [serviceId]);
-    await pool.query("DELETE FROM services WHERE id=$1", [longServiceId]);
-    await pool.end();
+    await cleanup();
   }
 });
