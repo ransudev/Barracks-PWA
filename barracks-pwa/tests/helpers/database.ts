@@ -23,6 +23,7 @@ export async function createDisposableSchema(through = Number.POSITIVE_INFINITY)
   }
   return {
     db,
+    schema,
     cleanup: async () => {
       await db.end();
       try { await admin.query(`DROP SCHEMA "${schema}" CASCADE`); }

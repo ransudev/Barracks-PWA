@@ -236,6 +236,7 @@ async function clearBusinessData(client: DatabaseClient): Promise<void> {
   await client.query("DELETE FROM transactions");
   await client.query("DELETE FROM restock_requests");
   await client.query("DELETE FROM inventory_movements");
+  await client.query("DELETE FROM queue_entries");
   await client.query("DELETE FROM bookings");
   await client.query("DELETE FROM customers");
   await client.query("DELETE FROM supplier_accounts");
@@ -333,7 +334,7 @@ async function seedBookings(
     const result = await client.query<{ id: number }>(
       `INSERT INTO bookings
         (customer_id,barber_id,service_id,service_name,service_price,service_duration_minutes,booking_date,booking_time,end_time,status,demo_key)
-       VALUES ($1,$2,$3,$4,$5,(SELECT duration_minutes FROM services WHERE id=$3),CURRENT_DATE + $6::integer,$7,($7::time + (SELECT duration_minutes FROM services WHERE id=$3) * INTERVAL '1 minute')::time,$8,$9) RETURNING id`,
+       VALUES ($1,$2,$3::varchar(80),$4,$5,(SELECT duration_minutes FROM services WHERE id=$3::varchar(80)),CURRENT_DATE + $6::integer,$7,($7::time + (SELECT duration_minutes FROM services WHERE id=$3::varchar(80)) * INTERVAL '1 minute')::time,$8,$9) RETURNING id`,
       [customerId, barberId, booking.serviceId, booking.serviceName, booking.servicePrice, booking.dayOffset, booking.time, booking.status, booking.demoKey],
     );
     ids.set(booking.demoKey, Number(result.rows[0].id));
