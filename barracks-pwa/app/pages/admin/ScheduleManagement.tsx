@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { ApiBarber } from "@/app/lib/api";
 import { apiRequest, readApiBody } from "@/app/lib/api";
-import { Button, Panel } from "@/app/components/ui";
+import { Button, Panel, SelectField } from "@/app/components/ui";
 
 type Hours = { dayOfWeek: number; openTime: string; closeTime: string; isClosed: boolean };
 type Break = { startTime: string; endTime: string };
@@ -38,10 +38,87 @@ export function ScheduleManagement({ barbers, onToast }: { barbers: ApiBarber[];
   async function removeAbsence(id: number) { setBusy(true); setError(""); try { const response = await apiRequest(`/api/barbers/${barberId}/schedule?periodId=${id}`, { method: "DELETE" }); if (!response.ok) throw new Error("Unable to remove period"); setAbsences((current) => current.filter((item) => item.id !== id)); onToast("Unavailable period removed"); } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to remove period"); } finally { setBusy(false); } }
   const updateHour = (day: number, patch: Partial<Hours>) => setHours((current) => current.map((item) => item.dayOfWeek === day ? { ...item, ...patch } : item));
   const updateShift = (day: number, patch: Partial<Shift>) => setShifts((current) => current.map((item) => item.dayOfWeek === day ? { ...item, ...patch } : item));
-  return <Panel className="operational-panel"><h2>Shop hours and barber schedules</h2><p>Times use Asia/Manila. Save each day after editing.</p>{error && <p role="alert" className="form-error">{error}</p>}
-    <h3>Shop operating hours</h3><div className="schedule-rows">{hours.map((hour) => <div className="schedule-row" key={hour.dayOfWeek}><strong>{days[hour.dayOfWeek]}</strong><label><input type="checkbox" checked={hour.isClosed} onChange={(event) => updateHour(hour.dayOfWeek, { isClosed: event.target.checked })} /> Closed</label>{timeInput(hour.openTime, (value) => updateHour(hour.dayOfWeek, { openTime: value }))}{timeInput(hour.closeTime, (value) => updateHour(hour.dayOfWeek, { closeTime: value }))}<Button size="sm" disabled={busy} onClick={() => void saveHour(hour)}>Save</Button></div>)}</div>
-    <h3>Barber schedule</h3><label>Barber <select value={barberId} onChange={(event) => setBarberId(Number(event.target.value))}><option value={0}>Select barber</option>{barbers.map((barber) => <option key={barber.id} value={barber.id}>{barber.firstName} {barber.lastName}</option>)}</select></label>
-    {barberId > 0 && <>{loadedBarberId === barberId && shifts.length < 7 && <p role="alert" className="form-hint">This barber needs a complete weekly schedule. Save each missing day before taking appointments for it.</p>}<div className="schedule-rows">{days.map((day, dayOfWeek) => { const shift = shifts.find((item) => item.dayOfWeek === dayOfWeek) ?? { dayOfWeek, isWorking: false, startTime: "09:00", endTime: "19:30", breaks: [] }; const update = (patch: Partial<Shift>) => { if (!shifts.some((item) => item.dayOfWeek === dayOfWeek)) setShifts((current) => [...current, { ...shift, ...patch }]); else updateShift(dayOfWeek, patch); }; return <div className="schedule-row" key={day}><strong>{day}</strong><label><input type="checkbox" checked={shift.isWorking} onChange={(event) => update({ isWorking: event.target.checked })} /> Working</label>{timeInput(shift.startTime, (value) => update({ startTime: value }))}{timeInput(shift.endTime, (value) => update({ endTime: value }))}<Button size="sm" disabled={busy} onClick={() => void saveShift(shift)}>Save shift</Button><div className="schedule-breaks"><span>Breaks</span>{shift.breaks.map((item, index) => <div key={index}>{timeInput(item.startTime, (value) => update({ breaks: shift.breaks.map((entry, i) => i === index ? { ...entry, startTime: value } : entry) }))}{timeInput(item.endTime, (value) => update({ breaks: shift.breaks.map((entry, i) => i === index ? { ...entry, endTime: value } : entry) }))}<button type="button" onClick={() => update({ breaks: shift.breaks.filter((_, i) => i !== index) })}>Remove</button></div>)}<button type="button" onClick={() => update({ breaks: [...shift.breaks, { startTime: "12:00", endTime: "13:00" }] })}>Add break</button></div></div>; })}</div>
-    <h3>Temporary unavailability</h3><div className="schedule-row"><label>Start <input type="datetime-local" value={start} onChange={(event) => setStart(event.target.value)} /></label><label>End <input type="datetime-local" value={end} onChange={(event) => setEnd(event.target.value)} /></label><label>Reason <input value={reason} maxLength={200} onChange={(event) => setReason(event.target.value)} /></label><Button size="sm" disabled={busy || !start || !end || !reason.trim()} onClick={() => void addAbsence()}>Add period</Button></div>{absences.map((item) => <div className="schedule-row" key={item.id}><span>{new Date(item.startsAt).toLocaleString("en-PH", { timeZone: "Asia/Manila" })} – {new Date(item.endsAt).toLocaleString("en-PH", { timeZone: "Asia/Manila" })}</span><span>{item.reason}</span><button type="button" disabled={busy} onClick={() => void removeAbsence(item.id)}>Remove</button></div>)}</>}
-  </Panel>;
+  return (
+    <Panel className="operational-panel schedule-management">
+      <div className="inventory-catalog-head">
+        <div>
+          <span className="inventory-kicker">Scheduling</span>
+          <h2>Shop hours and barber schedules</h2>
+          <p>Set the hours customers can book. Save each day after editing.</p>
+        </div>
+        <span className="schedule-management__timezone">Asia/Manila</span>
+      </div>
+      {error && <p role="alert" className="form-error schedule-management__error">{error}</p>}
+
+      <div className="schedule-management__section">
+        <div className="schedule-management__section-head">
+          <div><h3>Shop operating hours</h3><p>Weekly opening window for all appointments.</p></div>
+        </div>
+        <div className="schedule-management__rows">
+          {hours.map((hour) => (
+            <div className="schedule-management__row" key={hour.dayOfWeek}>
+              <strong className="schedule-management__day">{days[hour.dayOfWeek]}</strong>
+              <label className="schedule-management__toggle"><input type="checkbox" checked={hour.isClosed} onChange={(event) => updateHour(hour.dayOfWeek, { isClosed: event.target.checked })} /> Closed</label>
+              <label className="schedule-management__time"><span>Opens</span>{timeInput(hour.openTime, (value) => updateHour(hour.dayOfWeek, { openTime: value }))}</label>
+              <label className="schedule-management__time"><span>Closes</span>{timeInput(hour.closeTime, (value) => updateHour(hour.dayOfWeek, { closeTime: value }))}</label>
+              <Button variant="secondary" size="sm" disabled={busy} onClick={() => void saveHour(hour)}>Save</Button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="schedule-management__section">
+        <div className="schedule-management__section-head">
+          <div><h3>Barber schedule</h3><p>Choose a barber to manage working days, breaks, and time away.</p></div>
+          <SelectField label="Barber" className="schedule-management__barber-select" value={barberId} onChange={(event) => setBarberId(Number(event.target.value))}>
+            <option value={0}>Select barber</option>
+            {barbers.map((barber) => <option key={barber.id} value={barber.id}>{barber.firstName} {barber.lastName}</option>)}
+          </SelectField>
+        </div>
+        {barberId === 0 ? <p className="schedule-management__empty">Select a barber to see their weekly schedule.</p> : <>
+          {loadedBarberId === barberId && shifts.length < 7 && <p role="alert" className="form-hint schedule-management__hint">This barber needs a complete weekly schedule. Save each missing day before taking appointments for it.</p>}
+          <div className="schedule-management__rows">
+            {days.map((day, dayOfWeek) => {
+              const shift = shifts.find((item) => item.dayOfWeek === dayOfWeek) ?? { dayOfWeek, isWorking: false, startTime: "09:00", endTime: "19:30", breaks: [] };
+              const update = (patch: Partial<Shift>) => {
+                if (!shifts.some((item) => item.dayOfWeek === dayOfWeek)) setShifts((current) => [...current, { ...shift, ...patch }]);
+                else updateShift(dayOfWeek, patch);
+              };
+              return <div className="schedule-management__row" key={day}>
+                <strong className="schedule-management__day">{day}</strong>
+                <label className="schedule-management__toggle"><input type="checkbox" checked={shift.isWorking} onChange={(event) => update({ isWorking: event.target.checked })} /> Working</label>
+                <label className="schedule-management__time"><span>Starts</span>{timeInput(shift.startTime, (value) => update({ startTime: value }))}</label>
+                <label className="schedule-management__time"><span>Ends</span>{timeInput(shift.endTime, (value) => update({ endTime: value }))}</label>
+                <Button variant="secondary" size="sm" disabled={busy} onClick={() => void saveShift(shift)}>Save shift</Button>
+                <div className="schedule-management__breaks">
+                  <span>Breaks</span>
+                  {shift.breaks.map((item, index) => <div className="schedule-management__break" key={index}>
+                    {timeInput(item.startTime, (value) => update({ breaks: shift.breaks.map((entry, i) => i === index ? { ...entry, startTime: value } : entry) }))}
+                    <span>to</span>
+                    {timeInput(item.endTime, (value) => update({ breaks: shift.breaks.map((entry, i) => i === index ? { ...entry, endTime: value } : entry) }))}
+                    <button type="button" onClick={() => update({ breaks: shift.breaks.filter((_, i) => i !== index) })}>Remove</button>
+                  </div>)}
+                  <button type="button" onClick={() => update({ breaks: [...shift.breaks, { startTime: "12:00", endTime: "13:00" }] })}>Add break</button>
+                </div>
+              </div>;
+            })}
+          </div>
+          <div className="schedule-management__absence">
+            <div className="schedule-management__section-head"><div><h3>Temporary unavailability</h3><p>Block time away from the shop without changing the weekly schedule.</p></div></div>
+            <div className="schedule-management__absence-form">
+              <label>Start<input type="datetime-local" value={start} onChange={(event) => setStart(event.target.value)} /></label>
+              <label>End<input type="datetime-local" value={end} onChange={(event) => setEnd(event.target.value)} /></label>
+              <label>Reason<input value={reason} maxLength={200} onChange={(event) => setReason(event.target.value)} /></label>
+              <Button variant="secondary" size="sm" disabled={busy || !start || !end || !reason.trim()} onClick={() => void addAbsence()}>Add period</Button>
+            </div>
+            {absences.map((item) => <div className="schedule-management__absence-item" key={item.id}>
+              <span>{new Date(item.startsAt).toLocaleString("en-PH", { timeZone: "Asia/Manila" })} – {new Date(item.endsAt).toLocaleString("en-PH", { timeZone: "Asia/Manila" })}</span>
+              <span>{item.reason}</span>
+              <button type="button" disabled={busy} onClick={() => void removeAbsence(item.id)}>Remove</button>
+            </div>)}
+          </div>
+        </>}
+      </div>
+    </Panel>
+  );
 }
