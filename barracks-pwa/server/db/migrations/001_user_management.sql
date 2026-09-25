@@ -34,7 +34,11 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN NOT NULL DEFAULT F
 ALTER TABLE users ALTER COLUMN is_verified SET DEFAULT TRUE;
 ALTER TABLE users ALTER COLUMN is_blocked SET DEFAULT FALSE;
 
-DROP INDEX IF EXISTS users_email_lower_unique;
+-- Restrict the legacy index replacement to this migration's schema. The
+-- search path may also include public when tests use disposable schemas.
+DO $$ BEGIN
+  EXECUTE format('DROP INDEX IF EXISTS %I.users_email_lower_unique', current_schema());
+END $$;
 
 CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_unique
   ON users (LOWER(email))
@@ -76,21 +80,21 @@ ALTER TABLE barbers ADD COLUMN IF NOT EXISTS rating NUMERIC(2, 1) CHECK (rating 
 DO $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'barbers_commission_rate_check'
+    SELECT 1 FROM pg_constraint WHERE conname = 'barbers_commission_rate_check' AND conrelid = 'barbers'::regclass
   ) THEN
     ALTER TABLE barbers
       ADD CONSTRAINT barbers_commission_rate_check
       CHECK (commission_rate IS NULL OR (commission_rate >= 0 AND commission_rate <= 100));
   END IF;
   IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'barbers_first_name_not_blank_check'
+    SELECT 1 FROM pg_constraint WHERE conname = 'barbers_first_name_not_blank_check' AND conrelid = 'barbers'::regclass
   ) THEN
     ALTER TABLE barbers
       ADD CONSTRAINT barbers_first_name_not_blank_check
       CHECK (length(btrim(first_name)) > 0);
   END IF;
   IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'barbers_last_name_not_blank_check'
+    SELECT 1 FROM pg_constraint WHERE conname = 'barbers_last_name_not_blank_check' AND conrelid = 'barbers'::regclass
   ) THEN
     ALTER TABLE barbers
       ADD CONSTRAINT barbers_last_name_not_blank_check
@@ -131,14 +135,14 @@ CREATE INDEX IF NOT EXISTS inventory_items_category_idx
 DO $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'inventory_items_name_not_blank_check'
+    SELECT 1 FROM pg_constraint WHERE conname = 'inventory_items_name_not_blank_check' AND conrelid = 'inventory_items'::regclass
   ) THEN
     ALTER TABLE inventory_items
       ADD CONSTRAINT inventory_items_name_not_blank_check
       CHECK (length(btrim(name)) > 0);
   END IF;
   IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'inventory_items_unit_cost_precision_check'
+    SELECT 1 FROM pg_constraint WHERE conname = 'inventory_items_unit_cost_precision_check' AND conrelid = 'inventory_items'::regclass
   ) THEN
     ALTER TABLE inventory_items
       ADD CONSTRAINT inventory_items_unit_cost_precision_check

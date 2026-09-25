@@ -38,11 +38,11 @@ ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL
 
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'inventory_items_maximum_stock_check') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'inventory_items_maximum_stock_check' AND conrelid = 'inventory_items'::regclass) THEN
     ALTER TABLE inventory_items ADD CONSTRAINT inventory_items_maximum_stock_check
       CHECK (maximum_stock IS NULL OR maximum_stock >= minimum_stock);
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'inventory_items_status_check') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'inventory_items_status_check' AND conrelid = 'inventory_items'::regclass) THEN
     ALTER TABLE inventory_items ADD CONSTRAINT inventory_items_status_check
       CHECK (status IN ('active', 'inactive'));
   END IF;
@@ -129,7 +129,7 @@ ON CONFLICT (id) DO NOTHING;
 
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'bookings_service_id_fkey') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'bookings_service_id_fkey' AND conrelid = 'bookings'::regclass) THEN
     ALTER TABLE bookings ADD CONSTRAINT bookings_service_id_fkey
       FOREIGN KEY (service_id) REFERENCES services (id) ON DELETE RESTRICT;
   END IF;

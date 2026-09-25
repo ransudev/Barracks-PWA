@@ -1,0 +1,66 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import type { Pool } from "pg";
+import { applyMigrations } from "@/server/db/migrate";
+import { createDisposableSchema, databaseConfigured } from "./helpers/database";
+
+async function legacyPair(db: Pool, sameBarber: boolean): Promise<number[]> {
+  const barbers: number[] = [];
+  for (let i = 0; i < (sameBarber ? 1 : 2); i++) {
+    const result = await db.query<{ id: number }>("INSERT INTO barbers(first_name,last_name) VALUES('Legacy','Barber') RETURNING id");
+    barbers.push(result.rows[0].id);
+  }
+  const customers: number[] = [];
+  for (let i = 0; i < (sameBarber ? 2 : 1); i++) {
+    const user = await db.query<{ id: number }>(`INSERT INTO users(first_name,last_name,email,password_hash,role_id)
+      VALUES('Legacy','Customer',$1,'test',(SELECT id FROM roles WHERE name='customer')) RETURNING id`, [`legacy-${i}@test.local`]);
+    const customer = await db.query<{ id: number }>("INSERT INTO customers(user_id) VALUES($1) RETURNING id", [user.rows[0].id]);
+    customers.push(customer.rows[0].id);
+  }
+  const ids: number[] = [];
+  for (let i = 0; i < 2; i++) {
+    const result = await db.query<{ id: number }>(`INSERT INTO bookings
+      (customer_id,barber_id,service_id,service_name,service_price,service_duration_minutes,booking_date,booking_time,end_time)
+      VALUES($1,$2,'barracks-basic','Barracks Basic',300,45,'2030-01-01',$3,$4) RETURNING id`,
+      [customers[sameBarber ? i : 0], barbers[sameBarber ? 0 : i], i ? "10:15" : "10:00", i ? "11:00" : "10:45"]);
+    ids.push(result.rows[0].id);
+  }
+  return ids;
+}
+
+test("fresh disposable schema applies every migration", { skip: !databaseConfigured }, async () => {
+  const { db, cleanup } = await createDisposableSchema();
+  try {
+    assert.equal(Number((await db.query("SELECT count(*) AS count FROM schema_migrations")).rows[0].count), 13);
+  } finally { await cleanup(); }
+});
+
+test("non-overlapping legacy records migrate and remain intact", { skip: !databaseConfigured }, async () => {
+  const { db, cleanup } = await createDisposableSchema(10);
+  try {
+    const ids = await legacyPair(db, true);
+    await db.query("UPDATE bookings SET booking_time='10:45', end_time='11:30' WHERE id=$1", [ids[1]]);
+    await applyMigrations(db);
+    assert.equal(Number((await db.query("SELECT count(*) AS count FROM schema_migrations")).rows[0].count), 13);
+    assert.equal(Number((await db.query("SELECT count(*) AS count FROM bookings WHERE id=ANY($1::bigint[])", [ids])).rows[0].count), 2);
+  } finally { await cleanup(); }
+});
+
+for (const sameBarber of [true, false]) {
+  test(`legacy ${sameBarber ? "barber" : "customer"} overlap blocks migration without changing records`, { skip: !databaseConfigured }, async () => {
+    const { db, cleanup } = await createDisposableSchema(10);
+    try {
+      const ids = await legacyPair(db, sameBarber);
+      await assert.rejects(applyMigrations(db), (error: unknown) =>
+        error instanceof Error && error.message.includes(`${ids[0]}/${ids[1]}`) && error.message.includes(sameBarber ? "barber" : "customer"));
+      assert.equal(Number((await db.query("SELECT count(*) AS count FROM schema_migrations")).rows[0].count), 10);
+      assert.equal(Number((await db.query("SELECT count(*) AS count FROM bookings WHERE id=ANY($1::bigint[]) AND status='confirmed'", [ids])).rows[0].count), 2);
+      assert.equal(Number((await db.query("SELECT count(*) AS count FROM pg_constraint WHERE conrelid='bookings'::regclass AND conname LIKE 'bookings_active_%_overlap'")).rows[0].count), 0);
+      // A reviewer moves the second appointment to the first appointment's end.
+      await db.query("UPDATE bookings SET booking_time='10:45', end_time='11:30' WHERE id=$1", [ids[1]]);
+      await applyMigrations(db);
+      assert.equal(Number((await db.query("SELECT count(*) AS count FROM schema_migrations")).rows[0].count), 13);
+      assert.equal(Number((await db.query("SELECT count(*) AS count FROM bookings WHERE id=ANY($1::bigint[]) AND status='confirmed'", [ids])).rows[0].count), 2);
+    } finally { await cleanup(); }
+  });
+}
