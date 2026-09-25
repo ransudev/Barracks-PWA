@@ -1,5 +1,7 @@
 "use client";
 
+// Retained reports prototype; the active report page uses the inventory API.
+
 import { useState } from "react";
 import { customers } from "@/app/data/customers";
 import { revenueByService, topCustomerValues } from "@/app/data/reports";

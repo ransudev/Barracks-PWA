@@ -1,5 +1,6 @@
 import type { Service } from "@/app/types/domain";
 
+// Reference catalog for the retained PaymentPage prototype. Live services come from /api/services.
 export const services: Service[] = [
   {
     id: "barracks-basic",

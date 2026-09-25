@@ -1,5 +1,7 @@
 "use client";
 
+// Retained payment prototype; active staff routes do not render this page.
+
 import { useState } from "react";
 import { barbers } from "@/app/data/barbers";
 import { customers } from "@/app/data/customers";

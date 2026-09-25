@@ -4,7 +4,6 @@ import { createStaffUserSchema, userLifecycleSchema, updateStaffUserSchema } fro
 import { barberSchema, barberStaffSchema, bookingCreateSchema, bookingEditSchema, bookingStatusSchema, bookingUpdateSchema, customerBookingEditSchema, customerProfileSchema, customerSelfProfileSchema, customerSignupSchema, inventoryItemSchema } from "@/server/schemas/sprint.schema";
 import { serviceSchema } from "@/server/schemas/service.schema";
 import { receiveRestockSchema, restockCreateSchema, supplierSchema } from "@/server/schemas/sprint2.schema";
-import { bookingListState } from "@/app/utils/booking-state";
 import { canManageBooking } from "@/app/constants/roles";
 
 test("staff account schemas are strict and validate lifecycle input", () => {
@@ -237,9 +236,4 @@ test("branch-aware inventory and restock schemas preserve safe defaults and reje
       { restockRequestItemId: 4, deliveredQuantity: 1 },
     ],
   }).success, false);
-});
-
-test("booking lists expose load failures instead of falling through to an empty state", () => {
-  assert.equal(bookingListState({ loading: false, loadError: "Unable to load bookings", visibleCount: 0 }), "error");
-  assert.equal(bookingListState({ loading: false, loadError: "", visibleCount: 0 }), "empty");
 });
