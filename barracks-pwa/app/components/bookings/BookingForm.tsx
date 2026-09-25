@@ -44,6 +44,7 @@ export function BookingForm({
   const [slots, setSlots] = useState<{ startTime: string; endTime: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [availabilityError, setAvailabilityError] = useState("");
+  const [availabilityReason, setAvailabilityReason] = useState<"schedule_not_configured" | null>(null);
   const { serviceId, barberId, date } = value;
   useEffect(() => {
     if (!serviceId || !date) return;
@@ -54,11 +55,12 @@ export function BookingForm({
     async function load() {
       setLoading(true);
       setAvailabilityError("");
+      setAvailabilityReason(null);
       try {
         const response = await apiRequest(`/api/bookings/availability?${params}`, { cache: "no-store" });
-        const body = await readApiBody<{ success: boolean; slots?: { startTime: string; endTime: string }[]; message?: string }>(response);
+        const body = await readApiBody<{ success: boolean; slots?: { startTime: string; endTime: string }[]; reason?: "schedule_not_configured"; message?: string }>(response);
         if (!response.ok || !body?.success) throw new Error(body?.message ?? "Unable to load available times");
-        if (active) setSlots(body.slots ?? []);
+        if (active) { setSlots(body.slots ?? []); setAvailabilityReason(body.reason ?? null); }
       } catch (error) {
         if (active) { setSlots([]); setAvailabilityError(error instanceof Error ? error.message : "Unable to load available times"); }
       } finally { if (active) setLoading(false); }
@@ -93,7 +95,7 @@ export function BookingForm({
         </SelectField>
       </div>
       {availabilityError && <p role="alert" className="form-hint">{availabilityError}</p>}
-      {!loading && !availabilityError && !slots.length && <p className="form-hint">No slots are available for this selection. Try another date or barber.</p>}
+      {!loading && !availabilityError && !slots.length && <p className="form-hint">{availabilityReason === "schedule_not_configured" ? "This barber's schedule is not ready yet. Try another barber or ask the shop for help." : "No slots are available for this selection. Try another date or barber."}</p>}
       <TextField label="Notes (optional)" value={value.notes} maxLength={500} onChange={(event) => onChange({ ...value, notes: event.target.value })} />
       {selectedSlot && selectedService && <div className="booking-form-review" aria-label="Review booking">
         <h3>Review appointment</h3>

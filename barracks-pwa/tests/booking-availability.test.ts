@@ -95,3 +95,31 @@ test("Any Available Barber includes free slots and orders eligible barbers by lo
   assert.equal((await getAnyBarberAvailability(db, { serviceId: "cut", date }, { now })).slots.some((slot) => slot.startTime === "10:00"), true);
   assert.deepEqual(await findAvailableBarbers(db, { serviceId: "cut", date, time: "19:15" }, { now }), []);
 });
+
+test("missing schedules block only the affected barber and report fully unconfigured candidates", async () => {
+  let allMissing = false;
+  let serviceQueries = 0;
+  let hoursQueries = 0;
+  const db = { query: async (sql: string, params?: unknown[]) => {
+    if (sql.includes("FROM services")) { serviceQueries++; return { rows: [{ id: "cut", name: "Cut", description: "", current_price: "100", duration_minutes: 45, active: true, created_at: new Date(), updated_at: new Date() }] }; }
+    if (sql.includes("FROM shop_operating_hours")) { hoursQueries++; return { rows: [{ day_of_week: 1, open_time: "09:00:00", close_time: "19:30:00", is_closed: false }] }; }
+    if (sql.includes("FROM barbers")) {
+      const ids = params?.length ? [Number(params[0])] : [1, 2];
+      return { rows: ids.map((id) => ({ id, first_name: "A", last_name: "B", status: "available", commission_rate: null, services_done: 0, revenue: 0, rating: null, schedule_day_count: id === 1 || allMissing ? 0 : 7, created_at: new Date(), updated_at: new Date() })) };
+    }
+    if (sql.includes("FROM barber_schedules")) return { rows: Number(params?.[0]) === 1 || allMissing ? [] : [{ id: 2, day_of_week: 1, is_working: true, start_time: "09:00:00", end_time: "19:30:00" }] };
+    if (sql.includes("FROM barber_schedule_breaks") || sql.includes("FROM barber_unavailability") || sql.includes("FROM bookings")) return { rows: [] };
+    throw new Error(`Unexpected query: ${sql}`);
+  } } as unknown as Pool;
+  assert.deepEqual((await getBookingAvailability(db, { serviceId: "cut", barberId: 1, date }, { now })).slots, []);
+  assert.equal((await getBookingAvailability(db, { serviceId: "cut", barberId: 1, date }, { now })).reason, "schedule_not_configured");
+  serviceQueries = 0; hoursQueries = 0;
+  assert.equal((await getAnyBarberAvailability(db, { serviceId: "cut", date }, { now })).slots.some((slot) => slot.startTime === "10:00"), true);
+  assert.equal(serviceQueries, 1);
+  assert.equal(hoursQueries, 1);
+  allMissing = true;
+  const none = await getAnyBarberAvailability(db, { serviceId: "cut", date }, { now });
+  assert.deepEqual(none.slots, []);
+  assert.equal(none.reason, "schedule_not_configured");
+  assert.deepEqual(await findAvailableBarbers(db, { serviceId: "cut", date, time: "10:00" }, { now }), []);
+});

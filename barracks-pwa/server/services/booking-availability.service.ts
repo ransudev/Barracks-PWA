@@ -4,7 +4,7 @@ import { findBarberById, listBarberAvailability } from "@/server/services/barber
 import { listBarberSchedules, listBarberUnavailability, listShopHours, type ShopHours, type WeeklySchedule } from "@/server/services/schedule.service";
 
 export type AvailabilitySlot = { startTime: string; endTime: string };
-export type AvailabilityResult = { date: string; durationMinutes: number; slots: AvailabilitySlot[] };
+export type AvailabilityResult = { date: string; durationMinutes: number; slots: AvailabilitySlot[]; reason?: "schedule_not_configured" };
 export type BlockedInterval = { start: number; end: number };
 
 export function minuteOfDay(time: string): number { const [hour, minute] = time.split(":").map(Number); return hour * 60 + minute; }
@@ -33,22 +33,29 @@ export class AvailabilityError extends Error {
   constructor(public readonly kind: "service_not_found" | "barber_not_found", message: string) { super(message); }
 }
 
-export async function getBookingAvailability(db: Pool, input: { serviceId: string; barberId: number; date: string }, options: { now?: Date; excludeBookingId?: number } = {}): Promise<AvailabilityResult> {
-  const service = await findServiceById(db, input.serviceId);
+type AvailabilityOptions = { now?: Date; excludeBookingId?: number };
+type AvailableBarber = { id: number; status: string };
+
+async function loadContext(db: Pool, serviceId: string, date: string) {
+  const [service, hours] = await Promise.all([findServiceById(db, serviceId), listShopHours(db)]);
   if (!service?.active || !service.durationMinutes) throw new AvailabilityError("service_not_found", "Service is not available");
-  const barber = await findBarberById(db, input.barberId);
-  if (!barber) throw new AvailabilityError("barber_not_found", "Barber not found");
-  const empty = { date: input.date, durationMinutes: service.durationMinutes, slots: [] };
+  const weekday = new Date(`${date}T00:00:00Z`).getUTCDay();
+  return { durationMinutes: service.durationMinutes, hours: hours.find((item) => item.dayOfWeek === weekday), weekday };
+}
+
+async function availabilityForBarber(db: Pool, input: { barberId: number; date: string }, barber: AvailableBarber, context: Awaited<ReturnType<typeof loadContext>>, options: AvailabilityOptions): Promise<AvailabilityResult> {
+  const empty: AvailabilityResult = { date: input.date, durationMinutes: context.durationMinutes, slots: [] };
   if (barber.status === "unavailable") return empty;
-  const weekday = new Date(`${input.date}T00:00:00Z`).getUTCDay();
-  const [hours, schedules, absence, bookings] = await Promise.all([
-    listShopHours(db), listBarberSchedules(db, input.barberId),
+  const [schedules, absence, bookings] = await Promise.all([
+    listBarberSchedules(db, input.barberId),
     listBarberUnavailability(db, input.barberId, `${input.date}T00:00:00+08:00`, new Date(Date.parse(`${input.date}T00:00:00+08:00`) + 86_400_000).toISOString()),
     db.query<{ booking_time: string; end_time: string | null; service_duration_minutes: number | null }>(
       `SELECT booking_time, end_time, service_duration_minutes FROM bookings WHERE barber_id=$1 AND booking_date=$2
        AND status IN ('confirmed','checked_in','in_progress') AND ($3::bigint IS NULL OR id<>$3)`,
       [input.barberId, input.date, options.excludeBookingId ?? null]),
   ]);
+  const schedule = schedules.find((item) => item.dayOfWeek === context.weekday);
+  if (!schedule) return context.hours && !context.hours.isClosed ? { ...empty, reason: "schedule_not_configured" } : empty;
   const midnight = Date.parse(`${input.date}T00:00:00+08:00`);
   const blocks: BlockedInterval[] = absence.map((item) => ({ start: (Date.parse(item.startsAt) - midnight) / 60_000, end: (Date.parse(item.endsAt) - midnight) / 60_000 }));
   for (const row of bookings.rows) {
@@ -56,7 +63,13 @@ export async function getBookingAvailability(db: Pool, input: { serviceId: strin
     // Legacy bookings without a known duration conservatively block the day.
     blocks.push({ start: row.end_time || row.service_duration_minutes ? start : 0, end: row.end_time ? minuteOfDay(row.end_time) : row.service_duration_minutes ? start + row.service_duration_minutes : 1440 });
   }
-  return { ...empty, slots: calculateSlots({ date: input.date, durationMinutes: service.durationMinutes, hours: hours.find((item) => item.dayOfWeek === weekday), schedule: schedules.find((item) => item.dayOfWeek === weekday), blocks, now: options.now }) };
+  return { ...empty, slots: calculateSlots({ date: input.date, durationMinutes: context.durationMinutes, hours: context.hours, schedule, blocks, now: options.now }) };
+}
+
+export async function getBookingAvailability(db: Pool, input: { serviceId: string; barberId: number; date: string }, options: AvailabilityOptions = {}): Promise<AvailabilityResult> {
+  const [context, barber] = await Promise.all([loadContext(db, input.serviceId, input.date), findBarberById(db, input.barberId)]);
+  if (!barber) throw new AvailabilityError("barber_not_found", "Barber not found");
+  return availabilityForBarber(db, input, barber, context, options);
 }
 
 export async function isBookingSlotAvailable(db: Pool, input: { serviceId: string; barberId: number; date: string; time: string }, options: { now?: Date; excludeBookingId?: number } = {}): Promise<boolean> {
@@ -65,30 +78,32 @@ export async function isBookingSlotAvailable(db: Pool, input: { serviceId: strin
 }
 
 export async function findAvailableBarbers(db: Pool, input: { serviceId: string; date: string; time: string }, options: { now?: Date; excludeBookingId?: number } = {}): Promise<number[]> {
-  const barbers = (await listBarberAvailability(db)).filter((barber) => barber.status !== "unavailable");
-  const [counts, eligible] = await Promise.all([
+  const [context, allBarbers, counts] = await Promise.all([
+    loadContext(db, input.serviceId, input.date),
+    listBarberAvailability(db),
     db.query<{ barber_id: number; appointment_count: string }>(
       `SELECT barber_id, COUNT(*) AS appointment_count FROM bookings
        WHERE booking_date=$1 AND status IN ('confirmed','checked_in','in_progress')
        AND ($2::bigint IS NULL OR id<>$2) GROUP BY barber_id`,
       [input.date, options.excludeBookingId ?? null],
     ),
-    Promise.all(barbers.map(async (barber) => ({
-      id: barber.id,
-      available: await isBookingSlotAvailable(db, { ...input, barberId: barber.id }, options),
-    }))),
   ]);
+  const barbers = allBarbers.filter((barber) => barber.status !== "unavailable");
+  const eligible = await Promise.all(barbers.map(async (barber) => ({
+    id: barber.id,
+    available: (await availabilityForBarber(db, { barberId: barber.id, date: input.date }, barber, context, options)).slots.some((slot) => slot.startTime === input.time),
+  })));
   const countByBarber = new Map(counts.rows.map((row) => [Number(row.barber_id), Number(row.appointment_count)]));
   return eligible.filter((barber) => barber.available).map((barber) => barber.id)
     .sort((a, b) => (countByBarber.get(a) ?? 0) - (countByBarber.get(b) ?? 0) || a - b);
 }
 
 export async function getAnyBarberAvailability(db: Pool, input: { serviceId: string; date: string }, options: { now?: Date; excludeBookingId?: number } = {}): Promise<AvailabilityResult> {
-  const service = await findServiceById(db, input.serviceId);
-  if (!service?.active || !service.durationMinutes) throw new AvailabilityError("service_not_found", "Service is not available");
-  const barbers = (await listBarberAvailability(db)).filter((barber) => barber.status !== "unavailable");
-  const results = await Promise.all(barbers.map((barber) => getBookingAvailability(db, { ...input, barberId: barber.id }, options)));
+  const [context, allBarbers] = await Promise.all([loadContext(db, input.serviceId, input.date), listBarberAvailability(db)]);
+  const barbers = allBarbers.filter((barber) => barber.status !== "unavailable");
+  const results = await Promise.all(barbers.map((barber) => availabilityForBarber(db, { barberId: barber.id, date: input.date }, barber, context, options)));
   const slots = new Map<string, AvailabilitySlot>();
   results.forEach((result) => result.slots.forEach((slot) => slots.set(slot.startTime, slot)));
-  return { date: input.date, durationMinutes: service.durationMinutes, slots: [...slots.values()].sort((a, b) => a.startTime.localeCompare(b.startTime)) };
+  return { date: input.date, durationMinutes: context.durationMinutes, slots: [...slots.values()].sort((a, b) => a.startTime.localeCompare(b.startTime)),
+    ...(barbers.length && results.every((result) => result.reason === "schedule_not_configured") ? { reason: "schedule_not_configured" as const } : {}) };
 }

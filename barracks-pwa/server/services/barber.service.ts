@@ -10,6 +10,7 @@ type BarberRow = {
   services_done: number | string;
   revenue: number | string;
   rating: number | string | null;
+  schedule_day_count: number | string;
   created_at: Date | string;
   updated_at: Date | string;
 };
@@ -23,6 +24,7 @@ export type BarberRecord = {
   servicesDone: number;
   revenue: number;
   rating: number | null;
+  scheduleDayCount: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -34,7 +36,8 @@ type BarberAvailabilityRow = Pick<BarberRow, "id" | "first_name" | "last_name" |
 export type BarberDeleteResult = "deleted" | "not_found" | "referenced";
 
 const barberSelect = `
-  SELECT id, first_name, last_name, status, commission_rate, services_done, revenue, rating, created_at, updated_at
+  SELECT id, first_name, last_name, status, commission_rate, services_done, revenue, rating, created_at, updated_at,
+    (SELECT COUNT(*) FROM barber_schedules s WHERE s.barber_id = barbers.id) AS schedule_day_count
   FROM barbers
 `;
 
@@ -52,6 +55,7 @@ function toBarber(row: BarberRow): BarberRecord {
     servicesDone: Number(row.services_done),
     revenue: Number(row.revenue),
     rating: row.rating === null ? null : Number(row.rating),
+    scheduleDayCount: Number(row.schedule_day_count),
     createdAt: toIso(row.created_at),
     updatedAt: toIso(row.updated_at),
   };
@@ -90,20 +94,28 @@ type BarberMutationInput = BarberInput | BarberStaffInput;
 export async function createBarber(db: Pool, input: BarberMutationInput): Promise<BarberRecord> {
   const commissionRate = "commissionRate" in input ? input.commissionRate : null;
   const rating = "rating" in input ? input.rating : null;
-  const result = await db.query<{ id: number }>(
-      `
-      WITH inserted AS (
-        INSERT INTO barbers (first_name, last_name, status, commission_rate, rating)
-        VALUES ($1, $2, $3, $4, $5) RETURNING id
-      ), scheduled AS (
-        INSERT INTO barber_schedules (barber_id, day_of_week, is_working, start_time, end_time)
-        SELECT inserted.id, day, TRUE, '09:00', '19:30' FROM inserted CROSS JOIN generate_series(0, 6) AS day
-        RETURNING barber_id
-      ) SELECT id FROM inserted
-    `,
-    [input.firstName, input.lastName, input.status, commissionRate, rating ?? null],
-  );
-  return (await findBarberById(db, result.rows[0].id)) as BarberRecord;
+  const client = await db.connect();
+  let id: number;
+  try {
+    await client.query("BEGIN");
+    const inserted = await client.query<{ id: number }>(
+      `INSERT INTO barbers (first_name, last_name, status, commission_rate, rating)
+       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+      [input.firstName, input.lastName, input.status, commissionRate, rating ?? null],
+    );
+    id = inserted.rows[0].id;
+    const scheduled = await client.query(
+      `INSERT INTO barber_schedules (barber_id, day_of_week, is_working, start_time, end_time)
+       SELECT $1, day_of_week, NOT is_closed, open_time, close_time FROM shop_operating_hours
+       RETURNING day_of_week`, [id],
+    );
+    if (scheduled.rowCount !== 7) throw new Error("Configure all seven shop days before adding a barber");
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally { client.release(); }
+  return (await findBarberById(db, id)) as BarberRecord;
 }
 
 export async function updateBarber(

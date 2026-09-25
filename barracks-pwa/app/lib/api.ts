@@ -22,6 +22,7 @@ export type ApiBarber = {
   servicesDone: number;
   revenue: number;
   rating: number | null;
+  scheduleDayCount: number;
   createdAt: string;
   updatedAt: string;
 };
