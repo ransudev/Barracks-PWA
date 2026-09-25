@@ -68,6 +68,9 @@ export async function PATCH(
       ({ cancelled: "cancel", checked_in: "check_in", in_progress: "start", completed: "complete", no_show: "no_show" } as const)[parsed.data.status],
     );
     if (authorization instanceof Response) return authorization;
+    if (actor.role === "customer" && parsed.data.status === "cancelled" && authorization.booking.status !== "confirmed") {
+      return Response.json({ success: false, message: "Only confirmed bookings can be cancelled" }, { status: 409 });
+    }
 
     const booking = await updateBooking(
       pool,

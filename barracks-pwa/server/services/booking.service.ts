@@ -239,11 +239,14 @@ export async function updateBooking(
     if (scope?.customerId && existing.customerId !== scope.customerId) {
       throw new BookingServiceError("forbidden", "You can only manage your own bookings");
     }
+    if (scope?.customerId && (input.status !== "cancelled" || existing.status !== "confirmed")) {
+      throw new BookingServiceError("not_updatable", `Cannot mark a ${existing.status} booking ${input.status}`);
+    }
     const expected: Record<BookingUpdateInput["status"], BookingRow["status"]> = {
       checked_in: "confirmed", in_progress: "checked_in", completed: "in_progress",
       cancelled: existing.status === "checked_in" ? "checked_in" : "confirmed", no_show: "confirmed",
     };
-    if (existing.status !== expected[input.status] || (scope?.customerId && input.status !== "cancelled")) {
+    if (existing.status !== expected[input.status]) {
       throw new BookingServiceError("not_updatable", `Cannot mark a ${existing.status} booking ${input.status}`);
     }
     if (input.status === "no_show" && !mayMarkNoShow(existing.date, existing.time)) {
