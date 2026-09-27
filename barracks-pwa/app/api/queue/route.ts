@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   if (!parsed.success) return Response.json({ success: false, message: "Choose a customer, service, and optional barber" }, { status: 400 });
   try { return Response.json({ success: true, entry: await addWalkIn(pool, parsed.data) }, { status: 201 }); }
   catch (error) {
-    if (error instanceof QueueServiceError) return Response.json({ success: false, message: error.message }, { status: 400 });
+    if (error instanceof QueueServiceError) return Response.json({ success: false, message: error.message }, { status: error.kind === "conflict" ? 409 : error.kind === "not_found" ? 404 : 400 });
     console.error("Unable to add walk-in", error);
     return Response.json({ success: false, message: "Unable to add walk-in" }, { status: 500 });
   }

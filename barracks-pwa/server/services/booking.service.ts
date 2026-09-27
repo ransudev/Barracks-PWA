@@ -2,7 +2,8 @@ import type { Pool, PoolClient } from "pg";
 import { findServiceById } from "@/server/services/service.service";
 import { findAvailableBarbers, isBookingSlotAvailable } from "@/server/services/booking-availability.service";
 import { BOOKING_GRACE_MINUTES, mayMarkNoShow } from "@/app/constants/booking";
-import { QueueServiceError, syncAppointmentQueue } from "@/server/services/queue.service";
+import { isActiveBarberConflict, QueueServiceError, syncAppointmentQueue } from "@/server/services/queue.service";
+import { BarberOperationalAvailabilityError, getBarberOperationalAvailability, requireBarberOperationalAvailability } from "@/server/services/barber-operational-availability.service";
 import type {
   BookingEditInput,
   BookingCreateInput,
@@ -258,6 +259,14 @@ export async function updateBooking(
     if (input.status === "no_show" && !mayMarkNoShow(existing.date, existing.time)) {
       throw new BookingServiceError("not_updatable", `No-show is available ${BOOKING_GRACE_MINUTES} minutes after the appointment starts`);
     }
+    if (input.status === "in_progress") {
+      // Lock the linked queue row, then the barber, before checking availability.
+      // The unique index is the final guard if another writer bypasses this path.
+      const entry = await client.query("SELECT id FROM queue_entries WHERE booking_id=$1 FOR UPDATE", [id]);
+      if (!entry.rowCount) throw new BookingServiceError("conflict", "Appointment queue entry is missing or out of sync");
+      await client.query("SELECT id FROM barbers WHERE id=$1 FOR UPDATE", [existing.barberId]);
+      requireBarberOperationalAvailability(await getBarberOperationalAvailability(client, existing.barberId));
+    }
     const customerScope = scope?.customerId ? " AND customer_id = $4" : "";
     const values = scope?.customerId ? [input.status, id, expected[input.status], scope.customerId] : [input.status, id, expected[input.status]];
     const result = await client.query<{ id: number }>(
@@ -274,7 +283,9 @@ export async function updateBooking(
     return booking;
   } catch (error) {
     await client.query("ROLLBACK");
-    if (error instanceof QueueServiceError) throw new BookingServiceError("conflict", error.message);
+    if (error instanceof QueueServiceError || error instanceof BarberOperationalAvailabilityError)
+      throw new BookingServiceError("conflict", error.message);
+    if (isActiveBarberConflict(error)) throw new BookingServiceError("conflict", "Barber is currently serving another customer.");
     throw error;
   } finally { client.release(); }
 }

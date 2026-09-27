@@ -29,6 +29,9 @@ test("customer cancellation is owner-scoped and limited to confirmed bookings", 
 
     const inProgress = await book(customers[0], "12:00");
     await updateBooking(db, inProgress.id, { status: "checked_in" });
+    // This lifecycle test can run outside the shop's published opening hours.
+    await db.query("UPDATE shop_operating_hours SET open_time='00:00',close_time='23:59',is_closed=false");
+    await db.query("UPDATE barber_schedules SET start_time='00:00',end_time='23:59'");
     await updateBooking(db, inProgress.id, { status: "in_progress" });
     await assert.rejects(updateBooking(db, inProgress.id, { status: "cancelled" }, { customerId: customers[0] }), { kind: "not_updatable" });
 

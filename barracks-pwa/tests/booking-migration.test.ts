@@ -31,7 +31,7 @@ async function legacyPair(db: Pool, sameBarber: boolean): Promise<number[]> {
 test("fresh disposable schema applies every migration", { skip: !databaseConfigured }, async () => {
   const { db, cleanup } = await createDisposableSchema();
   try {
-    assert.equal(Number((await db.query("SELECT count(*) AS count FROM schema_migrations")).rows[0].count), 13);
+    assert.equal(Number((await db.query("SELECT count(*) AS count FROM schema_migrations")).rows[0].count), 14);
   } finally { await cleanup(); }
 });
 
@@ -41,8 +41,29 @@ test("non-overlapping legacy records migrate and remain intact", { skip: !databa
     const ids = await legacyPair(db, true);
     await db.query("UPDATE bookings SET booking_time='10:45', end_time='11:30' WHERE id=$1", [ids[1]]);
     await applyMigrations(db);
-    assert.equal(Number((await db.query("SELECT count(*) AS count FROM schema_migrations")).rows[0].count), 13);
+    assert.equal(Number((await db.query("SELECT count(*) AS count FROM schema_migrations")).rows[0].count), 14);
     assert.equal(Number((await db.query("SELECT count(*) AS count FROM bookings WHERE id=ANY($1::bigint[])", [ids])).rows[0].count), 2);
+  } finally { await cleanup(); }
+});
+
+test("queue guard migration reports existing active conflicts without changing service state", { skip: !databaseConfigured }, async () => {
+  const { db, cleanup } = await createDisposableSchema(13);
+  try {
+    const barber = (await db.query<{ id: number }>("INSERT INTO barbers(first_name,last_name) VALUES('Legacy','Queue') RETURNING id")).rows[0].id;
+    const customers: number[] = [];
+    for (let i = 0; i < 2; i++) {
+      const user = (await db.query<{ id: number }>("INSERT INTO users(first_name,last_name,email,password_hash,role_id) VALUES('Legacy','Queue',$1,'test',(SELECT id FROM roles WHERE name='customer')) RETURNING id", [`legacy-queue-${i}@test.local`])).rows[0].id;
+      customers.push((await db.query<{ id: number }>("INSERT INTO customers(user_id) VALUES($1) RETURNING id", [user])).rows[0].id);
+    }
+    const ids: number[] = [];
+    for (const customer of customers) ids.push(Number((await db.query<{ id: number }>(
+      "INSERT INTO queue_entries(customer_id,service_id,barber_id,status) VALUES($1,'barracks-basic',$2,'in_progress') RETURNING id", [customer, barber])).rows[0].id));
+    await assert.rejects(applyMigrations(db), (error: unknown) => error instanceof Error && error.message.includes(`${ids[0]}/${ids[1]}`));
+    assert.equal(Number((await db.query("SELECT count(*) AS count FROM schema_migrations")).rows[0].count), 13);
+    assert.equal(Number((await db.query("SELECT count(*) AS count FROM queue_entries WHERE status='in_progress'")).rows[0].count), 2);
+    await db.query("UPDATE queue_entries SET status='completed' WHERE id=$1", [ids[0]]);
+    await applyMigrations(db);
+    assert.equal(Number((await db.query("SELECT count(*) AS count FROM schema_migrations")).rows[0].count), 14);
   } finally { await cleanup(); }
 });
 
@@ -59,7 +80,7 @@ for (const sameBarber of [true, false]) {
       // A reviewer moves the second appointment to the first appointment's end.
       await db.query("UPDATE bookings SET booking_time='10:45', end_time='11:30' WHERE id=$1", [ids[1]]);
       await applyMigrations(db);
-      assert.equal(Number((await db.query("SELECT count(*) AS count FROM schema_migrations")).rows[0].count), 13);
+      assert.equal(Number((await db.query("SELECT count(*) AS count FROM schema_migrations")).rows[0].count), 14);
       assert.equal(Number((await db.query("SELECT count(*) AS count FROM bookings WHERE id=ANY($1::bigint[]) AND status='confirmed'", [ids])).rows[0].count), 2);
     } finally { await cleanup(); }
   });

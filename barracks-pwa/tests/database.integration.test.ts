@@ -251,6 +251,9 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
     assert.equal(editedBooking?.durationMinutes, 30);
     assert.equal(editedBooking?.endTime, "12:30");
     assert.equal((await bookings.updateBooking(pool, bookingId, { status: "checked_in" }))?.status, "checked_in");
+    // The lifecycle assertion may run after normal Manila shop hours.
+    await pool.query("UPDATE shop_operating_hours SET open_time='00:00',close_time='23:59',is_closed=false");
+    await pool.query("UPDATE barber_schedules SET start_time='00:00',end_time='23:59'");
     assert.equal((await bookings.updateBooking(pool, bookingId, { status: "in_progress" }))?.status, "in_progress");
     const completedBooking = await bookings.updateBooking(pool, bookingId, { status: "completed" });
     assert.equal(completedBooking?.status, "completed");

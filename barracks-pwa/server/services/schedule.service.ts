@@ -1,4 +1,4 @@
-import type { Pool } from "pg";
+import type { Pool, PoolClient } from "pg";
 import type { z } from "zod";
 import { hoursSchema, weeklyScheduleSchema, unavailabilitySchema } from "@/server/schemas/schedule.schema";
 
@@ -6,8 +6,9 @@ export type ShopHours = z.infer<typeof hoursSchema>;
 export type WeeklySchedule = z.infer<typeof weeklyScheduleSchema>;
 export type UnavailabilityInput = z.infer<typeof unavailabilitySchema>;
 export type Unavailability = UnavailabilityInput & { id: number };
+type Db = Pool | PoolClient;
 
-export async function listShopHours(db: Pool): Promise<ShopHours[]> {
+export async function listShopHours(db: Db): Promise<ShopHours[]> {
   const result = await db.query<{ day_of_week: number; open_time: string; close_time: string; is_closed: boolean }>(
     "SELECT day_of_week, open_time, close_time, is_closed FROM shop_operating_hours ORDER BY day_of_week",
   );
@@ -20,7 +21,7 @@ export async function saveShopHours(db: Pool, input: ShopHours): Promise<ShopHou
   return listShopHours(db);
 }
 
-export async function listBarberSchedules(db: Pool, barberId: number): Promise<WeeklySchedule[]> {
+export async function listBarberSchedules(db: Db, barberId: number): Promise<WeeklySchedule[]> {
   const schedules = await db.query<{ id: number; day_of_week: number; is_working: boolean; start_time: string; end_time: string }>(
     "SELECT id, day_of_week, is_working, start_time, end_time FROM barber_schedules WHERE barber_id=$1 ORDER BY day_of_week", [barberId],
   );
@@ -50,7 +51,7 @@ export async function saveBarberSchedule(db: Pool, barberId: number, input: Week
   return listBarberSchedules(db, barberId);
 }
 
-export async function listBarberUnavailability(db: Pool, barberId: number, from?: string, to?: string): Promise<Unavailability[]> {
+export async function listBarberUnavailability(db: Db, barberId: number, from?: string, to?: string): Promise<Unavailability[]> {
   const result = await db.query<{ id: number; starts_at: Date; ends_at: Date; reason: string }>(
     `SELECT id, starts_at, ends_at, reason FROM barber_unavailability WHERE barber_id=$1
       AND ($2::timestamptz IS NULL OR ends_at > $2) AND ($3::timestamptz IS NULL OR starts_at < $3) ORDER BY starts_at`,

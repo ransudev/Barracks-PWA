@@ -53,6 +53,10 @@ test("PostgreSQL rejects overlapping barber and customer bookings under concurre
       databaseRace.map((result) => result.status === "rejected" ? `${result.reason.code}: ${result.reason.message}` : "success").join("; "));
     assert.equal(mayMarkNoShow("2026-10-05", "10:00", new Date("2026-10-05T02:09:00Z")), false);
     assert.equal(mayMarkNoShow("2026-10-05", "10:00", new Date("2026-10-05T02:10:00Z")), true);
+    // Queue operations validate the real current Manila shift, independent of
+    // the future booking slots exercised above.
+    await pool.query("UPDATE shop_operating_hours SET open_time='00:00',close_time='23:59',is_closed=false");
+    await pool.query("UPDATE barber_schedules SET start_time='00:00',end_time='23:59'");
     await assert.rejects(updateBooking(pool, adjacent.id, { status: "completed" }), { kind: "not_updatable" });
     assert.equal((await updateBooking(pool, adjacent.id, { status: "checked_in" }))?.status, "checked_in");
     assert.equal((await queue.listQueue(pool)).filter((entry) => entry.bookingId === adjacent.id && entry.status === "ready").length, 1);

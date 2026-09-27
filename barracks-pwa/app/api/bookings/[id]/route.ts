@@ -83,7 +83,7 @@ export async function PATCH(
   } catch (error) {
     if (error instanceof BookingServiceError) {
       if (error.kind === "forbidden") return Response.json({ success: false, message: error.message }, { status: 403 });
-      if (error.kind === "not_updatable") return Response.json({ success: false, message: error.message }, { status: 409 });
+      if (error.kind === "not_updatable" || error.kind === "conflict") return Response.json({ success: false, message: error.message }, { status: 409 });
     }
     console.error("Unable to update booking", error);
     return Response.json({ success: false, message: "Unable to update booking" }, { status: 500 });
