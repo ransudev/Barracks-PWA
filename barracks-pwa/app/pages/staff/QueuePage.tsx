@@ -22,6 +22,10 @@ export function QueuePage({ onToast }: { onToast: (message: string) => void }) {
   const [addOpen, setAddOpen] = useState(false);
   const [selected, setSelected] = useState<ApiQueueEntry | null>(null);
   const [pendingRemove, setPendingRemove] = useState<ApiQueueEntry | null>(null);
+  const [nextBarberId, setNextBarberId] = useState("");
+  const [nextEntry, setNextEntry] = useState<ApiQueueEntry | null>(null);
+  const [nextMessage, setNextMessage] = useState("");
+  const [nextBusy, setNextBusy] = useState(false);
   const [draft, setDraft] = useState({ customerId: "", serviceId: "", barberId: "" });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -74,6 +78,8 @@ export function QueuePage({ onToast }: { onToast: (message: string) => void }) {
       const body = await readApiBody<{ success: boolean; entry?: ApiQueueEntry; message?: string }>(response);
       if (!response.ok || !body?.success || !body.entry) throw new Error(body?.message ?? "Unable to add walk-in");
       setQueue((current) => [...current, body.entry!]);
+      setNextEntry(null);
+      setNextMessage("");
       setAddOpen(false);
       onToast("Walk-in added to the queue");
     } catch (cause) { onToast(cause instanceof Error ? cause.message : "Unable to add walk-in"); }
@@ -87,6 +93,8 @@ export function QueuePage({ onToast }: { onToast: (message: string) => void }) {
       const body = await readApiBody<{ success: boolean; entry?: ApiQueueEntry; message?: string }>(response);
       if (!response.ok || !body?.success || !body.entry) throw new Error(body?.message ?? "Unable to update queue");
       setQueue((current) => body.entry!.status === "removed" ? current.filter((item) => item.id !== entry.id) : current.map((item) => item.id === entry.id ? body.entry! : item));
+      setNextEntry(null);
+      setNextMessage("");
       setSelected(body.entry.status === "removed" ? null : body.entry);
       setPendingRemove(null);
       onToast("Queue updated");
@@ -94,11 +102,57 @@ export function QueuePage({ onToast }: { onToast: (message: string) => void }) {
     finally { setBusy(false); }
   }
 
+  async function suggestNext() {
+    if (!nextBarberId) return;
+    setNextBusy(true);
+    setNextEntry(null);
+    setNextMessage("");
+    try {
+      const response = await apiRequest(`/api/queue/next?barberId=${nextBarberId}`, { cache: "no-store" });
+      const body = await readApiBody<{ success: boolean; entry?: ApiQueueEntry | null; message?: string }>(response);
+      if (!response.ok || !body?.success) throw new Error(body?.message ?? "Unable to find next customer");
+      setNextEntry(body.entry ?? null);
+      if (!body.entry) setNextMessage(body.message ?? "No eligible customer is waiting for this barber.");
+    } catch (cause) { setNextMessage(cause instanceof Error ? cause.message : "Unable to find next customer"); }
+    finally { setNextBusy(false); }
+  }
+
+  async function confirmNextAssignment() {
+    if (!nextEntry || !nextBarberId || nextEntry.status !== "waiting") return;
+    setNextBusy(true);
+    try {
+      const response = await apiRequest("/api/queue/next", { method: "POST", body: JSON.stringify({ barberId: Number(nextBarberId), entryId: nextEntry.id }) });
+      const body = await readApiBody<{ success: boolean; entry?: ApiQueueEntry; message?: string }>(response);
+      if (!response.ok || !body?.success || !body.entry) throw new Error(body?.message ?? "Unable to assign next customer");
+      setQueue((current) => current.map((entry) => entry.id === body.entry!.id ? body.entry! : entry));
+      setNextEntry(body.entry);
+      setNextMessage("");
+      setSelected(body.entry);
+      onToast("Barber assigned. Start service when ready.");
+    } catch (cause) {
+      setNextEntry(null);
+      setNextMessage(cause instanceof Error ? cause.message : "Unable to assign next customer");
+    } finally { setNextBusy(false); }
+  }
+
   const tone = (status: ApiQueueEntry["status"]) => status === "ready" || status === "completed" ? "success" : status === "in_progress" ? "info" : "neutral";
   const openEntry = (entry: ApiQueueEntry) => setSelected(entry);
   return <div className="operational-workspace">
     <PageHeader title="Queue management" description="Persistent walk-ins and checked-in appointments." action={<><ViewToggle view={view} onChange={setView} label="Choose queue view" /><Button icon="plus" disabled={loading || !customers.length || !services.some((service) => service.active)} onClick={() => setAddOpen(true)}>Add to queue</Button></>} />
     <div className="metrics-grid metrics-grid--three"><MetricCard label="Total in queue" value={String(active.length)} icon="queue" accent="blue" /><MetricCard label="Being served" value={String(active.filter((entry) => entry.status === "in_progress").length)} icon="scissors" accent="amber" /><MetricCard label="Average wait" value={`${averageWait}m`} icon="clock" accent="green" /></div>
+    <Panel className="queue-next-panel"><div className="inventory-catalog-head"><div><span className="inventory-kicker">Front desk</span><h2>Next Customer</h2><p>Choose an available barber, then review the suggested customer.</p></div></div>
+      <div className="queue-next__body"><div className="queue-next__controls">
+        <SelectField label="Barber" value={nextBarberId} disabled={nextBusy} onChange={(event) => { setNextBarberId(event.target.value); setNextEntry(null); setNextMessage(""); }}><option value="">Select barber</option>{availableBarbers.map((barber) => <option key={barber.id} value={barber.id}>{barber.firstName} {barber.lastName}</option>)}</SelectField>
+        <Button type="button" size="sm" disabled={!nextBarberId || nextBusy || loading} onClick={() => void suggestNext()}>{nextBusy ? "Checking…" : "Next Customer"}</Button>
+      </div>
+      {nextMessage && <p className="queue-next__message" role="status">{nextMessage}</p>}
+      {nextEntry && <div className="queue-next__suggestion" role="region" aria-label="Suggested next customer">
+        <div><strong>{nextEntry.customerName}</strong><span>{nextEntry.serviceName} · {nextEntry.bookingId === null ? "Walk-in" : `Appointment #${nextEntry.bookingId}`}</span></div>
+        <dl><div><dt>Joined / checked in</dt><dd>{new Date(nextEntry.joinedAt).toLocaleString("en-PH", { timeZone: "Asia/Manila", dateStyle: "medium", timeStyle: "short" })}</dd></div><div><dt>Current barber</dt><dd>{nextEntry.barberName ?? "Unassigned"}</dd></div></dl>
+        {nextEntry.status === "waiting" ? <Button type="button" size="sm" disabled={nextBusy} onClick={() => void confirmNextAssignment()}>Assign barber</Button> : <Button type="button" size="sm" variant="secondary" onClick={() => setSelected(nextEntry)}>Open queue entry</Button>}
+      </div>}
+      </div>
+    </Panel>
     <Panel className="operational-panel"><div className="inventory-catalog-head"><div><span className="inventory-kicker">Live floor</span><h2>Current queue</h2><p>Open an entry to assign a barber or move it forward.</p></div></div>
       <FilterToolbar search={search} onSearchChange={setSearch} placeholder="Search queue" filters={<SelectField value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filter queue by status"><option value="all">All statuses</option>{(["waiting", "ready", "in_progress", "completed"] as const).map((status) => <option value={status} key={status}>{statusLabel(status)}</option>)}</SelectField>} resultCount={visible.length} />
       {loading ? <p role="status">Loading queue…</p> : error ? <p role="alert">{error}</p> : !visible.length ? <EmptyState icon="queue" title="Queue is empty" description="Check in an appointment or add a walk-in." /> : view === "cards" ?

@@ -72,6 +72,56 @@ export async function findQueueEntry(db: Db, id: number): Promise<QueueRecord | 
   const result = await db.query<QueueRow>(`${queueSelect} WHERE q.id=$1`, [id]);
   return result.rows[0] ? toQueue(result.rows[0]) : null;
 }
+// An assigned, checked-in customer has first claim on this barber. Otherwise
+// offer the oldest unassigned walk-in; appointment status is checked at the source.
+async function selectNextCustomer(db: Db, barberId: number): Promise<QueueRecord | null> {
+  const result = await db.query<QueueRow>(
+    `${queueSelect} LEFT JOIN bookings b ON b.id=q.booking_id
+     WHERE q.started_at IS NULL AND q.completed_at IS NULL AND (
+       (q.status='ready' AND q.barber_id=$1 AND
+         (q.booking_id IS NULL OR (b.status='checked_in' AND b.barber_id=$1)))
+       OR (q.status='waiting' AND q.barber_id IS NULL AND q.booking_id IS NULL)
+     )
+     ORDER BY CASE WHEN q.status='ready' THEN 0 ELSE 1 END, q.joined_at, q.id LIMIT 1`,
+    [barberId],
+  );
+  const entry = result.rows[0] ? toQueue(result.rows[0]) : null;
+  if (entry) transitionQueue(
+    { status: entry.status, barberId: entry.barberId, startedAt: entry.startedAt, completedAt: entry.completedAt },
+    entry.status === "ready" ? { status: "in_progress" } : { barberId },
+  );
+  return entry;
+}
+export async function getNextCustomer(db: Pool, barberId: number): Promise<QueueRecord | null> {
+  try {
+    requireBarberOperationalAvailability(await getBarberOperationalAvailability(db, barberId));
+    return await selectNextCustomer(db, barberId);
+  } catch (error) {
+    if (error instanceof BarberOperationalAvailabilityError)
+      throw new QueueServiceError(error.message === "Barber not found." ? "not_found" : "conflict", error.message);
+    if (error instanceof QueueLifecycleError) throw new QueueServiceError("conflict", error.message);
+    throw error;
+  }
+}
+export async function confirmNextCustomerAssignment(db: Pool, barberId: number, entryId: number): Promise<QueueRecord> {
+  return withQueueTransaction(db, async (client) => {
+    const current = await lockQueueEntry(client, entryId);
+    if (current.booking_id !== null || current.status !== "waiting" || current.barber_id !== null)
+      throw new QueueServiceError("conflict", "This suggestion changed. Find the next customer again.");
+    transitionQueue(queueState(current), { barberId });
+    await requireBarber(client, barberId);
+    const next = await selectNextCustomer(client, barberId);
+    if (next?.id !== entryId)
+      throw new QueueServiceError("conflict", "This suggestion changed. Find the next customer again.");
+    const updated = await client.query(
+      `UPDATE queue_entries SET barber_id=$2,status='ready',updated_at=NOW()
+       WHERE id=$1 AND booking_id IS NULL AND status='waiting' AND barber_id IS NULL RETURNING id`,
+      [entryId, barberId],
+    );
+    if (!updated.rowCount) throw new QueueServiceError("conflict", "This suggestion changed. Find the next customer again.");
+    return (await findQueueEntry(client, entryId))!;
+  });
+}
 export async function addWalkIn(db: Pool, input: { customerId: number; serviceId: string; barberId?: number | null }): Promise<QueueRecord> {
   return withQueueTransaction(db, async (client) => {
     if (input.barberId != null) await requireBarber(client, input.barberId);

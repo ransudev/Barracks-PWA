@@ -5,3 +5,6 @@ export const queueChangeSchema = z.union([
   z.object({ barberId: z.number().int().positive().nullable() }).strict(),
   z.object({ status: z.enum(["waiting", "ready", "in_progress", "completed", "removed"]) }).strict(),
 ]);
+export const nextCustomerConfirmSchema = z.object({
+  barberId: z.number().int().positive(), entryId: z.number().int().positive(),
+}).strict();
