@@ -27,7 +27,7 @@ test("demo reseed clears walk-ins and appointment queue entries before reference
     const booking = original.rows[0];
     assert.ok(booking);
     await db.query(
-      "INSERT INTO queue_entries(customer_id,service_id,barber_id) VALUES($1,$2,$3)",
+      "INSERT INTO queue_entries(customer_id,service_id,barber_id,status) VALUES($1,$2,$3,'ready')",
       [booking.customer_id, booking.service_id, booking.barber_id],
     );
     await db.query(`CREATE FUNCTION reject_seed_delete() RETURNS trigger LANGUAGE plpgsql AS $$

@@ -59,7 +59,7 @@ test("queue assignments, appointment lifecycle and simultaneous starts share one
     const losingId = winningId === first.id ? second.id : first.id;
     await assert.rejects(queue.assignQueueBarber(db, losingId, barber), /serving another customer/);
     const direct = await db.query<{ id: number }>("SELECT id FROM queue_entries WHERE id=$1", [losingId]);
-    await assert.rejects(db.query("UPDATE queue_entries SET status='in_progress' WHERE id=$1", [direct.rows[0].id]), (error: unknown) =>
+    await assert.rejects(db.query("UPDATE queue_entries SET status='in_progress',started_at=NOW() WHERE id=$1", [direct.rows[0].id]), (error: unknown) =>
       Boolean(error && typeof error === "object" && "code" in error && error.code === "23505"));
     await queue.updateWalkInStatus(db, winningId, "completed");
     assert.equal((await queue.assignQueueBarber(db, losingId, null)).status, "waiting");

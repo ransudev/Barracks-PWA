@@ -2,6 +2,7 @@ import { requireRoles } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { queueChangeSchema } from "@/server/schemas/queue.schema";
 import { BookingServiceError, updateBooking } from "@/server/services/booking.service";
+import { QueueLifecycleError, transitionQueue } from "@/server/services/queue-lifecycle";
 import { assignQueueBarber, findQueueEntry, QueueServiceError, updateWalkInStatus } from "@/server/services/queue.service";
 
 export const runtime = "nodejs";
@@ -13,6 +14,7 @@ async function change(id: number, body: unknown) {
     const current = await findQueueEntry(pool, id);
     if (!current) return Response.json({ success: false, message: "Queue entry not found" }, { status: 404 });
     if ("barberId" in parsed.data) return Response.json({ success: true, entry: await assignQueueBarber(pool, id, parsed.data.barberId) });
+    transitionQueue({ status: current.status, barberId: current.barberId, startedAt: current.startedAt, completedAt: current.completedAt }, { status: parsed.data.status });
     if (current.bookingId !== null) {
       if (parsed.data.status !== "in_progress" && parsed.data.status !== "completed") throw new QueueServiceError("conflict", "Manage appointment status from Bookings");
       const booking = await updateBooking(pool, current.bookingId, { status: parsed.data.status });
@@ -21,7 +23,7 @@ async function change(id: number, body: unknown) {
     }
     return Response.json({ success: true, entry: await updateWalkInStatus(pool, id, parsed.data.status) });
   } catch (error) {
-    if (error instanceof QueueServiceError || error instanceof BookingServiceError) return Response.json({ success: false, message: error.message }, { status: 409 });
+    if (error instanceof QueueServiceError || error instanceof BookingServiceError || error instanceof QueueLifecycleError) return Response.json({ success: false, message: error.message }, { status: 409 });
     console.error("Unable to change queue entry", error);
     return Response.json({ success: false, message: "Unable to change queue entry" }, { status: 500 });
   }
