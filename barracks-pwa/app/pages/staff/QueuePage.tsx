@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { ApiBarberAvailability, ApiCustomer, ApiQueueEntry } from "@/app/lib/api";
 import { apiRequest, readApiBody } from "@/app/lib/api";
 import type { Service } from "@/app/types/domain";
 import { createInitials } from "@/app/utils/format";
-import { Avatar, Badge, Button, ConfirmDialog, EmptyState, MetricCard, Modal, PageHeader, Panel, SelectField } from "@/app/components/ui";
+import { Avatar, Badge, Button, ConfirmDialog, EmptyState, MetricCard, Modal, PageHeader, Panel, SelectField, TextField } from "@/app/components/ui";
 import { DetailDrawer, DrawerSection, FilterToolbar, RecordCard, ResponsiveTable, ViewToggle, type OperationalViewMode } from "@/app/components/operations/OperationalPrimitives";
 
 const statusLabel = (status: ApiQueueEntry["status"]) => ({ waiting: "Waiting", ready: "Ready", in_progress: "In progress", completed: "Completed", removed: "Removed" })[status];
@@ -27,6 +27,9 @@ export function QueuePage({ onToast }: { onToast: (message: string) => void }) {
   const [nextMessage, setNextMessage] = useState("");
   const [nextBusy, setNextBusy] = useState(false);
   const [draft, setDraft] = useState({ customerId: "", serviceId: "", barberId: "" });
+  const [newCustomer, setNewCustomer] = useState({ firstName: "", lastName: "", phone: "" });
+  const submissionKey = useRef<string | null>(null);
+  const addInFlight = useRef(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -69,21 +72,57 @@ export function QueuePage({ onToast }: { onToast: (message: string) => void }) {
   const averageWait = active.length ? Math.round(active.reduce((sum, entry) => sum + waitMinutes(entry), 0) / active.length) : 0;
   const availableBarbers = barbers.filter((barber) => barber.status !== "unavailable");
 
+  function openAddDialog() {
+    setDraft({
+      customerId: customers[0] ? String(customers[0].id) : "new",
+      serviceId: services.find((service) => service.active)?.id ?? "",
+      barberId: "",
+    });
+    setNewCustomer({ firstName: "", lastName: "", phone: "" });
+    submissionKey.current = globalThis.crypto.randomUUID();
+    setAddOpen(true);
+  }
+
+  function closeAddDialog() {
+    if (addInFlight.current) return;
+    submissionKey.current = null;
+    setAddOpen(false);
+  }
+
   async function addWalkIn(event: FormEvent) {
     event.preventDefault();
-    if (!draft.customerId || !draft.serviceId) return;
+    if (addInFlight.current || !draft.customerId || !draft.serviceId) return;
+    addInFlight.current = true;
+    const idempotencyKey = submissionKey.current ?? globalThis.crypto.randomUUID();
+    submissionKey.current = idempotencyKey;
     setBusy(true);
     try {
-      const response = await apiRequest("/api/queue", { method: "POST", body: JSON.stringify({ customerId: Number(draft.customerId), serviceId: draft.serviceId, barberId: draft.barberId ? Number(draft.barberId) : null }) });
+      const payload = {
+        ...(draft.customerId === "new"
+          ? { customer: { firstName: newCustomer.firstName, lastName: newCustomer.lastName, phone: newCustomer.phone } }
+          : { customerId: Number(draft.customerId) }),
+        serviceId: draft.serviceId,
+        barberId: draft.barberId ? Number(draft.barberId) : null,
+        idempotencyKey,
+      };
+      const response = await apiRequest("/api/queue", { method: "POST", body: JSON.stringify(payload) });
       const body = await readApiBody<{ success: boolean; entry?: ApiQueueEntry; message?: string }>(response);
       if (!response.ok || !body?.success || !body.entry) throw new Error(body?.message ?? "Unable to add walk-in");
       setQueue((current) => [...current, body.entry!]);
       setNextEntry(null);
       setNextMessage("");
+      submissionKey.current = null;
       setAddOpen(false);
       onToast("Walk-in added to the queue");
+      if (draft.customerId === "new") {
+        try {
+          const customerResponse = await apiRequest("/api/customers", { cache: "no-store" });
+          const customerBody = await readApiBody<{ success: boolean; customers?: ApiCustomer[] }>(customerResponse);
+          if (customerResponse.ok && customerBody?.success && customerBody.customers) setCustomers(customerBody.customers);
+        } catch { /* The queue entry is already committed; reload customers next time. */ }
+      }
     } catch (cause) { onToast(cause instanceof Error ? cause.message : "Unable to add walk-in"); }
-    finally { setBusy(false); }
+    finally { addInFlight.current = false; setBusy(false); }
   }
 
   async function change(entry: ApiQueueEntry, payload: { barberId: number | null } | { status: ApiQueueEntry["status"] }, remove = false) {
@@ -138,7 +177,7 @@ export function QueuePage({ onToast }: { onToast: (message: string) => void }) {
   const tone = (status: ApiQueueEntry["status"]) => status === "ready" || status === "completed" ? "success" : status === "in_progress" ? "info" : "neutral";
   const openEntry = (entry: ApiQueueEntry) => setSelected(entry);
   return <div className="operational-workspace">
-    <PageHeader title="Queue management" description="Persistent walk-ins and checked-in appointments." action={<><ViewToggle view={view} onChange={setView} label="Choose queue view" /><Button icon="plus" disabled={loading || !customers.length || !services.some((service) => service.active)} onClick={() => setAddOpen(true)}>Add to queue</Button></>} />
+    <PageHeader title="Queue management" description="Persistent walk-ins and checked-in appointments." action={<><ViewToggle view={view} onChange={setView} label="Choose queue view" /><Button icon="plus" disabled={loading || !services.some((service) => service.active)} onClick={openAddDialog}>Add to queue</Button></>} />
     <div className="metrics-grid metrics-grid--three"><MetricCard label="Total in queue" value={String(active.length)} icon="queue" accent="blue" /><MetricCard label="Being served" value={String(active.filter((entry) => entry.status === "in_progress").length)} icon="scissors" accent="amber" /><MetricCard label="Average wait" value={`${averageWait}m`} icon="clock" accent="green" /></div>
     <Panel className="queue-next-panel"><div className="inventory-catalog-head"><div><span className="inventory-kicker">Front desk</span><h2>Next Customer</h2><p>Choose an available barber, then review the suggested customer.</p></div></div>
       <div className="queue-next__body"><div className="queue-next__controls">
@@ -159,11 +198,12 @@ export function QueuePage({ onToast }: { onToast: (message: string) => void }) {
         <div className="operational-card-grid">{visible.map((entry) => <RecordCard key={entry.id} onOpen={() => openEntry(entry)} ariaLabel={`Open queue entry for ${entry.customerName}`}><div className="operational-card__header"><div className="operational-card__identity"><Avatar initials={createInitials(entry.customerName)} tone="slate" size="md" /><div><strong>{entry.customerName}</strong><small>Queue #{entry.id} · {entry.bookingId ? `Booking #${entry.bookingId}` : "Walk-in"}</small></div></div><Badge tone={tone(entry.status)}>{statusLabel(entry.status)}</Badge></div><p className="operational-card__note">{entry.serviceName} · {entry.barberName ?? "Awaiting barber"}</p><div className="operational-card__facts"><div><span>Joined</span><strong>{new Date(entry.joinedAt).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "numeric", minute: "2-digit" })}</strong></div><div><span>Wait</span><strong>{entry.status === "completed" ? "—" : `${waitMinutes(entry)}m`}</strong></div></div></RecordCard>)}</div> :
         <ResponsiveTable headers={["#", "Customer", "Service", "Barber", "Status", "Wait"]}>{visible.map((entry) => <tr key={entry.id} tabIndex={0} onClick={() => openEntry(entry)} onKeyDown={(event) => { if (event.key === "Enter") openEntry(entry); }}><td>{entry.id}</td><td>{entry.customerName}</td><td>{entry.serviceName}</td><td>{entry.barberName ?? "Unassigned"}</td><td><Badge tone={tone(entry.status)}>{statusLabel(entry.status)}</Badge></td><td>{entry.status === "completed" ? "—" : `${waitMinutes(entry)}m`}</td></tr>)}</ResponsiveTable>}
     </Panel>
-    <Modal open={addOpen} title="Add walk-in" description="Choose an existing customer and service." onClose={() => !busy && setAddOpen(false)}><form className="modal-form" onSubmit={addWalkIn}>
-      <SelectField label="Customer" required value={draft.customerId} onChange={(event) => setDraft({ ...draft, customerId: event.target.value })}>{customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.firstName} {customer.lastName}</option>)}</SelectField>
-      <SelectField label="Service" required value={draft.serviceId} onChange={(event) => setDraft({ ...draft, serviceId: event.target.value })}>{services.filter((service) => service.active).map((service) => <option key={service.id} value={service.id}>{service.name} · {service.durationMinutes} min</option>)}</SelectField>
-      <SelectField label="Barber (optional)" value={draft.barberId} onChange={(event) => setDraft({ ...draft, barberId: event.target.value })}><option value="">Unassigned</option>{availableBarbers.map((barber) => <option key={barber.id} value={barber.id}>{barber.firstName} {barber.lastName}</option>)}</SelectField>
-      <div className="modal-actions"><Button variant="secondary" type="button" onClick={() => setAddOpen(false)}>Cancel</Button><Button type="submit" disabled={busy}>Add walk-in</Button></div>
+    <Modal open={addOpen} title="Add to queue" description="Choose an existing customer or add a walk-in record." onClose={closeAddDialog}><form className="modal-form" onSubmit={addWalkIn}>
+      <SelectField label="Customer" required disabled={busy} value={draft.customerId} onChange={(event) => { submissionKey.current = globalThis.crypto.randomUUID(); setDraft({ ...draft, customerId: event.target.value }); }}><option value="">Select customer</option>{customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.firstName} {customer.lastName}</option>)}<option value="new">New Walk-In Customer</option></SelectField>
+      {draft.customerId === "new" && <><TextField label="First name" required disabled={busy} autoComplete="given-name" value={newCustomer.firstName} onChange={(event) => { submissionKey.current = globalThis.crypto.randomUUID(); setNewCustomer((current) => ({ ...current, firstName: event.target.value })); }} /><TextField label="Last name" required disabled={busy} autoComplete="family-name" value={newCustomer.lastName} onChange={(event) => { submissionKey.current = globalThis.crypto.randomUUID(); setNewCustomer((current) => ({ ...current, lastName: event.target.value })); }} /><TextField label="Phone number (optional)" type="tel" inputMode="tel" maxLength={11} disabled={busy} value={newCustomer.phone} onChange={(event) => { submissionKey.current = globalThis.crypto.randomUUID(); setNewCustomer((current) => ({ ...current, phone: event.target.value })); }} /></>}
+      <SelectField label="Service" required disabled={busy} value={draft.serviceId} onChange={(event) => { submissionKey.current = globalThis.crypto.randomUUID(); setDraft({ ...draft, serviceId: event.target.value }); }}>{services.filter((service) => service.active).map((service) => <option key={service.id} value={service.id}>{service.name} · {service.durationMinutes} min</option>)}</SelectField>
+      <SelectField label="Barber (optional)" disabled={busy} value={draft.barberId} onChange={(event) => { submissionKey.current = globalThis.crypto.randomUUID(); setDraft({ ...draft, barberId: event.target.value }); }}><option value="">Unassigned</option>{availableBarbers.map((barber) => <option key={barber.id} value={barber.id}>{barber.firstName} {barber.lastName}</option>)}</SelectField>
+      <div className="modal-actions"><Button variant="secondary" type="button" disabled={busy} onClick={closeAddDialog}>Cancel</Button><Button type="submit" disabled={busy}>{busy ? "Adding…" : "Add to queue"}</Button></div>
     </form></Modal>
     <DetailDrawer open={Boolean(selected)} title={selected?.customerName ?? "Queue entry"} subtitle={selected ? `${selected.serviceName} · Queue #${selected.id}` : undefined} eyebrow="Live queue" onClose={() => setSelected(null)}>
       {selected && <><DrawerSection><div className="operational-drawer__identity"><Avatar initials={createInitials(selected.customerName)} tone="slate" size="lg" /><div><strong>{selected.serviceName}</strong><span>{selected.bookingId ? `Booking #${selected.bookingId}` : "Walk-in"}</span></div><Badge tone={tone(selected.status)}>{statusLabel(selected.status)}</Badge></div></DrawerSection>

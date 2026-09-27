@@ -74,7 +74,7 @@ export type ApiSupplier = {
 
 export type ApiCustomer = {
   id: number;
-  userId: number;
+  userId: number | null;
   firstName: string;
   lastName: string;
   email: string;

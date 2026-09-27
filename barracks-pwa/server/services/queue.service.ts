@@ -1,8 +1,17 @@
 import type { Pool, PoolClient } from "pg";
+import { createHash } from "node:crypto";
 import { BarberOperationalAvailabilityError, getBarberOperationalAvailability, requireBarberOperationalAvailability } from "@/server/services/barber-operational-availability.service";
 import { initialQueueStatus, QueueLifecycleError, transitionQueue, type QueueState, type QueueStatus } from "@/server/services/queue-lifecycle";
 
 type Db = Pool | PoolClient;
+type WalkInInput = {
+  serviceId: string;
+  barberId?: number | null;
+  idempotencyKey?: string;
+} & (
+  | { customerId: number; customer?: never }
+  | { customer: { firstName: string; lastName: string; phone: string }; customerId?: never }
+);
 export type { QueueStatus } from "@/server/services/queue-lifecycle";
 type QueueRow = {
   id: number; booking_id: number | null; customer_id: number; customer_name: string;
@@ -52,9 +61,9 @@ async function requireBarber(client: PoolClient, barberId: number): Promise<void
   if (!locked.rowCount) throw new QueueServiceError("not_found", "Barber not found.");
   requireBarberOperationalAvailability(await getBarberOperationalAvailability(client, barberId));
 }
-const queueSelect = `SELECT q.*, CONCAT(u.first_name,' ',u.last_name) AS customer_name,
+const queueSelect = `SELECT q.*, CONCAT(COALESCE(u.first_name,c.first_name),' ',COALESCE(u.last_name,c.last_name)) AS customer_name,
   s.name AS service_name, CASE WHEN br.id IS NULL THEN NULL ELSE CONCAT(br.first_name,' ',br.last_name) END AS barber_name
-  FROM queue_entries q JOIN customers c ON c.id=q.customer_id JOIN users u ON u.id=c.user_id
+  FROM queue_entries q JOIN customers c ON c.id=q.customer_id LEFT JOIN users u ON u.id=c.user_id
   JOIN services s ON s.id=q.service_id LEFT JOIN barbers br ON br.id=q.barber_id`;
 const iso = (value: Date | string | null) => value === null ? null : new Date(value).toISOString();
 function toQueue(row: QueueRow): QueueRecord {
@@ -122,21 +131,87 @@ export async function confirmNextCustomerAssignment(db: Pool, barberId: number, 
     return (await findQueueEntry(client, entryId))!;
   });
 }
-export async function addWalkIn(db: Pool, input: { customerId: number; serviceId: string; barberId?: number | null }): Promise<QueueRecord> {
-  return withQueueTransaction(db, async (client) => {
-    if (input.barberId != null) await requireBarber(client, input.barberId);
-    const inserted = await client.query<{ id: number }>(
-      `INSERT INTO queue_entries(customer_id,service_id,barber_id,status)
-       SELECT c.id,s.id,br.id,$4
-       FROM customers c JOIN users u ON u.id=c.user_id JOIN roles r ON r.id=u.role_id AND r.name='customer'
-       CROSS JOIN services s LEFT JOIN barbers br ON br.id=$3 AND br.status<>'unavailable'
-       WHERE c.id=$1 AND u.deleted_at IS NULL AND s.id=$2 AND s.active=true
-         AND ($3::integer IS NULL OR br.id IS NOT NULL) RETURNING id`,
-      [input.customerId, input.serviceId, input.barberId ?? null, initialQueueStatus(input.barberId ?? null)],
-    );
-    if (!inserted.rows[0]) throw new QueueServiceError("invalid", "Choose an active customer, service, and available barber");
-    return (await findQueueEntry(client, inserted.rows[0].id))!;
-  });
+function walkInFingerprint(input: WalkInInput): string {
+  const identity = "customerId" in input
+    ? { customerId: input.customerId }
+    : { customer: input.customer };
+  return createHash("sha256").update(JSON.stringify({
+    ...identity,
+    serviceId: input.serviceId,
+    barberId: input.barberId ?? null,
+  })).digest("hex");
+}
+
+async function findIdempotentQueueEntry(
+  db: Db,
+  key: string,
+  fingerprint: string,
+): Promise<QueueRecord | null> {
+  const result = await db.query<{ id: number; idempotency_fingerprint: string }>(
+    "SELECT id,idempotency_fingerprint FROM queue_entries WHERE idempotency_key=$1",
+    [key],
+  );
+  const existing = result.rows[0];
+  if (!existing) return null;
+  if (existing.idempotency_fingerprint.trim() !== fingerprint)
+    throw new QueueServiceError("conflict", "This walk-in submission was already used for different details.");
+  const entry = await findQueueEntry(db, existing.id);
+  if (!entry) throw new Error("Unable to read the existing queue entry");
+  return entry;
+}
+
+function isIdempotencyConflict(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && "code" in error && "constraint" in error &&
+    (error as { code?: string }).code === "23505" &&
+    (error as { constraint?: string }).constraint === "queue_entries_idempotency_key_unique");
+}
+
+export async function addWalkIn(db: Pool, input: WalkInInput): Promise<QueueRecord> {
+  const fingerprint = input.idempotencyKey ? walkInFingerprint(input) : null;
+  try {
+    return await withQueueTransaction(db, async (client) => {
+      if (input.idempotencyKey && fingerprint) {
+        const existing = await findIdempotentQueueEntry(client, input.idempotencyKey, fingerprint);
+        if (existing) return existing;
+      }
+
+      const customerId = "customerId" in input
+        ? input.customerId
+        : (await client.query<{ id: number }>(
+          `INSERT INTO customers(first_name,last_name,phone)
+           VALUES($1,$2,$3) RETURNING id`,
+          [input.customer.firstName, input.customer.lastName, input.customer.phone],
+        )).rows[0].id;
+      const barberId = input.barberId ?? null;
+      if (barberId !== null) await requireBarber(client, barberId);
+
+      const inserted = await client.query<{ id: number }>(
+        `INSERT INTO queue_entries(
+           customer_id,service_id,barber_id,status,idempotency_key,idempotency_fingerprint
+         )
+         SELECT c.id,s.id,br.id,$4,$5::uuid,$6::char(64)
+         FROM customers c
+         LEFT JOIN users u ON u.id=c.user_id
+         LEFT JOIN roles r ON r.id=u.role_id
+         CROSS JOIN services s
+         LEFT JOIN barbers br ON br.id=$3 AND br.status<>'unavailable'
+         WHERE c.id=$1
+           AND (c.user_id IS NULL OR (u.id IS NOT NULL AND u.deleted_at IS NULL AND r.name='customer'))
+           AND s.id=$2 AND s.active=true
+           AND ($3::integer IS NULL OR br.id IS NOT NULL)
+         RETURNING id`,
+        [customerId, input.serviceId, barberId, initialQueueStatus(barberId), input.idempotencyKey ?? null, fingerprint],
+      );
+      if (!inserted.rows[0]) throw new QueueServiceError("invalid", "Choose an active customer, service, and available barber");
+      return (await findQueueEntry(client, inserted.rows[0].id))!;
+    });
+  } catch (error) {
+    if (input.idempotencyKey && fingerprint && isIdempotencyConflict(error)) {
+      const existing = await findIdempotentQueueEntry(db, input.idempotencyKey, fingerprint);
+      if (existing) return existing;
+    }
+    throw error;
+  }
 }
 export async function assignQueueBarber(db: Pool, id: number, barberId: number | null): Promise<QueueRecord> {
   return withQueueTransaction(db, async (client) => {

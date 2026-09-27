@@ -1,6 +1,27 @@
 import { z } from "zod";
 
-export const walkInSchema = z.object({ customerId: z.number().int().positive(), serviceId: z.string().trim().min(1).max(80), barberId: z.number().int().positive().nullable().optional() }).strict();
+const walkInFields = {
+  serviceId: z.string().trim().min(1).max(80),
+  barberId: z.number().int().positive().nullable().optional(),
+  idempotencyKey: z.uuid(),
+};
+
+export const walkInSchema = z.union([
+  z.object({
+    ...walkInFields,
+    customerId: z.number().int().positive(),
+  }).strict(),
+  z.object({
+    ...walkInFields,
+    customer: z.object({
+      firstName: z.string().trim().min(1, "First name is required").max(100),
+      lastName: z.string().trim().min(1, "Last name is required").max(100),
+      phone: z.string().trim().max(11, "Phone number cannot exceed 11 characters").default(""),
+    }).strict(),
+  }).strict(),
+]);
+export type WalkInInput = z.infer<typeof walkInSchema>;
+
 export const queueChangeSchema = z.union([
   z.object({ barberId: z.number().int().positive().nullable() }).strict(),
   z.object({ status: z.enum(["waiting", "ready", "in_progress", "completed", "removed"]) }).strict(),

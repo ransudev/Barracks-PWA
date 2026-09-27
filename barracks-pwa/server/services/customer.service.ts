@@ -7,10 +7,10 @@ import type {
 
 type CustomerRow = {
   id: number;
-  user_id: number;
+  user_id: number | null;
   first_name: string;
   last_name: string;
-  email: string;
+  email: string | null;
   phone: string;
   preferred_barber_id: number | null;
   preferred_barber_name: string | null;
@@ -21,7 +21,7 @@ type CustomerRow = {
 
 export type CustomerRecord = {
   id: number;
-  userId: number;
+  userId: number | null;
   firstName: string;
   lastName: string;
   email: string;
@@ -34,13 +34,14 @@ export type CustomerRecord = {
 };
 
 export type CreateCustomerInput = CustomerSignupInput;
+export type RegisteredCustomerRecord = CustomerRecord & { userId: number };
 
 const customerSelect = `
   SELECT
     c.id,
     c.user_id,
-    u.first_name,
-    u.last_name,
+    COALESCE(u.first_name, c.first_name) AS first_name,
+    COALESCE(u.last_name, c.last_name) AS last_name,
     u.email,
     c.phone,
     c.preferred_barber_id,
@@ -52,7 +53,7 @@ const customerSelect = `
     c.created_at,
     c.updated_at
   FROM customers c
-  INNER JOIN users u ON u.id = c.user_id
+  LEFT JOIN users u ON u.id = c.user_id
   LEFT JOIN barbers b ON b.id = c.preferred_barber_id
 `;
 
@@ -63,10 +64,10 @@ function toIso(value: Date | string): string {
 function toCustomer(row: CustomerRow): CustomerRecord {
   return {
     id: Number(row.id),
-    userId: Number(row.user_id),
+    userId: row.user_id === null ? null : Number(row.user_id),
     firstName: row.first_name,
     lastName: row.last_name,
-    email: row.email,
+    email: row.email ?? "",
     phone: row.phone,
     preferredBarberId: row.preferred_barber_id === null ? null : Number(row.preferred_barber_id),
     preferredBarberName: row.preferred_barber_name,
@@ -79,8 +80,9 @@ function toCustomer(row: CustomerRow): CustomerRecord {
 export async function listCustomers(db: Pool): Promise<CustomerRecord[]> {
   const result = await db.query<CustomerRow>(
     `${customerSelect}
-      INNER JOIN roles r ON r.id = u.role_id AND r.name = 'customer' AND u.deleted_at IS NULL
-      ORDER BY u.first_name ASC, u.last_name ASC, c.id ASC`,
+      LEFT JOIN roles r ON r.id = u.role_id
+      WHERE c.user_id IS NULL OR (u.deleted_at IS NULL AND r.name = 'customer')
+      ORDER BY COALESCE(u.first_name, c.first_name) ASC, COALESCE(u.last_name, c.last_name) ASC, c.id ASC`,
   );
   return result.rows.map(toCustomer);
 }
@@ -88,8 +90,8 @@ export async function listCustomers(db: Pool): Promise<CustomerRecord[]> {
 export async function findCustomerById(db: Pool, id: number): Promise<CustomerRecord | null> {
   const result = await db.query<CustomerRow>(
     `${customerSelect}
-      INNER JOIN roles r ON r.id = u.role_id AND r.name = 'customer' AND u.deleted_at IS NULL
-      WHERE c.id = $1
+      LEFT JOIN roles r ON r.id = u.role_id
+      WHERE c.id = $1 AND (c.user_id IS NULL OR (u.deleted_at IS NULL AND r.name = 'customer'))
       LIMIT 1`,
     [id],
   );
@@ -99,7 +101,7 @@ export async function findCustomerById(db: Pool, id: number): Promise<CustomerRe
 export async function findCustomerByUserId(
   db: Pool,
   userId: number,
-): Promise<CustomerRecord | null> {
+): Promise<RegisteredCustomerRecord | null> {
   const result = await db.query<CustomerRow>(
     `${customerSelect}
       INNER JOIN roles r ON r.id = u.role_id AND r.name = 'customer' AND u.deleted_at IS NULL
@@ -107,13 +109,14 @@ export async function findCustomerByUserId(
       LIMIT 1`,
     [userId],
   );
-  return result.rows[0] ? toCustomer(result.rows[0]) : null;
+  const customer = result.rows[0] ? toCustomer(result.rows[0]) : null;
+  return customer && customer.userId !== null ? { ...customer, userId: customer.userId } : null;
 }
 
 export async function createCustomer(
   db: Pool,
   input: CreateCustomerInput,
-): Promise<{ kind: "created"; customer: CustomerRecord } | { kind: "duplicate" }> {
+): Promise<{ kind: "created"; customer: RegisteredCustomerRecord } | { kind: "duplicate" }> {
   const client = await db.connect();
 
   try {
@@ -157,8 +160,9 @@ export async function createCustomer(
 
     await client.query("COMMIT");
     const customer = await findCustomerById(db, insertedCustomer.rows[0].id);
-    if (!customer) throw new Error("Unable to read created customer");
-    return { kind: "created", customer };
+    if (!customer || customer.userId === null)
+      throw new Error("Unable to read created customer account");
+    return { kind: "created", customer: { ...customer, userId: customer.userId } };
   } catch (error) {
     await client.query("ROLLBACK").catch(() => undefined);
     if (isUniqueViolation(error)) return { kind: "duplicate" };
@@ -172,7 +176,7 @@ export async function updateCustomer(
   db: Pool,
   id: number,
   input: CustomerProfileInput,
-): Promise<CustomerRecord | null> {
+): Promise<RegisteredCustomerRecord | null> {
   const client = await db.connect();
 
   try {
@@ -213,7 +217,7 @@ export async function updateCustomer(
     );
 
     await client.query("COMMIT");
-    return findCustomerById(db, id);
+    return findCustomerByUserId(db, target.rows[0].user_id);
   } catch (error) {
     await client.query("ROLLBACK").catch(() => undefined);
     if (isUniqueViolation(error)) throw new Error("A user with this email already exists");
