@@ -100,7 +100,8 @@ test("queue assignments, appointment lifecycle and simultaneous starts share one
     assert.equal((await queue.listQueue(db)).find((entry) => entry.bookingId === booking)?.status, "in_progress");
     await assert.rejects(queue.updateWalkInStatus(db, third.id, "in_progress"), /serving another customer/);
     assert.equal((await updateBooking(db, booking, { status: "completed" }))?.status, "completed");
-    assert.equal((await queue.listQueue(db)).find((entry) => entry.bookingId === booking)?.status, "completed");
+    assert.equal((await queue.listQueue(db)).some((entry) => entry.bookingId === booking), false);
+    assert.equal((await queue.listQueue(db, "completed-today")).find((entry) => entry.bookingId === booking)?.status, "completed");
     assert.equal((await queue.updateWalkInStatus(db, third.id, "in_progress")).status, "in_progress");
   } finally { await cleanup(); }
 });

@@ -5,10 +5,12 @@ import { addWalkIn, listQueue, QueueServiceError } from "@/server/services/queue
 
 export const runtime = "nodejs";
 const staff = ["administrator", "manager", "front_desk"] as const;
-export async function GET() {
+export async function GET(request: Request) {
   const denied = await requireRoles([...staff]);
   if (denied) return denied;
-  try { return Response.json({ success: true, queue: await listQueue(pool) }); }
+  const view = new URL(request.url).searchParams.get("view") ?? "active";
+  if (view !== "active" && view !== "completed-today") return Response.json({ success: false, message: "Invalid queue view" }, { status: 400 });
+  try { return Response.json({ success: true, queue: await listQueue(pool, view) }); }
   catch (error) { console.error("Unable to load queue", error); return Response.json({ success: false, message: "Unable to load queue" }, { status: 500 }); }
 }
 export async function POST(request: Request) {

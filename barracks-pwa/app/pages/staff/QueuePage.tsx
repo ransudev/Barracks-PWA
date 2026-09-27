@@ -10,9 +10,14 @@ import { DetailDrawer, DrawerSection, FilterToolbar, RecordCard, ResponsiveTable
 
 const statusLabel = (status: ApiQueueEntry["status"]) => ({ waiting: "Waiting", ready: "Ready", in_progress: "In progress", completed: "Completed", removed: "Removed" })[status];
 const waitMinutes = (entry: ApiQueueEntry) => Math.max(0, Math.floor((Date.now() - new Date(entry.joinedAt).getTime()) / 60_000));
+const manilaTime = (value: string | null) => value ? new Date(value).toLocaleString("en-PH", { timeZone: "Asia/Manila", dateStyle: "medium", timeStyle: "short" }) : "—";
 
 export function QueuePage({ onToast }: { onToast: (message: string) => void }) {
   const [queue, setQueue] = useState<ApiQueueEntry[]>([]);
+  const [completed, setCompleted] = useState<ApiQueueEntry[]>([]);
+  const [queueTab, setQueueTab] = useState<"active" | "completed-today">("active");
+  const [completedLoading, setCompletedLoading] = useState(false);
+  const [completedError, setCompletedError] = useState("");
   const [customers, setCustomers] = useState<ApiCustomer[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [barbers, setBarbers] = useState<ApiBarberAvailability[]>([]);
@@ -39,7 +44,7 @@ export function QueuePage({ onToast }: { onToast: (message: string) => void }) {
     async function load() {
       try {
         const [queueResponse, customerResponse, serviceResponse, barberResponse] = await Promise.all([
-          apiRequest("/api/queue", { cache: "no-store" }), apiRequest("/api/customers", { cache: "no-store" }),
+          apiRequest("/api/queue?view=active", { cache: "no-store" }), apiRequest("/api/customers", { cache: "no-store" }),
           apiRequest("/api/services", { cache: "no-store" }), apiRequest("/api/barbers", { cache: "no-store" }),
         ]);
         const [queueData, customerData, serviceData, barberData] = await Promise.all([
@@ -65,10 +70,28 @@ export function QueuePage({ onToast }: { onToast: (message: string) => void }) {
     return () => { active = false; };
   }, []);
 
-  const visible = useMemo(() => queue.filter((entry) =>
-    (statusFilter === "all" || entry.status === statusFilter) &&
-    `${entry.customerName} ${entry.serviceName} ${entry.barberName ?? ""}`.toLowerCase().includes(search.trim().toLowerCase())), [queue, search, statusFilter]);
-  const active = queue.filter((entry) => entry.status !== "completed");
+  useEffect(() => {
+    if (queueTab !== "completed-today") return;
+    let active = true;
+    async function loadCompleted() {
+      setCompletedLoading(true);
+      setCompletedError("");
+      try {
+        const response = await apiRequest("/api/queue?view=completed-today", { cache: "no-store" });
+        const body = await readApiBody<{ success: boolean; queue?: ApiQueueEntry[]; message?: string }>(response);
+        if (!response.ok || !body?.success || !body.queue) throw new Error(body?.message ?? "Unable to load completed queue");
+        if (active) setCompleted(body.queue);
+      } catch (cause) { if (active) setCompletedError(cause instanceof Error ? cause.message : "Unable to load completed queue"); }
+      finally { if (active) setCompletedLoading(false); }
+    }
+    void loadCompleted();
+    return () => { active = false; };
+  }, [queueTab]);
+
+  const visible = useMemo(() => (queueTab === "active" ? queue : completed).filter((entry) =>
+    (queueTab === "completed-today" || statusFilter === "all" || entry.status === statusFilter) &&
+    `${entry.customerName} ${entry.serviceName} ${entry.barberName ?? ""}`.toLowerCase().includes(search.trim().toLowerCase())), [queue, completed, queueTab, search, statusFilter]);
+  const active = queue;
   const averageWait = active.length ? Math.round(active.reduce((sum, entry) => sum + waitMinutes(entry), 0) / active.length) : 0;
   const availableBarbers = barbers.filter((barber) => barber.status !== "unavailable");
 
@@ -131,10 +154,10 @@ export function QueuePage({ onToast }: { onToast: (message: string) => void }) {
       const response = await apiRequest(`/api/queue/${entry.id}`, { method: remove ? "DELETE" : "PATCH", body: remove ? undefined : JSON.stringify(payload) });
       const body = await readApiBody<{ success: boolean; entry?: ApiQueueEntry; message?: string }>(response);
       if (!response.ok || !body?.success || !body.entry) throw new Error(body?.message ?? "Unable to update queue");
-      setQueue((current) => body.entry!.status === "removed" ? current.filter((item) => item.id !== entry.id) : current.map((item) => item.id === entry.id ? body.entry! : item));
+      setQueue((current) => ["removed", "completed"].includes(body.entry!.status) ? current.filter((item) => item.id !== entry.id) : current.map((item) => item.id === entry.id ? body.entry! : item));
       setNextEntry(null);
       setNextMessage("");
-      setSelected(body.entry.status === "removed" ? null : body.entry);
+      setSelected(["removed", "completed"].includes(body.entry.status) ? null : body.entry);
       setPendingRemove(null);
       onToast("Queue updated");
     } catch (cause) { onToast(cause instanceof Error ? cause.message : "Unable to update queue"); }
@@ -177,7 +200,12 @@ export function QueuePage({ onToast }: { onToast: (message: string) => void }) {
   const tone = (status: ApiQueueEntry["status"]) => status === "ready" || status === "completed" ? "success" : status === "in_progress" ? "info" : "neutral";
   const openEntry = (entry: ApiQueueEntry) => setSelected(entry);
   return <div className="operational-workspace">
-    <PageHeader title="Queue management" description="Persistent walk-ins and checked-in appointments." action={<><ViewToggle view={view} onChange={setView} label="Choose queue view" /><Button icon="plus" disabled={loading || !services.some((service) => service.active)} onClick={openAddDialog}>Add to queue</Button></>} />
+    <PageHeader title="Queue management" description="Persistent walk-ins and checked-in appointments." action={queueTab === "active" ? <><ViewToggle view={view} onChange={setView} label="Choose queue view" /><Button icon="plus" disabled={loading || !services.some((service) => service.active)} onClick={openAddDialog}>Add to queue</Button></> : undefined} />
+    <div role="tablist" aria-label="Queue sections" className="queue-section-tabs">
+      <button type="button" role="tab" aria-selected={queueTab === "active"} onClick={() => { setQueueTab("active"); setSelected(null); }}>Active</button>
+      <button type="button" role="tab" aria-selected={queueTab === "completed-today"} onClick={() => { setQueueTab("completed-today"); setSelected(null); }}>Completed Today</button>
+    </div>
+    {queueTab === "active" && <>
     <div className="metrics-grid metrics-grid--three"><MetricCard label="Total in queue" value={String(active.length)} icon="queue" accent="blue" /><MetricCard label="Being served" value={String(active.filter((entry) => entry.status === "in_progress").length)} icon="scissors" accent="amber" /><MetricCard label="Average wait" value={`${averageWait}m`} icon="clock" accent="green" /></div>
     <Panel className="queue-next-panel"><div className="inventory-catalog-head"><div><span className="inventory-kicker">Front desk</span><h2>Next Customer</h2><p>Choose an available barber, then review the suggested customer.</p></div></div>
       <div className="queue-next__body"><div className="queue-next__controls">
@@ -193,11 +221,18 @@ export function QueuePage({ onToast }: { onToast: (message: string) => void }) {
       </div>
     </Panel>
     <Panel className="operational-panel"><div className="inventory-catalog-head"><div><span className="inventory-kicker">Live floor</span><h2>Current queue</h2><p>Open an entry to assign a barber or move it forward.</p></div></div>
-      <FilterToolbar search={search} onSearchChange={setSearch} placeholder="Search queue" filters={<SelectField value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filter queue by status"><option value="all">All statuses</option>{(["waiting", "ready", "in_progress", "completed"] as const).map((status) => <option value={status} key={status}>{statusLabel(status)}</option>)}</SelectField>} resultCount={visible.length} />
+      <FilterToolbar search={search} onSearchChange={setSearch} placeholder="Search queue" filters={<SelectField value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filter queue by status"><option value="all">All statuses</option>{(["waiting", "ready", "in_progress"] as const).map((status) => <option value={status} key={status}>{statusLabel(status)}</option>)}</SelectField>} resultCount={visible.length} />
       {loading ? <p role="status">Loading queue…</p> : error ? <p role="alert">{error}</p> : !visible.length ? <EmptyState icon="queue" title="Queue is empty" description="Check in an appointment or add a walk-in." /> : view === "cards" ?
         <div className="operational-card-grid">{visible.map((entry) => <RecordCard key={entry.id} onOpen={() => openEntry(entry)} ariaLabel={`Open queue entry for ${entry.customerName}`}><div className="operational-card__header"><div className="operational-card__identity"><Avatar initials={createInitials(entry.customerName)} tone="slate" size="md" /><div><strong>{entry.customerName}</strong><small>Queue #{entry.id} · {entry.bookingId ? `Booking #${entry.bookingId}` : "Walk-in"}</small></div></div><Badge tone={tone(entry.status)}>{statusLabel(entry.status)}</Badge></div><p className="operational-card__note">{entry.serviceName} · {entry.barberName ?? "Awaiting barber"}</p><div className="operational-card__facts"><div><span>Joined</span><strong>{new Date(entry.joinedAt).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "numeric", minute: "2-digit" })}</strong></div><div><span>Wait</span><strong>{entry.status === "completed" ? "—" : `${waitMinutes(entry)}m`}</strong></div></div></RecordCard>)}</div> :
         <ResponsiveTable headers={["#", "Customer", "Service", "Barber", "Status", "Wait"]}>{visible.map((entry) => <tr key={entry.id} tabIndex={0} onClick={() => openEntry(entry)} onKeyDown={(event) => { if (event.key === "Enter") openEntry(entry); }}><td>{entry.id}</td><td>{entry.customerName}</td><td>{entry.serviceName}</td><td>{entry.barberName ?? "Unassigned"}</td><td><Badge tone={tone(entry.status)}>{statusLabel(entry.status)}</Badge></td><td>{entry.status === "completed" ? "—" : `${waitMinutes(entry)}m`}</td></tr>)}</ResponsiveTable>}
     </Panel>
+    </>}
+    {queueTab === "completed-today" && <div role="tabpanel"><Panel className="operational-panel">
+      <div className="inventory-catalog-head"><div><span className="inventory-kicker">Today in Manila</span><h2>Completed Today</h2><p>Finished services are read-only.</p></div></div>
+      <FilterToolbar search={search} onSearchChange={setSearch} placeholder="Search completed services" resultCount={visible.length} />
+      {completedLoading ? <p role="status">Loading completed services…</p> : completedError ? <p role="alert">{completedError}</p> : !visible.length ? <EmptyState icon="queue" title="No completed services today" description="Finished services will appear here." /> :
+        <ResponsiveTable headers={["Customer", "Service", "Barber", "Type", "Started", "Completed"]}>{visible.map((entry) => <tr key={entry.id}><td>{entry.customerName}</td><td>{entry.serviceName}</td><td>{entry.barberName ?? "Unassigned"}</td><td>{entry.bookingId === null ? "Walk-in" : "Appointment"}</td><td>{manilaTime(entry.startedAt)}</td><td>{manilaTime(entry.completedAt)}</td></tr>)}</ResponsiveTable>}
+    </Panel></div>}
     <Modal open={addOpen} title="Add to queue" description="Choose an existing customer or add a walk-in record." onClose={closeAddDialog}><form className="modal-form" onSubmit={addWalkIn}>
       <SelectField label="Customer" required disabled={busy} value={draft.customerId} onChange={(event) => { submissionKey.current = globalThis.crypto.randomUUID(); setDraft({ ...draft, customerId: event.target.value }); }}><option value="">Select customer</option>{customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.firstName} {customer.lastName}</option>)}<option value="new">New Walk-In Customer</option></SelectField>
       {draft.customerId === "new" && <><TextField label="First name" required disabled={busy} autoComplete="given-name" value={newCustomer.firstName} onChange={(event) => { submissionKey.current = globalThis.crypto.randomUUID(); setNewCustomer((current) => ({ ...current, firstName: event.target.value })); }} /><TextField label="Last name" required disabled={busy} autoComplete="family-name" value={newCustomer.lastName} onChange={(event) => { submissionKey.current = globalThis.crypto.randomUUID(); setNewCustomer((current) => ({ ...current, lastName: event.target.value })); }} /><TextField label="Phone number (optional)" type="tel" inputMode="tel" maxLength={11} disabled={busy} value={newCustomer.phone} onChange={(event) => { submissionKey.current = globalThis.crypto.randomUUID(); setNewCustomer((current) => ({ ...current, phone: event.target.value })); }} /></>}

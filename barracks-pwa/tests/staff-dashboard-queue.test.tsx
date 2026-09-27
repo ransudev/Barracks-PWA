@@ -19,7 +19,7 @@ async function renderDashboard(queueResponse: Response) {
   const previousFetch = globalThis.fetch;
   globalThis.fetch = async (input) => {
     const path = String(input);
-    if (path === "/api/queue") return queueResponse;
+    if (path === "/api/queue?view=active") return queueResponse;
     if (path === "/api/barbers") return Response.json({ success: true, barbers: [] });
     if (path === "/api/bookings") return Response.json({ success: true, bookings: [] });
     if (path === "/api/inventory") return Response.json({ success: true, items: [] });
@@ -40,7 +40,7 @@ async function renderDashboard(queueResponse: Response) {
 }
 
 test("staff dashboard counts active persisted queue entries and previews them", async () => {
-  const view = await renderDashboard(Response.json({ success: true, queue: [entry(1, "ready"), entry(2, "waiting"), entry(3, "completed")] }));
+  const view = await renderDashboard(Response.json({ success: true, queue: [entry(1, "ready"), entry(2, "waiting"), entry(3, "completed"), entry(4, "removed")] }));
   try {
     assert.match(view.container.querySelector(".metrics-grid")?.textContent ?? "", /Customers in queue\s*2/);
     assert.equal(view.container.querySelectorAll(".queue-preview__row").length, 2);

@@ -88,7 +88,7 @@ export function StaffDashboard({
 
     async function loadQueue() {
       try {
-        const response = await apiRequest("/api/queue", { cache: "no-store" });
+        const response = await apiRequest("/api/queue?view=active", { cache: "no-store" });
         const body = await readApiBody<{ success: boolean; queue?: ApiQueueEntry[]; message?: string }>(response);
         if (!response.ok || !body?.success || !body.queue) throw new Error(body?.message ?? "Unable to load queue");
         if (!cancelled) { setQueue(body.queue); setQueueAsOf(Date.now()); setQueueError(""); }
@@ -117,7 +117,7 @@ export function StaffDashboard({
   );
   const activeBarbers = barbers.filter((barber) => barber.status !== "unavailable").length;
   const lowStockCount = inventory.filter((item) => item.quantity <= item.minimumStock).length;
-  const activeQueue = queue.filter((entry) => entry.status !== "completed" && entry.status !== "removed");
+  const activeQueue = queue.filter((entry) => ["waiting", "ready", "in_progress"].includes(entry.status));
 
   return (
     <div className="staff-dashboard">

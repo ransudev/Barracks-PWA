@@ -73,8 +73,15 @@ function toQueue(row: QueueRow): QueueRecord {
     barberName: row.barber_name, status: row.status, joinedAt: iso(row.joined_at)!, startedAt: iso(row.started_at),
     completedAt: iso(row.completed_at), createdAt: iso(row.created_at)!, updatedAt: iso(row.updated_at)! };
 }
-export async function listQueue(db: Db): Promise<QueueRecord[]> {
-  const result = await db.query<QueueRow>(`${queueSelect} WHERE q.status <> 'removed' ORDER BY q.joined_at, q.id`);
+export type QueueView = "active" | "completed-today";
+export async function listQueue(db: Db, view: QueueView = "active"): Promise<QueueRecord[]> {
+  // Convert Manila-local midnight to timestamptz for session-independent
+  // instant comparisons; UTC midnight is not the shop's day boundary.
+  const where = view === "active"
+    ? "q.status IN ('waiting','ready','in_progress')"
+    : `q.status='completed' AND q.completed_at >= ((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Manila')::date::timestamp AT TIME ZONE 'Asia/Manila')
+       AND q.completed_at < (((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Manila')::date + 1)::timestamp AT TIME ZONE 'Asia/Manila')`;
+  const result = await db.query<QueueRow>(`${queueSelect} WHERE ${where} ORDER BY q.joined_at, q.id`);
   return result.rows.map(toQueue);
 }
 export async function findQueueEntry(db: Db, id: number): Promise<QueueRecord | null> {

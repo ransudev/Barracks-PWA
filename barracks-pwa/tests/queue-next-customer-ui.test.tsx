@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { JSDOM } from "jsdom";
+import type { ApiQueueEntry } from "@/app/lib/api";
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", { pretendToBeVisual: true });
 (globalThis as unknown as { document: Document }).document = dom.window.document;
@@ -15,7 +16,7 @@ const waiting = { id: 7, bookingId: null, customerId: 3, customerName: "Next Cus
   serviceName: "Basic Cut", barberId: null, barberName: null, status: "waiting", joinedAt: "2026-09-27T02:00:00Z",
   startedAt: null, completedAt: null, createdAt: "2026-09-27T02:00:00Z", updatedAt: "2026-09-27T02:00:00Z" };
 
-async function renderQueue(candidate: typeof waiting | null, holdQueuePost = false) {
+async function renderQueue(candidate: typeof waiting | null, holdQueuePost = false, completed: ApiQueueEntry[] = []) {
   const previousFetch = globalThis.fetch;
   const requests: string[] = [];
   const postedBodies: Record<string, unknown>[] = [];
@@ -23,7 +24,8 @@ async function renderQueue(candidate: typeof waiting | null, holdQueuePost = fal
   globalThis.fetch = async (input, init) => {
     const path = String(input);
     requests.push(`${init?.method ?? "GET"} ${path}`);
-    if (path === "/api/queue" && init?.method !== "POST") return Response.json({ success: true, queue: candidate ? [waiting] : [] });
+    if (path === "/api/queue?view=active") return Response.json({ success: true, queue: candidate ? [waiting] : [] });
+    if (path === "/api/queue?view=completed-today") return Response.json({ success: true, queue: completed });
     if (path === "/api/customers") return Response.json({ success: true, customers: [{ id: 3, userId: 8, firstName: "Next", lastName: "Customer", email: "next@test.local", phone: "", preferredBarberId: null, preferredBarberName: null, loyaltyPoints: 0, createdAt: "2026-09-27T02:00:00Z", updatedAt: "2026-09-27T02:00:00Z" }] });
     if (path === "/api/services") return Response.json({ success: true, services: [{ id: "cut", name: "Basic Cut", active: true, durationMinutes: 45 }] });
     if (path === "/api/barbers") return Response.json({ success: true, barbers: [{ id: 1, firstName: "Test", lastName: "Barber", status: "available" }] });
@@ -53,6 +55,24 @@ async function renderQueue(candidate: typeof waiting | null, holdQueuePost = fal
     throw error;
   }
 }
+
+test("completed-today entries show service details without active actions", async () => {
+  const finished: ApiQueueEntry = { ...waiting, id: 9, customerName: "Finished Customer", status: "completed",
+    barberId: 1, barberName: "Test Barber", startedAt: "2026-09-27T02:00:00Z", completedAt: "2026-09-27T02:30:00Z" };
+  const view = await renderQueue(waiting, false, [finished]);
+  try {
+    assert.equal(view.container.querySelector('[role="tab"][aria-selected="true"]')?.textContent, "Active");
+    const tab = Array.from(view.container.querySelectorAll<HTMLButtonElement>('[role="tab"]')).find((button) => button.textContent === "Completed Today")!;
+    await act(async () => { tab.click(); });
+    assert.ok(view.requests.includes("GET /api/queue?view=completed-today"));
+    const panel = view.container.querySelector('[role="tabpanel"]')!;
+    for (const detail of ["Finished Customer", "Basic Cut", "Test Barber", "Walk-in", "Sep", "10:00", "10:30"])
+      assert.ok(panel.textContent?.includes(detail), detail);
+    assert.equal(view.container.querySelector(".queue-next-panel"), null);
+    assert.equal(view.container.querySelector(".operational-drawer__actions"), null);
+    assert.equal(panel.querySelectorAll("button").length, 0);
+  } finally { await view.cleanup(); }
+});
 
 async function selectBarberAndSuggest(container: HTMLElement) {
   const select = container.querySelector<HTMLSelectElement>(".queue-next__controls select")!;

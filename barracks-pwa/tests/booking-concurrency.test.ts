@@ -65,7 +65,8 @@ test("PostgreSQL rejects overlapping barber and customer bookings under concurre
     assert.equal((await updateBooking(pool, adjacent.id, { status: "in_progress" }))?.status, "in_progress");
     assert.equal((await queue.listQueue(pool)).find((entry) => entry.bookingId === adjacent.id)?.status, "in_progress");
     assert.equal((await updateBooking(pool, adjacent.id, { status: "completed" }))?.status, "completed");
-    assert.equal((await queue.listQueue(pool)).find((entry) => entry.bookingId === adjacent.id)?.status, "completed");
+    assert.equal((await queue.listQueue(pool)).some((entry) => entry.bookingId === adjacent.id), false);
+    assert.equal((await queue.listQueue(pool, "completed-today")).find((entry) => entry.bookingId === adjacent.id)?.status, "completed");
     await assert.rejects(updateBooking(pool, adjacent.id, { status: "cancelled" }), { kind: "not_updatable" });
     const walkIn = await queue.addWalkIn(pool, { customerId: loser, serviceId });
     assert.equal(walkIn.bookingId, null);
