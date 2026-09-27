@@ -1,6 +1,6 @@
 [build]
   base = "barracks-pwa"
-  command = "npm run build"
+  command = "npm run db:migrate && npm run build"
   publish = ".next"
 
 [build.environment]
