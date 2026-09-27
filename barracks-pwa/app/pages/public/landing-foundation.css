@@ -56,6 +56,9 @@
   min-height: 100vh;
   width: 100%;
   background-color: var(--bg-obsidian);
+  background-image:
+    radial-gradient(ellipse 90% 28% at 50% 36%, rgba(90, 94, 90, 0.06) 0%, transparent 72%),
+    linear-gradient(180deg, #111313 0%, #151716 24%, #171918 44%, #151716 70%, #111313 100%);
   color: var(--color-text-main);
   font-family: var(--font-body);
   font-size: 14px;

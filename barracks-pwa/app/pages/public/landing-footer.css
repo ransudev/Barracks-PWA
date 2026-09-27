@@ -2,7 +2,7 @@
    LUXURY FOOTER
    ========================================================================== */
 .public-site .public-footer {
-  background: #0B0D0D;
+  background: transparent;
   border-top: 1px solid var(--border-hairline);
   padding: 72px 32px 36px;
   position: relative;

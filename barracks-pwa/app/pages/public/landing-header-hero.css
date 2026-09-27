@@ -265,7 +265,7 @@
 
 .public-site .hero-gogrin__bg img {
   object-fit: cover;
-  object-position: center center;
+  object-position: left center;
   filter: brightness(0.92) contrast(1.08) saturate(0.95);
 }
 

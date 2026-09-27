@@ -9,8 +9,8 @@ export function HeroSection({ go }: { go: (view: ViewId) => void }) {
     <section className="hero-gogrin" id="home">
       <div className="hero-gogrin__bg">
         <Image
-          src="/barracks/hero-shave-editorial.png"
-          alt="Barracks barber shaving a client inside a warmly lit shop"
+          src="/barracks/hero-barracks-landscape.png"
+          alt="Filipino barber giving a customer a haircut inside the barbershop"
           fill
           priority
           sizes="100vw"
