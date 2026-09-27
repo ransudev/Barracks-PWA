@@ -41,9 +41,7 @@ export const metadata: Metadata = {
   description:
     "Premium grooming, homegrown in Davao. Barracks Barbers & Shaves brings a modern twist to traditional barbering.",
   icons: {
-    icon: "/barracks/tab-icon.png",
-    shortcut: "/barracks/tab-icon.png",
-    apple: "/barracks/tab-icon.png",
+    icon: "/barracks/tab-icon.png?v=3",
   },
 };
 

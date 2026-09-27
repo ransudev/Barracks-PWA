@@ -1,0 +1,11 @@
+[build]
+  base = "barracks-pwa"
+  command = "npm run db:migrate && if [ \"$SEED_DEMO_DATA\" = \"true\" ]; then npm run db:seed-demo; fi && npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22.22.2"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+# Demo seeding is controlled by the SEED_DEMO_DATA build variable.

@@ -7,7 +7,7 @@ import { hashPassword } from "../server/services/password.service";
 const demoFrontDesk = {
   firstName: "Mara",
   lastName: "Santos",
-  email: "demo.frontdesk@barracks.local",
+  email: "demo.frontdesk@barracks.app",
   password: "frontdesk123",
   role: "front_desk",
 } as const;
@@ -15,7 +15,7 @@ const demoFrontDesk = {
 const demoManager = {
   firstName: "Rafael",
   lastName: "Dela Cruz",
-  email: "demo.manager@barracks.local",
+  email: "demo.manager@barracks.app",
   password: "manager123",
   role: "manager",
 } as const;
@@ -26,14 +26,14 @@ const demoSuppliers = [
     companyName: "Northstar Grooming Supply",
     contactPerson: "Nina Ramos",
     phone: "+63 917 555 0201",
-    email: "northstar@barracks.local",
+    email: "northstar@barracks.app",
     address: "J.P. Laurel Avenue, Davao City",
     notes: "Consumables and daily shop supplies.",
     status: "active",
     account: {
       firstName: "Nina",
       lastName: "Ramos",
-      email: "demo.supplier.nina@barracks.local",
+      email: "demo.supplier.nina@barracks.app",
       password: "supplier123",
     },
   },
@@ -42,14 +42,14 @@ const demoSuppliers = [
     companyName: "Davao Barber Essentials",
     contactPerson: "Marco Villanueva",
     phone: "+63 917 555 0202",
-    email: "essentials@barracks.local",
+    email: "essentials@barracks.app",
     address: "Ecoland Drive, Davao City",
     notes: "Tools, equipment, and retail grooming products.",
     status: "active",
     account: {
       firstName: "Marco",
       lastName: "Villanueva",
-      email: "demo.supplier.marco@barracks.local",
+      email: "demo.supplier.marco@barracks.app",
       password: "supplier123",
     },
   },
@@ -59,7 +59,7 @@ const demoCustomers = [
   {
     firstName: "Ana",
     lastName: "Mercado",
-    email: "demo.customer.ana@barracks.local",
+    email: "demo.customer.ana@barracks.app",
     phone: "+63 917 555 0101",
     preferredBarber: "Miko Reyes",
     loyaltyPoints: 180,
@@ -67,7 +67,7 @@ const demoCustomers = [
   {
     firstName: "Paulo",
     lastName: "Lim",
-    email: "demo.customer.paulo@barracks.local",
+    email: "demo.customer.paulo@barracks.app",
     phone: "+63 917 555 0102",
     preferredBarber: "Paolo Santos",
     loyaltyPoints: 95,
@@ -75,7 +75,7 @@ const demoCustomers = [
   {
     firstName: "Samira",
     lastName: "Cruz",
-    email: "demo.customer.samira@barracks.local",
+    email: "demo.customer.samira@barracks.app",
     phone: "+63 917 555 0103",
     preferredBarber: null,
     loyaltyPoints: 40,
@@ -83,7 +83,7 @@ const demoCustomers = [
   {
     firstName: "Jethro",
     lastName: "Dizon",
-    email: "demo.customer.jethro@barracks.local",
+    email: "demo.customer.jethro@barracks.app",
     phone: "+63 917 555 0104",
     preferredBarber: "Andrei Villanueva",
     loyaltyPoints: 260,
@@ -128,7 +128,7 @@ const demoInventory = [
 const demoBookings = [
   {
     demoKey: "demo-ana-basic",
-    customerEmail: "demo.customer.ana@barracks.local",
+    customerEmail: "demo.customer.ana@barracks.app",
     barberName: "Miko Reyes",
     serviceId: "barracks-basic",
     serviceName: "Barracks Basic",
@@ -139,7 +139,7 @@ const demoBookings = [
   },
   {
     demoKey: "demo-paulo-shave",
-    customerEmail: "demo.customer.paulo@barracks.local",
+    customerEmail: "demo.customer.paulo@barracks.app",
     barberName: "Paolo Santos",
     serviceId: "signature-shave",
     serviceName: "Signature Shave",
@@ -150,7 +150,7 @@ const demoBookings = [
   },
   {
     demoKey: "demo-samira-premium",
-    customerEmail: "demo.customer.samira@barracks.local",
+    customerEmail: "demo.customer.samira@barracks.app",
     barberName: "Andrei Villanueva",
     serviceId: "barracks-premium",
     serviceName: "Barracks Premium",
@@ -161,7 +161,7 @@ const demoBookings = [
   },
   {
     demoKey: "demo-jethro-cancelled",
-    customerEmail: "demo.customer.jethro@barracks.local",
+    customerEmail: "demo.customer.jethro@barracks.app",
     barberName: "Miko Reyes",
     serviceId: "barracks-basic",
     serviceName: "Barracks Basic",
@@ -425,10 +425,10 @@ async function seedDemoData() {
 
     await client.query("COMMIT");
     console.log(`Sprint 2 demo data replaced: 4 barbers, ${demoInventory.length} inventory items (${landingProducts.length} products), 2 suppliers, 4 customers, 4 bookings, 3 restocks, 1 movement, 1 transaction, 1 manager account, 1 front-desk account, and 2 supplier accounts`);
-    console.log("Front Desk login: demo.frontdesk@barracks.local / frontdesk123");
-    console.log("Manager login: demo.manager@barracks.local / manager123");
-    console.log("Supplier logins: demo.supplier.nina@barracks.local / supplier123 and demo.supplier.marco@barracks.local / supplier123");
-    console.log("Customer login: demo.customer.ana@barracks.local / customer123");
+    console.log("Front Desk login: demo.frontdesk@barracks.app / frontdesk123");
+    console.log("Manager login: demo.manager@barracks.app / manager123");
+    console.log("Supplier logins: demo.supplier.nina@barracks.app / supplier123 and demo.supplier.marco@barracks.app / supplier123");
+    console.log("Customer login: demo.customer.ana@barracks.app / customer123");
   } catch (error) {
     await client.query("ROLLBACK").catch(() => undefined);
     throw error;
