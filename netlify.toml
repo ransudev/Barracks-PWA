@@ -8,3 +8,4 @@
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+# Demo seeding is controlled by the SEED_DEMO_DATA build variable.
