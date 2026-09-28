@@ -21,10 +21,14 @@ test("next customer prefers assigned ready entries, then the oldest unassigned w
 
     assert.equal(await queue.getNextCustomer(db, firstBarber), null);
     const oldest = await queue.addWalkIn(db, { customerId, serviceId });
+    assert.equal(oldest.visitType, "walk_in");
+    assert.equal(oldest.scheduledTime, null);
+    assert.equal(oldest.bookingStatus, null);
     const later = await queue.addWalkIn(db, { customerId, serviceId });
     await db.query("UPDATE queue_entries SET joined_at=NOW()-INTERVAL '2 hours' WHERE id=$1", [oldest.id]);
     await db.query("UPDATE queue_entries SET joined_at=NOW()-INTERVAL '1 hour' WHERE id=$1", [later.id]);
     assert.equal((await queue.getNextCustomer(db, firstBarber))?.id, oldest.id);
+    assert.equal((await queue.getNextCustomer(db, firstBarber))?.visitType, "walk_in");
     assert.equal((await queue.findQueueEntry(db, oldest.id))?.status, "waiting", "suggestion must not change state");
 
     const otherAssigned = await queue.addWalkIn(db, { customerId, serviceId, barberId: secondBarber });
@@ -57,9 +61,16 @@ test("next customer prefers assigned ready entries, then the oldest unassigned w
     const booking = Number((await db.query<{ id: number }>(`INSERT INTO bookings(customer_id,barber_id,service_id,service_name,service_price,service_duration_minutes,booking_date,booking_time,end_time)
       VALUES($1,$2,$3,'Barracks Basic',300,45,CURRENT_DATE + 2,'10:00','10:45') RETURNING id`, [customerId, firstBarber, serviceId])).rows[0].id);
     assert.equal(await queue.getNextCustomer(db, firstBarber), null, "future confirmed booking has not checked in");
+    assert.equal((await queue.listQueue(db)).some((entry) => entry.bookingId === booking), false);
     assert.equal((await updateBooking(db, booking, { status: "checked_in" }))?.status, "checked_in");
     const linked = (await queue.getNextCustomer(db, firstBarber))!;
     assert.equal(linked.bookingId, booking);
+    assert.equal(linked.visitType, "appointment");
+    assert.match(linked.scheduledDate!, /^\d{4}-\d{2}-\d{2}$/);
+    assert.equal(linked.scheduledTime, "10:00:00");
+    assert.equal(linked.bookingStatus, "checked_in");
+    assert.equal(linked.barberId, firstBarber);
+    assert.equal((await queue.listQueue(db)).find((entry) => entry.id === linked.id)?.visitType, "appointment");
     assert.equal(linked.status, "ready");
     assert.equal(linked.startedAt, null);
     await assert.rejects(queue.confirmNextCustomerAssignment(db, firstBarber, linked.id), /suggestion changed/);
@@ -67,11 +78,15 @@ test("next customer prefers assigned ready entries, then the oldest unassigned w
     await assert.rejects(queue.getNextCustomer(db, firstBarber), /serving another customer/);
     assert.equal((await updateBooking(db, booking, { status: "completed" }))?.status, "completed");
     assert.equal(await queue.getNextCustomer(db, firstBarber), null);
+    const finished = await queue.listQueue(db, "completed-today");
+    assert.equal(finished.find((entry) => entry.id === linked.id)?.visitType, "appointment");
+    assert.equal(finished.find((entry) => entry.id === oldest.id)?.visitType, "walk_in");
 
     const unchecked = Number((await db.query<{ id: number }>(`INSERT INTO bookings(customer_id,barber_id,service_id,service_name,service_price,service_duration_minutes,booking_date,booking_time,end_time)
       VALUES($1,$2,$3,'Barracks Basic',300,45,CURRENT_DATE + 3,'10:00','10:45') RETURNING id`, [customerId, firstBarber, serviceId])).rows[0].id);
     await db.query("INSERT INTO queue_entries(booking_id,customer_id,service_id,barber_id,status) VALUES($1,$2,$3,$4,'ready')", [unchecked, customerId, serviceId, firstBarber]);
     assert.equal(await queue.getNextCustomer(db, firstBarber), null, "even a stale queue row cannot surface an unchecked booking");
+    assert.equal((await queue.listQueue(db)).some((entry) => entry.bookingId === unchecked), false, "confirmed booking is excluded from Active");
 
     await db.query("UPDATE barbers SET status='unavailable' WHERE id=$1", [firstBarber]);
     await assert.rejects(queue.getNextCustomer(db, firstBarber), /unavailable/);

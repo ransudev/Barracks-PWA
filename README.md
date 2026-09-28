@@ -70,6 +70,8 @@ The Queue page also offers a front-desk **Next Customer** action for a selected 
 
 The Queue page defaults to **Active** (`waiting`, `ready`, `in_progress`) and has a read-only **Completed Today** view. The latter shows customer, service, barber, visit type, and start/completion times for entries whose completion instant falls within the current `Asia/Manila` calendar day. The API filters both views in PostgreSQL; older completed and `removed` entries do not appear in either normal view. Both views retain joined-time and ID ordering. The staff dashboard requests the active view for its count and preview.
 
+Every queue API record includes a derived `visitType`: `walk_in` for an entry without a booking and `appointment` for a booking-linked entry. Appointment records also return the booking's scheduled date and time, current booking status, and existing assigned barber; the queue table does not copy these booking fields. Active cards and lists show a visit-type badge and scheduled appointment time. Next Customer labels a booked suggestion as a checked-in appointment and keeps the existing ready-before-waiting selection order. Confirmed bookings are not in the active queue; even an inconsistent queue row linked to a confirmed booking is filtered out. The completed-today view labels both visit types. Appointment service actions remain in Bookings, where booking and queue status changes stay transactional.
+
 ### Roles and access
 
 There are five account roles:
@@ -351,7 +353,7 @@ Booking creation and editing validate the selected slot against shop and barber 
 
 ### Queue
 
-- `GET /api/queue?view=active|completed-today` — administrator, manager, or front desk; defaults to active (`waiting`, `ready`, `in_progress`). Completed today contains only `completed` entries whose `completed_at` is in the current Manila-local calendar day; `removed` entries are excluded. Unknown views return 400. Results keep joined-time and ID order.
+- `GET /api/queue?view=active|completed-today` — administrator, manager, or front desk; defaults to active (`waiting`, `ready`, `in_progress`) and excludes booking-linked rows unless the booking is checked in or in progress with the matching queue state. Completed today contains only `completed` entries whose `completed_at` is in the current Manila-local calendar day; `removed` entries are excluded. Each record has derived `visitType`; appointment records include live booking date, time, and status. Unknown views return 400. Results keep joined-time and ID order.
 - `GET /api/queue/next?barberId=...` — staff requests the next eligible customer for an operationally available barber; returns an entry or a clear no-customer message without changing queue state.
 - `POST /api/queue/next` — staff confirms assignment of a suggested unassigned walk-in using `barberId` and `entryId`; the server rechecks the suggestion and moves it to `ready` without starting service.
 - `POST /api/queue` — staff adds a walk-in with an existing customer or a new name/optional phone record, an active service, and an optional operationally eligible barber; the customer and queue entry are written transactionally, and an idempotency key is required for safe retries.

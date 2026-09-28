@@ -16,6 +16,7 @@ export type { QueueStatus } from "@/server/services/queue-lifecycle";
 type QueueRow = {
   id: number; booking_id: number | null; customer_id: number; customer_name: string;
   service_id: string; service_name: string; barber_id: number | null; barber_name: string | null;
+  scheduled_date: string | null; scheduled_time: string | null; booking_status: string | null;
   status: QueueStatus; joined_at: Date | string; started_at: Date | string | null;
   completed_at: Date | string | null; created_at: Date | string; updated_at: Date | string;
 };
@@ -29,6 +30,8 @@ async function lockQueueEntry(client: PoolClient, id: number): Promise<LockedQue
 export type QueueRecord = {
   id: number; bookingId: number | null; customerId: number; customerName: string;
   serviceId: string; serviceName: string; barberId: number | null; barberName: string | null;
+  visitType: "walk_in" | "appointment"; scheduledDate: string | null;
+  scheduledTime: string | null; bookingStatus: string | null;
   status: QueueStatus; joinedAt: string; startedAt: string | null;
   completedAt: string | null; createdAt: string; updatedAt: string;
 };
@@ -62,15 +65,19 @@ async function requireBarber(client: PoolClient, barberId: number): Promise<void
   requireBarberOperationalAvailability(await getBarberOperationalAvailability(client, barberId));
 }
 const queueSelect = `SELECT q.*, CONCAT(COALESCE(u.first_name,c.first_name),' ',COALESCE(u.last_name,c.last_name)) AS customer_name,
-  s.name AS service_name, CASE WHEN br.id IS NULL THEN NULL ELSE CONCAT(br.first_name,' ',br.last_name) END AS barber_name
+  s.name AS service_name, CASE WHEN br.id IS NULL THEN NULL ELSE CONCAT(br.first_name,' ',br.last_name) END AS barber_name,
+  b.booking_date::text AS scheduled_date, b.booking_time::text AS scheduled_time, b.status AS booking_status
   FROM queue_entries q JOIN customers c ON c.id=q.customer_id LEFT JOIN users u ON u.id=c.user_id
-  JOIN services s ON s.id=q.service_id LEFT JOIN barbers br ON br.id=q.barber_id`;
+  JOIN services s ON s.id=q.service_id LEFT JOIN barbers br ON br.id=q.barber_id
+  LEFT JOIN bookings b ON b.id=q.booking_id`;
 const iso = (value: Date | string | null) => value === null ? null : new Date(value).toISOString();
 function toQueue(row: QueueRow): QueueRecord {
   return { id: Number(row.id), bookingId: row.booking_id === null ? null : Number(row.booking_id),
     customerId: Number(row.customer_id), customerName: row.customer_name, serviceId: row.service_id,
     serviceName: row.service_name, barberId: row.barber_id === null ? null : Number(row.barber_id),
-    barberName: row.barber_name, status: row.status, joinedAt: iso(row.joined_at)!, startedAt: iso(row.started_at),
+    barberName: row.barber_name, visitType: row.booking_id === null ? "walk_in" : "appointment",
+    scheduledDate: row.scheduled_date, scheduledTime: row.scheduled_time, bookingStatus: row.booking_status,
+    status: row.status, joinedAt: iso(row.joined_at)!, startedAt: iso(row.started_at),
     completedAt: iso(row.completed_at), createdAt: iso(row.created_at)!, updatedAt: iso(row.updated_at)! };
 }
 export type QueueView = "active" | "completed-today";
@@ -78,7 +85,9 @@ export async function listQueue(db: Db, view: QueueView = "active"): Promise<Que
   // Convert Manila-local midnight to timestamptz for session-independent
   // instant comparisons; UTC midnight is not the shop's day boundary.
   const where = view === "active"
-    ? "q.status IN ('waiting','ready','in_progress')"
+    ? `q.status IN ('waiting','ready','in_progress') AND
+       (q.booking_id IS NULL OR (q.status='ready' AND b.status='checked_in')
+        OR (q.status='in_progress' AND b.status='in_progress'))`
     : `q.status='completed' AND q.completed_at >= ((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Manila')::date::timestamp AT TIME ZONE 'Asia/Manila')
        AND q.completed_at < (((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Manila')::date + 1)::timestamp AT TIME ZONE 'Asia/Manila')`;
   const result = await db.query<QueueRow>(`${queueSelect} WHERE ${where} ORDER BY q.joined_at, q.id`);
@@ -92,8 +101,7 @@ export async function findQueueEntry(db: Db, id: number): Promise<QueueRecord | 
 // offer the oldest unassigned walk-in; appointment status is checked at the source.
 async function selectNextCustomer(db: Db, barberId: number): Promise<QueueRecord | null> {
   const result = await db.query<QueueRow>(
-    `${queueSelect} LEFT JOIN bookings b ON b.id=q.booking_id
-     WHERE q.started_at IS NULL AND q.completed_at IS NULL AND (
+    `${queueSelect} WHERE q.started_at IS NULL AND q.completed_at IS NULL AND (
        (q.status='ready' AND q.barber_id=$1 AND
          (q.booking_id IS NULL OR (b.status='checked_in' AND b.barber_id=$1)))
        OR (q.status='waiting' AND q.barber_id IS NULL AND q.booking_id IS NULL)

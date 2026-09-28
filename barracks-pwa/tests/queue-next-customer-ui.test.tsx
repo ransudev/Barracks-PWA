@@ -12,11 +12,11 @@ const { act } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { QueuePage } = await import("@/app/pages/staff/QueuePage");
 
-const waiting = { id: 7, bookingId: null, customerId: 3, customerName: "Next Customer", serviceId: "cut",
+const waiting: ApiQueueEntry = { id: 7, bookingId: null, visitType: "walk_in", scheduledDate: null, scheduledTime: null, bookingStatus: null, customerId: 3, customerName: "Next Customer", serviceId: "cut",
   serviceName: "Basic Cut", barberId: null, barberName: null, status: "waiting", joinedAt: "2026-09-27T02:00:00Z",
   startedAt: null, completedAt: null, createdAt: "2026-09-27T02:00:00Z", updatedAt: "2026-09-27T02:00:00Z" };
 
-async function renderQueue(candidate: typeof waiting | null, holdQueuePost = false, completed: ApiQueueEntry[] = []) {
+async function renderQueue(candidate: ApiQueueEntry | null, holdQueuePost = false, completed: ApiQueueEntry[] = []) {
   const previousFetch = globalThis.fetch;
   const requests: string[] = [];
   const postedBodies: Record<string, unknown>[] = [];
@@ -24,7 +24,7 @@ async function renderQueue(candidate: typeof waiting | null, holdQueuePost = fal
   globalThis.fetch = async (input, init) => {
     const path = String(input);
     requests.push(`${init?.method ?? "GET"} ${path}`);
-    if (path === "/api/queue?view=active") return Response.json({ success: true, queue: candidate ? [waiting] : [] });
+    if (path === "/api/queue?view=active") return Response.json({ success: true, queue: candidate ? [candidate] : [] });
     if (path === "/api/queue?view=completed-today") return Response.json({ success: true, queue: completed });
     if (path === "/api/customers") return Response.json({ success: true, customers: [{ id: 3, userId: 8, firstName: "Next", lastName: "Customer", email: "next@test.local", phone: "", preferredBarberId: null, preferredBarberName: null, loyaltyPoints: 0, createdAt: "2026-09-27T02:00:00Z", updatedAt: "2026-09-27T02:00:00Z" }] });
     if (path === "/api/services") return Response.json({ success: true, services: [{ id: "cut", name: "Basic Cut", active: true, durationMinutes: 45 }] });
@@ -59,7 +59,9 @@ async function renderQueue(candidate: typeof waiting | null, holdQueuePost = fal
 test("completed-today entries show service details without active actions", async () => {
   const finished: ApiQueueEntry = { ...waiting, id: 9, customerName: "Finished Customer", status: "completed",
     barberId: 1, barberName: "Test Barber", startedAt: "2026-09-27T02:00:00Z", completedAt: "2026-09-27T02:30:00Z" };
-  const view = await renderQueue(waiting, false, [finished]);
+  const booked: ApiQueueEntry = { ...finished, id: 10, customerName: "Booked Customer", bookingId: 20,
+    visitType: "appointment", scheduledDate: "2026-09-27", scheduledTime: "10:30:00", bookingStatus: "completed" };
+  const view = await renderQueue(waiting, false, [finished, booked]);
   try {
     assert.equal(view.container.querySelector('[role="tab"][aria-selected="true"]')?.textContent, "Active");
     const tab = Array.from(view.container.querySelectorAll<HTMLButtonElement>('[role="tab"]')).find((button) => button.textContent === "Completed Today")!;
@@ -68,9 +70,35 @@ test("completed-today entries show service details without active actions", asyn
     const panel = view.container.querySelector('[role="tabpanel"]')!;
     for (const detail of ["Finished Customer", "Basic Cut", "Test Barber", "Walk-in", "Sep", "10:00", "10:30"])
       assert.ok(panel.textContent?.includes(detail), detail);
+    assert.equal(panel.querySelectorAll(".badge").length, 2);
+    assert.match(panel.textContent ?? "", /Booked Customer.*Appointment/);
     assert.equal(view.container.querySelector(".queue-next-panel"), null);
     assert.equal(view.container.querySelector(".operational-drawer__actions"), null);
     assert.equal(panel.querySelectorAll("button").length, 0);
+  } finally { await view.cleanup(); }
+});
+
+test("active appointment shows visit badge and scheduled time in cards, list, drawer, and Next Customer", async () => {
+  const appointment: ApiQueueEntry = { ...waiting, id: 11, bookingId: 20, visitType: "appointment",
+    customerName: "Booked Customer", barberId: 1, barberName: "Test Barber", status: "ready",
+    scheduledDate: "2026-09-27", scheduledTime: "10:30:00", bookingStatus: "checked_in" };
+  const view = await renderQueue(appointment);
+  try {
+    const card = view.container.querySelector(".operational-card-grid")!;
+    assert.match(card.textContent ?? "", /Appointment.*10:30 AM/);
+    const listButton = Array.from(view.container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent?.trim() === "List")!;
+    await act(async () => { listButton.click(); });
+    assert.match(view.container.querySelector(".operational-panel table")?.textContent ?? "", /Appointment.*10:30 AM/);
+    const row = view.container.querySelector<HTMLTableRowElement>(".operational-panel tbody tr")!;
+    await act(async () => { row.click(); });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 30)); });
+    assert.match(view.container.querySelector(".operational-drawer")?.textContent ?? "", /Appointment.*10:30 AM/);
+    assert.match(view.container.querySelector(".operational-drawer")?.textContent ?? "", /checked in/);
+    assert.equal(view.container.querySelector(".operational-drawer__actions"), null, "booking lifecycle stays in Bookings");
+    await selectBarberAndSuggest(view.container);
+    const suggestion = view.container.querySelector(".queue-next__suggestion")?.textContent ?? "";
+    assert.match(suggestion, /Checked-in appointment/);
+    assert.match(suggestion, /Appointment.*10:30 AM/);
   } finally { await view.cleanup(); }
 });
 
@@ -84,6 +112,7 @@ async function selectBarberAndSuggest(container: HTMLElement) {
 test("front desk reviews and confirms assignment without starting service", async () => {
   const view = await renderQueue(waiting);
   try {
+    assert.match(view.container.querySelector(".operational-card-grid .queue-visit-type")?.textContent ?? "", /Walk-in/);
     await selectBarberAndSuggest(view.container);
     const summary = view.container.querySelector(".queue-next__suggestion")?.textContent ?? "";
     for (const detail of ["Next Customer", "Basic Cut", "Walk-in", "Unassigned"]) assert.ok(summary.includes(detail));

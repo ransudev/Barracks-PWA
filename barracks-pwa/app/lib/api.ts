@@ -111,6 +111,10 @@ export type ApiBooking = {
 export type ApiQueueEntry = {
   id: number;
   bookingId: number | null;
+  visitType: "walk_in" | "appointment";
+  scheduledDate: string | null;
+  scheduledTime: string | null;
+  bookingStatus: ApiBookingStatus | null;
   customerId: number;
   customerName: string;
   serviceId: string;

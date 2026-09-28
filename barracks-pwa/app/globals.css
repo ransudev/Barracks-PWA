@@ -1682,6 +1682,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .queue-section-tabs button { padding: 8px 14px; border: 0; border-radius: 7px; background: transparent; color: var(--text-muted); cursor: pointer; font: inherit; }
 .queue-section-tabs button[aria-selected="true"] { background: var(--surface); color: var(--text); font-weight: 700; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
 .queue-section-tabs button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.queue-visit-type { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 8px; color: var(--text-muted); font-size: 12px; }
 .operational-toolbar { align-items: center; display: flex; justify-content: space-between; gap: 14px; padding: 15px 22px 13px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--surface-raised) 54%, transparent); }
 .operational-toolbar__inputs, .operational-toolbar__meta { align-items: center; display: flex; flex-wrap: wrap; gap: 9px; }
 .operational-toolbar__inputs { min-width: 0; flex: 1 1 auto; flex-wrap: nowrap; }
