@@ -1,5 +1,6 @@
 import type { Pool, PoolClient } from "pg";
 import { createHash } from "node:crypto";
+import { canStartServiceNow } from "@/server/services/booking-availability.service";
 import { BarberOperationalAvailabilityError, getBarberOperationalAvailability, requireBarberOperationalAvailability } from "@/server/services/barber-operational-availability.service";
 import { initialQueueStatus, QueueLifecycleError, transitionQueue, type QueueState, type QueueStatus } from "@/server/services/queue-lifecycle";
 
@@ -97,8 +98,8 @@ export async function findQueueEntry(db: Db, id: number): Promise<QueueRecord | 
   const result = await db.query<QueueRow>(`${queueSelect} WHERE q.id=$1`, [id]);
   return result.rows[0] ? toQueue(result.rows[0]) : null;
 }
-// An assigned, checked-in customer has first claim on this barber. Otherwise
-// offer the oldest unassigned walk-in; appointment status is checked at the source.
+// Preserve ready-entry priority, then scan unassigned walk-ins in FIFO order.
+// A walk-in is only offered when its full service fits the current availability.
 async function selectNextCustomer(db: Db, barberId: number): Promise<QueueRecord | null> {
   const result = await db.query<QueueRow>(
     `${queueSelect} WHERE q.started_at IS NULL AND q.completed_at IS NULL AND (
@@ -106,15 +107,20 @@ async function selectNextCustomer(db: Db, barberId: number): Promise<QueueRecord
          (q.booking_id IS NULL OR (b.status='checked_in' AND b.barber_id=$1)))
        OR (q.status='waiting' AND q.barber_id IS NULL AND q.booking_id IS NULL)
      )
-     ORDER BY CASE WHEN q.status='ready' THEN 0 ELSE 1 END, q.joined_at, q.id LIMIT 1`,
+     ORDER BY CASE WHEN q.booking_id IS NOT NULL THEN 0 WHEN q.status='ready' THEN 1 ELSE 2 END, q.joined_at, q.id`,
     [barberId],
   );
-  const entry = result.rows[0] ? toQueue(result.rows[0]) : null;
-  if (entry) transitionQueue(
-    { status: entry.status, barberId: entry.barberId, startedAt: entry.startedAt, completedAt: entry.completedAt },
-    entry.status === "ready" ? { status: "in_progress" } : { barberId },
-  );
-  return entry;
+  const now = new Date();
+  for (const row of result.rows) {
+    const entry = toQueue(row);
+    if (entry.bookingId === null && !await canStartServiceNow(db, { serviceId: entry.serviceId, barberId }, now)) continue;
+    transitionQueue(
+      { status: entry.status, barberId: entry.barberId, startedAt: entry.startedAt, completedAt: entry.completedAt },
+      entry.status === "ready" ? { status: "in_progress" } : { barberId },
+    );
+    return entry;
+  }
+  return null;
 }
 export async function getNextCustomer(db: Pool, barberId: number): Promise<QueueRecord | null> {
   try {

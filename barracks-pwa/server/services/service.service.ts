@@ -1,4 +1,4 @@
-import type { Pool } from "pg";
+import type { Pool, PoolClient } from "pg";
 import type { ServiceInput, ServiceUpdateInput } from "@/server/schemas/service.schema";
 
 type ServiceRow = { id: string; name: string; description: string; current_price: string; duration_minutes: number | null; active: boolean; created_at: Date; updated_at: Date };
@@ -11,7 +11,7 @@ export async function listServices(db: Pool, activeOnly = false): Promise<Servic
   const result = await db.query<ServiceRow>(`SELECT ${columns} FROM services ${activeOnly ? "WHERE active = TRUE" : ""} ORDER BY name`);
   return result.rows.map(map);
 }
-export async function findServiceById(db: Pool, id: string): Promise<ServiceRecord | null> {
+export async function findServiceById(db: Pool | PoolClient, id: string): Promise<ServiceRecord | null> {
   const result = await db.query<ServiceRow>(`SELECT ${columns} FROM services WHERE id = $1`, [id]);
   return result.rows[0] ? map(result.rows[0]) : null;
 }

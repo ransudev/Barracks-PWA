@@ -1,4 +1,4 @@
-import type { Pool } from "pg";
+import type { Pool, PoolClient } from "pg";
 import type { BarberInput, BarberStaffInput } from "@/server/schemas/sprint.schema";
 
 type BarberRow = {
@@ -84,7 +84,7 @@ export async function listBarberAvailability(db: Pool): Promise<BarberAvailabili
   }));
 }
 
-export async function findBarberById(db: Pool, id: number): Promise<BarberRecord | null> {
+export async function findBarberById(db: Pool | PoolClient, id: number): Promise<BarberRecord | null> {
   const result = await db.query<BarberRow>(`${barberSelect} WHERE id = $1`, [id]);
   return result.rows[0] ? toBarber(result.rows[0]) : null;
 }
