@@ -16,6 +16,16 @@ CREATE TABLE barber_attendance (
 
 CREATE INDEX barber_attendance_date_idx ON barber_attendance(attendance_date DESC, barber_id);
 
+CREATE FUNCTION prevent_attendance_delete() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION 'Attendance records cannot be deleted';
+END;
+$$;
+
+CREATE TRIGGER barber_attendance_no_delete
+  BEFORE DELETE ON barber_attendance
+  FOR EACH ROW EXECUTE FUNCTION prevent_attendance_delete();
+
 CREATE TABLE barber_attendance_corrections (
   id BIGSERIAL PRIMARY KEY,
   attendance_id BIGINT NOT NULL REFERENCES barber_attendance(id) ON DELETE RESTRICT,

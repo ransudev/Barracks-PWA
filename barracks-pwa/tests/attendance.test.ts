@@ -35,6 +35,8 @@ test("daily attendance, clock rules, history filters, and immutable correction e
     const clockedIn = await actOnTodayAttendance(db, barber, actor, { action: "clock_in" });
     assert.equal(clockedIn?.status, "late");
     assert.ok(clockedIn?.clockIn);
+    const today = (await db.query<{ date: string }>("SELECT (clock_timestamp() AT TIME ZONE 'Asia/Manila')::date::text AS date")).rows[0].date;
+    assert.equal(clockedIn?.date, today);
     await assert.rejects(actOnTodayAttendance(db, barber, actor, { action: "clock_in" }), AttendanceConflict);
     const clockedOut = await actOnTodayAttendance(db, barber, actor, { action: "clock_out" });
     assert.ok(clockedOut?.clockOut);
@@ -62,6 +64,7 @@ test("daily attendance, clock rules, history filters, and immutable correction e
     assert.equal((audit[0].newValues as { status: string }).status, "late");
     await assert.rejects(db.query("DELETE FROM barber_attendance_corrections WHERE id=$1", [audit[0].id]), /Attendance corrections are append-only/);
     await assert.rejects(db.query("DELETE FROM barbers WHERE id=$1", [barber]), { code: "23503" });
+    await assert.rejects(db.query("DELETE FROM barber_attendance WHERE barber_id=$1", [absentBarber]), /Attendance records cannot be deleted/);
     assert.equal((await listAttendanceCorrections(db, clockedOut!.id)).length, 2);
   } finally { await cleanup(); }
 });

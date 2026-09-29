@@ -3,7 +3,7 @@ import type { z } from "zod";
 import type { attendanceActionSchema, attendanceCorrectionSchema, attendanceHistorySchema } from "@/server/schemas/attendance.schema";
 
 type AttendanceRow = {
-  id: string | number; barber_id: number; barber_name: string; attendance_date: string | Date;
+  id: string | number; barber_id: number; barber_name: string; attendance_date: string;
   status: "present" | "late" | "absent"; clock_in: Date | string | null; clock_out: Date | string | null;
   recorded_by: number; updated_by: number; created_at: Date | string; updated_at: Date | string;
 };
@@ -17,14 +17,17 @@ function iso(value: Date | string | null): string | null {
 function toAttendance(row: AttendanceRow) {
   return {
     id: Number(row.id), barberId: Number(row.barber_id), barberName: row.barber_name,
-    date: typeof row.attendance_date === "string" ? row.attendance_date.slice(0, 10) : row.attendance_date.toISOString().slice(0, 10),
+    date: row.attendance_date,
     status: row.status, clockIn: iso(row.clock_in), clockOut: iso(row.clock_out),
     recordedBy: Number(row.recorded_by), updatedBy: Number(row.updated_by),
     createdAt: iso(row.created_at)!, updatedAt: iso(row.updated_at)!,
   };
 }
 
-const select = `SELECT a.*, b.first_name || ' ' || b.last_name AS barber_name
+// Keep the Manila calendar date as text; pg parses DATE at server-local midnight.
+const select = `SELECT a.id, a.barber_id, a.attendance_date::text AS attendance_date,
+  a.status, a.clock_in, a.clock_out, a.recorded_by, a.updated_by, a.created_at, a.updated_at,
+  b.first_name || ' ' || b.last_name AS barber_name
   FROM barber_attendance a JOIN barbers b ON b.id = a.barber_id`;
 
 export async function listTodayAttendance(db: Pool) {

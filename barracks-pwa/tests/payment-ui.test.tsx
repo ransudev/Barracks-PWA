@@ -73,10 +73,13 @@ test("Front Desk checkout has no refund or void controls", async () => {
   const page = await renderPayment({ canCheckout: true });
   try {
     page.setHistory([paid]);
+    page.setReceipt({ ...paid, status: "refunded", paymentStatus: "refunded", actions: undefined });
     await act(async () => { Array.from(page.container.querySelectorAll("button")).find((button) => button.textContent === "Refresh")!.click(); });
     await act(async () => { Array.from(page.container.querySelectorAll("button")).find((button) => button.textContent === "View receipt")!.click(); });
     assert.ok(page.container.querySelector(".payment-form-panel"));
     assert.equal(page.container.querySelector(".financial-action-panel"), null);
+    assert.equal(page.container.querySelector(".financial-audit-panel"), null);
+    assert.match(page.container.querySelector(".receipt-paper")?.textContent ?? "", /refunded/);
     assert.equal(page.container.textContent?.includes("Refund full amount"), false);
     assert.equal(page.container.textContent?.includes("Void transaction"), false);
   } finally { await page.cleanup(); }
@@ -184,7 +187,7 @@ test("history sends search, method, date and page filters to the API", async () 
 });
 
 test("refunded receipt and history display the status and saved audit details", async () => {
-  const page = await renderPayment();
+  const page = await renderPayment({ canCheckout: false, canManageFinancialActions: true });
   try {
     const refunded: TransactionRecord = { ...paid, status: "refunded", paymentStatus: "refunded", actions: [{
       id: 7, transactionId: paid.id, action: "refund", amount: 425, reason: "Customer request",

@@ -253,9 +253,9 @@ export function PaymentPage({ onToast, canCheckout = false, canManageFinancialAc
         <Button type="button" disabled={actionProcessing || !actionReason.trim()} onClick={() => void applyAction("refund")}>Refund full amount</Button>
         <Button type="button" disabled={actionProcessing || !actionReason.trim()} onClick={() => void applyAction("void")}>Void transaction</Button>
       </Panel>}
-      <Panel className="financial-audit-panel"><SectionHeading title="Financial audit history" />
+      {canManageFinancialActions && <Panel className="financial-audit-panel"><SectionHeading title="Financial audit history" />
         {!receipt.actions?.length && <p>No refund or void actions recorded.</p>}
         {receipt.actions?.map((action) => <p key={action.id}>{action.action} · {money(action.amount)} · {action.reason} · {action.staffName} · {new Date(action.createdAt).toLocaleString("en-PH", { timeZone: "Asia/Manila" })}</p>)}
-      </Panel></>}
+      </Panel>}</>}
   </>;
 }
