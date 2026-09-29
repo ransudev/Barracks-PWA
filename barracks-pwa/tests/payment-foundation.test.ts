@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createTransactionSchema } from "@/server/schemas/payment.schema";
+import { createTransactionSchema, transactionHistorySchema } from "@/server/schemas/payment.schema";
 import { createDisposableSchema, databaseConfigured } from "./helpers/database";
 import { applyMigrations } from "@/server/db/migrate";
 
@@ -17,9 +17,18 @@ test("payment request accepts one visit and a supported method only", () => {
   ]) assert.equal(createTransactionSchema.safeParse(input).success, false);
 });
 
+test("transaction history filters validate paging, method and Manila date range", () => {
+  assert.deepEqual(transactionHistorySchema.parse({}), { page: 1, pageSize: 20, search: "" });
+  assert.equal(transactionHistorySchema.safeParse({ page: "2", pageSize: "100", search: " Ava ", paymentMethod: "cash", dateFrom: "2026-09-01", dateTo: "2026-09-29" }).success, true);
+  for (const value of [{ page: "0" }, { pageSize: "101" }, { paymentMethod: "crypto" },
+    { dateFrom: "2026-02-30" }, { dateFrom: "2026-09-30", dateTo: "2026-09-01" }]) {
+    assert.equal(transactionHistorySchema.safeParse(value).success, false);
+  }
+});
+
 test("completed bookings and walk-ins create unique snapshotted payments", { skip: !databaseConfigured }, async () => {
   const { db, cleanup } = await createDisposableSchema();
-  const { createTransaction, findTransactionByReference, listEligibleVisits, listTransactions, PaymentServiceError } = await import("@/server/services/payment.service");
+  const { createTransaction, findTransactionByReference, listEligibleVisits, listTransactions, listTransactionHistory, PaymentServiceError } = await import("@/server/services/payment.service");
   const { addWalkIn } = await import("@/server/services/queue.service");
   try {
     const staff = (await db.query<{ id: number }>(
@@ -135,6 +144,19 @@ test("completed bookings and walk-ins create unique snapshotted payments", { ski
     assert.equal(saved?.serviceName, "Original cut");
     assert.equal(saved?.amount, 425);
     assert.equal(saved?.amountReceived, null);
+    const historyBase = { page: 1, pageSize: 1, search: "" };
+    const firstPage = await listTransactionHistory(db, historyBase);
+    assert.equal(firstPage.total, 2);
+    assert.equal(firstPage.totalPages, 2);
+    assert.equal(firstPage.transactions[0].reference, walkInPayment.reference);
+    assert.equal((await listTransactionHistory(db, { ...historyBase, page: 2 })).transactions[0].reference, bookingPayment.reference);
+    const filtered = await listTransactionHistory(db, { ...historyBase, pageSize: 20, search: "ava", paymentMethod: "card" });
+    assert.deepEqual(filtered.transactions.map((item) => [item.reference, item.serviceName, item.total]), [[bookingPayment.reference, "Original cut", 425]]);
+    assert.equal((await listTransactionHistory(db, { ...historyBase, search: "no match" })).total, 0);
+    assert.equal((await listTransactionHistory(db, { ...historyBase, search: bookingPayment.reference.slice(3, 11) })).transactions[0].reference, bookingPayment.reference);
+    const manilaDate = new Date(bookingPayment.createdAt).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+    assert.equal((await listTransactionHistory(db, { ...historyBase, dateFrom: manilaDate, dateTo: manilaDate })).total, 2);
+    assert.equal((await listTransactionHistory(db, { ...historyBase, paymentMethod: "bank_transfer" })).total, 0);
     assert.equal(Number((await db.query<{ count: string }>("SELECT count(*) FROM transaction_payments WHERE transaction_id=$1", [bookingPayment.id])).rows[0].count), 1);
     await assert.rejects(db.query("UPDATE transactions SET payment_method='bitcoin' WHERE id=$1", [bookingPayment.id]), { code: "23514" });
     await assert.rejects(db.query("UPDATE transactions SET payment_method='cash' WHERE id=$1", [bookingPayment.id]), {
@@ -222,6 +244,17 @@ test("exact cash checkout uses the booking snapshot and persists a balanced tend
     await assert.rejects(db.query(
       "UPDATE transaction_payments SET amount_received=400,change_amount=0 WHERE transaction_id=$1", [paid.id],
     ), { code: "23514", constraint: "transaction_payments_cash_balance_check" });
+    const admin = (await db.query<{ id: number }>(
+      `INSERT INTO users(first_name,last_name,email,password_hash,role_id)
+       VALUES('Admin','Cashier','admin-cashier@test.local','hash',(SELECT id FROM roles WHERE name='administrator')) RETURNING id`,
+    )).rows[0].id;
+    const secondBooking = (await db.query<{ id: number }>(
+      `INSERT INTO bookings(customer_id,barber_id,service_id,service_name,service_price,booking_date,booking_time,status)
+       VALUES($1,$2,'barracks-basic','Second cut',300,'2026-09-20','13:00','completed') RETURNING id`,
+      [customer, barber],
+    )).rows[0].id;
+    const adminPayment = await createTransaction(db, { visit: { bookingId: secondBooking }, paymentMethod: "card" }, admin);
+    assert.equal(adminPayment.cashierName, "Admin Cashier");
   } finally {
     await cleanup();
   }

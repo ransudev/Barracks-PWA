@@ -19,3 +19,16 @@ export const createTransactionSchema = z.discriminatedUnion("paymentMethod", [
 export type CreateTransactionInput = z.infer<typeof createTransactionSchema>;
 export type PaymentMethod = z.infer<typeof paymentMethodSchema>;
 export type PaymentStatus = z.infer<typeof paymentStatusSchema>;
+
+const dateSchema = z.iso.date();
+export const transactionHistorySchema = z.object({
+  page: z.coerce.number().int().min(1).max(10000).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  search: z.string().trim().max(100).default(""),
+  paymentMethod: paymentMethodSchema.optional(),
+  dateFrom: dateSchema.optional(),
+  dateTo: dateSchema.optional(),
+}).refine((value) => !value.dateFrom || !value.dateTo || value.dateFrom <= value.dateTo, {
+  message: "End date must be on or after start date", path: ["dateTo"],
+});
+export type TransactionHistoryInput = z.infer<typeof transactionHistorySchema>;

@@ -23,15 +23,18 @@ async function renderPayment() {
   const previousFetch = globalThis.fetch;
   let visits = [booking, walkIn];
   let history: TransactionRecord[] = [];
+  let historyTotal = 0;
   const posts: Record<string, unknown>[] = [];
   const requests: string[] = [];
   let postResponse: Response | null = null;
+  let receiptRecord = paid;
   let releasePost: ((response: Response) => void) | undefined;
   globalThis.fetch = async (input, init) => {
     const path = String(input);
     requests.push(`${init?.method ?? "GET"} ${path}`);
     if (path === "/api/transactions?view=eligible") return Response.json({ success: true, visits });
-    if (path === "/api/transactions?view=history") return Response.json({ success: true, transactions: history });
+    if (path.startsWith("/api/transactions?view=history")) return Response.json({ success: true, transactions: history, total: historyTotal || history.length, totalPages: Math.ceil((historyTotal || history.length) / 20) });
+    if (path.startsWith("/api/transactions?reference=")) return Response.json({ success: true, transaction: receiptRecord });
     if (path === "/api/transactions" && init?.method === "POST") {
       posts.push(JSON.parse(String(init.body)) as Record<string, unknown>);
       if (postResponse) return postResponse;
@@ -45,6 +48,8 @@ async function renderPayment() {
   await act(async () => { root.render(<PaymentPage onToast={() => undefined} />); });
   return { container, posts, requests, setVisits: (next: EligibleVisit[]) => { visits = next; },
     setHistory: (next: TransactionRecord[]) => { history = next; },
+    setHistoryTotal: (next: number) => { historyTotal = next; },
+    setReceipt: (next: TransactionRecord) => { receiptRecord = next; },
     setPostResponse: (response: Response) => { postResponse = response; },
     releasePost: (response: Response) => releasePost?.(response),
     cleanup: async () => { await act(async () => root.unmount()); container.remove(); globalThis.fetch = previousFetch; } };
@@ -66,6 +71,9 @@ const submit = (container: HTMLElement) => Array.from(container.querySelectorAll
 
 test("cash checkout requires sufficient received amount, submits once, and refreshes server history", async () => {
   const page = await renderPayment();
+  const previousPrint = dom.window.print;
+  let printCount = 0;
+  dom.window.print = () => { printCount++; };
   try {
     await choose(page.container, "booking:11");
     assert.match(page.container.textContent ?? "", /Ava Client.*Original cut.*Bea Barber[\s\S]*₱425/);
@@ -84,7 +92,10 @@ test("cash checkout requires sufficient received amount, submits once, and refre
     assert.match(page.container.textContent ?? "", /Payment completed.*TX-TEST[\s\S]*Received: ₱500[\s\S]*Change: ₱75/);
     assert.equal(page.container.querySelectorAll('.transaction-row').length, 1);
     assert.equal(page.requests.filter((request) => request === "GET /api/transactions?view=eligible").length, 2);
-  } finally { await page.cleanup(); }
+    await act(async () => { Array.from(page.container.querySelectorAll("button")).find((button) => button.textContent === "Print Receipt")!.click(); });
+    assert.ok(page.requests.includes("GET /api/transactions?reference=TX-TEST"));
+    assert.equal(printCount, 1);
+  } finally { dom.window.print = previousPrint; await page.cleanup(); }
 });
 
 test("non-cash checkout omits cash fields and shows duplicate conflict", async () => {
@@ -98,5 +109,50 @@ test("non-cash checkout omits cash fields and shows duplicate conflict", async (
     assert.deepEqual(page.posts[0], { visit: { queueEntryId: 12 }, paymentMethod: "e_wallet" });
     assert.match(page.container.textContent ?? "", /A transaction already exists for this visit/);
     assert.equal(page.requests.filter((request) => request === "GET /api/transactions?view=eligible").length, 2);
+  } finally { await page.cleanup(); }
+});
+
+test("receipt reopens from the server and prints persisted snapshots", async () => {
+  const page = await renderPayment();
+  const previousPrint = dom.window.print;
+  let printCount = 0;
+  dom.window.print = () => { printCount++; };
+  try {
+    page.setHistory([paid]);
+    const refresh = Array.from(page.container.querySelectorAll("button")).find((button) => button.textContent === "Refresh")!;
+    await act(async () => { refresh.click(); });
+    const snapshot = { ...paid, customerName: "Saved Customer", serviceName: "Saved Service", barberName: "Saved Barber", cashierName: "Saved Cashier", subtotal: 425, total: 425 };
+    page.setReceipt(snapshot);
+    await act(async () => { Array.from(page.container.querySelectorAll("button")).find((button) => button.textContent === "View receipt")!.click(); });
+    const receipt = page.container.querySelector(".receipt-paper")!;
+    assert.match(receipt.textContent ?? "", /TX-TEST[\s\S]*Saved Customer[\s\S]*Saved Service[\s\S]*Saved Barber[\s\S]*Saved Cashier[\s\S]*Subtotal₱425[\s\S]*Total₱425[\s\S]*Amount received₱500[\s\S]*Change₱75[\s\S]*completed/);
+    assert.ok(page.requests.includes("GET /api/transactions?reference=TX-TEST"));
+    await act(async () => { Array.from(page.container.querySelectorAll("button")).find((button) => button.textContent === "Print Receipt")!.click(); });
+    assert.equal(printCount, 1);
+    await act(async () => { Array.from(page.container.querySelectorAll("button")).find((button) => button.textContent === "Close receipt")!.click(); });
+    assert.equal(page.container.querySelector(".receipt-paper"), null);
+  } finally { dom.window.print = previousPrint; await page.cleanup(); }
+});
+
+test("history sends search, method, date and page filters to the API", async () => {
+  const page = await renderPayment();
+  try {
+    page.setHistory([paid]); page.setHistoryTotal(25);
+    const refresh = Array.from(page.container.querySelectorAll("button")).find((button) => button.textContent === "Refresh")!;
+    await act(async () => { refresh.click(); });
+    const search = page.container.querySelector('.transaction-filters input:not([type="date"])') as HTMLInputElement;
+    await act(async () => { setInputValue(search, "Ava"); });
+    await act(async () => { page.container.querySelector(".transaction-filters")!.dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true })); });
+    const method = page.container.querySelector('.transaction-filters select') as HTMLSelectElement;
+    await act(async () => { method.value = "cash"; method.dispatchEvent(new dom.window.Event("change", { bubbles: true })); });
+    const [from, to] = page.container.querySelectorAll('.transaction-filters input[type="date"]');
+    await act(async () => { setInputValue(from as HTMLInputElement, "2026-09-01"); setInputValue(to as HTMLInputElement, "2026-09-29"); });
+    await act(async () => { Array.from(page.container.querySelectorAll("button")).find((button) => button.textContent === "Next")!.click(); });
+    const last = page.requests.at(-1)!;
+    assert.match(last, /view=history&page=2&pageSize=20/);
+    assert.match(last, /search=Ava/);
+    assert.match(last, /paymentMethod=cash/);
+    assert.match(last, /dateFrom=2026-09-01/);
+    assert.match(last, /dateTo=2026-09-29/);
   } finally { await page.cleanup(); }
 });

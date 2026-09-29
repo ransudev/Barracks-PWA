@@ -1,5 +1,5 @@
 import type { Pool } from "pg";
-import type { CreateTransactionInput, PaymentMethod, PaymentStatus } from "@/server/schemas/payment.schema";
+import type { CreateTransactionInput, PaymentMethod, PaymentStatus, TransactionHistoryInput } from "@/server/schemas/payment.schema";
 
 type VisitRow = {
   booking_id: number | null; queue_entry_id: number | null; customer_id: number;
@@ -63,6 +63,41 @@ export async function listTransactions(db: Pool): Promise<TransactionRecord[]> {
      ORDER BY t.created_at DESC,t.id DESC LIMIT 100`,
   );
   return result.rows.map(toTransaction);
+}
+
+export async function listTransactionHistory(db: Pool, filters: TransactionHistoryInput) {
+  const conditions: string[] = [];
+  const values: (string | number)[] = [];
+  if (filters.search) {
+    values.push(filters.search);
+    conditions.push(`(strpos(lower(t.reference),lower($${values.length})) > 0 OR strpos(lower(t.customer_name),lower($${values.length})) > 0)`);
+  }
+  if (filters.paymentMethod) {
+    values.push(filters.paymentMethod);
+    conditions.push(`t.payment_method=$${values.length}`);
+  }
+  if (filters.dateFrom) {
+    values.push(`${filters.dateFrom}T00:00:00+08:00`);
+    conditions.push(`t.created_at >= $${values.length}::timestamptz`);
+  }
+  if (filters.dateTo) {
+    const nextDay = new Date(`${filters.dateTo}T00:00:00Z`);
+    nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+    values.push(`${nextDay.toISOString().slice(0, 10)}T00:00:00+08:00`);
+    conditions.push(`t.created_at < $${values.length}::timestamptz`);
+  }
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const count = await db.query<{ count: string }>(`SELECT count(*) FROM transactions t ${where}`, values);
+  const total = Number(count.rows[0].count);
+  const page = filters.page;
+  const pageSize = filters.pageSize;
+  const result = await db.query<TransactionRow>(
+    `SELECT t.*,p.amount_received,p.change_amount FROM transactions t
+     JOIN transaction_payments p ON p.transaction_id=t.id ${where}
+     ORDER BY t.created_at DESC,t.id DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
+    [...values, pageSize, (page - 1) * pageSize],
+  );
+  return { transactions: result.rows.map(toTransaction), total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
 }
 
 export async function listEligibleVisits(db: Pool): Promise<EligibleVisit[]> {

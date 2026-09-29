@@ -15,10 +15,52 @@ const methods: { id: PaymentMethod; label: string }[] = [
 const visitKey = (visit: EligibleVisit) => `${visit.visitType}:${visit.visitRecordId}`;
 const methodLabel = (method: string) => methods.find((item) => item.id === method)?.label ?? method;
 const money = (amount: number) => formatCurrency(amount);
+const historyUrl = (page: number, search: string, paymentMethod: string, dateFrom: string, dateTo: string) => {
+  const params = new URLSearchParams({ view: "history", page: String(page), pageSize: "20" });
+  if (search.trim()) params.set("search", search.trim());
+  if (paymentMethod) params.set("paymentMethod", paymentMethod);
+  if (dateFrom) params.set("dateFrom", dateFrom);
+  if (dateTo) params.set("dateTo", dateTo);
+  return `/api/transactions?${params}`;
+};
+
+function Receipt({ transaction, onClose }: { transaction: TransactionRecord; onClose: () => void }) {
+  return <section className="receipt-view" aria-label="Receipt">
+    <div className="receipt-actions"><Button type="button" onClick={() => window.print()}>Print Receipt</Button><Button type="button" variant="ghost" onClick={onClose}>Close receipt</Button></div>
+    <div className="receipt-paper">
+      <h2>Barracks</h2><p>Payment receipt</p>
+      <dl>
+        <dt>Reference</dt><dd>{transaction.reference}</dd>
+        <dt>Date/time</dt><dd>{new Date(transaction.createdAt).toLocaleString("en-PH", { timeZone: "Asia/Manila" })}</dd>
+        <dt>Customer</dt><dd>{transaction.customerName}</dd>
+        <dt>Service</dt><dd>{transaction.serviceName}</dd>
+        <dt>Barber</dt><dd>{transaction.barberName}</dd>
+        <dt>Cashier</dt><dd>{transaction.cashierName ?? "—"}</dd>
+        <dt>Subtotal</dt><dd>{money(transaction.subtotal)}</dd>
+        <dt>Total</dt><dd>{money(transaction.total)}</dd>
+        <dt>Payment method</dt><dd>{methodLabel(transaction.paymentMethod)}</dd>
+        {transaction.paymentMethod === "cash" && <><dt>Amount received</dt><dd>{transaction.amountReceived === null ? "—" : money(transaction.amountReceived)}</dd><dt>Change</dt><dd>{transaction.change === null ? "—" : money(transaction.change)}</dd></>}
+        <dt>Payment status</dt><dd>{transaction.paymentStatus}</dd>
+      </dl>
+    </div>
+  </section>;
+}
 
 export function PaymentPage({ onToast }: { onToast: (message: string) => void }) {
   const [visits, setVisits] = useState<EligibleVisit[]>([]);
   const [history, setHistory] = useState<TransactionRecord[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [methodFilter, setMethodFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [receipt, setReceipt] = useState<TransactionRecord | null>(null);
+  const [receiptError, setReceiptError] = useState("");
+  const [receiptLoading, setReceiptLoading] = useState(false);
+  const printWhenReady = useRef(false);
   const [selectedKey, setSelectedKey] = useState("");
   const [method, setMethod] = useState<PaymentMethod>("cash");
   const [cashReceived, setCashReceived] = useState("");
@@ -36,11 +78,11 @@ export function PaymentPage({ onToast }: { onToast: (message: string) => void })
     try {
       const [visitsResponse, historyResponse] = await Promise.all([
         apiRequest("/api/transactions?view=eligible", { cache: "no-store" }),
-        apiRequest("/api/transactions?view=history", { cache: "no-store" }),
+        apiRequest(historyUrl(page, search, methodFilter, dateFrom, dateTo), { cache: "no-store" }),
       ]);
       const [visitsBody, historyBody] = await Promise.all([
         readApiBody<{ success: boolean; visits?: EligibleVisit[]; message?: string }>(visitsResponse),
-        readApiBody<{ success: boolean; transactions?: TransactionRecord[]; message?: string }>(historyResponse),
+        readApiBody<{ success: boolean; transactions?: TransactionRecord[]; total?: number; totalPages?: number; message?: string }>(historyResponse),
       ]);
       if (!visitsResponse.ok || !visitsBody?.success || !visitsBody.visits ||
           !historyResponse.ok || !historyBody?.success || !historyBody.transactions) {
@@ -49,6 +91,8 @@ export function PaymentPage({ onToast }: { onToast: (message: string) => void })
       if (version !== requestVersion.current) return;
       setVisits(visitsBody.visits);
       setHistory(historyBody.transactions);
+      setTotal(historyBody.total ?? historyBody.transactions.length);
+      setTotalPages(historyBody.totalPages ?? (historyBody.transactions.length ? 1 : 0));
       setSelectedKey((current) => visitsBody.visits!.some((visit) => visitKey(visit) === current) ? current : "");
       setLoadError("");
     } catch (error) {
@@ -56,7 +100,7 @@ export function PaymentPage({ onToast }: { onToast: (message: string) => void })
     } finally {
       if (version === requestVersion.current) setLoading(false);
     }
-  }, []);
+  }, [page, search, methodFilter, dateFrom, dateTo]);
 
   useEffect(() => {
     const versionRef = requestVersion;
@@ -71,6 +115,29 @@ export function PaymentPage({ onToast }: { onToast: (message: string) => void })
     /^\d+(?:\.\d{1,2})?$/.test(cashReceived) && received <= 9_999_999_999.99;
   const sufficient = selected && cashValid && Math.round(received! * 100) >= Math.round(selected.total * 100);
   const change = sufficient ? (Math.round(received! * 100) - Math.round(selected!.total * 100)) / 100 : null;
+
+  useEffect(() => {
+    if (receipt && printWhenReady.current) {
+      printWhenReady.current = false;
+      window.print();
+    }
+  }, [receipt]);
+
+  async function openReceipt(reference: string, print = false) {
+    setReceipt(null);
+    setReceiptError("");
+    printWhenReady.current = false;
+    setReceiptLoading(true);
+    try {
+      const response = await apiRequest(`/api/transactions?reference=${encodeURIComponent(reference)}`, { cache: "no-store" });
+      const body = await readApiBody<{ success: boolean; transaction?: TransactionRecord; message?: string }>(response);
+      if (!response.ok || !body?.success || !body.transaction) throw new Error(body?.message ?? "Unable to load receipt");
+      printWhenReady.current = print;
+      setReceipt(body.transaction);
+    } catch (error) {
+      setReceiptError(error instanceof Error ? error.message : "Unable to load receipt");
+    } finally { setReceiptLoading(false); }
+  }
 
   async function checkout() {
     if (submitting.current || !selected || (method === "cash" && !sufficient)) return;
@@ -138,14 +205,24 @@ export function PaymentPage({ onToast }: { onToast: (message: string) => void })
       </Panel>
       <Panel className="recent-transactions-panel">
         <SectionHeading title="Transaction history" />
-        <p>Most recent 100 transactions</p>
-        {!loading && !history.length && <EmptyState title="No transactions yet" description="Completed payments will appear here." />}
+        <form className="transaction-filters" onSubmit={(event) => { event.preventDefault(); setPage(1); setSearch(searchInput); }}>
+          <TextField label="Reference or customer" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} />
+          <Button type="submit">Search</Button>
+          <SelectField label="Payment method" value={methodFilter} onChange={(event) => { setPage(1); setMethodFilter(event.target.value); }}><option value="">All methods</option>{methods.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</SelectField>
+          <TextField label="From date" type="date" value={dateFrom} onChange={(event) => { setPage(1); setDateFrom(event.target.value); }} />
+          <TextField label="To date" type="date" value={dateTo} onChange={(event) => { setPage(1); setDateTo(event.target.value); }} />
+        </form>
+        {!loading && !history.length && <EmptyState title="No transactions found" description="Try another search or date range." />}
         <div className="transaction-list">{history.map((transaction) => <div className="transaction-row" key={transaction.id}>
           <span><strong>{transaction.customerName}</strong><small>{transaction.serviceName} · {transaction.barberName} · {methodLabel(transaction.paymentMethod)}</small><small>{transaction.reference}</small></span>
-          <span><strong>{money(transaction.total)}</strong><small>{new Date(transaction.createdAt).toLocaleString("en-PH", { timeZone: "Asia/Manila" })}</small></span>
+          <span><strong>{money(transaction.total)}</strong><small>{new Date(transaction.createdAt).toLocaleString("en-PH", { timeZone: "Asia/Manila" })}</small><Button type="button" variant="ghost" onClick={() => void openReceipt(transaction.reference)}>View receipt</Button></span>
         </div>)}</div>
+        <div className="transaction-pages"><span>{total} transactions · Page {page} of {Math.max(1, totalPages)}</span><Button type="button" variant="ghost" disabled={page <= 1 || loading} onClick={() => setPage(page - 1)}>Previous</Button><Button type="button" variant="ghost" disabled={page >= totalPages || loading} onClick={() => setPage(page + 1)}>Next</Button></div>
       </Panel>
     </div>
-    {completed && <Panel><SectionHeading title="Payment completed" /><p>Reference: <strong>{completed.reference}</strong></p><p>{completed.customerName} · {completed.serviceName} · {completed.barberName}</p><p>Service price: {money(completed.subtotal)} · Total: {money(completed.total)} · {methodLabel(completed.paymentMethod)}</p>{completed.paymentMethod === "cash" && <p>Received: {money(completed.amountReceived ?? 0)} · Change: {money(completed.change ?? 0)}</p>}</Panel>}
+    {completed && <Panel><SectionHeading title="Payment completed" /><p>Reference: <strong>{completed.reference}</strong></p><p>{completed.customerName} · {completed.serviceName} · {completed.barberName}</p><p>Service price: {money(completed.subtotal)} · Total: {money(completed.total)} · {methodLabel(completed.paymentMethod)}</p>{completed.paymentMethod === "cash" && <p>Received: {money(completed.amountReceived ?? 0)} · Change: {money(completed.change ?? 0)}</p>}<Button type="button" onClick={() => void openReceipt(completed.reference, true)}>Print Receipt</Button></Panel>}
+    {receiptLoading && <p>Loading receipt…</p>}
+    {receiptError && <p role="alert">{receiptError}</p>}
+    {receipt && <Receipt transaction={receipt} onClose={() => setReceipt(null)} />}
   </>;
 }

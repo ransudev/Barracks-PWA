@@ -1,8 +1,8 @@
 import { requireStaffUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
-import { createTransactionSchema } from "@/server/schemas/payment.schema";
+import { createTransactionSchema, transactionHistorySchema } from "@/server/schemas/payment.schema";
 import { formatValidationErrors } from "@/server/schemas/user.schema";
-import { createTransaction, findTransactionByReference, listEligibleVisits, listTransactions, PaymentServiceError } from "@/server/services/payment.service";
+import { createTransaction, findTransactionByReference, listEligibleVisits, listTransactionHistory, PaymentServiceError } from "@/server/services/payment.service";
 
 export const runtime = "nodejs";
 
@@ -12,12 +12,18 @@ export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const reference = params.get("reference");
   const view = params.get("view");
-  if ((reference && view) || (view && view !== "eligible" && view !== "history") || (!view && (!reference || reference.length > 64))) {
+  if ((reference && view) || (view && view !== "eligible" && view !== "history") || (!view && (!reference || reference.length > 64)) ||
+      (view !== "history" && ["page", "pageSize", "search", "paymentMethod", "dateFrom", "dateTo"].some((key) => params.has(key)))) {
     return Response.json({ success: false, message: "Valid transaction reference or view required" }, { status: 400 });
   }
+  const parsed = view === "history" ? transactionHistorySchema.safeParse(Object.fromEntries(
+    ["page", "pageSize", "search", "paymentMethod", "dateFrom", "dateTo"]
+      .filter((key) => params.has(key)).map((key) => [key, params.get(key)]),
+  )) : null;
+  if (parsed && !parsed.success) return Response.json({ success: false, message: "Invalid history filters" }, { status: 400 });
   try {
     if (view === "eligible") return Response.json({ success: true, visits: await listEligibleVisits(pool) });
-    if (view === "history") return Response.json({ success: true, transactions: await listTransactions(pool) });
+    if (parsed?.success) return Response.json({ success: true, ...await listTransactionHistory(pool, parsed.data) });
     const transaction = await findTransactionByReference(pool, reference!);
     return transaction
       ? Response.json({ success: true, transaction })
