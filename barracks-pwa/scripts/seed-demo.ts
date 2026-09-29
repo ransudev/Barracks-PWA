@@ -393,9 +393,17 @@ async function seedTransactions(client: DatabaseClient, bookings: Map<string, nu
   if (!completedBooking || !bookingId || !customerId || !barberId) throw new Error("Unable to resolve demo transaction");
   for (const transaction of demoTransactions) {
     await client.query(
-      `INSERT INTO transactions (customer_id,booking_id,barber_id,service_id,amount,payment_method,status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      `INSERT INTO transactions (customer_id,booking_id,visit_type,visit_record_id,barber_id,service_id,amount,payment_method,status,customer_name,barber_name,service_name)
+       SELECT $1,$2,'booking',$2,$3,$4,$5,$6,$7,
+         concat_ws(' ',COALESCE(u.first_name,c.first_name),COALESCE(u.last_name,c.last_name)),
+         concat_ws(' ',br.first_name,br.last_name),s.name
+       FROM customers c LEFT JOIN users u ON u.id=c.user_id
+       JOIN barbers br ON br.id=$3 JOIN services s ON s.id=$4 WHERE c.id=$1`,
       [customerId, bookingId, barberId, completedBooking.serviceId, completedBooking.servicePrice, transaction.paymentMethod, transaction.status],
+    );
+    await client.query(
+      `INSERT INTO transaction_payments(transaction_id,payment_method,amount,status)
+       SELECT id,payment_method,amount,status FROM transactions WHERE booking_id=$1`, [bookingId],
     );
   }
 }
