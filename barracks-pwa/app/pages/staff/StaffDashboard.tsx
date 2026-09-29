@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { ApiBarber, ApiBooking, ApiInventoryItem, ApiQueueEntry } from "@/app/lib/api";
+import type { ApiBarber, ApiBooking, ApiQueueEntry } from "@/app/lib/api";
 import { apiRequest, readApiBody } from "@/app/lib/api";
 import type { ViewId } from "@/app/types/domain";
 import { createInitials, dateInputValue, formatCurrency } from "@/app/utils/format";
@@ -47,7 +47,6 @@ export function StaffDashboard({
 }) {
   const [barbers, setBarbers] = useState<ApiBarber[]>([]);
   const [bookings, setBookings] = useState<ApiBooking[]>([]);
-  const [inventory, setInventory] = useState<ApiInventoryItem[]>([]);
   const [queue, setQueue] = useState<ApiQueueEntry[]>([]);
   const [queueAsOf, setQueueAsOf] = useState(0);
   const [queueLoading, setQueueLoading] = useState(true);
@@ -60,21 +59,17 @@ export function StaffDashboard({
 
     async function load() {
       try {
-        const [barberResponse, bookingResponse, inventoryResponse] = await Promise.all([
+        const [barberResponse, bookingResponse] = await Promise.all([
           apiRequest("/api/barbers"),
           apiRequest("/api/bookings"),
-          apiRequest("/api/inventory"),
         ]);
         const barberBody = await readApiBody<{ success: boolean; barbers?: ApiBarber[]; message?: string }>(barberResponse);
         const bookingBody = await readApiBody<{ success: boolean; bookings?: ApiBooking[]; message?: string }>(bookingResponse);
-        const inventoryBody = await readApiBody<{ success: boolean; items?: ApiInventoryItem[]; message?: string }>(inventoryResponse);
         if (!barberResponse.ok || !barberBody?.success || !barberBody.barbers) throw new Error(barberBody?.message ?? "Unable to load barbers");
         if (!bookingResponse.ok || !bookingBody?.success) throw new Error(bookingBody?.message ?? "Unable to load bookings");
-        if (!inventoryResponse.ok || !inventoryBody?.success) throw new Error(inventoryBody?.message ?? "Unable to load inventory");
         if (cancelled) return;
         setBarbers(barberBody.barbers);
         setBookings(bookingBody.bookings ?? []);
-        setInventory(inventoryBody.items ?? []);
       } catch (error) {
         if (!cancelled) {
           const message = error instanceof Error ? error.message : "Unable to load dashboard";
@@ -116,17 +111,16 @@ export function StaffDashboard({
     [bookings, today],
   );
   const activeBarbers = barbers.filter((barber) => barber.status !== "unavailable").length;
-  const lowStockCount = inventory.filter((item) => item.quantity <= item.minimumStock).length;
   const activeQueue = queue.filter((entry) => ["waiting", "ready", "in_progress"].includes(entry.status));
 
   return (
     <div className="staff-dashboard">
-      <PageHeader title="Dashboard" description="Overview of today’s Front Desk operations" action={<Button icon="scissors" onClick={() => go("barbers")}>Manage roster</Button>} />
+      <PageHeader title="Dashboard" description="Overview of today’s Front Desk operations" action={<Button icon="scissors" onClick={() => go("barbers")}>View barber floor</Button>} />
       <div className="metrics-grid metrics-grid--four">
         <MetricCard label="Customers in queue" value={queueLoading || queueError ? "—" : String(activeQueue.length)} change={queueError ? "Unable to load queue" : undefined} changeTone="warning" icon="queue" accent="blue" />
         <MetricCard label="Today’s bookings" value={loading ? "—" : String(todayBookings.length)} icon="calendar" accent="amber" />
         <MetricCard label="Active barbers" value={loading ? "—" : String(activeBarbers)} icon="scissors" accent="green" />
-        <MetricCard label="Stock alerts" value={loading ? "—" : String(lowStockCount)} change={lowStockCount ? "Needs attention" : undefined} changeTone="warning" icon="box" accent="red" />
+        <MetricCard label="Ready to serve" value={queueLoading || queueError ? "—" : String(activeQueue.filter((entry) => entry.status === "ready").length)} icon="check" accent="violet" />
       </div>
 
       <div className="quick-actions" aria-label="Dashboard quick actions">
@@ -140,9 +134,9 @@ export function StaffDashboard({
           <span><strong>New booking</strong><small>Reserve a time for a customer</small></span>
           <Icon name="arrowRight" size={15} />
         </button>
-        <button type="button" onClick={() => go("inventory")}>
-          <span className="quick-actions__icon quick-actions__icon--red"><Icon name="box" size={17} /></span>
-          <span><strong>Review inventory</strong><small>{lowStockCount ? `${lowStockCount} item${lowStockCount === 1 ? "" : "s"} need attention` : "Check current stock levels"}</small></span>
+        <button type="button" onClick={() => go("queue")}>
+          <span className="quick-actions__icon quick-actions__icon--red"><Icon name="queue" size={17} /></span>
+          <span><strong>Open queue</strong><small>Assign barbers and move visits forward</small></span>
           <Icon name="arrowRight" size={15} />
         </button>
       </div>
@@ -207,7 +201,7 @@ export function StaffDashboard({
               );
             })
           ) : (
-            <EmptyState icon="scissors" title="No barber profiles" description="Add barber records from the roster to populate this overview." />
+            <EmptyState icon="scissors" title="No barber profiles" description="Barbers will appear here when the roster is set up." />
           )}
         </div>
       </Panel>

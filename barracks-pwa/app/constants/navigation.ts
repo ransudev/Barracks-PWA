@@ -1,16 +1,13 @@
 import type { IconName } from "@/app/components/ui/icons";
 import type { NavigationItem, ViewId } from "@/app/types/domain";
 
-export const staffNavigation: Array<NavigationItem & { icon: IconName }> = [
+export const frontDeskNavigation: Array<NavigationItem & { icon: IconName }> = [
   { id: "staff-dashboard", label: "Dashboard", icon: "home" },
   { id: "queue", label: "Queue", icon: "queue" },
   { id: "bookings", label: "Bookings", icon: "calendar" },
   { id: "payments", label: "Payments", icon: "creditCard" },
   { id: "customers", label: "Customers", icon: "users" },
-  { id: "barbers", label: "Barbers", icon: "scissors" },
-  { id: "inventory", label: "Inventory", icon: "box" },
-  { id: "staff-suppliers", label: "Suppliers", icon: "shoppingBag" },
-  { id: "restocks", label: "Restocks", icon: "stockIn" },
+  { id: "barbers", label: "Barber Floor", icon: "scissors" },
 ];
 
 const managementNavigation: Array<NavigationItem & { icon: IconName }> = [
@@ -21,7 +18,7 @@ const managementNavigation: Array<NavigationItem & { icon: IconName }> = [
   { id: "admin-suppliers", label: "Suppliers", icon: "shoppingBag" },
   { id: "admin-restocks", label: "Restocks", icon: "stockIn" },
   { id: "admin-reports", label: "Reports", icon: "report" },
-  { id: "payments", label: "Payments", icon: "creditCard" },
+  { id: "payments", label: "Transactions", icon: "creditCard" },
   { id: "admin-inventory", label: "Inventory", icon: "box" },
   { id: "admin-services", label: "Services", icon: "comb" },
 ];
@@ -41,14 +38,14 @@ export const viewAccessGroups: Record<ViewId, ViewAccessGroup> = {
   "customer-booking": "customer",
   "supplier-dashboard": "supplier",
   "staff-dashboard": "front_desk",
-  queue: "staff",
-  bookings: "staff",
+  queue: "front_desk",
+  bookings: "front_desk",
   payments: "staff",
-  customers: "staff",
-  barbers: "staff",
-  inventory: "staff",
-  "staff-suppliers": "staff",
-  restocks: "staff",
+  customers: "front_desk",
+  barbers: "front_desk",
+  inventory: "management",
+  "staff-suppliers": "management",
+  restocks: "management",
   "admin-dashboard": "management",
   "staff-management": "management",
   "admin-customers": "management",

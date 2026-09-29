@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { apiRequest, readApiBody, type ApiRole, type ApiUser } from "@/app/lib/api";
-import { canChangeStaffLifecycle, canCreateStaffUser, canDeactivateStaffUser, canUpdateStaffUser, roleOptions } from "@/app/constants/roles";
+import { canChangeStaffLifecycle, canCreateStaffUser, canDeactivateStaffUser, canUpdateStaffUser, canViewStaffUser, roleOptions } from "@/app/constants/roles";
 import { createInitials } from "@/app/utils/format";
 import { Avatar, Badge, Button, ConfirmDialog, EmptyState, MetricCard, Modal, PageHeader, Panel, SelectField, TextField } from "@/app/components/ui";
 import { Icon } from "@/app/components/ui/icons";
@@ -39,6 +39,8 @@ export function StaffManagement({ onToast, currentUserId, currentUserRole }: { o
   const [busy, setBusy] = useState(false);
 
   const availableRoleOptions = useMemo(() => roleOptions.filter((option) => canCreateStaffUser(currentUserRole, option.value)), [currentUserRole]);
+  const visibleRoleOptions = useMemo(() => roleOptions.filter((option) => canViewStaffUser(currentUserRole, option.value)), [currentUserRole]);
+  const managesFrontDeskOnly = !canCreateStaffUser(currentUserRole, "manager");
   const canCreateAccounts = availableRoleOptions.length > 0;
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -46,7 +48,7 @@ export function StaffManagement({ onToast, currentUserId, currentUserRole }: { o
       const response = await apiRequest("/api/users", { cache: "no-store" });
       const body = await readApiBody<{ success: boolean; users?: ApiUser[]; message?: string }>(response);
       if (!response.ok || !body?.success || !body.users) throw new Error(body?.message ?? "Unable to load user accounts");
-      setItems(body.users);
+      setItems(body.users.filter((user) => canViewStaffUser(currentUserRole, user.role)));
       setLoadError("");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to load user accounts";
@@ -55,7 +57,7 @@ export function StaffManagement({ onToast, currentUserId, currentUserRole }: { o
     } finally {
       setLoading(false);
     }
-  }, [onToast]);
+  }, [currentUserRole, onToast]);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => { void loadUsers(); });
@@ -195,7 +197,7 @@ export function StaffManagement({ onToast, currentUserId, currentUserRole }: { o
   }
 
   return <div className="operational-workspace">
-    <PageHeader title="User management" description="Manage identity, access, and account lifecycle from one focused roster." action={<><ViewToggle view={view} onChange={setView} label="Choose staff view" />{canCreateAccounts && <Button icon="userPlus" onClick={openCreate}>Create account</Button>}</>} />
+    <PageHeader title={managesFrontDeskOnly ? "Front Desk accounts" : "User management"} description={managesFrontDeskOnly ? "Manage Front Desk identity, access, and account lifecycle." : "Manage identity, access, and account lifecycle from one focused roster."} action={<><ViewToggle view={view} onChange={setView} label="Choose staff view" />{canCreateAccounts && <Button icon="userPlus" onClick={openCreate}>Create account</Button>}</>} />
     <div className="metrics-grid metrics-grid--four">
       <MetricCard label="Total accounts" value={String(items.length)} icon="users" accent="blue" />
       <MetricCard label="Active & verified" value={String(activeCount)} icon="checkCircle" accent="green" />
@@ -204,7 +206,7 @@ export function StaffManagement({ onToast, currentUserId, currentUserRole }: { o
     </div>
     <Panel className="operational-panel">
       <div className="inventory-catalog-head"><div><span className="inventory-kicker">Access roster</span><h2>Staff accounts</h2><p>Keep every sign-in identity legible and safe to change.</p></div><div className="inventory-catalog-count"><strong>{visible.length}</strong><span>visible</span></div></div>
-      <FilterToolbar search={search} onSearchChange={setSearch} placeholder="Search accounts" filters={<><SelectField value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as "all" | ApiRole)} aria-label="Filter accounts by role"><option value="all">All roles</option>{roleOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</SelectField><SelectField value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as "all" | AccountStatus)} aria-label="Filter accounts by status"><option value="all">All statuses</option><option value="active">Active</option><option value="pending">Pending verification</option><option value="blocked">Blocked</option></SelectField></>} resultCount={visible.length} />
+      <FilterToolbar search={search} onSearchChange={setSearch} placeholder="Search accounts" filters={<><SelectField value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as "all" | ApiRole)} aria-label="Filter accounts by role"><option value="all">All roles</option>{visibleRoleOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</SelectField><SelectField value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as "all" | AccountStatus)} aria-label="Filter accounts by status"><option value="all">All statuses</option><option value="active">Active</option><option value="pending">Pending verification</option><option value="blocked">Blocked</option></SelectField></>} resultCount={visible.length} />
       {loading ? <div className="operational-loading" role="status">Loading user accounts…</div> : loadError ? <div className="operational-loading" role="alert">{loadError}</div> : !visible.length ? <EmptyState icon="users" title="No accounts found" description="Try another search or filter, or create a new staff account." action={canCreateAccounts ? <Button size="sm" icon="userPlus" onClick={openCreate}>Create account</Button> : undefined} /> : view === "cards" ? <div className="operational-card-grid">{visible.map((user) => { const status = accountStatus(user); return <RecordCard key={user.id} onOpen={() => openDetails(user)} ariaLabel={`Open ${displayName(user)}`}><div className="operational-card__header"><div className="operational-card__identity"><Avatar initials={createInitials(displayName(user))} tone={user.role === "administrator" ? "violet" : "blue"} size="md" /><div><strong>{displayName(user)}</strong><small>{roleLabel(user.role)}</small></div></div><Badge tone={statusTone(status)}>{accountStatusLabel(status)}</Badge></div><p className="operational-card__note">{user.email}</p><div className="operational-card__facts"><div><span>Verification</span><strong>{user.isVerified ? "Verified" : "Unverified"}</strong></div><div><span>Joined</span><strong>{new Date(user.createdAt).toLocaleDateString(undefined, { month: "short", year: "numeric" })}</strong></div></div></RecordCard>; })}</div> : <ResponsiveTable headers={["Name", "Role", "Email", "Access", "Joined", "Actions"]}>{visible.map((user) => { const status = accountStatus(user); const canEdit = canEditUser(user); const canDeactivate = canDeactivateUser(user); return <tr key={user.id} tabIndex={0} onClick={() => openDetails(user)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openDetails(user); } }}><td><span className="table-person"><Avatar initials={createInitials(displayName(user))} tone={user.role === "administrator" ? "violet" : "blue"} size="sm" /><span><strong>{displayName(user)}</strong><small>{user.email}</small></span></span></td><td><Badge tone={user.role === "administrator" ? "purple" : "neutral"}>{roleLabel(user.role)}</Badge></td><td>{user.email}</td><td><Badge tone={statusTone(status)}>{accountStatusLabel(status)}</Badge></td><td>{new Date(user.createdAt).toLocaleDateString(undefined, { month: "short", year: "numeric" })}</td><td>{(canEdit || canDeactivate) && <span className="row-actions" onClick={(event) => event.stopPropagation()}>{canEdit && <button className="row-action row-action--icon" type="button" onClick={() => openEdit(user)} aria-label={`Edit ${displayName(user)}`} title={`Edit ${displayName(user)}`}><Icon name="edit" size={16} /></button>}{canDeactivate && <button className="row-action row-action--icon row-action--danger" type="button" onClick={() => setPendingDelete(user)} aria-label={`Deactivate ${displayName(user)}`} title={`Deactivate ${displayName(user)}`}><Icon name="trash" size={16} /></button>}</span>}</td></tr>; })}</ResponsiveTable>}
     </Panel>
     <Modal open={createOpen} title="Create user account" onClose={() => !submitting && setCreateOpen(false)}>{userForm()}</Modal>

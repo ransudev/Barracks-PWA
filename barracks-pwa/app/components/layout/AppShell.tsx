@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { adminNavigation, managerNavigation, staffNavigation } from "@/app/constants/navigation";
+import { adminNavigation, frontDeskNavigation, managerNavigation } from "@/app/constants/navigation";
 import { roleLabel as sharedRoleLabel } from "@/app/constants/roles";
 import {
   Avatar,
@@ -57,7 +57,7 @@ function Sidebar({
   const canSwitchWorkspace = currentUser.role === "administrator";
   const navigation = isManagement
     ? currentUser.role === "administrator" ? adminNavigation : managerNavigation
-    : staffNavigation;
+    : frontDeskNavigation;
   const homeView = dashboardForArea(area);
   const navigate = (view: ViewId) => {
     onMobileClose();
@@ -125,7 +125,7 @@ function Sidebar({
 
       <nav
         className="sidebar__nav"
-        aria-label={`${isManagement ? "Management" : "Staff"} navigation`}
+        aria-label={`${isManagement ? "Management" : "Front Desk"} navigation`}
       >
         <span className="sidebar__label">Navigate</span>
         {navigation.map((item) => (
@@ -201,9 +201,9 @@ function Topbar({
   useEffect(() => {
     // The request updates notification state after the external API resolves.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    void refreshLowStock();
+    if (isManagement) void refreshLowStock();
     // A signed-in staff/admin account is required to render AppShell.
-  }, [currentUser.id]);
+  }, [currentUser.id, isManagement]);
 
   return (
     <header className="topbar">
@@ -230,7 +230,7 @@ function Topbar({
       <div className="topbar__actions">
         <ThemeToggle />
 
-        <div className="topbar__popover-wrap">
+        {isManagement && <div className="topbar__popover-wrap">
           <IconButton
             label={`View notifications${visibleLowStock.length ? ` (${visibleLowStock.length})` : ""}`}
             icon="bell"
@@ -278,7 +278,7 @@ function Topbar({
               </button>}
             </div>
           )}
-        </div>
+        </div>}
 
         <div className="topbar__popover-wrap">
           <button

@@ -19,7 +19,7 @@ const paid: TransactionRecord = { id: 1, reference: "TX-TEST", visitType: "booki
   serviceName: "Original cut", amount: 425, subtotal: 425, total: 425, paymentMethod: "cash", amountReceived: 500, change: 75,
   status: "completed", paymentStatus: "completed", createdAt: "2026-09-29T04:00:00Z" };
 
-async function renderPayment() {
+async function renderPayment({ canCheckout = true, canManageFinancialActions = false }: { canCheckout?: boolean; canManageFinancialActions?: boolean } = {}) {
   const previousFetch = globalThis.fetch;
   let visits = [booking, walkIn];
   let history: TransactionRecord[] = [];
@@ -45,7 +45,7 @@ async function renderPayment() {
   const container = dom.window.document.createElement("div");
   dom.window.document.body.append(container);
   const root = createRoot(container);
-  await act(async () => { root.render(<PaymentPage onToast={() => undefined} />); });
+  await act(async () => { root.render(<PaymentPage onToast={() => undefined} canCheckout={canCheckout} canManageFinancialActions={canManageFinancialActions} />); });
   return { container, posts, requests, setVisits: (next: EligibleVisit[]) => { visits = next; },
     setHistory: (next: TransactionRecord[]) => { history = next; },
     setHistoryTotal: (next: number) => { historyTotal = next; },
@@ -68,6 +68,32 @@ function setInputValue(input: HTMLInputElement, value: string) {
   input.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
 }
 const submit = (container: HTMLElement) => Array.from(container.querySelectorAll("button")).find((button) => button.textContent?.includes("Complete payment"))!;
+
+test("Front Desk checkout has no refund or void controls", async () => {
+  const page = await renderPayment({ canCheckout: true });
+  try {
+    page.setHistory([paid]);
+    await act(async () => { Array.from(page.container.querySelectorAll("button")).find((button) => button.textContent === "Refresh")!.click(); });
+    await act(async () => { Array.from(page.container.querySelectorAll("button")).find((button) => button.textContent === "View receipt")!.click(); });
+    assert.ok(page.container.querySelector(".payment-form-panel"));
+    assert.equal(page.container.querySelector(".financial-action-panel"), null);
+    assert.equal(page.container.textContent?.includes("Refund full amount"), false);
+    assert.equal(page.container.textContent?.includes("Void transaction"), false);
+  } finally { await page.cleanup(); }
+});
+
+test("Management sees transaction history and financial controls without checkout", async () => {
+  const page = await renderPayment({ canCheckout: false, canManageFinancialActions: true });
+  try {
+    assert.equal(page.container.querySelector(".payment-form-panel"), null);
+    assert.equal(page.container.textContent?.includes("Complete payment"), false);
+    assert.equal(page.requests.some((request) => request.includes("view=eligible")), false);
+    page.setHistory([paid]);
+    await act(async () => { Array.from(page.container.querySelectorAll("button")).find((button) => button.textContent === "Refresh")!.click(); });
+    await act(async () => { Array.from(page.container.querySelectorAll("button")).find((button) => button.textContent === "View receipt")!.click(); });
+    assert.match(page.container.querySelector(".financial-action-panel")?.textContent ?? "", /Refund full amount[\s\S]*Void transaction/);
+  } finally { await page.cleanup(); }
+});
 
 test("cash checkout requires sufficient received amount, submits once, and refreshes server history", async () => {
   const page = await renderPayment();

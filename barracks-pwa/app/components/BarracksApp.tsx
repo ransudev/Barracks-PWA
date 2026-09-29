@@ -12,7 +12,7 @@ import { PageRouter } from "@/app/pages/PageRouter";
 import { Toast } from "@/app/components/ui";
 import { isManagementRole } from "@/app/constants/roles";
 import type { ViewId } from "@/app/types/domain";
-import { canAccessView, isAdminView, isCustomerView, isProtectedView, isSupplierView, isWorkspaceView } from "@/app/utils/view";
+import { canAccessView, canonicalView, isCustomerView, isProtectedView, isSupplierView, isWorkspaceView, workspaceAreaForView } from "@/app/utils/view";
 import { isKnownAppPath, pathForView, viewForPath } from "@/app/utils/routes";
 import { apiRequest, readApiBody, type ApiUser } from "@/app/lib/api";
 
@@ -65,6 +65,7 @@ export function BarracksApp() {
         if (response.ok && body?.success && body.user) {
           setCurrentUser(body.user);
           if (requestedView === "login" || !canAccessView(requestedView, body.user.role)) router.replace(pathForView(defaultViewForUser(body.user)));
+          else if (canonicalView(requestedView) !== requestedView) router.replace(pathForView(canonicalView(requestedView)));
         } else {
           setCurrentUser(null);
           if (isProtectedView(requestedView)) { setPendingView(requestedView); router.replace(pathForView("login")); }
@@ -93,13 +94,13 @@ export function BarracksApp() {
       setPendingView(nextView); navigate("login"); onToast("Sign in to access the workspace"); return;
     }
     if (!canAccessView(nextView, currentUser?.role ?? null)) { onToast("You do not have access to this page"); return; }
-    navigate(nextView);
+    navigate(canonicalView(nextView));
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function handleLogin(user: ApiUser) {
     const destination = pendingView && canAccessView(pendingView, user.role) ? pendingView : defaultViewForUser(user);
-    setCurrentUser(user); setPendingView(null); navigate(destination); onToast(`Signed in as ${user.firstName} ${user.lastName}`);
+    setCurrentUser(user); setPendingView(null); navigate(canonicalView(destination)); onToast(`Signed in as ${user.firstName} ${user.lastName}`);
   }
 
   async function handleSignOut() {
@@ -129,7 +130,7 @@ export function BarracksApp() {
 
   if (!currentUser) return <><LoginPage go={go} onLogin={handleLogin} /><Toast message={toast} onClose={() => setToast("")} /></>;
   if (currentUser.role === "customer" || currentUser.role === "supplier") return <SessionLoading />;
+  if (!canAccessView(view, currentUser.role) || canonicalView(view) !== view) return <SessionLoading />;
 
-  const admin = isManagementRole(currentUser.role) && isAdminView(view);
-  return <><AppShell area={admin ? "admin" : "staff"} active={view} go={go} onToast={onToast} currentUser={currentUser} onSignOut={handleSignOut}><PageRouter view={view} go={go} onToast={onToast} currentUser={currentUser} /></AppShell><Toast message={toast} onClose={() => setToast("")} /></>;
+  return <><AppShell area={workspaceAreaForView(view, currentUser.role)} active={view} go={go} onToast={onToast} currentUser={currentUser} onSignOut={handleSignOut}><PageRouter view={view} go={go} onToast={onToast} currentUser={currentUser} /></AppShell><Toast message={toast} onClose={() => setToast("")} /></>;
 }

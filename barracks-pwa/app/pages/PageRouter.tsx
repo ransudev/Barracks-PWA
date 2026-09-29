@@ -11,6 +11,7 @@ import { StaffDashboard } from "@/app/pages/staff/StaffDashboard";
 import { BookingsPage } from "@/app/pages/staff/BookingsPage";
 import { QueuePage } from "@/app/pages/staff/QueuePage";
 import { PaymentPage } from "@/app/pages/staff/PaymentPage";
+import { BarberFloorPage } from "@/app/pages/staff/BarberFloorPage";
 import { isManagementRole } from "@/app/constants/roles";
 import type { ApiUser } from "@/app/lib/api";
 import type { ViewId } from "@/app/types/domain";
@@ -29,7 +30,7 @@ export function PageRouter({ view, go, onToast, currentUser }: PageRouterProps) 
     case "staff-management":
       return <StaffManagement onToast={onToast} currentUserId={currentUser.id} currentUserRole={currentUser.role} />;
     case "admin-suppliers":
-      return <SuppliersManagement onToast={onToast} canManageLogins />;
+      return <SuppliersManagement onToast={onToast} canManageLogins={currentUser.role === "administrator"} />;
     case "staff-suppliers":
       return <SuppliersManagement onToast={onToast} />;
     case "admin-restocks":
@@ -44,14 +45,15 @@ export function PageRouter({ view, go, onToast, currentUser }: PageRouterProps) 
     case "customers":
       return <CustomersPage onToast={onToast} canDelete={currentUser.role === "administrator"} isAdministrator={isManagementRole(currentUser.role)} />;
     case "admin-barbers":
+      return <BarbersManagement onToast={onToast} canDelete={currentUser.role === "administrator"} canEditCommission={isManagementRole(currentUser.role)} canSetAllCommissions={currentUser.role === "administrator"} />;
     case "barbers":
-      return <BarbersManagement onToast={onToast} canDelete={currentUser.role === "administrator"} isAdministrator={isManagementRole(currentUser.role)} />;
+      return <BarberFloorPage />;
     case "bookings":
       return <BookingsPage onToast={onToast} canDelete={isManagementRole(currentUser.role)} />;
     case "queue":
       return <QueuePage onToast={onToast} />;
     case "payments":
-      return <PaymentPage onToast={onToast} canManageFinancialActions={isManagementRole(currentUser.role)} />;
+      return <PaymentPage onToast={onToast} canCheckout={currentUser.role === "front_desk"} canManageFinancialActions={isManagementRole(currentUser.role)} />;
     case "inventory":
     case "admin-inventory":
       return <InventoryPage admin={view === "admin-inventory"} onToast={onToast} canDelete={currentUser.role === "administrator"} />;

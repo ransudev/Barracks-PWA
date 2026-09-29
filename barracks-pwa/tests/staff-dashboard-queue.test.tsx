@@ -43,6 +43,9 @@ test("staff dashboard counts active persisted queue entries and previews them", 
   const view = await renderDashboard(Response.json({ success: true, queue: [entry(1, "ready"), entry(2, "waiting"), entry(3, "completed"), entry(4, "removed")] }));
   try {
     assert.match(view.container.querySelector(".metrics-grid")?.textContent ?? "", /Customers in queue\s*2/);
+    assert.equal(view.container.textContent?.includes("Stock alerts"), false);
+    assert.equal(view.container.textContent?.includes("Review inventory"), false);
+    assert.match(view.container.textContent ?? "", /View barber floor/);
     assert.equal(view.container.querySelectorAll(".queue-preview__row").length, 2);
     assert.match(view.container.textContent ?? "", /Queue Customer 1/);
   } finally { await view.cleanup(); }

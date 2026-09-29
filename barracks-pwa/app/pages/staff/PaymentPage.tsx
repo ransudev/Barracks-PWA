@@ -47,7 +47,7 @@ function Receipt({ transaction, onClose }: { transaction: TransactionRecord; onC
   </section>;
 }
 
-export function PaymentPage({ onToast, canManageFinancialActions = false }: { onToast: (message: string) => void; canManageFinancialActions?: boolean }) {
+export function PaymentPage({ onToast, canCheckout = false, canManageFinancialActions = false }: { onToast: (message: string) => void; canCheckout?: boolean; canManageFinancialActions?: boolean }) {
   const [visits, setVisits] = useState<EligibleVisit[]>([]);
   const [history, setHistory] = useState<TransactionRecord[]>([]);
   const [page, setPage] = useState(1);
@@ -81,30 +81,30 @@ export function PaymentPage({ onToast, canManageFinancialActions = false }: { on
     setLoading(true);
     try {
       const [visitsResponse, historyResponse] = await Promise.all([
-        apiRequest("/api/transactions?view=eligible", { cache: "no-store" }),
+        canCheckout ? apiRequest("/api/transactions?view=eligible", { cache: "no-store" }) : Promise.resolve(null),
         apiRequest(historyUrl(page, search, methodFilter, dateFrom, dateTo), { cache: "no-store" }),
       ]);
       const [visitsBody, historyBody] = await Promise.all([
-        readApiBody<{ success: boolean; visits?: EligibleVisit[]; message?: string }>(visitsResponse),
+        visitsResponse ? readApiBody<{ success: boolean; visits?: EligibleVisit[]; message?: string }>(visitsResponse) : Promise.resolve(null),
         readApiBody<{ success: boolean; transactions?: TransactionRecord[]; total?: number; totalPages?: number; message?: string }>(historyResponse),
       ]);
-      if (!visitsResponse.ok || !visitsBody?.success || !visitsBody.visits ||
+      if ((canCheckout && (!visitsResponse?.ok || !visitsBody?.success || !visitsBody.visits)) ||
           !historyResponse.ok || !historyBody?.success || !historyBody.transactions) {
         throw new Error(visitsBody?.message ?? historyBody?.message ?? "Unable to load payments");
       }
       if (version !== requestVersion.current) return;
-      setVisits(visitsBody.visits);
+      setVisits(visitsBody?.visits ?? []);
       setHistory(historyBody.transactions);
       setTotal(historyBody.total ?? historyBody.transactions.length);
       setTotalPages(historyBody.totalPages ?? (historyBody.transactions.length ? 1 : 0));
-      setSelectedKey((current) => visitsBody.visits!.some((visit) => visitKey(visit) === current) ? current : "");
+      setSelectedKey((current) => visitsBody?.visits?.some((visit) => visitKey(visit) === current) ? current : "");
       setLoadError("");
     } catch (error) {
       if (version === requestVersion.current) setLoadError(error instanceof Error ? error.message : "Unable to load payments");
     } finally {
       if (version === requestVersion.current) setLoading(false);
     }
-  }, [page, search, methodFilter, dateFrom, dateTo]);
+  }, [canCheckout, page, search, methodFilter, dateFrom, dateTo]);
 
   useEffect(() => {
     const versionRef = requestVersion;
@@ -146,7 +146,7 @@ export function PaymentPage({ onToast, canManageFinancialActions = false }: { on
   }
 
   async function applyAction(action: "refund" | "void") {
-    if (!receipt || actionProcessing || !actionReason.trim()) return;
+    if (!canManageFinancialActions || !receipt || actionProcessing || !actionReason.trim()) return;
     setActionProcessing(true);
     setActionError("");
     try {
@@ -162,7 +162,7 @@ export function PaymentPage({ onToast, canManageFinancialActions = false }: { on
   }
 
   async function checkout() {
-    if (submitting.current || !selected || (method === "cash" && !sufficient)) return;
+    if (!canCheckout || submitting.current || !selected || (method === "cash" && !sufficient)) return;
     submitting.current = true;
     setProcessing(true);
     setCheckoutError("");
@@ -191,10 +191,10 @@ export function PaymentPage({ onToast, canManageFinancialActions = false }: { on
   }
 
   return <>
-    <PageHeader title="Payments" description="Check out completed visits." action={<Button type="button" variant="ghost" icon="refresh" disabled={loading || processing} onClick={() => void load()}>Refresh</Button>} />
+    <PageHeader title={canCheckout ? "Payments" : "Transactions"} description={canCheckout ? "Check out completed visits." : "Review payment history and manage financial actions."} action={<Button type="button" variant="ghost" icon="refresh" disabled={loading || processing} onClick={() => void load()}>Refresh</Button>} />
     {loadError && <p role="alert">{loadError}</p>}
-    <div className="payment-grid">
-      <Panel className="payment-form-panel">
+    <div className={`payment-grid${canCheckout ? "" : " payment-grid--history-only"}`}>
+      {canCheckout && <Panel className="payment-form-panel">
         <SectionHeading title="Checkout" />
         {loading && <p>Loading eligible visits…</p>}
         {!loading && !visits.length && <EmptyState title="No visits ready for payment" description="Completed unpaid bookings and walk-ins will appear here." />}
@@ -224,7 +224,7 @@ export function PaymentPage({ onToast, canManageFinancialActions = false }: { on
             <Button type="button" size="lg" variant="success" icon="check" className="payment-submit" disabled={processing || (method === "cash" && !sufficient)} onClick={() => void checkout()}>{processing ? "Processing…" : "Complete payment"}</Button>
           </>}
         </>}
-      </Panel>
+      </Panel>}
       <Panel className="recent-transactions-panel">
         <SectionHeading title="Transaction history" />
         <form className="transaction-filters" onSubmit={(event) => { event.preventDefault(); setPage(1); setSearch(searchInput); }}>
@@ -242,7 +242,7 @@ export function PaymentPage({ onToast, canManageFinancialActions = false }: { on
         <div className="transaction-pages"><span>{total} transactions · Page {page} of {Math.max(1, totalPages)}</span><Button type="button" variant="ghost" disabled={page <= 1 || loading} onClick={() => setPage(page - 1)}>Previous</Button><Button type="button" variant="ghost" disabled={page >= totalPages || loading} onClick={() => setPage(page + 1)}>Next</Button></div>
       </Panel>
     </div>
-    {completed && <Panel><SectionHeading title="Payment completed" /><p>Reference: <strong>{completed.reference}</strong></p><p>{completed.customerName} · {completed.serviceName} · {completed.barberName}</p><p>Service price: {money(completed.subtotal)} · Total: {money(completed.total)} · {methodLabel(completed.paymentMethod)}</p>{completed.paymentMethod === "cash" && <p>Received: {money(completed.amountReceived ?? 0)} · Change: {money(completed.change ?? 0)}</p>}<Button type="button" onClick={() => void openReceipt(completed.reference, true)}>Print Receipt</Button></Panel>}
+    {canCheckout && completed && <Panel><SectionHeading title="Payment completed" /><p>Reference: <strong>{completed.reference}</strong></p><p>{completed.customerName} · {completed.serviceName} · {completed.barberName}</p><p>Service price: {money(completed.subtotal)} · Total: {money(completed.total)} · {methodLabel(completed.paymentMethod)}</p>{completed.paymentMethod === "cash" && <p>Received: {money(completed.amountReceived ?? 0)} · Change: {money(completed.change ?? 0)}</p>}<Button type="button" onClick={() => void openReceipt(completed.reference, true)}>Print Receipt</Button></Panel>}
     {receiptLoading && <p>Loading receipt…</p>}
     {receiptError && <p role="alert">{receiptError}</p>}
     {receipt && <><Receipt transaction={receipt} onClose={() => setReceipt(null)} />
