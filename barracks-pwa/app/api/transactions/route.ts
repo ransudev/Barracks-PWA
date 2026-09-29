@@ -2,17 +2,23 @@ import { requireStaffUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { createTransactionSchema } from "@/server/schemas/payment.schema";
 import { formatValidationErrors } from "@/server/schemas/user.schema";
-import { createTransaction, findTransactionByReference, PaymentServiceError } from "@/server/services/payment.service";
+import { createTransaction, findTransactionByReference, listEligibleVisits, listTransactions, PaymentServiceError } from "@/server/services/payment.service";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   const user = await requireStaffUser();
   if (user instanceof Response) return user;
-  const reference = new URL(request.url).searchParams.get("reference");
-  if (!reference || reference.length > 64) return Response.json({ success: false, message: "Valid transaction reference required" }, { status: 400 });
+  const params = new URL(request.url).searchParams;
+  const reference = params.get("reference");
+  const view = params.get("view");
+  if ((reference && view) || (view && view !== "eligible" && view !== "history") || (!view && (!reference || reference.length > 64))) {
+    return Response.json({ success: false, message: "Valid transaction reference or view required" }, { status: 400 });
+  }
   try {
-    const transaction = await findTransactionByReference(pool, reference);
+    if (view === "eligible") return Response.json({ success: true, visits: await listEligibleVisits(pool) });
+    if (view === "history") return Response.json({ success: true, transactions: await listTransactions(pool) });
+    const transaction = await findTransactionByReference(pool, reference!);
     return transaction
       ? Response.json({ success: true, transaction })
       : Response.json({ success: false, message: "Transaction not found" }, { status: 404 });

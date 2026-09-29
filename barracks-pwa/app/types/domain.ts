@@ -10,6 +10,7 @@ export type ViewId =
   | "staff-dashboard"
   | "queue"
   | "bookings"
+  | "payments"
   | "customers"
   | "inventory"
   | "staff-suppliers"

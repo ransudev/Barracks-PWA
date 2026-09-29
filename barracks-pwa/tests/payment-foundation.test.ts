@@ -19,7 +19,7 @@ test("payment request accepts one visit and a supported method only", () => {
 
 test("completed bookings and walk-ins create unique snapshotted payments", { skip: !databaseConfigured }, async () => {
   const { db, cleanup } = await createDisposableSchema();
-  const { createTransaction, findTransactionByReference, PaymentServiceError } = await import("@/server/services/payment.service");
+  const { createTransaction, findTransactionByReference, listEligibleVisits, listTransactions, PaymentServiceError } = await import("@/server/services/payment.service");
   const { addWalkIn } = await import("@/server/services/queue.service");
   try {
     const staff = (await db.query<{ id: number }>(
@@ -73,6 +73,7 @@ test("completed bookings and walk-ins create unique snapshotted payments", { ski
     await assert.rejects(createTransaction(db, { visit: { bookingId: booking }, paymentMethod: "cash", amountReceived: 424.99 }, staff),
       (error: unknown) => error instanceof PaymentServiceError && error.kind === "insufficient_cash");
     assert.equal(Number((await db.query<{ count: string }>("SELECT count(*) FROM transactions WHERE booking_id=$1", [booking])).rows[0].count), 0);
+    assert.deepEqual((await listEligibleVisits(db)).map((visit) => [visit.visitType, visit.visitRecordId, visit.servicePrice]), [["booking", Number(booking), 425]]);
 
     await db.query("UPDATE users SET is_blocked=TRUE WHERE id=$1", [staff]);
     await assert.rejects(createTransaction(db, { visit: { bookingId: booking }, paymentMethod: "cash", amountReceived: 1000 }, staff),
@@ -94,12 +95,15 @@ test("completed bookings and walk-ins create unique snapshotted payments", { ski
     assert.equal(bookingPayment.paymentStatus, "completed");
     assert.ok(!Number.isNaN(Date.parse(bookingPayment.createdAt)));
     assert.match(bookingPayment.reference, /^TX-[A-F0-9]{32}$/);
+    assert.equal((await listEligibleVisits(db)).some((visit) => visit.visitRecordId === Number(booking) && visit.visitType === "booking"), false);
+    assert.equal((await listTransactions(db))[0].reference, bookingPayment.reference);
 
     await db.query("UPDATE services SET name='Changed after walk-in',current_price=999 WHERE id='barracks-basic'");
     await db.query("UPDATE queue_entries SET barber_id=$2,status='ready' WHERE id=$1", [entry, barber]);
     await db.query("UPDATE queue_entries SET status='in_progress',started_at=NOW() WHERE id=$1", [entry]);
     await db.query("UPDATE queue_entries SET status='completed',completed_at=GREATEST(NOW(),started_at) WHERE id=$1", [entry]);
     await db.query("UPDATE services SET name='Changed after completion',current_price=1250 WHERE id='barracks-basic'");
+    assert.deepEqual((await listEligibleVisits(db)).map((visit) => [visit.visitType, visit.visitRecordId, visit.servicePrice]), [["queue", Number(entry), 300]]);
 
     const concurrent = await Promise.allSettled([
       createTransaction(db, { visit: { queueEntryId: entry }, paymentMethod: "cash", amountReceived: 1000 }, staff),
@@ -109,6 +113,8 @@ test("completed bookings and walk-ins create unique snapshotted payments", { ski
     assert.equal(concurrent.filter((result) => result.status === "rejected" &&
       result.reason instanceof PaymentServiceError && result.reason.kind === "conflict").length, 1);
     const walkInPayment = concurrent.find((result) => result.status === "fulfilled")!.value;
+    assert.equal((await listEligibleVisits(db)).length, 0);
+    assert.equal((await listTransactions(db)).length, 2);
     assert.equal(walkInPayment.customerName, "Will Walkin");
     assert.equal(walkInPayment.queueEntryId, Number(entry));
     assert.equal(walkInPayment.serviceName, "Barracks Basic");

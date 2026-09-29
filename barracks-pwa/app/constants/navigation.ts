@@ -5,6 +5,7 @@ export const staffNavigation: Array<NavigationItem & { icon: IconName }> = [
   { id: "staff-dashboard", label: "Dashboard", icon: "home" },
   { id: "queue", label: "Queue", icon: "queue" },
   { id: "bookings", label: "Bookings", icon: "calendar" },
+  { id: "payments", label: "Payments", icon: "creditCard" },
   { id: "customers", label: "Customers", icon: "users" },
   { id: "barbers", label: "Barbers", icon: "scissors" },
   { id: "inventory", label: "Inventory", icon: "box" },
@@ -20,6 +21,7 @@ export const adminNavigation: Array<NavigationItem & { icon: IconName }> = [
   { id: "admin-suppliers", label: "Suppliers", icon: "users" },
   { id: "admin-restocks", label: "Restocks", icon: "calendar" },
   { id: "admin-reports", label: "Reports", icon: "info" },
+  { id: "payments", label: "Payments", icon: "creditCard" },
   { id: "admin-inventory", label: "Inventory", icon: "box" },
   { id: "admin-services", label: "Services", icon: "scissors" },
 ];

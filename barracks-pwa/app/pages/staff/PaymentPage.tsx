@@ -1,306 +1,151 @@
 "use client";
 
-// Retained payment prototype; active staff routes do not render this page.
-
-import { useState } from "react";
-import { barbers } from "@/app/data/barbers";
-import { customers } from "@/app/data/customers";
-import { services } from "@/app/data/services";
-import { transactions as initialTransactions } from "@/app/data/transactions";
-import type { IconName } from "@/app/components/ui/icons";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { apiRequest, readApiBody } from "@/app/lib/api";
 import { formatCurrency } from "@/app/utils/format";
-import { usePersistentState } from "@/app/hooks/usePersistentState";
-import {
-  Avatar,
-  Button,
-  EmptyState,
-  MetricCard,
-  Modal,
-  PageHeader,
-  Panel,
-  SectionHeading,
-  SelectField,
-} from "@/app/components/ui";
-import { Icon } from "@/app/components/ui/icons";
+import { Button, EmptyState, PageHeader, Panel, SectionHeading, SelectField, TextField } from "@/app/components/ui";
+import type { EligibleVisit, TransactionRecord } from "@/server/services/payment.service";
+import type { PaymentMethod } from "@/server/schemas/payment.schema";
 
-export function PaymentPage({
-  onToast,
-}: {
-  onToast: (message: string) => void;
-}) {
-  const [customerId, setCustomerId] = useState(customers[0]?.id ?? "");
-  const [serviceId, setServiceId] = useState(services[0]?.id ?? "");
-  const [barberId, setBarberId] = useState(barbers[0]?.id ?? "");
-  const [method, setMethod] = useState("Card");
-  const [recent, setRecent] = usePersistentState(
-    "barracks-transactions-v2",
-    initialTransactions,
-  );
-  const [historyOpen, setHistoryOpen] = useState(false);
+const methods: { id: PaymentMethod; label: string }[] = [
+  { id: "cash", label: "Cash" }, { id: "card", label: "Card" },
+  { id: "e_wallet", label: "E-wallet" }, { id: "bank_transfer", label: "Bank transfer" },
+  { id: "other", label: "Other" },
+];
+const visitKey = (visit: EligibleVisit) => `${visit.visitType}:${visit.visitRecordId}`;
+const methodLabel = (method: string) => methods.find((item) => item.id === method)?.label ?? method;
+const money = (amount: number) => formatCurrency(amount);
 
-  const selectedCustomer =
-    customers.find((customer) => customer.id === customerId) ?? customers[0];
-  const selectedService =
-    services.find((service) => service.id === serviceId) ?? services[0];
-  const selectedBarber =
-    barbers.find((barber) => barber.id === barberId) ?? barbers[0];
-  const revenue = recent.reduce(
-    (total, transaction) => total + transaction.amount,
-    0,
-  );
-  const averageTransaction = recent.length ? revenue / recent.length : 0;
+export function PaymentPage({ onToast }: { onToast: (message: string) => void }) {
+  const [visits, setVisits] = useState<EligibleVisit[]>([]);
+  const [history, setHistory] = useState<TransactionRecord[]>([]);
+  const [selectedKey, setSelectedKey] = useState("");
+  const [method, setMethod] = useState<PaymentMethod>("cash");
+  const [cashReceived, setCashReceived] = useState("");
+  const [completed, setCompleted] = useState<TransactionRecord | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [checkoutError, setCheckoutError] = useState("");
+  const [processing, setProcessing] = useState(false);
+  const submitting = useRef(false);
+  const requestVersion = useRef(0);
 
-  function completePayment() {
-    if (!selectedCustomer || !selectedService || !selectedBarber) {
-      onToast("Payment options are not available yet");
-      return;
+  const load = useCallback(async () => {
+    const version = ++requestVersion.current;
+    setLoading(true);
+    try {
+      const [visitsResponse, historyResponse] = await Promise.all([
+        apiRequest("/api/transactions?view=eligible", { cache: "no-store" }),
+        apiRequest("/api/transactions?view=history", { cache: "no-store" }),
+      ]);
+      const [visitsBody, historyBody] = await Promise.all([
+        readApiBody<{ success: boolean; visits?: EligibleVisit[]; message?: string }>(visitsResponse),
+        readApiBody<{ success: boolean; transactions?: TransactionRecord[]; message?: string }>(historyResponse),
+      ]);
+      if (!visitsResponse.ok || !visitsBody?.success || !visitsBody.visits ||
+          !historyResponse.ok || !historyBody?.success || !historyBody.transactions) {
+        throw new Error(visitsBody?.message ?? historyBody?.message ?? "Unable to load payments");
+      }
+      if (version !== requestVersion.current) return;
+      setVisits(visitsBody.visits);
+      setHistory(historyBody.transactions);
+      setSelectedKey((current) => visitsBody.visits!.some((visit) => visitKey(visit) === current) ? current : "");
+      setLoadError("");
+    } catch (error) {
+      if (version === requestVersion.current) setLoadError(error instanceof Error ? error.message : "Unable to load payments");
+    } finally {
+      if (version === requestVersion.current) setLoading(false);
     }
-    setRecent((list) => [
-      {
-        id: "TX-" + (8242 + list.length),
-        date: "Apr 14, 2026",
-        customer: selectedCustomer.name,
-        service: selectedService.name,
-        barber: selectedBarber.name,
-        method,
-        amount: selectedService.price,
-        status: "Paid",
-      },
-      ...list,
-    ]);
-    onToast(
-      formatCurrency(selectedService.price) +
-        " payment completed for " +
-        selectedCustomer.name,
-    );
+  }, []);
+
+  useEffect(() => {
+    const versionRef = requestVersion;
+    let active = true;
+    void Promise.resolve().then(() => { if (active) return load(); });
+    return () => { active = false; versionRef.current++; };
+  }, [load]);
+
+  const selected = visits.find((visit) => visitKey(visit) === selectedKey);
+  const received = cashReceived.trim() === "" ? null : Number(cashReceived);
+  const cashValid = received !== null && Number.isFinite(received) && received >= 0 &&
+    /^\d+(?:\.\d{1,2})?$/.test(cashReceived) && received <= 9_999_999_999.99;
+  const sufficient = selected && cashValid && Math.round(received! * 100) >= Math.round(selected.total * 100);
+  const change = sufficient ? (Math.round(received! * 100) - Math.round(selected!.total * 100)) / 100 : null;
+
+  async function checkout() {
+    if (submitting.current || !selected || (method === "cash" && !sufficient)) return;
+    submitting.current = true;
+    setProcessing(true);
+    setCheckoutError("");
+    const visit = selected.visitType === "booking" ? { bookingId: selected.visitRecordId } : { queueEntryId: selected.visitRecordId };
+    const payload = method === "cash"
+      ? { visit, paymentMethod: method, amountReceived: received }
+      : { visit, paymentMethod: method };
+    try {
+      const response = await apiRequest("/api/transactions", { method: "POST", body: JSON.stringify(payload) });
+      const body = await readApiBody<{ success: boolean; transaction?: TransactionRecord; message?: string }>(response);
+      if (!response.ok || !body?.success || !body.transaction) {
+        throw new Error(body?.message ?? (response.status === 409 ? "This visit has already been paid or is no longer eligible." : "Unable to complete payment"));
+      }
+      setCompleted(body.transaction);
+      setSelectedKey("");
+      setCashReceived("");
+      onToast(`Payment completed: ${body.transaction.reference}`);
+      await load();
+    } catch (error) {
+      setCheckoutError(error instanceof Error ? error.message : "Unable to complete payment");
+      if (error instanceof Error && /already exists|already been paid/i.test(error.message)) void load();
+    } finally {
+      submitting.current = false;
+      setProcessing(false);
+    }
   }
 
-  const paymentMethods: Array<{ id: string; icon: IconName }> = [
-    { id: "Cash", icon: "cash" },
-    { id: "Card", icon: "creditCard" },
-    { id: "Mobile", icon: "mobile" },
-  ];
-
-  if (!selectedCustomer || !selectedService || !selectedBarber) {
-    return (
-      <>
-        <PageHeader title="Process payment" />
-        <EmptyState
-          title="Payment workspace is empty"
-          description="Customers, services, and barbers will appear when connected to the backend."
-        />
-      </>
-    );
-  }
-
-  return (
-    <>
-      <PageHeader
-        title="Process payment"
-        action={
-          <Button
-            variant="ghost"
-            icon="refresh"
-            onClick={() => {
-              setRecent((list) => [...list]);
-              onToast("Payment workspace refreshed");
-            }}
-          >
-            Refresh
-          </Button>
-        }
-      />
-      <div className="metrics-grid metrics-grid--four">
-        <MetricCard
-          label="Today’s revenue"
-          value={formatCurrency(revenue)}
-          icon="wallet"
-          accent="green"
-        />
-        <MetricCard
-          label="Transactions"
-          value={String(recent.length)}
-          icon="creditCard"
-          accent="blue"
-        />
-        <MetricCard
-          label="Average transaction"
-          value={formatCurrency(averageTransaction)}
-          icon="chart"
-          accent="violet"
-        />
-        <MetricCard
-          label="Commission due"
-          value={formatCurrency(0)}
-          icon="spark"
-          accent="amber"
-        />
-      </div>
-
-      <div className="payment-grid">
-        <Panel className="payment-form-panel">
-          <SectionHeading title="New transaction" />
-          <div className="form-grid">
-            <SelectField
-              label="Customer"
-              value={customerId}
-              onChange={(event) => setCustomerId(event.target.value)}
-            >
-              {customers.map((customer) => (
-                <option value={customer.id} key={customer.id}>
-                  {customer.name}
-                </option>
-              ))}
-            </SelectField>
-            <SelectField
-              label="Service"
-              value={serviceId}
-              onChange={(event) => setServiceId(event.target.value)}
-            >
-              {services
-                .filter((service) => service.active)
-                .map((service) => (
-                  <option value={service.id} key={service.id}>
-                    {service.name} · {formatCurrency(service.price)}
-                  </option>
-                ))}
-            </SelectField>
-            <SelectField
-              label="Barber"
-              value={barberId}
-              onChange={(event) => setBarberId(event.target.value)}
-            >
-              {barbers.map((barber) => (
-                <option value={barber.id} key={barber.id}>
-                  {barber.name}
-                </option>
-              ))}
-            </SelectField>
-          </div>
-          <div className="payment-summary">
-            <span>
-              <small>Subtotal</small>
-              <strong>{formatCurrency(selectedService.price)}</strong>
-            </span>
-            <span>
-              <small>Customer loyalty</small>
-              <strong className="text-green">– $0.00</strong>
-            </span>
-            <span className="payment-summary__total">
-              <small>Total</small>
-              <strong>{formatCurrency(selectedService.price)}</strong>
-            </span>
-          </div>
-          <div className="payment-methods">
-            <span className="field__label">Payment method</span>
-            <div>
-              {paymentMethods.map((item) => (
-                <button
-                  type="button"
-                  key={item.id}
-                  className={method === item.id ? "is-active" : ""}
-                  onClick={() => setMethod(item.id)}
-                >
-                  <Icon name={item.icon} size={17} />
-                  {item.id}
-                </button>
-              ))}
+  return <>
+    <PageHeader title="Payments" description="Check out completed visits." action={<Button type="button" variant="ghost" icon="refresh" disabled={loading || processing} onClick={() => void load()}>Refresh</Button>} />
+    {loadError && <p role="alert">{loadError}</p>}
+    <div className="payment-grid">
+      <Panel className="payment-form-panel">
+        <SectionHeading title="Checkout" />
+        {loading && <p>Loading eligible visits…</p>}
+        {!loading && !visits.length && <EmptyState title="No visits ready for payment" description="Completed unpaid bookings and walk-ins will appear here." />}
+        {!!visits.length && <>
+          <SelectField label="Completed visit" value={selectedKey} disabled={processing} onChange={(event) => { setSelectedKey(event.target.value); setCompleted(null); setCheckoutError(""); }}>
+            <option value="">Select a visit</option>
+            {visits.map((visit) => <option key={visitKey(visit)} value={visitKey(visit)}>{visit.visitType === "booking" ? "Booking" : "Walk-in"} #{visit.visitRecordId} · {visit.customerName} · {visit.serviceName}</option>)}
+          </SelectField>
+          {selected && <>
+            <div className="payment-summary">
+              <span><small>Customer</small><strong>{selected.customerName}</strong></span>
+              <span><small>Service</small><strong>{selected.serviceName}</strong></span>
+              <span><small>Barber</small><strong>{selected.barberName}</strong></span>
+              <span><small>Service price</small><strong>{money(selected.servicePrice)}</strong></span>
+              <span className="payment-summary__total"><small>Total</small><strong>{money(selected.total)}</strong></span>
             </div>
-          </div>
-          <Button
-            size="lg"
-            variant="success"
-            icon="check"
-            className="payment-submit"
-            onClick={completePayment}
-          >
-            Complete payment
-          </Button>
-        </Panel>
-
-        <Panel className="recent-transactions-panel">
-          <SectionHeading
-            title="Recent transactions"
-            action={
-              <button
-                className="link-button"
-                type="button"
-                onClick={() => setHistoryOpen(true)}
-              >
-                View all <Icon name="arrowRight" size={14} />
-              </button>
-            }
-          />
-          <div className="transaction-list">
-            {recent.slice(0, 5).map((transaction) => (
-              <div className="transaction-row" key={transaction.id}>
-                <Avatar
-                  initials={transaction.customer
-                    .split(" ")
-                    .map((name) => name[0])
-                    .join("")}
-                  tone="slate"
-                  size="sm"
-                />
-                <span>
-                  <strong>{transaction.customer}</strong>
-                  <small>
-                    {transaction.service} · {transaction.method}
-                  </small>
-                </span>
-                <span>
-                  <strong className="text-green">
-                    {formatCurrency(transaction.amount)}
-                  </strong>
-                  <small>{transaction.date}</small>
-                </span>
-              </div>
-            ))}
-          </div>
-        </Panel>
-      </div>
-
-      <Modal
-        open={historyOpen}
-        title="Transaction history"
-        description="All transactions recorded in this workspace."
-        onClose={() => setHistoryOpen(false)}
-        width="lg"
-      >
-        <div className="detail-modal">
-          <div className="transaction-list">
-            {recent.map((transaction) => (
-              <div className="transaction-row" key={transaction.id}>
-                <Avatar
-                  initials={transaction.customer
-                    .split(" ")
-                    .map((name) => name[0])
-                    .join("")}
-                  tone="slate"
-                  size="sm"
-                />
-                <span>
-                  <strong>{transaction.customer}</strong>
-                  <small>
-                    {transaction.service + " · " + transaction.method}
-                  </small>
-                </span>
-                <span>
-                  <strong className="text-green">
-                    {formatCurrency(transaction.amount)}
-                  </strong>
-                  <small>{transaction.date}</small>
-                </span>
-              </div>
-            ))}
-          </div>
-          <div className="modal-actions">
-            <Button type="button" onClick={() => setHistoryOpen(false)}>
-              Done
-            </Button>
-          </div>
-        </div>
-      </Modal>
-    </>
-  );
+            <SelectField label="Payment method" value={method} disabled={processing} onChange={(event) => { setMethod(event.target.value as PaymentMethod); setCheckoutError(""); }}>
+              {methods.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+            </SelectField>
+            {method === "cash" && <>
+              <TextField label="Amount received" type="number" min="0" step="0.01" value={cashReceived} disabled={processing} onChange={(event) => setCashReceived(event.target.value)} required />
+              {cashReceived && !cashValid && <p role="alert">Enter a valid cash amount with at most two decimal places.</p>}
+              {cashValid && !sufficient && <p role="alert">Cash received is below the total.</p>}
+              <p>Change: <strong>{change === null ? "—" : money(change)}</strong></p>
+            </>}
+            {checkoutError && <p role="alert">{checkoutError}</p>}
+            <Button type="button" size="lg" variant="success" icon="check" className="payment-submit" disabled={processing || (method === "cash" && !sufficient)} onClick={() => void checkout()}>{processing ? "Processing…" : "Complete payment"}</Button>
+          </>}
+        </>}
+      </Panel>
+      <Panel className="recent-transactions-panel">
+        <SectionHeading title="Transaction history" />
+        <p>Most recent 100 transactions</p>
+        {!loading && !history.length && <EmptyState title="No transactions yet" description="Completed payments will appear here." />}
+        <div className="transaction-list">{history.map((transaction) => <div className="transaction-row" key={transaction.id}>
+          <span><strong>{transaction.customerName}</strong><small>{transaction.serviceName} · {transaction.barberName} · {methodLabel(transaction.paymentMethod)}</small><small>{transaction.reference}</small></span>
+          <span><strong>{money(transaction.total)}</strong><small>{new Date(transaction.createdAt).toLocaleString("en-PH", { timeZone: "Asia/Manila" })}</small></span>
+        </div>)}</div>
+      </Panel>
+    </div>
+    {completed && <Panel><SectionHeading title="Payment completed" /><p>Reference: <strong>{completed.reference}</strong></p><p>{completed.customerName} · {completed.serviceName} · {completed.barberName}</p><p>Service price: {money(completed.subtotal)} · Total: {money(completed.total)} · {methodLabel(completed.paymentMethod)}</p>{completed.paymentMethod === "cash" && <p>Received: {money(completed.amountReceived ?? 0)} · Change: {money(completed.change ?? 0)}</p>}</Panel>}
+  </>;
 }

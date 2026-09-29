@@ -23,6 +23,11 @@ export type TransactionRecord = {
   status: PaymentStatus; paymentStatus: PaymentStatus; createdAt: string;
 };
 
+export type EligibleVisit = {
+  visitType: "booking" | "queue"; visitRecordId: number;
+  customerName: string; serviceName: string; barberName: string; servicePrice: number; total: number;
+};
+
 export class PaymentServiceError extends Error {
   constructor(public readonly kind: "not_found" | "conflict" | "forbidden" | "invalid_state" | "insufficient_cash", message: string) {
     super(message);
@@ -49,6 +54,44 @@ export async function findTransactionByReference(db: Pool, reference: string): P
     `SELECT t.*,p.amount_received,p.change_amount FROM transactions t
      JOIN transaction_payments p ON p.transaction_id=t.id WHERE t.reference=$1`, [reference]);
   return result.rows[0] ? toTransaction(result.rows[0]) : null;
+}
+
+export async function listTransactions(db: Pool): Promise<TransactionRecord[]> {
+  const result = await db.query<TransactionRow>(
+    `SELECT t.*,p.amount_received,p.change_amount FROM transactions t
+     JOIN transaction_payments p ON p.transaction_id=t.id
+     ORDER BY t.created_at DESC,t.id DESC LIMIT 100`,
+  );
+  return result.rows.map(toTransaction);
+}
+
+export async function listEligibleVisits(db: Pool): Promise<EligibleVisit[]> {
+  const result = await db.query<{
+    visit_type: "booking" | "queue"; visit_record_id: string;
+    customer_name: string; service_name: string; barber_name: string; service_price: string;
+  }>(
+    `SELECT 'booking' AS visit_type,b.id AS visit_record_id,
+       concat_ws(' ',COALESCE(cu.first_name,c.first_name),COALESCE(cu.last_name,c.last_name)) AS customer_name,
+       b.service_name,concat_ws(' ',br.first_name,br.last_name) AS barber_name,b.service_price AS service_price,
+       b.updated_at AS completed_at
+     FROM bookings b JOIN customers c ON c.id=b.customer_id
+     LEFT JOIN users cu ON cu.id=c.user_id JOIN barbers br ON br.id=b.barber_id
+     WHERE b.status='completed' AND NOT EXISTS
+       (SELECT 1 FROM transactions t WHERE t.visit_type='booking' AND t.visit_record_id=b.id)
+     UNION ALL
+     SELECT 'queue' AS visit_type,q.id AS visit_record_id,
+       concat_ws(' ',COALESCE(cu.first_name,c.first_name),COALESCE(cu.last_name,c.last_name)) AS customer_name,
+       q.service_name_snapshot AS service_name,concat_ws(' ',br.first_name,br.last_name) AS barber_name,
+       q.service_price_snapshot AS service_price,q.completed_at
+     FROM queue_entries q JOIN customers c ON c.id=q.customer_id
+     LEFT JOIN users cu ON cu.id=c.user_id JOIN barbers br ON br.id=q.barber_id
+     WHERE q.status='completed' AND q.booking_id IS NULL AND NOT EXISTS
+       (SELECT 1 FROM transactions t WHERE t.visit_type='queue' AND t.visit_record_id=q.id)
+     ORDER BY completed_at DESC,visit_record_id DESC`,
+  );
+  return result.rows.map((row) => ({ visitType: row.visit_type, visitRecordId: Number(row.visit_record_id),
+    customerName: row.customer_name, serviceName: row.service_name, barberName: row.barber_name,
+    servicePrice: Number(row.service_price), total: Number(row.service_price) }));
 }
 
 export async function createTransaction(db: Pool, input: CreateTransactionInput, cashierId: number): Promise<TransactionRecord> {
