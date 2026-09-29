@@ -74,7 +74,7 @@ export function canDeactivateStaffUser(
 }
 
 export function canManageBooking(actorRole: string, action: BookingAction, ownsBooking = false): boolean {
-  if (isManagementRole(actorRole)) return true;
+  if (actorRole === "administrator") return action === "delete";
   if (actorRole === "front_desk") return action !== "delete";
   return actorRole === "customer" && ownsBooking && (action === "edit" || action === "cancel");
 }

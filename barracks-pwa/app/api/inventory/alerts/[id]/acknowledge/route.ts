@@ -1,4 +1,4 @@
-import { requireStaffUser } from "@/server/auth/require-role";
+import { requireManagementUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { acknowledgeLowStockAlert } from "@/server/services/inventory-alert.service";
 
@@ -9,7 +9,7 @@ function parseId(raw: string): number | null {
 }
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const user = await requireStaffUser();
+  const user = await requireManagementUser();
   if (user instanceof Response) return user;
   const id = parseId((await params).id);
   if (!id) return Response.json({ success: false, message: "Invalid inventory item id" }, { status: 400 });

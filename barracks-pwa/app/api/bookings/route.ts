@@ -1,5 +1,4 @@
-import { getCurrentUser } from "@/server/auth/session";
-import { requireRoles } from "@/server/auth/require-role";
+import { requireRolesUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import {
   bookingCreateSchema,
@@ -15,13 +14,8 @@ import { findCustomerByUserId } from "@/server/services/customer.service";
 export const runtime = "nodejs";
 
 export async function GET() {
-  const user = await getCurrentUser();
-  if (!user) {
-    return Response.json({ success: false, message: "Authentication is required" }, { status: 401 });
-  }
-  if (!["administrator", "manager", "front_desk", "customer"].includes(user.role)) {
-    return Response.json({ success: false, message: "You do not have access to bookings" }, { status: 403 });
-  }
+  const user = await requireRolesUser(["administrator", "manager", "front_desk", "customer"]);
+  if (user instanceof Response) return user;
 
   try {
     if (user.role === "customer") {
@@ -37,11 +31,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const authorizationResponse = await requireRoles(["administrator", "manager", "front_desk", "customer"]);
-  if (authorizationResponse) return authorizationResponse;
-
-  const user = await getCurrentUser();
-  if (!user) return Response.json({ success: false, message: "Authentication is required" }, { status: 401 });
+  const user = await requireRolesUser(["front_desk", "customer"]);
+  if (user instanceof Response) return user;
 
   let body: unknown;
   try {

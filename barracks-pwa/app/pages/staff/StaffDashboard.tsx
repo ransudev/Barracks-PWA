@@ -1,22 +1,22 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { ApiBarber, ApiBooking, ApiQueueEntry } from "@/app/lib/api";
+import type { ApiBarberAvailability, ApiBooking, ApiQueueEntry } from "@/app/lib/api";
 import { apiRequest, readApiBody } from "@/app/lib/api";
 import type { ViewId } from "@/app/types/domain";
 import { createInitials, dateInputValue, formatCurrency } from "@/app/utils/format";
 import { Avatar, Badge, Button, EmptyState, MetricCard, PageHeader, Panel, SectionHeading } from "@/app/components/ui";
 import { Icon } from "@/app/components/ui/icons";
 
-function displayName(barber: ApiBarber) {
+function displayName(barber: ApiBarberAvailability) {
   return `${barber.firstName} ${barber.lastName}`.trim();
 }
 
-function statusLabel(status: ApiBarber["status"]) {
+function statusLabel(status: ApiBarberAvailability["status"]) {
   return status === "available" ? "Available" : status === "busy" ? "Busy" : "Unavailable";
 }
 
-function statusTone(status: ApiBarber["status"]): "success" | "warning" | "neutral" {
+function statusTone(status: ApiBarberAvailability["status"]): "success" | "warning" | "neutral" {
   return status === "available" ? "success" : status === "busy" ? "warning" : "neutral";
 }
 
@@ -45,7 +45,7 @@ export function StaffDashboard({
   go: (view: ViewId) => void;
   onToast: (message: string) => void;
 }) {
-  const [barbers, setBarbers] = useState<ApiBarber[]>([]);
+  const [barbers, setBarbers] = useState<ApiBarberAvailability[]>([]);
   const [bookings, setBookings] = useState<ApiBooking[]>([]);
   const [queue, setQueue] = useState<ApiQueueEntry[]>([]);
   const [queueAsOf, setQueueAsOf] = useState(0);
@@ -63,7 +63,7 @@ export function StaffDashboard({
           apiRequest("/api/barbers"),
           apiRequest("/api/bookings"),
         ]);
-        const barberBody = await readApiBody<{ success: boolean; barbers?: ApiBarber[]; message?: string }>(barberResponse);
+        const barberBody = await readApiBody<{ success: boolean; barbers?: ApiBarberAvailability[]; message?: string }>(barberResponse);
         const bookingBody = await readApiBody<{ success: boolean; bookings?: ApiBooking[]; message?: string }>(bookingResponse);
         if (!barberResponse.ok || !barberBody?.success || !barberBody.barbers) throw new Error(barberBody?.message ?? "Unable to load barbers");
         if (!bookingResponse.ok || !bookingBody?.success) throw new Error(bookingBody?.message ?? "Unable to load bookings");
@@ -195,7 +195,7 @@ export function StaffDashboard({
                   <strong>{name}</strong>
                   <div className="barber-status-card__stats">
                     <span><small>Status</small><strong>{statusLabel(barber.status)}</strong></span>
-                    <span><small>Services</small><strong>{barber.servicesDone}</strong></span>
+                    <span><small>Ready assignments</small><strong>{queue.filter((entry) => entry.barberId === barber.id && entry.status === "ready").length}</strong></span>
                   </div>
                 </article>
               );

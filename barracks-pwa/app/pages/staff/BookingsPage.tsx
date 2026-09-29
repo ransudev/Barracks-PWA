@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { BookingForm, type BookingFormValue } from "@/app/components/bookings/BookingForm";
 import type { Service } from "@/app/types/domain";
-import type { ApiBarber, ApiBooking, ApiBookingStatus, ApiCustomer } from "@/app/lib/api";
+import type { ApiBarberAvailability, ApiBooking, ApiBookingStatus, ApiCustomer } from "@/app/lib/api";
 import { apiRequest, readApiBody } from "@/app/lib/api";
 import { Avatar, Badge, Button, ConfirmDialog, EmptyState, MetricCard, Modal, PageHeader, Panel, Tabs } from "@/app/components/ui";
 import { createInitials, dateInputValue, formatCurrency, futureDateInputValue } from "@/app/utils/format";
@@ -16,10 +16,10 @@ const freshForm = (customerId = ""): BookingFormValue => ({ customerId, serviceI
 const formFromBooking = (booking: ApiBooking): BookingFormValue => ({ customerId: String(booking.customerId), serviceId: booking.serviceId, barberId: String(booking.barberId), date: booking.date, time: booking.time, notes: booking.notes ?? "" });
 const bookingPayload = (value: BookingFormValue) => ({ customerId: Number(value.customerId), serviceId: value.serviceId, barberId: value.barberId ? Number(value.barberId) : null, date: value.date, time: value.time, notes: value.notes });
 
-export function BookingsPage({ onToast, canDelete = true }: { onToast: (message: string) => void; canDelete?: boolean }) {
+export function BookingsPage({ onToast, canOperate = true, canDelete = false }: { onToast: (message: string) => void; canOperate?: boolean; canDelete?: boolean }) {
   const [items, setItems] = useState<ApiBooking[]>([]);
   const [customers, setCustomers] = useState<ApiCustomer[]>([]);
-  const [barbers, setBarbers] = useState<ApiBarber[]>([]);
+  const [barbers, setBarbers] = useState<ApiBarberAvailability[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -52,7 +52,7 @@ export function BookingsPage({ onToast, canDelete = true }: { onToast: (message:
         const [bookings, customerData, barberData, serviceData] = await Promise.all([
           readApiBody<{ success: boolean; bookings?: ApiBooking[]; message?: string }>(bookingResponse),
           readApiBody<{ success: boolean; customers?: ApiCustomer[]; message?: string }>(customerResponse),
-          readApiBody<{ success: boolean; barbers?: ApiBarber[]; message?: string }>(barberResponse),
+          readApiBody<{ success: boolean; barbers?: ApiBarberAvailability[]; message?: string }>(barberResponse),
           readApiBody<{ success: boolean; services?: Service[]; message?: string }>(serviceResponse),
         ]);
         if (!bookingResponse.ok || !bookings?.success || !customerResponse.ok || !customerData?.success || !barberResponse.ok || !barberData?.success || !serviceResponse.ok || !serviceData?.success) {
@@ -134,7 +134,7 @@ export function BookingsPage({ onToast, canDelete = true }: { onToast: (message:
   const tone = (status: ApiBookingStatus) => status === "completed" ? "success" : status === "cancelled" || status === "no_show" ? "danger" : "warning";
 
   return <div className="operational-workspace">
-    <PageHeader title="Bookings" description="Manage appointments through check in, service, and completion." action={<><ViewToggle view={view} onChange={setView} label="Choose booking view" /><Button icon="plus" disabled={loading || !customers.length || !services.some((service) => service.active)} onClick={openCreate}>New booking</Button></>} />
+    <PageHeader title="Bookings" description={canOperate ? "Manage appointments through check in, service, and completion." : "Review appointments and their current status."} action={<><ViewToggle view={view} onChange={setView} label="Choose booking view" />{canOperate && <Button icon="plus" disabled={loading || !customers.length || !services.some((service) => service.active)} onClick={openCreate}>New booking</Button>}</>} />
     <div className="booking-tabs-row"><Tabs active={tab} onChange={setTab} items={[{ id: "today", label: "Today", count: counts.today }, ...statuses.map((status) => ({ id: status, label: label(status), count: counts[status] }))]} /></div>
     <div className="metrics-grid metrics-grid--four"><MetricCard label="All bookings" value={String(items.length)} icon="calendar" accent="blue" /><MetricCard label="Today" value={String(counts.today)} icon="clock" accent="amber" /><MetricCard label="Completed" value={String(counts.completed)} icon="checkCircle" accent="green" /><MetricCard label="Cancelled" value={String(counts.cancelled)} icon="x" accent="red" /></div>
     <Panel className="operational-panel"><FilterToolbar search={search} onSearchChange={setSearch} placeholder="Search bookings" resultCount={visible.length} />
@@ -147,11 +147,11 @@ export function BookingsPage({ onToast, canDelete = true }: { onToast: (message:
       {selected && (editing ? <DrawerSection eyebrow="Edit appointment" title="Update booking">{bookingForm}</DrawerSection> : <>
         <DrawerSection><div className="operational-drawer__identity"><Avatar initials={createInitials(selected.customerName)} tone="slate" size="lg" /><div><strong>{selected.customerName}</strong><span>{selected.customerEmail}</span></div><Badge tone={tone(selected.status)}>{label(selected.status)}</Badge></div></DrawerSection>
         <DrawerSection eyebrow="Appointment facts" title="Schedule snapshot"><div className="operational-drawer__facts"><div><span>When</span><strong>{selected.date} · {selected.time}–{selected.endTime ?? "?"}</strong></div><div><span>Service</span><strong>{selected.serviceName} · {selected.durationMinutes ?? "?"} min</strong></div><div><span>Barber</span><strong>{selected.barberName}</strong></div><div><span>Price</span><strong>{formatCurrency(selected.price)}</strong></div><div><span>Notes</span><strong>{selected.notes || "None"}</strong></div></div></DrawerSection>
-        {!["completed", "cancelled", "no_show"].includes(selected.status) && <DrawerSection eyebrow="Actions" title="Manage appointment"><div className="operational-drawer__actions">
-          {selected.status === "confirmed" && <><Button variant="secondary" disabled={busy} onClick={() => openEdit(selected)}>Edit</Button><Button disabled={busy} onClick={() => void updateStatus(selected, "checked_in")}>Check In</Button><Button variant="secondary" disabled={busy || !mayMarkNoShow(selected.date, selected.time, new Date(now))} onClick={() => void updateStatus(selected, "no_show")}>Mark No Show</Button></>}
-          {selected.status === "checked_in" && <Button disabled={busy} onClick={() => void updateStatus(selected, "in_progress")}>Start Service</Button>}
-          {selected.status === "in_progress" && <Button disabled={busy} onClick={() => void updateStatus(selected, "completed")}>Complete</Button>}
-          {(selected.status === "confirmed" || selected.status === "checked_in") && <Button variant="danger" disabled={busy} onClick={() => setPendingCancellation(selected)}>Cancel</Button>}
+        {(canOperate || canDelete) && !["completed", "cancelled", "no_show"].includes(selected.status) && <DrawerSection eyebrow="Actions" title="Manage appointment"><div className="operational-drawer__actions">
+          {canOperate && selected.status === "confirmed" && <><Button variant="secondary" disabled={busy} onClick={() => openEdit(selected)}>Edit</Button><Button disabled={busy} onClick={() => void updateStatus(selected, "checked_in")}>Check In</Button><Button variant="secondary" disabled={busy || !mayMarkNoShow(selected.date, selected.time, new Date(now))} onClick={() => void updateStatus(selected, "no_show")}>Mark No Show</Button></>}
+          {canOperate && selected.status === "checked_in" && <Button disabled={busy} onClick={() => void updateStatus(selected, "in_progress")}>Start Service</Button>}
+          {canOperate && selected.status === "in_progress" && <Button disabled={busy} onClick={() => void updateStatus(selected, "completed")}>Complete</Button>}
+          {canOperate && (selected.status === "confirmed" || selected.status === "checked_in") && <Button variant="danger" disabled={busy} onClick={() => setPendingCancellation(selected)}>Cancel</Button>}
           {canDelete && selected.status === "confirmed" && <Button variant="danger" disabled={busy} onClick={() => setPendingDeletion(selected)}>Delete booking</Button>}
         </div></DrawerSection>}
       </>)}

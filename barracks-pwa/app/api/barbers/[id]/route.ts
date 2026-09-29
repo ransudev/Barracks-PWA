@@ -1,7 +1,6 @@
-import { isManagementRole } from "@/app/constants/roles";
-import { requireAdministrator, requireStaff, requireStaffUser } from "@/server/auth/require-role";
+import { requireAdministrator, requireManagement, requireStaffUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
-import { barberSchema, barberStaffSchema, formatValidationErrors } from "@/server/schemas/sprint.schema";
+import { barberSchema, formatValidationErrors } from "@/server/schemas/sprint.schema";
 import { deleteBarber, findBarberById, updateBarber } from "@/server/services/barber.service";
 
 export const runtime = "nodejs";
@@ -11,14 +10,16 @@ function parseId(rawId: string): number | null {
 }
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const authorizationResponse = await requireStaff();
-  if (authorizationResponse) return authorizationResponse;
+  const actor = await requireStaffUser();
+  if (actor instanceof Response) return actor;
   const id = parseId((await params).id);
   if (!id) return Response.json({ success: false, message: "Invalid barber id" }, { status: 400 });
   try {
     const barber = await findBarberById(pool, id);
     if (!barber) return Response.json({ success: false, message: "Barber not found" }, { status: 404 });
-    return Response.json({ success: true, barber });
+    return Response.json({ success: true, barber: actor.role === "front_desk"
+      ? { id: barber.id, firstName: barber.firstName, lastName: barber.lastName, status: barber.status }
+      : barber });
   } catch (error) {
     console.error("Unable to load barber", error);
     return Response.json({ success: false, message: "Unable to load barber" }, { status: 500 });
@@ -26,18 +27,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const authorizationResult = await requireStaffUser();
-  if (authorizationResult instanceof Response) return authorizationResult;
+  const denied = await requireManagement();
+  if (denied) return denied;
   const id = parseId((await params).id);
   if (!id) return Response.json({ success: false, message: "Invalid barber id" }, { status: 400 });
   let body: unknown;
   try { body = await request.json(); } catch {
     return Response.json({ success: false, message: "Invalid barber information" }, { status: 400 });
   }
-  if (!isManagementRole(authorizationResult.role) && typeof body === "object" && body !== null && ("commissionRate" in body || "rating" in body || "servicesDone" in body)) {
-    return Response.json({ success: false, message: "Administrator access is required to change barber commission, ratings, or services" }, { status: 403 });
-  }
-  const parsed = (isManagementRole(authorizationResult.role) ? barberSchema : barberStaffSchema).safeParse(body);
+  const parsed = barberSchema.safeParse(body);
   if (!parsed.success) {
     return Response.json({ success: false, message: "Invalid barber information", errors: formatValidationErrors(parsed.error) }, { status: 400 });
   }

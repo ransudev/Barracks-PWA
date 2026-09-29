@@ -14,7 +14,7 @@ const { PageRouter } = await import("@/app/pages/PageRouter");
 
 const frontDesk: ApiUser = { id: 1, firstName: "Fran", lastName: "Desk", email: "fran@example.test", role: "front_desk", isVerified: true, isBlocked: false, isActive: true, createdAt: "2026-09-29T00:00:00Z", updatedAt: "2026-09-29T00:00:00Z" };
 
-test("Front Desk barber route renders only operational floor data", async () => {
+test("Front Desk barber floor shows operational data and changes status through the narrow endpoint", async () => {
   const previousFetch = globalThis.fetch;
   const requests: string[] = [];
   globalThis.fetch = async (input, init) => {
@@ -27,6 +27,10 @@ test("Front Desk barber route renders only operational floor data", async () => 
     if (path === "/api/queue?view=active") return Response.json({ success: true, queue: [
       { id: 8, barberId: 3, customerName: "Ava Client", serviceName: "Original cut", status: "in_progress" },
     ] });
+    if (path === "/api/barbers/4/status" && init?.method === "PATCH") {
+      assert.deepEqual(JSON.parse(String(init.body)), { status: "available" });
+      return Response.json({ success: true, barber: { id: 4, firstName: "Cal", lastName: "Cutter", status: "available" } });
+    }
     throw new Error(`Unexpected request ${path}`);
   };
   const container = dom.window.document.createElement("div");
@@ -44,6 +48,14 @@ test("Front Desk barber route renders only operational floor data", async () => 
       assert.equal(content.includes(forbidden), false, forbidden);
     }
     assert.deepEqual(requests.sort(), ["GET /api/barbers", "GET /api/queue?view=active"].sort());
+    const statusSelect = container.querySelector('select[aria-label="Daily status for Cal Cutter"]') as HTMLSelectElement;
+    assert.ok(statusSelect);
+    await act(async () => {
+      statusSelect.value = "available";
+      statusSelect.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    assert.ok(requests.includes("PATCH /api/barbers/4/status"));
   } finally {
     await act(async () => root.unmount());
     container.remove();

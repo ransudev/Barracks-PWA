@@ -39,7 +39,7 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const actor = await requireRolesUser(["administrator", "manager", "front_desk", "customer"]);
+  const actor = await requireRolesUser(["front_desk", "customer"]);
   if (actor instanceof Response) return actor;
 
   const id = Number((await params).id);
@@ -94,7 +94,7 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const actor = await requireRolesUser(["administrator", "manager", "front_desk", "customer"]);
+  const actor = await requireRolesUser(["front_desk", "customer"]);
   if (actor instanceof Response) return actor;
 
   const id = Number((await params).id);
@@ -155,7 +155,7 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const actor = await requireRolesUser(["administrator", "manager", "front_desk", "customer"]);
+  const actor = await requireRolesUser(["administrator"]);
   if (actor instanceof Response) return actor;
   const id = Number((await params).id);
   if (!Number.isInteger(id) || id < 1) {

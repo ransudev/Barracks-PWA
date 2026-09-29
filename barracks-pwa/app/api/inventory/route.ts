@@ -1,4 +1,4 @@
-import { requireStaff, requireStaffUser } from "@/server/auth/require-role";
+import { requireManagement, requireManagementUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { inventoryCreateSchema } from "@/server/schemas/sprint2.schema";
 import { createInventoryItem, listInventory } from "@/server/services/inventory.service";
@@ -6,7 +6,7 @@ import { createInventoryItem, listInventory } from "@/server/services/inventory.
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  const authorizationResponse = await requireStaff();
+  const authorizationResponse = await requireManagement();
   if (authorizationResponse) return authorizationResponse;
   try {
     const branch = new URL(request.url).searchParams.get("branch")?.trim() || undefined;
@@ -18,7 +18,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const staff = await requireStaffUser();
+  const staff = await requireManagementUser();
   if (staff instanceof Response) return staff;
   let body: unknown;
   try { body = await request.json(); } catch {

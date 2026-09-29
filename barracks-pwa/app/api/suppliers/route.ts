@@ -1,4 +1,4 @@
-import { requireStaff } from "@/server/auth/require-role";
+import { requireManagement } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { supplierSchema } from "@/server/schemas/sprint2.schema";
 import { createSupplier, listSuppliers } from "@/server/services/supplier.service";
@@ -6,7 +6,7 @@ import { createSupplier, listSuppliers } from "@/server/services/supplier.servic
 export const runtime = "nodejs";
 
 export async function GET() {
-  const denied = await requireStaff();
+  const denied = await requireManagement();
   if (denied) return denied;
   try {
     return Response.json({ success: true, suppliers: await listSuppliers(pool) });
@@ -17,7 +17,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const denied = await requireStaff();
+  const denied = await requireManagement();
   if (denied) return denied;
   let body: unknown;
   try { body = await request.json(); } catch {

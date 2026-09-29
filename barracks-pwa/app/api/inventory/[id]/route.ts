@@ -1,4 +1,4 @@
-import { requireAdministrator, requireStaff, requireStaffUser } from "@/server/auth/require-role";
+import { requireAdministrator, requireManagement, requireManagementUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { inventoryMetadataSchema } from "@/server/schemas/sprint2.schema";
 import { deleteInventory, findInventoryById, updateInventoryMetadata } from "@/server/services/inventory.service";
@@ -10,7 +10,7 @@ function parseId(rawId: string): number | null {
 }
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const authorizationResponse = await requireStaff();
+  const authorizationResponse = await requireManagement();
   if (authorizationResponse) return authorizationResponse;
   const id = parseId((await params).id);
   if (!id) return Response.json({ success: false, message: "Invalid inventory item id" }, { status: 400 });
@@ -25,7 +25,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const staff = await requireStaffUser();
+  const staff = await requireManagementUser();
   if (staff instanceof Response) return staff;
   const id = parseId((await params).id);
   if (!id) return Response.json({ success: false, message: "Invalid inventory item id" }, { status: 400 });

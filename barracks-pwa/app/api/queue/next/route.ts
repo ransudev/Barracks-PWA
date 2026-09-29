@@ -1,14 +1,13 @@
-import { requireRoles } from "@/server/auth/require-role";
+import { requireFrontDesk, requireStaff } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { nextCustomerConfirmSchema } from "@/server/schemas/queue.schema";
 import { confirmNextCustomerAssignment, getNextCustomer, QueueServiceError } from "@/server/services/queue.service";
 
 export const runtime = "nodejs";
-const staff = ["administrator", "manager", "front_desk"] as const;
 const noCandidateMessage = "No eligible customer is waiting for this barber.";
 
 export async function GET(request: Request) {
-  const denied = await requireRoles([...staff]);
+  const denied = await requireStaff();
   if (denied) return denied;
   const barberId = Number(new URL(request.url).searchParams.get("barberId"));
   if (!Number.isSafeInteger(barberId) || barberId < 1)
@@ -25,7 +24,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const denied = await requireRoles([...staff]);
+  const denied = await requireFrontDesk();
   if (denied) return denied;
   let body: unknown;
   try { body = await request.json(); } catch {

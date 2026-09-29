@@ -1,4 +1,4 @@
-import { requireRoles } from "@/server/auth/require-role";
+import { requireFrontDesk } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { queueChangeSchema } from "@/server/schemas/queue.schema";
 import { BookingServiceError, updateBooking } from "@/server/services/booking.service";
@@ -6,7 +6,6 @@ import { QueueLifecycleError, transitionQueue } from "@/server/services/queue-li
 import { assignQueueBarber, findQueueEntry, QueueServiceError, updateWalkInStatus } from "@/server/services/queue.service";
 
 export const runtime = "nodejs";
-const staff = ["administrator", "manager", "front_desk"] as const;
 async function change(id: number, body: unknown) {
   const parsed = queueChangeSchema.safeParse(body);
   if (!parsed.success) return Response.json({ success: false, message: "Invalid queue change" }, { status: 400 });
@@ -29,7 +28,7 @@ async function change(id: number, body: unknown) {
   }
 }
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const denied = await requireRoles([...staff]);
+  const denied = await requireFrontDesk();
   if (denied) return denied;
   const id = Number((await params).id);
   if (!Number.isInteger(id) || id < 1) return Response.json({ success: false, message: "Queue entry not found" }, { status: 404 });
@@ -38,7 +37,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   return change(id, body);
 }
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const denied = await requireRoles([...staff]);
+  const denied = await requireFrontDesk();
   if (denied) return denied;
   const id = Number((await params).id);
   if (!Number.isInteger(id) || id < 1) return Response.json({ success: false, message: "Queue entry not found" }, { status: 404 });

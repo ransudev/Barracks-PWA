@@ -1,4 +1,4 @@
-import { requireStaffUser } from "@/server/auth/require-role";
+import { requireFrontDeskUser, requireStaffUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { createTransactionSchema, transactionHistorySchema } from "@/server/schemas/payment.schema";
 import { formatValidationErrors } from "@/server/schemas/user.schema";
@@ -35,7 +35,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const user = await requireStaffUser();
+  const user = await requireFrontDeskUser();
   if (user instanceof Response) return user;
   let body: unknown;
   try { body = await request.json(); }

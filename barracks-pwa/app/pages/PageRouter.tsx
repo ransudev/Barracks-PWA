@@ -49,9 +49,9 @@ export function PageRouter({ view, go, onToast, currentUser }: PageRouterProps) 
     case "barbers":
       return <BarberFloorPage />;
     case "bookings":
-      return <BookingsPage onToast={onToast} canDelete={isManagementRole(currentUser.role)} />;
+      return <BookingsPage onToast={onToast} canOperate={currentUser.role === "front_desk"} canDelete={currentUser.role === "administrator"} />;
     case "queue":
-      return <QueuePage onToast={onToast} />;
+      return <QueuePage onToast={onToast} canOperate={currentUser.role === "front_desk"} />;
     case "payments":
       return <PaymentPage onToast={onToast} canCheckout={currentUser.role === "front_desk"} canManageFinancialActions={isManagementRole(currentUser.role)} />;
     case "inventory":

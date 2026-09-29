@@ -159,7 +159,7 @@ test("booking permissions keep customer changes owner-scoped and limit destructi
   assert.equal(canManageBooking("front_desk", "start"), true);
   assert.equal(canManageBooking("front_desk", "no_show"), true);
   assert.equal(canManageBooking("front_desk", "delete"), false);
-  assert.equal(canManageBooking("manager", "delete"), true);
+  assert.equal(canManageBooking("manager", "delete"), false);
 });
 
 test("booking schemas keep status transitions terminal and edits explicit", () => {

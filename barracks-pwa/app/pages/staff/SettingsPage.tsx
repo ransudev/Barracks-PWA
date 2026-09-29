@@ -129,7 +129,7 @@ export function StaffSettingsPage({
               checked={emailNotifications}
               onChange={setEmailNotifications}
               label="Email notifications"
-              description="Receive daily close and low stock alerts."
+              description="Receive daily close alerts."
             />
             <Toggle
               checked={soundNotifications}

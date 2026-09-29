@@ -1,4 +1,4 @@
-import { requireRolesUser, requireStaffUser } from "@/server/auth/require-role";
+import { requireManagementUser, requireRolesUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { restockCreateSchema } from "@/server/schemas/sprint2.schema";
 import { createRestockRequest, listRestockRequests } from "@/server/services/restock.service";
@@ -7,7 +7,7 @@ import { supplierIdForUser } from "@/server/services/supplier.service";
 export const runtime = "nodejs";
 
 export async function GET() {
-  const user = await requireRolesUser(["administrator", "manager", "front_desk", "supplier"]);
+  const user = await requireRolesUser(["administrator", "manager", "supplier"]);
   if (user instanceof Response) return user;
   try {
     const supplierId = user.role === "supplier" ? await supplierIdForUser(pool, user.id) : undefined;
@@ -22,7 +22,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const user = await requireStaffUser();
+  const user = await requireManagementUser();
   if (user instanceof Response) return user;
   let body: unknown;
   try { body = await request.json(); } catch {

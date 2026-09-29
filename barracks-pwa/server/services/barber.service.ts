@@ -150,6 +150,20 @@ export async function updateBarber(
   return result.rows[0] ? findBarberById(db, id) : null;
 }
 
+export async function updateBarberStatus(
+  db: Pool,
+  id: number,
+  status: BarberAvailabilityRecord["status"],
+): Promise<BarberAvailabilityRecord | null> {
+  const result = await db.query<BarberAvailabilityRow>(
+    `UPDATE barbers SET status = $1, updated_at = NOW() WHERE id = $2
+     RETURNING id, first_name, last_name, status`,
+    [status, id],
+  );
+  const row = result.rows[0];
+  return row ? { id: Number(row.id), firstName: row.first_name, lastName: row.last_name, status: row.status } : null;
+}
+
 export async function updateAllBarberCommissionRates(
   db: Pool,
   commissionRate: number,

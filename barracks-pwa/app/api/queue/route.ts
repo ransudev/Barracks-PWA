@@ -1,12 +1,11 @@
-import { requireRoles } from "@/server/auth/require-role";
+import { requireFrontDesk, requireStaff } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { walkInSchema } from "@/server/schemas/queue.schema";
 import { addWalkIn, listQueue, QueueServiceError } from "@/server/services/queue.service";
 
 export const runtime = "nodejs";
-const staff = ["administrator", "manager", "front_desk"] as const;
 export async function GET(request: Request) {
-  const denied = await requireRoles([...staff]);
+  const denied = await requireStaff();
   if (denied) return denied;
   const view = new URL(request.url).searchParams.get("view") ?? "active";
   if (view !== "active" && view !== "completed-today") return Response.json({ success: false, message: "Invalid queue view" }, { status: 400 });
@@ -14,7 +13,7 @@ export async function GET(request: Request) {
   catch (error) { console.error("Unable to load queue", error); return Response.json({ success: false, message: "Unable to load queue" }, { status: 500 }); }
 }
 export async function POST(request: Request) {
-  const denied = await requireRoles([...staff]);
+  const denied = await requireFrontDesk();
   if (denied) return denied;
   let body: unknown;
   try { body = await request.json(); } catch { return Response.json({ success: false, message: "Invalid walk-in" }, { status: 400 }); }
