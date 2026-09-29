@@ -29,6 +29,30 @@ export type ApiBarber = {
 
 export type ApiBarberAvailability = Pick<ApiBarber, "id" | "firstName" | "lastName" | "status">;
 
+export type ApiAttendance = {
+  id: number;
+  barberId: number;
+  barberName: string;
+  date: string;
+  status: "present" | "late" | "absent";
+  clockIn: string | null;
+  clockOut: string | null;
+  recordedBy: number;
+  updatedBy: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ApiAttendanceCorrection = {
+  id: number;
+  previousValues: Pick<ApiAttendance, "status" | "clockIn" | "clockOut">;
+  newValues: Pick<ApiAttendance, "status" | "clockIn" | "clockOut">;
+  reason: string;
+  correctedBy: number;
+  correctedByName: string;
+  createdAt: string;
+};
+
 export type ApiInventoryItem = {
   id: number;
   name: string;

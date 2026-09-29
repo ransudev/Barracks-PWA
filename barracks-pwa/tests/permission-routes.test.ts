@@ -27,6 +27,11 @@ const routes: Route[] = [
   { path: "barbers/[id]", method: "DELETE", allowed: ["administrator"] },
   { path: "barbers/[id]/status", method: "PATCH", allowed: ["front_desk", "manager", "administrator"], body: {} },
   { path: "barbers/[id]/schedule", method: "PUT", allowed: ["manager", "administrator"], body: {} },
+  { path: "attendance/today", method: "GET", allowed: ["front_desk", "manager", "administrator"] },
+  { path: "attendance/today/[barberId]", method: "POST", allowed: ["front_desk", "manager", "administrator"], body: {} },
+  { path: "attendance/history", method: "GET", allowed: ["manager", "administrator"] },
+  { path: "attendance/[id]/corrections", method: "GET", allowed: ["manager", "administrator"] },
+  { path: "attendance/[id]/corrections", method: "POST", allowed: ["manager", "administrator"], body: {} },
   { path: "shop-hours", method: "PUT", allowed: ["manager", "administrator"], body: {} },
   { path: "queue", method: "GET", allowed: ["front_desk", "manager", "administrator"] },
   { path: "queue", method: "POST", allowed: ["front_desk"], body: {} },
@@ -77,15 +82,29 @@ for (const route of routes) {
 async function call(route: Route, role: UserRole | null): Promise<Response> {
   actorRole = role;
   queries.length = 0;
-  const path = route.path.replace("[id]", "7");
+  const path = route.path.replace("[id]", "7").replace("[barberId]", "7");
   const request = new Request(`http://localhost/api/${path}`, {
     method: route.method,
     ...(route.body === undefined ? {} : { body: JSON.stringify(route.body) }),
   });
   const handler = handlers.get(route.path)?.[route.method];
   assert.ok(handler, `${route.method} ${route.path}`);
-  return handler(request as never, { params: Promise.resolve({ id: "7" }) } as never);
+  return handler(request as never, { params: Promise.resolve({ id: "7", barberId: "7" }) } as never);
 }
+
+test("attendance role gates allow Front Desk today and management history/corrections", async () => {
+  for (const role of ["front_desk", "manager", "administrator"] as const) {
+    assert.equal((await call({ path: "attendance/today", method: "GET", allowed: [] }, role)).status, 200);
+    assert.equal((await call({ path: "attendance/today/[barberId]", method: "POST", allowed: [], body: {} }, role)).status, 400);
+  }
+  for (const role of ["manager", "administrator"] as const) {
+    assert.equal((await call({ path: "attendance/history", method: "GET", allowed: [] }, role)).status, 200);
+    assert.equal((await call({ path: "attendance/[id]/corrections", method: "GET", allowed: [] }, role)).status, 200);
+    assert.equal((await call({ path: "attendance/[id]/corrections", method: "POST", allowed: [], body: {} }, role)).status, 400);
+  }
+  assert.equal((await call({ path: "attendance/history", method: "GET", allowed: [] }, "front_desk")).status, 403);
+  assert.equal((await call({ path: "attendance/[id]/corrections", method: "POST", allowed: [], body: {} }, "front_desk")).status, 403);
+});
 
 test("direct API calls return 401 without a session and 403 for disallowed roles before any database access", async () => {
   for (const route of routes) {

@@ -27,6 +27,11 @@ test("Front Desk barber floor shows operational data and changes status through 
     if (path === "/api/queue?view=active") return Response.json({ success: true, queue: [
       { id: 8, barberId: 3, customerName: "Ava Client", serviceName: "Original cut", status: "in_progress" },
     ] });
+    if (path === "/api/attendance/today") return Response.json({ success: true, attendance: [] });
+    if (path === "/api/attendance/today/4" && init?.method === "POST") {
+      assert.deepEqual(JSON.parse(String(init.body)), { action: "mark", status: "present" });
+      return Response.json({ success: true, attendance: { id: 2, barberId: 4, barberName: "Cal Cutter", date: "2026-09-29", status: "present", clockIn: null, clockOut: null } });
+    }
     if (path === "/api/barbers/4/status" && init?.method === "PATCH") {
       assert.deepEqual(JSON.parse(String(init.body)), { status: "available" });
       return Response.json({ success: true, barber: { id: 4, firstName: "Cal", lastName: "Cutter", status: "available" } });
@@ -47,8 +52,8 @@ test("Front Desk barber floor shows operational data and changes status through 
     for (const forbidden of ["Commission", "Revenue", "Rating", "Add barber", "Edit profile", "Shop hours", "Schedule", "Absences", "Set commission rate"]) {
       assert.equal(content.includes(forbidden), false, forbidden);
     }
-    assert.deepEqual(requests.sort(), ["GET /api/barbers", "GET /api/queue?view=active"].sort());
-    const statusSelect = container.querySelector('select[aria-label="Daily status for Cal Cutter"]') as HTMLSelectElement;
+    assert.deepEqual(requests.sort(), ["GET /api/barbers", "GET /api/queue?view=active", "GET /api/attendance/today"].sort());
+    const statusSelect = container.querySelector('select[aria-label="Operational status for Cal Cutter"]') as HTMLSelectElement;
     assert.ok(statusSelect);
     await act(async () => {
       statusSelect.value = "available";
@@ -56,6 +61,13 @@ test("Front Desk barber floor shows operational data and changes status through 
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     assert.ok(requests.includes("PATCH /api/barbers/4/status"));
+    assert.match(container.textContent ?? "", /Attendance today/);
+    await act(async () => {
+      const card = Array.from(container.querySelectorAll(".barber-status-card")).find((item) => item.textContent?.includes("Cal Cutter"))!;
+      (Array.from(card.querySelectorAll("button")).find((button) => button.textContent?.includes("Mark present")) as HTMLButtonElement).click();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    assert.ok(requests.includes("POST /api/attendance/today/4"));
   } finally {
     await act(async () => root.unmount());
     container.remove();

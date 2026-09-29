@@ -19,6 +19,7 @@ export type ViewId =
   | "staff-management"
   | "admin-customers"
   | "admin-barbers"
+  | "admin-attendance"
   | "admin-suppliers"
   | "admin-restocks"
   | "admin-reports"

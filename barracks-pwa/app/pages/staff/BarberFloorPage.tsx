@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { apiRequest, readApiBody, type ApiBarberAvailability, type ApiQueueEntry } from "@/app/lib/api";
+import { apiRequest, readApiBody, type ApiAttendance, type ApiBarberAvailability, type ApiQueueEntry } from "@/app/lib/api";
 import { Avatar, Badge, Button, EmptyState, MetricCard, PageHeader, Panel, SelectField } from "@/app/components/ui";
 import { createInitials } from "@/app/utils/format";
 
@@ -9,29 +9,39 @@ function barberName(barber: ApiBarberAvailability): string {
   return `${barber.firstName} ${barber.lastName}`.trim();
 }
 
+const manilaTime = (value: string | null) => value ? new Intl.DateTimeFormat("en-PH", {
+  timeZone: "Asia/Manila", hour: "numeric", minute: "2-digit",
+}).format(new Date(value)) : "—";
+
 export function BarberFloorPage() {
   const [barbers, setBarbers] = useState<ApiBarberAvailability[]>([]);
   const [queue, setQueue] = useState<ApiQueueEntry[]>([]);
+  const [attendance, setAttendance] = useState<ApiAttendance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [savingId, setSavingId] = useState<number | null>(null);
   const [statusError, setStatusError] = useState("");
+  const [attendanceSavingId, setAttendanceSavingId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [barberResponse, queueResponse] = await Promise.all([
+      const [barberResponse, queueResponse, attendanceResponse] = await Promise.all([
         apiRequest("/api/barbers", { cache: "no-store" }),
         apiRequest("/api/queue?view=active", { cache: "no-store" }),
+        apiRequest("/api/attendance/today", { cache: "no-store" }),
       ]);
-      const [barberBody, queueBody] = await Promise.all([
+      const [barberBody, queueBody, attendanceBody] = await Promise.all([
         readApiBody<{ success: boolean; barbers?: ApiBarberAvailability[]; message?: string }>(barberResponse),
         readApiBody<{ success: boolean; queue?: ApiQueueEntry[]; message?: string }>(queueResponse),
+        readApiBody<{ success: boolean; attendance?: ApiAttendance[]; message?: string }>(attendanceResponse),
       ]);
       if (!barberResponse.ok || !barberBody?.success || !barberBody.barbers) throw new Error(barberBody?.message ?? "Unable to load barbers");
       if (!queueResponse.ok || !queueBody?.success || !queueBody.queue) throw new Error(queueBody?.message ?? "Unable to load the current queue");
+      if (!attendanceResponse.ok || !attendanceBody?.success || !attendanceBody.attendance) throw new Error(attendanceBody?.message ?? "Unable to load attendance");
       setBarbers(barberBody.barbers);
       setQueue(queueBody.queue);
+      setAttendance(attendanceBody.attendance);
       setError("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to load the barber floor");
@@ -62,11 +72,24 @@ export function BarberFloorPage() {
     }
   }
 
+  async function changeAttendance(barberId: number, action: { action: "mark"; status: ApiAttendance["status"] } | { action: "clock_in" | "clock_out" }) {
+    setAttendanceSavingId(barberId);
+    setStatusError("");
+    try {
+      const response = await apiRequest(`/api/attendance/today/${barberId}`, { method: "POST", body: JSON.stringify(action) });
+      const body = await readApiBody<{ success: boolean; attendance?: ApiAttendance; message?: string }>(response);
+      if (!response.ok || !body?.success || !body.attendance) throw new Error(body?.message ?? "Unable to update attendance");
+      setAttendance((current) => [...current.filter((item) => item.barberId !== barberId), body.attendance!]);
+    } catch (cause) {
+      setStatusError(cause instanceof Error ? cause.message : "Unable to update attendance");
+    } finally { setAttendanceSavingId(null); }
+  }
+
   const serving = queue.filter((entry) => entry.status === "in_progress" && entry.barberId !== null);
   const available = barbers.filter((barber) => barber.status === "available" && !serving.some((entry) => entry.barberId === barber.id));
 
   return <div className="operational-workspace">
-    <PageHeader title="Barber Floor" description="See current barber availability and assignments." action={<Button icon="refresh" variant="secondary" disabled={loading} onClick={() => void load()}>Refresh</Button>} />
+    <PageHeader title="Barber Floor" description="See operational status, assignments, and today's attendance." action={<Button icon="refresh" variant="secondary" disabled={loading} onClick={() => void load()}>Refresh</Button>} />
     <div className="metrics-grid metrics-grid--four">
       <MetricCard label="Barbers" value={loading ? "—" : String(barbers.length)} icon="scissors" accent="blue" />
       <MetricCard label="Available" value={loading ? "—" : String(available.length)} icon="check" accent="green" />
@@ -83,6 +106,7 @@ export function BarberFloorPage() {
           const name = barberName(barber);
           const currentService = serving.find((entry) => entry.barberId === barber.id);
           const readyCount = queue.filter((entry) => entry.barberId === barber.id && entry.status === "ready").length;
+          const today = attendance.find((entry) => entry.barberId === barber.id);
           const status = currentService ? "In service" : barber.status === "available" ? "Available" : barber.status === "busy" ? "Busy" : "Unavailable";
           const tone = currentService || barber.status === "busy" ? "warning" : barber.status === "available" ? "success" : "neutral";
           return <article className="barber-status-card" key={barber.id}>
@@ -92,12 +116,24 @@ export function BarberFloorPage() {
               <span><small>Current service</small><strong>{currentService ? `${currentService.customerName} · ${currentService.serviceName}` : "None"}</strong></span>
               <span><small>Ready assignments</small><strong>{readyCount}</strong></span>
             </div>
-            <SelectField label="Daily status" aria-label={`Daily status for ${name}`} value={barber.status} disabled={savingId === barber.id}
+            <SelectField label="Operational status" aria-label={`Operational status for ${name}`} value={barber.status} disabled={savingId === barber.id}
                 onChange={(event) => void changeStatus(barber, event.target.value as ApiBarberAvailability["status"])}>
                 <option value="available">Available</option>
                 <option value="busy">Busy</option>
                 <option value="unavailable">Unavailable</option>
             </SelectField>
+            <div className="barber-attendance-controls">
+              <span className="field__label">Attendance today</span>
+              <Badge tone={today?.status === "present" ? "success" : today?.status === "late" ? "warning" : today?.status === "absent" ? "danger" : "neutral"}>{today ? today.status : "Unmarked"}</Badge>
+              <p>Clock In: {manilaTime(today?.clockIn ?? null)} · Clock Out: {manilaTime(today?.clockOut ?? null)}</p>
+              <div className="barber-attendance-actions">
+                {(["present", "late", "absent"] as const).map((attendanceStatus) =>
+                  <Button key={attendanceStatus} size="sm" variant="secondary" disabled={attendanceSavingId === barber.id || today?.status === attendanceStatus || (attendanceStatus === "absent" && Boolean(today?.clockIn))}
+                    onClick={() => void changeAttendance(barber.id, { action: "mark", status: attendanceStatus })}>Mark {attendanceStatus}</Button>)}
+                <Button size="sm" variant="secondary" disabled={attendanceSavingId === barber.id || Boolean(today?.clockIn)} onClick={() => void changeAttendance(barber.id, { action: "clock_in" })}>Clock In</Button>
+                <Button size="sm" variant="secondary" disabled={attendanceSavingId === barber.id || !today?.clockIn || Boolean(today.clockOut)} onClick={() => void changeAttendance(barber.id, { action: "clock_out" })}>Clock Out</Button>
+              </div>
+            </div>
           </article>;
         })}</div>}
     </Panel>

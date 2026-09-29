@@ -331,7 +331,7 @@ test("migration 017 diagnoses duplicate booking transactions and rolls back atom
 
     await db.query("DELETE FROM transactions WHERE id=$1", [transactionIds[1]]);
     await applyMigrations(db);
-    assert.equal(Number((await db.query("SELECT count(*) FROM schema_migrations")).rows[0].count), 20);
+    assert.equal(Number((await db.query("SELECT count(*) FROM schema_migrations")).rows[0].count), 21);
   } finally {
     await cleanup();
   }

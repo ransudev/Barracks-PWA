@@ -455,6 +455,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .barber-status-card__stats small, .barber-status-card__stats strong { display: block; }
 .barber-status-card__stats small { color: var(--text-muted); font-size: 9px; }
 .barber-status-card__stats strong { margin-top: 4px; color: var(--text); font-size: 11px; }
+.barber-attendance-controls { display: grid; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+.barber-attendance-controls > .badge { justify-self: start; text-transform: capitalize; }
+.barber-attendance-controls p { margin: 0; color: var(--text-muted); font-size: 11px; }
+.barber-attendance-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.attendance-detail, .attendance-correction-form { display: grid; gap: 12px; }
+.attendance-audit-entry { border-top: 1px solid var(--line); padding-top: 10px; }
+.attendance-audit-entry p { margin: 4px 0; }
 .commission-table { overflow-x: auto; padding: 0 22px 22px; }
 .commission-table > div { min-width: 440px; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, .7fr) minmax(0, 1fr) minmax(0, 1fr); gap: 10px; align-items: center; min-height: 39px; border-bottom: 1px solid rgba(176, 176, 171, .58); color: var(--text-soft); font-size: 11px; }
 .commission-table > div:first-child { min-height: 28px; border-bottom: 1px solid var(--line); color: var(--text-muted); font-size: 9px; font-weight: 800; text-transform: uppercase; }

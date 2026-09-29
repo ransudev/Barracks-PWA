@@ -1,5 +1,6 @@
 import { AdminDashboard } from "@/app/pages/admin/AdminDashboard";
 import { BarbersManagement } from "@/app/pages/admin/BarbersManagement";
+import { AttendanceManagement } from "@/app/pages/admin/AttendanceManagement";
 import { StaffManagement } from "@/app/pages/admin/StaffManagement";
 import { SuppliersManagement } from "@/app/pages/admin/SuppliersManagement";
 import { RestockManagement } from "@/app/pages/admin/RestockManagement";
@@ -46,6 +47,8 @@ export function PageRouter({ view, go, onToast, currentUser }: PageRouterProps) 
       return <CustomersPage onToast={onToast} canDelete={currentUser.role === "administrator"} isAdministrator={isManagementRole(currentUser.role)} />;
     case "admin-barbers":
       return <BarbersManagement onToast={onToast} canDelete={currentUser.role === "administrator"} canEditCommission={isManagementRole(currentUser.role)} canSetAllCommissions={currentUser.role === "administrator"} />;
+    case "admin-attendance":
+      return <AttendanceManagement />;
     case "barbers":
       return <BarberFloorPage />;
     case "bookings":

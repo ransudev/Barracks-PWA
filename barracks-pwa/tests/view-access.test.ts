@@ -11,7 +11,7 @@ test("every route has a view-access group and Manager navigation remains indepen
   assert.notEqual(managerNavigation, adminNavigation);
   assert.deepEqual(frontDeskNavigation.map((item) => item.id), ["staff-dashboard", "queue", "bookings", "payments", "customers", "barbers"]);
   assert.equal(frontDeskNavigation.find((item) => item.id === "barbers")?.label, "Barber Floor");
-  assert.deepEqual(managerNavigation.map((item) => item.id), ["admin-dashboard", "staff-management", "admin-customers", "admin-barbers", "admin-suppliers", "admin-restocks", "admin-reports", "payments", "admin-inventory", "admin-services"]);
+  assert.deepEqual(managerNavigation.map((item) => item.id), ["admin-dashboard", "staff-management", "admin-customers", "admin-barbers", "admin-attendance", "admin-suppliers", "admin-restocks", "admin-reports", "payments", "admin-inventory", "admin-services"]);
   assert.equal(managerNavigation.find((item) => item.id === "payments")?.label, "Transactions");
 });
 
@@ -33,6 +33,9 @@ test("direct view access matches role navigation", () => {
     ["barbers", "manager", false],
     ["admin-barbers", "front_desk", false],
     ["admin-barbers", "manager", true],
+    ["admin-attendance", "front_desk", false],
+    ["admin-attendance", "manager", true],
+    ["admin-attendance", "administrator", true],
     ["payments", "front_desk", true],
     ["payments", "manager", true],
     ["staff-management", "front_desk", false],
@@ -48,7 +51,7 @@ test("direct view access matches role navigation", () => {
   for (const item of frontDeskNavigation) assert.equal(canAccessView(item.id, "front_desk"), true, item.id);
   for (const item of managerNavigation) assert.equal(canAccessView(item.id, "manager"), true, item.id);
   for (const item of adminNavigation) assert.equal(canAccessView(item.id, "administrator"), true, item.id);
-  for (const view of ["inventory", "staff-suppliers", "restocks", "admin-inventory", "admin-suppliers", "admin-restocks", "admin-reports", "admin-services", "staff-management"] as ViewId[]) {
+  for (const view of ["inventory", "staff-suppliers", "restocks", "admin-inventory", "admin-suppliers", "admin-restocks", "admin-reports", "admin-services", "admin-attendance", "staff-management"] as ViewId[]) {
     assert.equal(canAccessView(view, "front_desk"), false, view);
   }
   for (const view of ["staff-dashboard", "queue", "bookings", "customers", "barbers"] as ViewId[]) {
