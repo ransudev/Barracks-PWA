@@ -51,6 +51,7 @@ export async function createTransaction(db: Pool, input: CreateTransactionInput,
     const cashier = await client.query<{ name: string }>(
       `SELECT concat_ws(' ',u.first_name,u.last_name) AS name FROM users u
        JOIN roles r ON r.id=u.role_id WHERE u.id=$1 AND u.deleted_at IS NULL
+       AND u.is_verified=TRUE AND u.is_blocked=FALSE
        AND r.name IN ('administrator','manager','front_desk') FOR SHARE OF u`, [cashierId],
     );
     if (!cashier.rows[0]) throw new PaymentServiceError("forbidden", "A current staff account is required");
@@ -69,12 +70,12 @@ export async function createTransaction(db: Pool, input: CreateTransactionInput,
       )
       : await client.query<VisitRow>(
         `SELECT NULL::bigint AS booking_id, q.id AS queue_entry_id, q.customer_id, q.barber_id,
-          q.service_id, s.name AS service_name, s.current_price AS amount,
+          q.service_id, q.service_name_snapshot AS service_name,
+          q.service_price_snapshot AS amount,
           concat_ws(' ',COALESCE(cu.first_name,c.first_name),COALESCE(cu.last_name,c.last_name)) AS customer_name,
           concat_ws(' ',br.first_name,br.last_name) AS barber_name
          FROM queue_entries q JOIN customers c ON c.id=q.customer_id
          LEFT JOIN users cu ON cu.id=c.user_id JOIN barbers br ON br.id=q.barber_id
-         JOIN services s ON s.id=q.service_id
          WHERE q.id=$1 AND q.booking_id IS NULL AND q.status='completed' FOR UPDATE OF q`, [queueEntryId],
       );
     const visit = result.rows[0];

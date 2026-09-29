@@ -1,5 +1,28 @@
 -- A transaction is the sale for one visit. The child table holds its tenders so
 -- later split payments and refunds need no change to the visit identity.
+DO $$
+DECLARE duplicate_details TEXT;
+BEGIN
+  SELECT string_agg(
+    format('booking_id=%s transaction_ids=[%s]', booking_id, array_to_string(transaction_ids, ', ')),
+    '; ' ORDER BY booking_id
+  )
+  INTO duplicate_details
+  FROM (
+    SELECT booking_id, array_agg(id ORDER BY id) AS transaction_ids
+    FROM transactions
+    WHERE booking_id IS NOT NULL
+    GROUP BY booking_id
+    HAVING count(*) > 1
+  ) duplicates;
+
+  IF duplicate_details IS NOT NULL THEN
+    RAISE EXCEPTION 'Migration 017 aborted because multiple transactions reference the same booking: %', duplicate_details
+      USING ERRCODE = '23505',
+            HINT = 'Review the listed transaction IDs, reconcile each booking to one transaction, then rerun the migration.';
+  END IF;
+END $$;
+
 ALTER TABLE transactions ADD COLUMN reference VARCHAR(64);
 ALTER TABLE transactions ADD COLUMN queue_entry_id BIGINT REFERENCES queue_entries(id) ON DELETE SET NULL;
 ALTER TABLE transactions ADD COLUMN visit_type VARCHAR(20);

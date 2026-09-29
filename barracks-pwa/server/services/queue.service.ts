@@ -66,7 +66,7 @@ async function requireBarber(client: PoolClient, barberId: number): Promise<void
   requireBarberOperationalAvailability(await getBarberOperationalAvailability(client, barberId));
 }
 const queueSelect = `SELECT q.*, CONCAT(COALESCE(u.first_name,c.first_name),' ',COALESCE(u.last_name,c.last_name)) AS customer_name,
-  s.name AS service_name, CASE WHEN br.id IS NULL THEN NULL ELSE CONCAT(br.first_name,' ',br.last_name) END AS barber_name,
+  q.service_name_snapshot AS service_name, CASE WHEN br.id IS NULL THEN NULL ELSE CONCAT(br.first_name,' ',br.last_name) END AS barber_name,
   b.booking_date::text AS scheduled_date, b.booking_time::text AS scheduled_time, b.status AS booking_status
   FROM queue_entries q JOIN customers c ON c.id=q.customer_id LEFT JOIN users u ON u.id=c.user_id
   JOIN services s ON s.id=q.service_id LEFT JOIN barbers br ON br.id=q.barber_id
@@ -208,9 +208,10 @@ export async function addWalkIn(db: Pool, input: WalkInInput): Promise<QueueReco
 
       const inserted = await client.query<{ id: number }>(
         `INSERT INTO queue_entries(
-           customer_id,service_id,barber_id,status,idempotency_key,idempotency_fingerprint
+           customer_id,service_id,barber_id,service_name_snapshot,service_price_snapshot,
+           status,idempotency_key,idempotency_fingerprint
          )
-         SELECT c.id,s.id,br.id,$4,$5::uuid,$6::char(64)
+         SELECT c.id,s.id,br.id,s.name,s.current_price,$4,$5::uuid,$6::char(64)
          FROM customers c
          LEFT JOIN users u ON u.id=c.user_id
          LEFT JOIN roles r ON r.id=u.role_id
@@ -272,8 +273,9 @@ export async function updateWalkInStatus(db: Pool, id: number, status: QueueStat
 export async function syncAppointmentQueue(client: PoolClient, bookingId: number, status: "checked_in" | "in_progress" | "completed" | "cancelled"): Promise<void> {
   if (status === "checked_in") {
     const inserted = await client.query(
-      `INSERT INTO queue_entries(booking_id,customer_id,service_id,barber_id,status)
-       SELECT id,customer_id,service_id,barber_id,'ready' FROM bookings WHERE id=$1 AND barber_id IS NOT NULL
+      `INSERT INTO queue_entries(booking_id,customer_id,service_id,service_name_snapshot,service_price_snapshot,barber_id,status)
+       SELECT id,customer_id,service_id,service_name,service_price,barber_id,'ready'
+       FROM bookings WHERE id=$1 AND barber_id IS NOT NULL
        ON CONFLICT (booking_id) DO NOTHING RETURNING id`, [bookingId],
     );
     if (!inserted.rowCount) throw new QueueServiceError("conflict", "Appointment queue entry is missing or out of sync");
