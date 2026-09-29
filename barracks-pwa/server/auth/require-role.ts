@@ -55,6 +55,14 @@ export async function requireStaffUser(): Promise<PublicUser | Response> {
   return requireRolesUser(["administrator", "manager", "front_desk"]);
 }
 
+export async function requireFrontDesk(): Promise<Response | null> {
+  return requireRoles(["front_desk"]);
+}
+
+export async function requireFrontDeskUser(): Promise<PublicUser | Response> {
+  return requireRolesUser(["front_desk"]);
+}
+
 export async function requireManagement(): Promise<Response | null> {
   return requireRoles(["administrator", "manager"]);
 }

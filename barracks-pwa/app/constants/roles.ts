@@ -27,7 +27,7 @@ export function isStaffRole(role: string): boolean {
 
 export function canViewStaffUser(actorRole: string, targetRole: string): boolean {
   return isStaffRole(targetRole)
-    && (actorRole === "administrator" || (actorRole === "manager" && targetRole !== "administrator"));
+    && (actorRole === "administrator" || (actorRole === "manager" && targetRole === "front_desk"));
 }
 
 export function canCreateStaffUser(actorRole: string, desiredRole: string): boolean {

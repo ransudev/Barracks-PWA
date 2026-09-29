@@ -12,37 +12,15 @@ import { PageRouter } from "@/app/pages/PageRouter";
 import { Toast } from "@/app/components/ui";
 import { isManagementRole } from "@/app/constants/roles";
 import type { ViewId } from "@/app/types/domain";
-import { isAdminView, requiresAdministrator, requiresManagement } from "@/app/utils/view";
+import { canAccessView, isAdminView, isCustomerView, isProtectedView, isSupplierView, isWorkspaceView } from "@/app/utils/view";
 import { isKnownAppPath, pathForView, viewForPath } from "@/app/utils/routes";
 import { apiRequest, readApiBody, type ApiUser } from "@/app/lib/api";
-
-const customerViews: ViewId[] = ["customer-dashboard", "customer-profile", "customer-booking"];
-const supplierViews: ViewId[] = ["supplier-dashboard"];
-const frontDeskViews: ViewId[] = ["staff-dashboard"];
-
-function isCustomerView(view: ViewId): boolean { return customerViews.includes(view); }
-function isSupplierView(view: ViewId): boolean { return supplierViews.includes(view); }
-function isFrontDeskView(view: ViewId): boolean { return frontDeskViews.includes(view); }
-function isProtectedView(view: ViewId): boolean { return view !== "landing" && view !== "login"; }
-function isWorkspaceView(view: ViewId): boolean { return isProtectedView(view) && !isCustomerView(view) && !isSupplierView(view); }
 
 function defaultViewForUser(user: ApiUser): ViewId {
   if (isManagementRole(user.role)) return "admin-dashboard";
   if (user.role === "customer") return "customer-dashboard";
   if (user.role === "supplier") return "supplier-dashboard";
   return "staff-dashboard";
-}
-
-function canAccessView(view: ViewId, user: ApiUser | null): boolean {
-  if (!isProtectedView(view)) return true;
-  if (!user) return false;
-  if (isCustomerView(view)) return user.role === "customer";
-  if (isSupplierView(view)) return user.role === "supplier";
-  if (isFrontDeskView(view)) return user.role === "front_desk" || user.role === "administrator";
-  if (user.role === "customer" || user.role === "supplier") return false;
-  if (requiresAdministrator(view)) return user.role === "administrator";
-  if (requiresManagement(view)) return isManagementRole(user.role);
-  return true;
 }
 
 function SessionLoading() {
@@ -86,7 +64,7 @@ export function BarracksApp() {
         if (cancelled) return;
         if (response.ok && body?.success && body.user) {
           setCurrentUser(body.user);
-          if (requestedView === "login" || !canAccessView(requestedView, body.user)) router.replace(pathForView(defaultViewForUser(body.user)));
+          if (requestedView === "login" || !canAccessView(requestedView, body.user.role)) router.replace(pathForView(defaultViewForUser(body.user)));
         } else {
           setCurrentUser(null);
           if (isProtectedView(requestedView)) { setPendingView(requestedView); router.replace(pathForView("login")); }
@@ -114,15 +92,13 @@ export function BarracksApp() {
     if (isWorkspaceView(nextView) && (!currentUser || currentUser.role === "customer" || currentUser.role === "supplier")) {
       setPendingView(nextView); navigate("login"); onToast("Sign in to access the workspace"); return;
     }
-    if (isFrontDeskView(nextView) && currentUser?.role === "manager") { onToast("Front Desk access is not available for Managers"); return; }
-    if (requiresAdministrator(nextView) && currentUser?.role !== "administrator") { onToast("Administrator access is required"); return; }
-    if (requiresManagement(nextView) && (!currentUser || !isManagementRole(currentUser.role))) { onToast("Manager access is required"); return; }
+    if (!canAccessView(nextView, currentUser?.role ?? null)) { onToast("You do not have access to this page"); return; }
     navigate(nextView);
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function handleLogin(user: ApiUser) {
-    const destination = pendingView && canAccessView(pendingView, user) ? pendingView : defaultViewForUser(user);
+    const destination = pendingView && canAccessView(pendingView, user.role) ? pendingView : defaultViewForUser(user);
     setCurrentUser(user); setPendingView(null); navigate(destination); onToast(`Signed in as ${user.firstName} ${user.lastName}`);
   }
 
@@ -135,7 +111,7 @@ export function BarracksApp() {
     finally { setCurrentUser(null); setPendingView(null); router.replace(pathForView("landing")); onToast(message); }
   }
 
-  const waitingForSession = sessionLoading && (!currentUser || !canAccessView(view, currentUser));
+  const waitingForSession = sessionLoading && (!currentUser || !canAccessView(view, currentUser.role));
   if (waitingForSession && view !== "landing") return <SessionLoading />;
   if (view === "landing") return <><LandingPage go={go} /><Toast message={toast} onClose={() => setToast("")} /></>;
   if (view === "login" && currentUser) return <SessionLoading />;

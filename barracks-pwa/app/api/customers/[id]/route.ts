@@ -1,6 +1,5 @@
-import { requireAdministrator } from "@/server/auth/require-admin";
 import { isManagementRole } from "@/app/constants/roles";
-import { requireStaff, requireStaffUser } from "@/server/auth/require-role";
+import { requireAdministrator, requireStaff, requireStaffUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import {
   customerProfileSchema,

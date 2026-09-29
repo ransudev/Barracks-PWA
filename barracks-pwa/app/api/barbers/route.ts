@@ -1,6 +1,5 @@
-import { requireAdministrator } from "@/server/auth/require-admin";
 import { isManagementRole } from "@/app/constants/roles";
-import { requireRolesUser, requireStaffUser } from "@/server/auth/require-role";
+import { requireAdministrator, requireRolesUser, requireStaffUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { barberCommissionSchema, barberSchema, barberStaffSchema, formatValidationErrors } from "@/server/schemas/sprint.schema";
 import { createBarber, listBarberAvailability, listBarbers, updateAllBarberCommissionRates } from "@/server/services/barber.service";

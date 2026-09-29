@@ -13,7 +13,7 @@ export const staffNavigation: Array<NavigationItem & { icon: IconName }> = [
   { id: "restocks", label: "Restocks", icon: "stockIn" },
 ];
 
-export const adminNavigation: Array<NavigationItem & { icon: IconName }> = [
+const managementNavigation: Array<NavigationItem & { icon: IconName }> = [
   { id: "admin-dashboard", label: "Dashboard", icon: "home" },
   { id: "staff-management", label: "Staff", icon: "briefcase" },
   { id: "admin-customers", label: "Customers", icon: "users" },
@@ -26,21 +26,36 @@ export const adminNavigation: Array<NavigationItem & { icon: IconName }> = [
   { id: "admin-services", label: "Services", icon: "comb" },
 ];
 
-export const managerNavigation = adminNavigation;
+export const adminNavigation = [...managementNavigation];
+export const managerNavigation = [...managementNavigation];
 
-export const adminViews: ViewId[] = [
-  "admin-dashboard",
-  "staff-management",
-  "admin-customers",
-  "admin-barbers",
-  "admin-suppliers",
-  "admin-restocks",
-  "admin-reports",
-  "admin-inventory",
-  "admin-services",
-];
+export type ViewAccessGroup = "public" | "customer" | "supplier" | "front_desk" | "staff" | "management" | "administrator";
 
-export const administratorOnlyViews: ViewId[] = [
-];
-
-export const managementOnlyViews: ViewId[] = adminViews.filter((view) => !administratorOnlyViews.includes(view));
+// Current pages have no Administrator-only destination. Sensitive actions remain server guarded.
+// Keep every route classified here so later navigation changes do not implicitly grant access.
+export const viewAccessGroups: Record<ViewId, ViewAccessGroup> = {
+  landing: "public",
+  login: "public",
+  "customer-dashboard": "customer",
+  "customer-profile": "customer",
+  "customer-booking": "customer",
+  "supplier-dashboard": "supplier",
+  "staff-dashboard": "front_desk",
+  queue: "staff",
+  bookings: "staff",
+  payments: "staff",
+  customers: "staff",
+  barbers: "staff",
+  inventory: "staff",
+  "staff-suppliers": "staff",
+  restocks: "staff",
+  "admin-dashboard": "management",
+  "staff-management": "management",
+  "admin-customers": "management",
+  "admin-barbers": "management",
+  "admin-suppliers": "management",
+  "admin-restocks": "management",
+  "admin-reports": "management",
+  "admin-inventory": "management",
+  "admin-services": "management",
+};
