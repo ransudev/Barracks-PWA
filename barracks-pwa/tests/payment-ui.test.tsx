@@ -156,3 +156,19 @@ test("history sends search, method, date and page filters to the API", async () 
     assert.match(last, /dateTo=2026-09-29/);
   } finally { await page.cleanup(); }
 });
+
+test("refunded receipt and history display the status and saved audit details", async () => {
+  const page = await renderPayment();
+  try {
+    const refunded: TransactionRecord = { ...paid, status: "refunded", paymentStatus: "refunded", actions: [{
+      id: 7, transactionId: paid.id, action: "refund", amount: 425, reason: "Customer request",
+      staffId: 8, staffName: "Morgan Manager", createdAt: "2026-09-29T05:00:00Z",
+    }] };
+    page.setHistory([refunded]); page.setReceipt(refunded);
+    await act(async () => { Array.from(page.container.querySelectorAll("button")).find((button) => button.textContent === "Refresh")!.click(); });
+    assert.match(page.container.querySelector(".transaction-row")?.textContent ?? "", /Status: refunded/);
+    await act(async () => { Array.from(page.container.querySelectorAll("button")).find((button) => button.textContent === "View receipt")!.click(); });
+    assert.match(page.container.querySelector(".receipt-paper")?.textContent ?? "", /refunded[\s\S]*Refund₱425 · Customer request · Morgan Manager/);
+    assert.match(page.container.querySelector(".financial-audit-panel")?.textContent ?? "", /refund · ₱425 · Customer request · Morgan Manager/);
+  } finally { await page.cleanup(); }
+});

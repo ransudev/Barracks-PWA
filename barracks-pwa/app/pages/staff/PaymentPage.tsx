@@ -41,12 +41,13 @@ function Receipt({ transaction, onClose }: { transaction: TransactionRecord; onC
         <dt>Payment method</dt><dd>{methodLabel(transaction.paymentMethod)}</dd>
         {transaction.paymentMethod === "cash" && <><dt>Amount received</dt><dd>{transaction.amountReceived === null ? "—" : money(transaction.amountReceived)}</dd><dt>Change</dt><dd>{transaction.change === null ? "—" : money(transaction.change)}</dd></>}
         <dt>Payment status</dt><dd>{transaction.paymentStatus}</dd>
+        {transaction.actions?.map((action) => <div key={action.id} className="receipt-audit-entry"><dt>{action.action === "refund" ? "Refund" : "Void"}</dt><dd>{money(action.amount)} · {action.reason} · {action.staffName} · {new Date(action.createdAt).toLocaleString("en-PH", { timeZone: "Asia/Manila" })}</dd></div>)}
       </dl>
     </div>
   </section>;
 }
 
-export function PaymentPage({ onToast }: { onToast: (message: string) => void }) {
+export function PaymentPage({ onToast, canManageFinancialActions = false }: { onToast: (message: string) => void; canManageFinancialActions?: boolean }) {
   const [visits, setVisits] = useState<EligibleVisit[]>([]);
   const [history, setHistory] = useState<TransactionRecord[]>([]);
   const [page, setPage] = useState(1);
@@ -60,6 +61,9 @@ export function PaymentPage({ onToast }: { onToast: (message: string) => void })
   const [receipt, setReceipt] = useState<TransactionRecord | null>(null);
   const [receiptError, setReceiptError] = useState("");
   const [receiptLoading, setReceiptLoading] = useState(false);
+  const [actionReason, setActionReason] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [actionProcessing, setActionProcessing] = useState(false);
   const printWhenReady = useRef(false);
   const [selectedKey, setSelectedKey] = useState("");
   const [method, setMethod] = useState<PaymentMethod>("cash");
@@ -126,6 +130,8 @@ export function PaymentPage({ onToast }: { onToast: (message: string) => void })
   async function openReceipt(reference: string, print = false) {
     setReceipt(null);
     setReceiptError("");
+    setActionReason("");
+    setActionError("");
     printWhenReady.current = false;
     setReceiptLoading(true);
     try {
@@ -137,6 +143,22 @@ export function PaymentPage({ onToast }: { onToast: (message: string) => void })
     } catch (error) {
       setReceiptError(error instanceof Error ? error.message : "Unable to load receipt");
     } finally { setReceiptLoading(false); }
+  }
+
+  async function applyAction(action: "refund" | "void") {
+    if (!receipt || actionProcessing || !actionReason.trim()) return;
+    setActionProcessing(true);
+    setActionError("");
+    try {
+      const response = await apiRequest("/api/transactions/actions", { method: "POST", body: JSON.stringify({ reference: receipt.reference, action, amount: receipt.total, reason: actionReason.trim() }) });
+      const body = await readApiBody<{ success: boolean; transaction?: TransactionRecord; message?: string }>(response);
+      if (!response.ok || !body?.success || !body.transaction) throw new Error(body?.message ?? "Unable to update transaction");
+      setReceipt(body.transaction);
+      setActionReason("");
+      onToast(`Transaction ${body.transaction.status}: ${body.transaction.reference}`);
+      await load();
+    } catch (error) { setActionError(error instanceof Error ? error.message : "Unable to update transaction"); }
+    finally { setActionProcessing(false); }
   }
 
   async function checkout() {
@@ -215,7 +237,7 @@ export function PaymentPage({ onToast }: { onToast: (message: string) => void })
         {!loading && !history.length && <EmptyState title="No transactions found" description="Try another search or date range." />}
         <div className="transaction-list">{history.map((transaction) => <div className="transaction-row" key={transaction.id}>
           <span><strong>{transaction.customerName}</strong><small>{transaction.serviceName} · {transaction.barberName} · {methodLabel(transaction.paymentMethod)}</small><small>{transaction.reference}</small></span>
-          <span><strong>{money(transaction.total)}</strong><small>{new Date(transaction.createdAt).toLocaleString("en-PH", { timeZone: "Asia/Manila" })}</small><Button type="button" variant="ghost" onClick={() => void openReceipt(transaction.reference)}>View receipt</Button></span>
+          <span><strong>{money(transaction.total)}</strong><small>Status: {transaction.paymentStatus}</small><small>{new Date(transaction.createdAt).toLocaleString("en-PH", { timeZone: "Asia/Manila" })}</small><Button type="button" variant="ghost" onClick={() => void openReceipt(transaction.reference)}>View receipt</Button></span>
         </div>)}</div>
         <div className="transaction-pages"><span>{total} transactions · Page {page} of {Math.max(1, totalPages)}</span><Button type="button" variant="ghost" disabled={page <= 1 || loading} onClick={() => setPage(page - 1)}>Previous</Button><Button type="button" variant="ghost" disabled={page >= totalPages || loading} onClick={() => setPage(page + 1)}>Next</Button></div>
       </Panel>
@@ -223,6 +245,17 @@ export function PaymentPage({ onToast }: { onToast: (message: string) => void })
     {completed && <Panel><SectionHeading title="Payment completed" /><p>Reference: <strong>{completed.reference}</strong></p><p>{completed.customerName} · {completed.serviceName} · {completed.barberName}</p><p>Service price: {money(completed.subtotal)} · Total: {money(completed.total)} · {methodLabel(completed.paymentMethod)}</p>{completed.paymentMethod === "cash" && <p>Received: {money(completed.amountReceived ?? 0)} · Change: {money(completed.change ?? 0)}</p>}<Button type="button" onClick={() => void openReceipt(completed.reference, true)}>Print Receipt</Button></Panel>}
     {receiptLoading && <p>Loading receipt…</p>}
     {receiptError && <p role="alert">{receiptError}</p>}
-    {receipt && <Receipt transaction={receipt} onClose={() => setReceipt(null)} />}
+    {receipt && <><Receipt transaction={receipt} onClose={() => setReceipt(null)} />
+      {canManageFinancialActions && receipt.status === "completed" && <Panel className="financial-action-panel"><SectionHeading title="Refund or void transaction" />
+        <p>Full amount: {money(receipt.total)}. A reason is required and the original receipt is retained.</p>
+        <TextField label="Reason" value={actionReason} maxLength={500} onChange={(event) => setActionReason(event.target.value)} />
+        {actionError && <p role="alert">{actionError}</p>}
+        <Button type="button" disabled={actionProcessing || !actionReason.trim()} onClick={() => void applyAction("refund")}>Refund full amount</Button>
+        <Button type="button" disabled={actionProcessing || !actionReason.trim()} onClick={() => void applyAction("void")}>Void transaction</Button>
+      </Panel>}
+      <Panel className="financial-audit-panel"><SectionHeading title="Financial audit history" />
+        {!receipt.actions?.length && <p>No refund or void actions recorded.</p>}
+        {receipt.actions?.map((action) => <p key={action.id}>{action.action} · {money(action.amount)} · {action.reason} · {action.staffName} · {new Date(action.createdAt).toLocaleString("en-PH", { timeZone: "Asia/Manila" })}</p>)}
+      </Panel></>}
   </>;
 }

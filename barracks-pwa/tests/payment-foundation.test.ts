@@ -160,19 +160,19 @@ test("completed bookings and walk-ins create unique snapshotted payments", { ski
     assert.equal(Number((await db.query<{ count: string }>("SELECT count(*) FROM transaction_payments WHERE transaction_id=$1", [bookingPayment.id])).rows[0].count), 1);
     await assert.rejects(db.query("UPDATE transactions SET payment_method='bitcoin' WHERE id=$1", [bookingPayment.id]), { code: "23514" });
     await assert.rejects(db.query("UPDATE transactions SET payment_method='cash' WHERE id=$1", [bookingPayment.id]), {
-      code: "23514", constraint: "transaction_tender_consistency",
+      code: "23514", constraint: "finalized_financial_record_immutable",
     });
     await assert.rejects(db.query("UPDATE transactions SET amount=amount+1 WHERE id=$1", [bookingPayment.id]), {
-      code: "23514", constraint: "transaction_tender_consistency",
+      code: "23514", constraint: "finalized_financial_record_immutable",
     });
     await assert.rejects(db.query("UPDATE transactions SET visit_record_id=visit_record_id+1 WHERE id=$1", [bookingPayment.id]), {
-      code: "23514", constraint: "transactions_visit_identity_immutable",
+      code: "23514", constraint: "finalized_financial_record_immutable",
     });
     await assert.rejects(db.query("UPDATE transaction_payments SET status='failed' WHERE transaction_id=$1", [bookingPayment.id]), {
-      code: "23514", constraint: "transaction_tender_consistency",
+      code: "23514", constraint: "finalized_financial_record_immutable",
     });
     await assert.rejects(db.query("DELETE FROM transaction_payments WHERE transaction_id=$1", [bookingPayment.id]), {
-      code: "23514", constraint: "transaction_tender_consistency",
+      code: "23514", constraint: "finalized_financial_record_immutable",
     });
     await assert.rejects(db.query(
       `INSERT INTO transactions(customer_id,booking_id,visit_type,visit_record_id,barber_id,service_id,amount,payment_method,status,customer_name,barber_name,service_name)
@@ -243,7 +243,7 @@ test("exact cash checkout uses the booking snapshot and persists a balanced tend
     assert.equal(Number(tender.change_amount), 0);
     await assert.rejects(db.query(
       "UPDATE transaction_payments SET amount_received=400,change_amount=0 WHERE transaction_id=$1", [paid.id],
-    ), { code: "23514", constraint: "transaction_payments_cash_balance_check" });
+    ), { code: "23514", constraint: "finalized_financial_record_immutable" });
     const admin = (await db.query<{ id: number }>(
       `INSERT INTO users(first_name,last_name,email,password_hash,role_id)
        VALUES('Admin','Cashier','admin-cashier@test.local','hash',(SELECT id FROM roles WHERE name='administrator')) RETURNING id`,
@@ -331,7 +331,7 @@ test("migration 017 diagnoses duplicate booking transactions and rolls back atom
 
     await db.query("DELETE FROM transactions WHERE id=$1", [transactionIds[1]]);
     await applyMigrations(db);
-    assert.equal(Number((await db.query("SELECT count(*) FROM schema_migrations")).rows[0].count), 19);
+    assert.equal(Number((await db.query("SELECT count(*) FROM schema_migrations")).rows[0].count), 20);
   } finally {
     await cleanup();
   }

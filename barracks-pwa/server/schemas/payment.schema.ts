@@ -20,6 +20,14 @@ export type CreateTransactionInput = z.infer<typeof createTransactionSchema>;
 export type PaymentMethod = z.infer<typeof paymentMethodSchema>;
 export type PaymentStatus = z.infer<typeof paymentStatusSchema>;
 
+export const financialActionSchema = z.object({
+  action: z.enum(["refund", "void"]),
+  reason: z.string().trim().min(1).max(500),
+  amount: z.number().finite().positive().max(9_999_999_999.99)
+    .refine((value) => /^\d+(?:\.\d{1,2})?$/.test(String(value)), "Use at most two decimal places"),
+}).strict();
+export type FinancialActionInput = z.infer<typeof financialActionSchema>;
+
 const dateSchema = z.iso.date();
 export const transactionHistorySchema = z.object({
   page: z.coerce.number().int().min(1).max(10000).default(1),

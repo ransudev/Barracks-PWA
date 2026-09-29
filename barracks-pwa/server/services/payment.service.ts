@@ -1,5 +1,5 @@
 import type { Pool } from "pg";
-import type { CreateTransactionInput, PaymentMethod, PaymentStatus, TransactionHistoryInput } from "@/server/schemas/payment.schema";
+import type { CreateTransactionInput, FinancialActionInput, PaymentMethod, PaymentStatus, TransactionHistoryInput } from "@/server/schemas/payment.schema";
 
 type VisitRow = {
   booking_id: number | null; queue_entry_id: number | null; customer_id: number;
@@ -11,7 +11,11 @@ type TransactionRow = VisitRow & {
   processed_by: number | null; cashier_name: string | null;
   payment_method: PaymentMethod | "mixed"; status: PaymentStatus; created_at: Date | string;
   amount_received: string | null; change_amount: string | null;
+  actions?: FinancialActionRow[] | null;
 };
+
+type FinancialActionRow = { id: string; transaction_id: string; action_type: "refund" | "void"; amount: string; reason: string; staff_id: number | null; staff_name: string; created_at: Date | string };
+export type FinancialActionRecord = { id: number; transactionId: number; action: "refund" | "void"; amount: number; reason: string; staffId: number | null; staffName: string; createdAt: string };
 
 export type TransactionRecord = {
   id: number; reference: string; visitType: "booking" | "queue" | "legacy"; visitRecordId: number;
@@ -21,6 +25,7 @@ export type TransactionRecord = {
   amount: number; subtotal: number; total: number; paymentMethod: PaymentMethod | "mixed";
   amountReceived: number | null; change: number | null;
   status: PaymentStatus; paymentStatus: PaymentStatus; createdAt: string;
+  actions?: FinancialActionRecord[];
 };
 
 export type EligibleVisit = {
@@ -46,13 +51,18 @@ function toTransaction(row: TransactionRow): TransactionRecord {
     paymentMethod: row.payment_method, amountReceived: row.amount_received === null ? null : Number(row.amount_received),
     change: row.change_amount === null ? null : Number(row.change_amount),
     status: row.status, paymentStatus: row.status, createdAt: new Date(row.created_at).toISOString(),
+    ...(row.actions && { actions: row.actions.map((action) => ({ id: Number(action.id), transactionId: Number(action.transaction_id),
+      action: action.action_type, amount: Number(action.amount), reason: action.reason,
+      staffId: action.staff_id === null ? null : Number(action.staff_id), staffName: action.staff_name,
+      createdAt: new Date(action.created_at).toISOString() })) }),
   };
 }
 
 export async function findTransactionByReference(db: Pool, reference: string): Promise<TransactionRecord | null> {
   const result = await db.query<TransactionRow>(
-    `SELECT t.*,p.amount_received,p.change_amount FROM transactions t
-     JOIN transaction_payments p ON p.transaction_id=t.id WHERE t.reference=$1`, [reference]);
+    `SELECT t.*,p.amount_received,p.change_amount,
+       (SELECT json_agg(a ORDER BY a.created_at,a.id) FROM transaction_financial_actions a WHERE a.transaction_id=t.id) AS actions
+     FROM transactions t JOIN transaction_payments p ON p.transaction_id=t.id WHERE t.reference=$1`, [reference]);
   return result.rows[0] ? toTransaction(result.rows[0]) : null;
 }
 
@@ -98,6 +108,39 @@ export async function listTransactionHistory(db: Pool, filters: TransactionHisto
     [...values, pageSize, (page - 1) * pageSize],
   );
   return { transactions: result.rows.map(toTransaction), total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+}
+
+export async function applyFinancialAction(db: Pool, reference: string, input: FinancialActionInput, staffId: number): Promise<TransactionRecord> {
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const staff = await client.query<{ name: string }>(
+      `SELECT concat_ws(' ',u.first_name,u.last_name) AS name FROM users u JOIN roles r ON r.id=u.role_id
+       WHERE u.id=$1 AND u.deleted_at IS NULL AND u.is_verified=TRUE AND u.is_blocked=FALSE
+       AND r.name IN ('administrator','manager') FOR SHARE OF u`, [staffId]);
+    if (!staff.rows[0]) throw new PaymentServiceError("forbidden", "Administrator or manager access is required");
+    const result = await client.query<{ id: string; amount: string; status: PaymentStatus }>(
+      "SELECT id,amount,status FROM transactions WHERE reference=$1 FOR UPDATE", [reference]);
+    const transaction = result.rows[0];
+    if (!transaction) throw new PaymentServiceError("not_found", "Transaction not found");
+    if (transaction.status !== "completed") throw new PaymentServiceError("invalid_state", "Only a completed, unreversed transaction can be refunded or voided");
+    if (Math.round(input.amount * 100) !== Math.round(Number(transaction.amount) * 100)) {
+      throw new PaymentServiceError("invalid_state", "Action amount must equal the full paid amount");
+    }
+    const status = input.action === "refund" ? "refunded" : "voided";
+    await client.query(
+      `INSERT INTO transaction_financial_actions(transaction_id,action_type,amount,reason,staff_id,staff_name)
+       VALUES($1,$2,$3,$4,$5,$6)`, [transaction.id, input.action, input.amount, input.reason, staffId, staff.rows[0].name]);
+    await client.query("UPDATE transactions SET status=$2 WHERE id=$1", [transaction.id, status]);
+    await client.query("UPDATE transaction_payments SET status=$2 WHERE transaction_id=$1", [transaction.id, status]);
+    await client.query("COMMIT");
+    const updated = await findTransactionByReference(db, reference);
+    if (!updated) throw new Error("Updated transaction missing");
+    return updated;
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally { client.release(); }
 }
 
 export async function listEligibleVisits(db: Pool): Promise<EligibleVisit[]> {
