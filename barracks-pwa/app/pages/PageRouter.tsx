@@ -3,7 +3,7 @@ import { BarbersManagement } from "@/app/pages/admin/BarbersManagement";
 import { StaffManagement } from "@/app/pages/admin/StaffManagement";
 import { SuppliersManagement } from "@/app/pages/admin/SuppliersManagement";
 import { RestockManagement } from "@/app/pages/admin/RestockManagement";
-import { InventoryReports } from "@/app/pages/admin/InventoryReports";
+import { ManagementReports } from "@/app/pages/admin/ManagementReports";
 import { ServicesManagement } from "@/app/pages/admin/ServicesManagement";
 import { InventoryPage } from "@/app/pages/staff/InventoryPage";
 import { CustomersPage } from "@/app/pages/staff/CustomersPage";
@@ -37,7 +37,7 @@ export function PageRouter({ view, go, onToast, currentUser }: PageRouterProps) 
     case "restocks":
       return <RestockManagement onToast={onToast} />;
     case "admin-reports":
-      return <InventoryReports onToast={onToast} />;
+      return <ManagementReports onToast={onToast} />;
     case "admin-services":
       return <ServicesManagement onToast={onToast} />;
     case "admin-customers":
