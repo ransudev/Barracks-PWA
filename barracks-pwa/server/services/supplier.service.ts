@@ -82,13 +82,14 @@ export async function createSupplier(db: Pool, input: SupplierInput): Promise<Su
   }
 }
 
-export async function updateSupplier(db: Pool, id: number, input: SupplierInput): Promise<SupplierRecord | null> {
+export async function updateSupplier(db: Pool, id: number, input: SupplierInput, allowDeactivate = true): Promise<SupplierRecord | null> {
   if (input.status === "active") await assertUniqueActiveSupplierName(db, input.companyName, id);
   try {
     const result = await db.query<{ id: number }>(`
       UPDATE suppliers SET company_name=$1, contact_person=$2, phone=$3, email=$4, address=$5,
-        notes=$6, status=$7, updated_at=NOW() WHERE id=$8 RETURNING id`,
-      [input.companyName, input.contactPerson, input.phone, input.email, input.address, input.notes, input.status, id]);
+        notes=$6, status=$7, updated_at=NOW()
+      WHERE id=$8 AND ($9::boolean OR NOT (status='active' AND $7::varchar='inactive')) RETURNING id`,
+      [input.companyName, input.contactPerson, input.phone, input.email, input.address, input.notes, input.status, id, allowDeactivate]);
     return result.rows[0] ? findSupplier(db, id) : null;
   } catch (error) {
     if (isUniqueViolation(error)) throw new Error("DUPLICATE_SUPPLIER_NAME");

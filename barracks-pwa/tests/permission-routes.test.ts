@@ -10,6 +10,8 @@ const pool = {
     queries.push({ sql, values });
     if (sql.includes("UPDATE barbers SET status")) return { rows: [{ id: 7, first_name: "Ana", last_name: "Barber", status: values[0] }], rowCount: 1 };
     if (sql.includes("FROM barbers") && sql.includes("WHERE id")) return { rows: [{ id: 7, first_name: "Ana", last_name: "Barber", status: "available", commission_rate: 20, services_done: 4, revenue: 1000, rating: 5, schedule_day_count: 7, created_at: new Date(), updated_at: new Date() }], rowCount: 1 };
+    if (sql.includes("FROM suppliers s") && sql.includes("WHERE id")) return { rows: [{ id: 7, company_name: "Supplies Co", contact_person: "Sam", phone: "09123456789", email: "", address: "", notes: "", status: "active", has_account: false, created_at: new Date(), updated_at: new Date() }], rowCount: 1 };
+    if (sql.includes("FROM transactions t JOIN transaction_payments p") && sql.includes("WHERE t.reference")) return { rows: [{ id: "9", reference: "TX-AUDIT", visit_type: "booking", visit_record_id: "1", booking_id: 1, queue_entry_id: null, customer_id: 2, barber_id: 3, service_id: "cut", processed_by: 4, customer_name: "Ava", barber_name: "Bea", cashier_name: "Fran", service_name: "Cut", amount: "300", amount_received: "300", change_amount: "0", payment_method: "cash", status: "refunded", created_at: new Date(), actions: [{ id: "2", transaction_id: "9", action_type: "refund", amount: "300", reason: "Manager correction", staff_id: 5, staff_name: "Mae", created_at: new Date() }] }], rowCount: 1 };
     return { rows: [], rowCount: 0 };
   },
 };
@@ -17,7 +19,7 @@ mock.module("@/server/db/pool", { namedExports: { pool } });
 mock.module("@/server/auth/session", { namedExports: { getCurrentUser: async () => actorRole === null ? null : { id: 1, role: actorRole } } });
 
 type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-type Route = { path: string; method: Method; allowed: UserRole[]; body?: unknown };
+type Route = { path: string; method: Method; allowed: UserRole[]; body?: unknown; query?: string };
 const routes: Route[] = [
   { path: "barbers", method: "GET", allowed: ["front_desk", "manager", "administrator", "customer"] },
   { path: "barbers", method: "POST", allowed: ["manager", "administrator"], body: {} },
@@ -27,6 +29,7 @@ const routes: Route[] = [
   { path: "barbers/[id]", method: "DELETE", allowed: ["administrator"] },
   { path: "barbers/[id]/status", method: "PATCH", allowed: ["front_desk", "manager", "administrator"], body: {} },
   { path: "barbers/[id]/schedule", method: "PUT", allowed: ["manager", "administrator"], body: {} },
+  { path: "barbers/[id]/schedule", method: "DELETE", allowed: ["manager", "administrator"] },
   { path: "attendance/today", method: "GET", allowed: ["front_desk", "manager", "administrator"] },
   { path: "attendance/today/[barberId]", method: "POST", allowed: ["front_desk", "manager", "administrator"], body: {} },
   { path: "attendance/history", method: "GET", allowed: ["manager", "administrator"] },
@@ -44,9 +47,19 @@ const routes: Route[] = [
   { path: "bookings/[id]", method: "PATCH", allowed: ["front_desk", "customer"], body: {} },
   { path: "bookings/[id]", method: "PUT", allowed: ["front_desk", "customer"], body: {} },
   { path: "bookings/[id]", method: "DELETE", allowed: ["administrator"] },
+  { path: "customers", method: "GET", allowed: ["front_desk", "manager", "administrator"] },
+  { path: "customers", method: "POST", allowed: ["front_desk", "manager", "administrator"], body: {} },
+  { path: "customers/[id]", method: "PUT", allowed: ["front_desk", "manager", "administrator"], body: {} },
+  { path: "customers/[id]", method: "DELETE", allowed: ["administrator"] },
   { path: "transactions", method: "GET", allowed: ["front_desk", "manager", "administrator"] },
   { path: "transactions", method: "POST", allowed: ["front_desk"], body: {} },
   { path: "transactions/actions", method: "POST", allowed: ["manager", "administrator"], body: {} },
+  { path: "users", method: "GET", allowed: ["manager", "administrator"] },
+  { path: "users", method: "POST", allowed: ["manager", "administrator"], body: {} },
+  { path: "users/[id]", method: "GET", allowed: ["manager", "administrator"] },
+  { path: "users/[id]", method: "DELETE", allowed: ["manager", "administrator"] },
+  { path: "users/[id]", method: "PUT", allowed: ["manager", "administrator"], body: {} },
+  { path: "users/[id]", method: "PATCH", allowed: ["manager", "administrator"], body: {} },
   { path: "services", method: "POST", allowed: ["manager", "administrator"], body: {} },
   { path: "services/[id]", method: "PATCH", allowed: ["manager", "administrator"], body: {} },
   { path: "inventory", method: "GET", allowed: ["manager", "administrator"] },
@@ -83,7 +96,7 @@ async function call(route: Route, role: UserRole | null): Promise<Response> {
   actorRole = role;
   queries.length = 0;
   const path = route.path.replace("[id]", "7").replace("[barberId]", "7");
-  const request = new Request(`http://localhost/api/${path}`, {
+  const request = new Request(`http://localhost/api/${path}${route.query ?? ""}`, {
     method: route.method,
     ...(route.body === undefined ? {} : { body: JSON.stringify(route.body) }),
   });
@@ -149,4 +162,31 @@ test("Front Desk barber reads expose only operational fields", async () => {
   assert.deepEqual((await list.json()).barbers, []);
   assert.match(queries[0].sql, /SELECT id, first_name, last_name, status/);
   assert.equal(queries[0].sql.includes("commission_rate"), false);
+});
+
+test("Manager cannot deactivate a supplier through profile update or DELETE", async () => {
+  const body = { companyName: "Supplies Co", contactPerson: "Sam", phone: "09123456789", email: "", address: "", notes: "", status: "inactive" };
+  const manager = await call({ path: "suppliers/[id]", method: "PUT", allowed: [], body }, "manager");
+  assert.equal(manager.status, 403);
+  assert.match((await manager.json()).message, /Administrator access/);
+  assert.ok(queries.some(({ sql, values }) => sql.includes("NOT (status='active'") && values.at(-1) === false));
+  assert.equal((await call({ path: "suppliers/[id]", method: "DELETE", allowed: [] }, "manager")).status, 403);
+  const administrator = await call({ path: "suppliers/[id]", method: "PUT", allowed: [], body }, "administrator");
+  assert.notEqual(administrator.status, 403);
+  assert.ok(queries.some(({ sql, values }) => sql.includes("NOT (status='active'") && values.at(-1) === true));
+});
+
+test("Front Desk receipt omits management correction details while Management retains them", async () => {
+  const route: Route = { path: "transactions", method: "GET", allowed: [], query: "?reference=TX-AUDIT" };
+  const frontDesk = await call(route, "front_desk");
+  assert.equal(frontDesk.status, 200);
+  const dailyReceipt = (await frontDesk.json()).transaction;
+  assert.equal(dailyReceipt.reference, "TX-AUDIT");
+  assert.equal(dailyReceipt.paymentStatus, "refunded");
+  assert.equal("actions" in dailyReceipt, false);
+  for (const role of ["manager", "administrator"] as const) {
+    const result = await call(route, role);
+    assert.equal(result.status, 200);
+    assert.equal((await result.json()).transaction.actions[0].reason, "Manager correction");
+  }
 });

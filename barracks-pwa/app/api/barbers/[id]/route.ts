@@ -61,7 +61,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
       return Response.json(
         {
           success: false,
-          message: "This barber cannot be deleted while bookings reference the profile. Complete or cancel those bookings first.",
+          message: "This barber cannot be deleted while linked records, including bookings or attendance history, reference the profile.",
         },
         { status: 409 },
       );

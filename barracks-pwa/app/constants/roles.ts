@@ -62,16 +62,7 @@ export function canChangeStaffLifecycle(
     || (actorRole === "manager" && targetRole === "front_desk");
 }
 
-export function canDeactivateStaffUser(
-  actorRole: string,
-  targetRole: string,
-  actorId: number,
-  targetId: number,
-): boolean {
-  if (!isStaffRole(targetRole) || actorId === targetId || targetRole === "administrator") return false;
-  return actorRole === "administrator"
-    || (actorRole === "manager" && targetRole === "front_desk");
-}
+export const canDeactivateStaffUser = canChangeStaffLifecycle;
 
 export function canManageBooking(actorRole: string, action: BookingAction, ownsBooking = false): boolean {
   if (actorRole === "administrator") return action === "delete";

@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { Pool } from "pg";
 import { getRevenueReport, summarizeRevenueEvents } from "@/server/services/revenue-report.service";
-import { revenueReportRoles } from "@/server/auth/revenue-report-roles";
 import { applyMigrations } from "@/server/db/migrate";
 import { createDisposableSchema, databaseConfigured } from "./helpers/database";
 
@@ -31,13 +30,6 @@ test("zero-data reports return zero summary and empty breakdowns", () => {
   assert.deepEqual(report.summary, { grossSales: 0, refundedAmount: 0, voidedAmount: 0,
     reversedAmount: 0, netRevenue: 0, transactionCount: 0 });
   assert.deepEqual([report.dailySales, report.byService, report.byBarber, report.byPaymentMethod], [[], [], [], []]);
-});
-
-test("report access is limited to administrator and manager", () => {
-  assert.deepEqual([...revenueReportRoles], ["administrator", "manager"]);
-  for (const role of ["front_desk", "customer", "supplier"]) {
-    assert.equal((revenueReportRoles as readonly string[]).includes(role), false);
-  }
 });
 
 test("report query uses inclusive Manila-local days and one event stream", async () => {

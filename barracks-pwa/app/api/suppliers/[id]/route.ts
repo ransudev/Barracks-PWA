@@ -1,4 +1,4 @@
-import { requireAdministrator, requireManagement } from "@/server/auth/require-role";
+import { requireAdministrator, requireManagement, requireManagementUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { supplierSchema } from "@/server/schemas/sprint2.schema";
 import { findSupplier, getSupplierProfile, updateSupplier } from "@/server/services/supplier.service";
@@ -14,13 +14,17 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const denied = await requireManagement(); if (denied) return denied;
+  const actor = await requireManagementUser(); if (actor instanceof Response) return actor;
   const id = parseId((await params).id); if (!id) return Response.json({ success:false,message:"Invalid supplier id" },{status:400});
   let body: unknown; try { body = await request.json(); } catch { return Response.json({success:false,message:"Invalid supplier information"},{status:400}); }
   const parsed = supplierSchema.safeParse(body);
   if (!parsed.success) return Response.json({success:false,message:"Invalid supplier information",errors:parsed.error.flatten().fieldErrors},{status:400});
   try {
-    const supplier = await updateSupplier(pool,id,parsed.data);
+    const supplier = await updateSupplier(pool,id,parsed.data,actor.role === "administrator");
+    if (!supplier && actor.role === "manager" && parsed.data.status === "inactive") {
+      const existing = await findSupplier(pool, id);
+      if (existing?.status === "active") return Response.json({ success: false, message: "Administrator access is required to deactivate a supplier" }, { status: 403 });
+    }
     return supplier ? Response.json({success:true,supplier}) : Response.json({success:false,message:"Supplier not found"},{status:404});
   } catch (error) {
     if (error instanceof Error && error.message === "DUPLICATE_SUPPLIER_NAME") {

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { apiRequest, readApiBody, type ApiRole, type ApiUser } from "@/app/lib/api";
-import { canChangeStaffLifecycle, canCreateStaffUser, canDeactivateStaffUser, canUpdateStaffUser, canViewStaffUser, roleOptions } from "@/app/constants/roles";
+import { canChangeStaffLifecycle, canCreateStaffUser, canDeactivateStaffUser, canUpdateStaffUser, canViewStaffUser, roleLabel, roleOptions } from "@/app/constants/roles";
 import { createInitials } from "@/app/utils/format";
 import { Avatar, Badge, Button, ConfirmDialog, EmptyState, MetricCard, Modal, PageHeader, Panel, SelectField, TextField } from "@/app/components/ui";
 import { Icon } from "@/app/components/ui/icons";
@@ -14,7 +14,6 @@ type AccountForm = { firstName: string; lastName: string; email: string; passwor
 const emptyForm: AccountForm = { firstName: "", lastName: "", email: "", password: "", role: "front_desk" };
 
 function displayName(user: ApiUser) { return `${user.firstName} ${user.lastName}`.trim(); }
-function roleLabel(role: ApiRole) { return roleOptions.find((option) => option.value === role)?.label ?? role; }
 function accountStatus(user: ApiUser): AccountStatus { return user.isBlocked ? "blocked" : !user.isVerified ? "pending" : "active"; }
 function accountStatusLabel(status: AccountStatus) { return status === "active" ? "Active" : status === "pending" ? "Pending verification" : "Blocked"; }
 function statusTone(status: AccountStatus): "success" | "warning" | "danger" { return status === "active" ? "success" : status === "pending" ? "warning" : "danger"; }

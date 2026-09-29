@@ -31,9 +31,9 @@ export function PageRouter({ view, go, onToast, currentUser }: PageRouterProps) 
     case "staff-management":
       return <StaffManagement onToast={onToast} currentUserId={currentUser.id} currentUserRole={currentUser.role} />;
     case "admin-suppliers":
-      return <SuppliersManagement onToast={onToast} canManageLogins={currentUser.role === "administrator"} />;
+      return <SuppliersManagement onToast={onToast} canManageLogins={currentUser.role === "administrator"} canDeactivate={currentUser.role === "administrator"} />;
     case "staff-suppliers":
-      return <SuppliersManagement onToast={onToast} />;
+      return <SuppliersManagement onToast={onToast} canManageLogins={currentUser.role === "administrator"} canDeactivate={currentUser.role === "administrator"} />;
     case "admin-restocks":
       return <RestockManagement onToast={onToast} />;
     case "restocks":
@@ -44,7 +44,7 @@ export function PageRouter({ view, go, onToast, currentUser }: PageRouterProps) 
       return <ServicesManagement onToast={onToast} />;
     case "admin-customers":
     case "customers":
-      return <CustomersPage onToast={onToast} canDelete={currentUser.role === "administrator"} isAdministrator={isManagementRole(currentUser.role)} />;
+      return <CustomersPage onToast={onToast} canDelete={currentUser.role === "administrator"} canManageLoyalty={isManagementRole(currentUser.role)} />;
     case "admin-barbers":
       return <BarbersManagement onToast={onToast} canDelete={currentUser.role === "administrator"} canEditCommission={isManagementRole(currentUser.role)} canSetAllCommissions={currentUser.role === "administrator"} />;
     case "admin-attendance":

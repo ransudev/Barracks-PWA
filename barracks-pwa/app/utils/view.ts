@@ -2,16 +2,8 @@ import { viewAccessGroups } from "@/app/constants/navigation";
 import { isManagementRole, isStaffRole } from "@/app/constants/roles";
 import type { ShellArea, ViewId } from "@/app/types/domain";
 
-export function isAdminView(view: ViewId) {
-  return requiresManagement(view) || requiresAdministrator(view);
-}
-
 export function workspaceAreaForView(view: ViewId, role: string): ShellArea {
-  return isManagementRole(role) && (isAdminView(view) || view === "payments") ? "admin" : "staff";
-}
-
-export function requiresAdministrator(view: ViewId) {
-  return viewAccessGroups[view] === "administrator";
+  return isManagementRole(role) && (requiresManagement(view) || view === "payments") ? "admin" : "staff";
 }
 
 export function requiresManagement(view: ViewId) {
@@ -41,8 +33,7 @@ export function canAccessView(view: ViewId, role: string | null): boolean {
   if (group === "customer" || group === "supplier") return role === group;
   if (group === "front_desk") return role === "front_desk" || role === "administrator";
   if (group === "staff") return isStaffRole(role);
-  if (group === "management") return isManagementRole(role);
-  return role === "administrator";
+  return group === "management" && isManagementRole(role);
 }
 
 // Old staff URLs for management pages still resolve, but land on their current management route.

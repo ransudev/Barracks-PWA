@@ -43,7 +43,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     return Response.json({ success: false, message: "Invalid customer information" }, { status: 400 });
   }
   if (!isManagementRole(authorizationResult.role) && typeof body === "object" && body !== null && "loyaltyPoints" in body) {
-    return Response.json({ success: false, message: "Administrator access is required to change loyalty points" }, { status: 403 });
+    return Response.json({ success: false, message: "Management access is required to change loyalty points" }, { status: 403 });
   }
   const parsed = (isManagementRole(authorizationResult.role) ? customerProfileSchema : customerStaffProfileSchema).safeParse(body);
   if (!parsed.success) {

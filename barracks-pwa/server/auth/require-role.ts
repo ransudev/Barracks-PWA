@@ -75,14 +75,6 @@ export async function requireAdministrator(): Promise<Response | null> {
   return requireRoles(["administrator"]);
 }
 
-export async function requireAdministratorUser(): Promise<PublicUser | Response> {
-  return requireRolesUser(["administrator"]);
-}
-
-export async function requireSupplier(): Promise<Response | null> {
-  return requireRoles(["supplier"]);
-}
-
 export async function requireSupplierUser(): Promise<PublicUser | Response> {
   return requireRolesUser(["supplier"]);
 }

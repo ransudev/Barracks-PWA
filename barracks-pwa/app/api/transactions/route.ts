@@ -26,7 +26,7 @@ export async function GET(request: Request) {
     if (parsed?.success) return Response.json({ success: true, ...await listTransactionHistory(pool, parsed.data) });
     const transaction = await findTransactionByReference(pool, reference!);
     return transaction
-      ? Response.json({ success: true, transaction })
+      ? Response.json({ success: true, transaction: user.role === "front_desk" ? { ...transaction, actions: undefined } : transaction })
       : Response.json({ success: false, message: "Transaction not found" }, { status: 404 });
   } catch (error) {
     console.error("Unable to load transaction", error);

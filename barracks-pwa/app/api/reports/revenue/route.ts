@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { requireRoles } from "@/server/auth/require-role";
-import { revenueReportRoles } from "@/server/auth/revenue-report-roles";
+import { requireManagement } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { getRevenueReport } from "@/server/services/revenue-report.service";
 
@@ -15,7 +14,7 @@ function manilaToday(): string {
 }
 
 export async function GET(request: Request) {
-  const denied = await requireRoles(revenueReportRoles);
+  const denied = await requireManagement();
   if (denied) return denied;
   const params = new URL(request.url).searchParams;
   const today = manilaToday();

@@ -1,18 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { adminNavigation, frontDeskNavigation, managerNavigation, viewAccessGroups } from "@/app/constants/navigation";
+import { frontDeskNavigation, managementNavigation, viewAccessGroups } from "@/app/constants/navigation";
 import type { ViewId } from "@/app/types/domain";
 import { viewPaths } from "@/app/utils/routes";
-import { canAccessView, canonicalView, isAdminView, requiresAdministrator, requiresManagement, workspaceAreaForView } from "@/app/utils/view";
+import { canAccessView, canonicalView, requiresManagement, workspaceAreaForView } from "@/app/utils/view";
 
-test("every route has a view-access group and Manager navigation remains independent", () => {
+test("every route has a view-access group and Management navigation matches its access group", () => {
   assert.deepEqual(Object.keys(viewAccessGroups).sort(), Object.keys(viewPaths).sort());
-  assert.deepEqual(managerNavigation, adminNavigation);
-  assert.notEqual(managerNavigation, adminNavigation);
   assert.deepEqual(frontDeskNavigation.map((item) => item.id), ["staff-dashboard", "queue", "bookings", "payments", "customers", "barbers"]);
   assert.equal(frontDeskNavigation.find((item) => item.id === "barbers")?.label, "Barber Floor");
-  assert.deepEqual(managerNavigation.map((item) => item.id), ["admin-dashboard", "staff-management", "admin-customers", "admin-barbers", "admin-attendance", "admin-suppliers", "admin-restocks", "admin-reports", "payments", "admin-inventory", "admin-services"]);
-  assert.equal(managerNavigation.find((item) => item.id === "payments")?.label, "Transactions");
+  assert.deepEqual(managementNavigation.map((item) => item.id), ["admin-dashboard", "staff-management", "admin-customers", "admin-barbers", "admin-attendance", "admin-suppliers", "admin-restocks", "admin-reports", "payments", "admin-inventory", "admin-services"]);
+  assert.equal(managementNavigation.find((item) => item.id === "payments")?.label, "Transactions");
 });
 
 test("direct view access matches role navigation", () => {
@@ -49,8 +47,8 @@ test("direct view access matches role navigation", () => {
     assert.equal(canAccessView(view, role), allowed, `${role} -> ${view}`);
   }
   for (const item of frontDeskNavigation) assert.equal(canAccessView(item.id, "front_desk"), true, item.id);
-  for (const item of managerNavigation) assert.equal(canAccessView(item.id, "manager"), true, item.id);
-  for (const item of adminNavigation) assert.equal(canAccessView(item.id, "administrator"), true, item.id);
+  for (const item of managementNavigation) assert.equal(canAccessView(item.id, "manager"), true, item.id);
+  for (const item of managementNavigation) assert.equal(canAccessView(item.id, "administrator"), true, item.id);
   for (const view of ["inventory", "staff-suppliers", "restocks", "admin-inventory", "admin-suppliers", "admin-restocks", "admin-reports", "admin-services", "admin-attendance", "staff-management"] as ViewId[]) {
     assert.equal(canAccessView(view, "front_desk"), false, view);
   }
@@ -66,8 +64,5 @@ test("direct view access matches role navigation", () => {
   assert.equal(workspaceAreaForView("payments", "administrator"), "admin");
   assert.equal(workspaceAreaForView("admin-barbers", "manager"), "admin");
   assert.equal(workspaceAreaForView("barbers", "administrator"), "staff");
-  assert.equal(isAdminView("staff-management"), true);
   assert.equal(requiresManagement("staff-management"), true);
-  assert.equal(requiresAdministrator("staff-management"), false);
-  assert.equal(Object.values(viewAccessGroups).includes("administrator"), false);
 });
