@@ -35,7 +35,8 @@ export async function POST(request: Request) {
     return Response.json({ success: true, transaction }, { status: 201 });
   } catch (error) {
     if (error instanceof PaymentServiceError) {
-      const status = error.kind === "conflict" ? 409 : error.kind === "forbidden" ? 403 : 404;
+      const status = error.kind === "forbidden" ? 403 : error.kind === "not_found" ? 404
+        : error.kind === "insufficient_cash" ? 422 : 409;
       return Response.json({ success: false, message: error.message }, { status });
     }
     console.error("Unable to create transaction", error);

@@ -4,12 +4,13 @@ import type { CreateTransactionInput, PaymentMethod, PaymentStatus } from "@/ser
 type VisitRow = {
   booking_id: number | null; queue_entry_id: number | null; customer_id: number;
   barber_id: number; service_id: string; customer_name: string;
-  barber_name: string; service_name: string; amount: string;
+  barber_name: string; service_name: string; amount: string; visit_status: string;
 };
 type TransactionRow = VisitRow & {
   id: string; reference: string; visit_type: "booking" | "queue" | "legacy"; visit_record_id: string;
   processed_by: number | null; cashier_name: string | null;
   payment_method: PaymentMethod | "mixed"; status: PaymentStatus; created_at: Date | string;
+  amount_received: string | null; change_amount: string | null;
 };
 
 export type TransactionRecord = {
@@ -17,11 +18,13 @@ export type TransactionRecord = {
   bookingId: number | null; queueEntryId: number | null;
   customerId: number; barberId: number; serviceId: string; processedBy: number | null;
   customerName: string; barberName: string; cashierName: string | null; serviceName: string;
-  amount: number; paymentMethod: PaymentMethod | "mixed"; status: PaymentStatus; createdAt: string;
+  amount: number; subtotal: number; total: number; paymentMethod: PaymentMethod | "mixed";
+  amountReceived: number | null; change: number | null;
+  status: PaymentStatus; paymentStatus: PaymentStatus; createdAt: string;
 };
 
 export class PaymentServiceError extends Error {
-  constructor(public readonly kind: "not_found" | "conflict" | "forbidden", message: string) {
+  constructor(public readonly kind: "not_found" | "conflict" | "forbidden" | "invalid_state" | "insufficient_cash", message: string) {
     super(message);
   }
 }
@@ -34,13 +37,17 @@ function toTransaction(row: TransactionRow): TransactionRecord {
     customerId: Number(row.customer_id), barberId: Number(row.barber_id), serviceId: row.service_id,
     processedBy: row.processed_by === null ? null : Number(row.processed_by),
     customerName: row.customer_name, barberName: row.barber_name, cashierName: row.cashier_name,
-    serviceName: row.service_name, amount: Number(row.amount), paymentMethod: row.payment_method,
-    status: row.status, createdAt: new Date(row.created_at).toISOString(),
+    serviceName: row.service_name, amount: Number(row.amount), subtotal: Number(row.amount), total: Number(row.amount),
+    paymentMethod: row.payment_method, amountReceived: row.amount_received === null ? null : Number(row.amount_received),
+    change: row.change_amount === null ? null : Number(row.change_amount),
+    status: row.status, paymentStatus: row.status, createdAt: new Date(row.created_at).toISOString(),
   };
 }
 
 export async function findTransactionByReference(db: Pool, reference: string): Promise<TransactionRecord | null> {
-  const result = await db.query<TransactionRow>("SELECT * FROM transactions WHERE reference=$1", [reference]);
+  const result = await db.query<TransactionRow>(
+    `SELECT t.*,p.amount_received,p.change_amount FROM transactions t
+     JOIN transaction_payments p ON p.transaction_id=t.id WHERE t.reference=$1`, [reference]);
   return result.rows[0] ? toTransaction(result.rows[0]) : null;
 }
 
@@ -61,25 +68,34 @@ export async function createTransaction(db: Pool, input: CreateTransactionInput,
     const result = bookingId !== null
       ? await client.query<VisitRow>(
         `SELECT b.id AS booking_id, NULL::bigint AS queue_entry_id, b.customer_id, b.barber_id,
-          b.service_id, b.service_name, b.service_price AS amount,
+          b.service_id, b.service_name, b.service_price AS amount, b.status AS visit_status,
           concat_ws(' ',COALESCE(cu.first_name,c.first_name),COALESCE(cu.last_name,c.last_name)) AS customer_name,
           concat_ws(' ',br.first_name,br.last_name) AS barber_name
          FROM bookings b JOIN customers c ON c.id=b.customer_id
          LEFT JOIN users cu ON cu.id=c.user_id JOIN barbers br ON br.id=b.barber_id
-         WHERE b.id=$1 AND b.status='completed' FOR UPDATE OF b`, [bookingId],
+         WHERE b.id=$1 FOR UPDATE OF b`, [bookingId],
       )
       : await client.query<VisitRow>(
         `SELECT NULL::bigint AS booking_id, q.id AS queue_entry_id, q.customer_id, q.barber_id,
           q.service_id, q.service_name_snapshot AS service_name,
-          q.service_price_snapshot AS amount,
+          q.service_price_snapshot AS amount, q.status AS visit_status,
           concat_ws(' ',COALESCE(cu.first_name,c.first_name),COALESCE(cu.last_name,c.last_name)) AS customer_name,
           concat_ws(' ',br.first_name,br.last_name) AS barber_name
          FROM queue_entries q JOIN customers c ON c.id=q.customer_id
-         LEFT JOIN users cu ON cu.id=c.user_id JOIN barbers br ON br.id=q.barber_id
-         WHERE q.id=$1 AND q.booking_id IS NULL AND q.status='completed' FOR UPDATE OF q`, [queueEntryId],
+         LEFT JOIN users cu ON cu.id=c.user_id LEFT JOIN barbers br ON br.id=q.barber_id
+         WHERE q.id=$1 AND q.booking_id IS NULL FOR UPDATE OF q`, [queueEntryId],
       );
     const visit = result.rows[0];
-    if (!visit) throw new PaymentServiceError("not_found", "Completed visit not found");
+    if (!visit) throw new PaymentServiceError("not_found", "Visit not found");
+    if (visit.visit_status !== "completed") throw new PaymentServiceError("invalid_state", "Only completed visits can be checked out");
+
+    const totalCents = Math.round(Number(visit.amount) * 100);
+    const receivedCents = input.paymentMethod === "cash" ? Math.round(input.amountReceived * 100) : null;
+    if (receivedCents !== null && receivedCents < totalCents) {
+      throw new PaymentServiceError("insufficient_cash", "Cash received is below the amount due");
+    }
+    const amountReceived = receivedCents === null ? null : (receivedCents / 100).toFixed(2);
+    const change = receivedCents === null ? null : ((receivedCents - totalCents) / 100).toFixed(2);
 
     const inserted = await client.query<TransactionRow>(
       `INSERT INTO transactions
@@ -93,12 +109,12 @@ export async function createTransaction(db: Pool, input: CreateTransactionInput,
     );
     const transaction = inserted.rows[0];
     await client.query(
-      `INSERT INTO transaction_payments(transaction_id,payment_method,amount,status)
-       VALUES ($1,$2,$3,'completed')`,
-      [transaction.id, input.paymentMethod, visit.amount],
+      `INSERT INTO transaction_payments(transaction_id,payment_method,amount,status,amount_received,change_amount)
+       VALUES ($1,$2,$3,'completed',$4,$5)`,
+      [transaction.id, input.paymentMethod, visit.amount, amountReceived, change],
     );
     await client.query("COMMIT");
-    return toTransaction(transaction);
+    return toTransaction({ ...transaction, amount_received: amountReceived, change_amount: change });
   } catch (error) {
     await client.query("ROLLBACK").catch(() => undefined);
     if (error && typeof error === "object" && "code" in error && (error as { code?: string }).code === "23505") {

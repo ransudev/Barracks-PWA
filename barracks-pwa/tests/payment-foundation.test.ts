@@ -5,12 +5,15 @@ import { createDisposableSchema, databaseConfigured } from "./helpers/database";
 import { applyMigrations } from "@/server/db/migrate";
 
 test("payment request accepts one visit and a supported method only", () => {
-  assert.equal(createTransactionSchema.safeParse({ visit: { bookingId: 1 }, paymentMethod: "cash" }).success, true);
+  assert.equal(createTransactionSchema.safeParse({ visit: { bookingId: 1 }, paymentMethod: "cash", amountReceived: 425 }).success, true);
   assert.equal(createTransactionSchema.safeParse({ visit: { queueEntryId: 2 }, paymentMethod: "e_wallet" }).success, true);
   for (const input of [
-    { visit: { bookingId: 1, queueEntryId: 2 }, paymentMethod: "cash" },
+    { visit: { bookingId: 1, queueEntryId: 2 }, paymentMethod: "cash", amountReceived: 1000 },
     { visit: { bookingId: 1 }, paymentMethod: "crypto" },
     { visit: { bookingId: 1 }, paymentMethod: "cash", amount: 0 },
+    { visit: { bookingId: 1 }, paymentMethod: "cash", amountReceived: -1 },
+    { visit: { bookingId: 1 }, paymentMethod: "cash", amountReceived: 1.001 },
+    { visit: { bookingId: 1 }, paymentMethod: "card", amountReceived: 425 },
   ]) assert.equal(createTransactionSchema.safeParse(input).success, false);
 });
 
@@ -59,18 +62,23 @@ test("completed bookings and walk-ins create unique snapshotted payments", { ski
     assert.equal(linkedEntry.service_name_snapshot, "Linked appointment snapshot");
     assert.equal(Number(linkedEntry.service_price_snapshot), 475);
 
-    await assert.rejects(createTransaction(db, { visit: { bookingId: 999999 }, paymentMethod: "cash" }, staff),
+    await assert.rejects(createTransaction(db, { visit: { bookingId: 999999 }, paymentMethod: "cash", amountReceived: 1000 }, staff),
       (error: unknown) => error instanceof PaymentServiceError && error.kind === "not_found");
-    await assert.rejects(createTransaction(db, { visit: { bookingId: booking }, paymentMethod: "cash" }, customerUser),
+    await assert.rejects(createTransaction(db, { visit: { bookingId: booking }, paymentMethod: "cash", amountReceived: 1000 }, customerUser),
       (error: unknown) => error instanceof PaymentServiceError && error.kind === "forbidden");
-    await assert.rejects(createTransaction(db, { visit: { queueEntryId: Number(linkedEntry.id) }, paymentMethod: "cash" }, staff),
+    await assert.rejects(createTransaction(db, { visit: { queueEntryId: Number(linkedEntry.id) }, paymentMethod: "cash", amountReceived: 1000 }, staff),
       (error: unknown) => error instanceof PaymentServiceError && error.kind === "not_found");
+    await assert.rejects(createTransaction(db, { visit: { queueEntryId: entry }, paymentMethod: "cash", amountReceived: 1000 }, staff),
+      (error: unknown) => error instanceof PaymentServiceError && error.kind === "invalid_state");
+    await assert.rejects(createTransaction(db, { visit: { bookingId: booking }, paymentMethod: "cash", amountReceived: 424.99 }, staff),
+      (error: unknown) => error instanceof PaymentServiceError && error.kind === "insufficient_cash");
+    assert.equal(Number((await db.query<{ count: string }>("SELECT count(*) FROM transactions WHERE booking_id=$1", [booking])).rows[0].count), 0);
 
     await db.query("UPDATE users SET is_blocked=TRUE WHERE id=$1", [staff]);
-    await assert.rejects(createTransaction(db, { visit: { bookingId: booking }, paymentMethod: "cash" }, staff),
+    await assert.rejects(createTransaction(db, { visit: { bookingId: booking }, paymentMethod: "cash", amountReceived: 1000 }, staff),
       (error: unknown) => error instanceof PaymentServiceError && error.kind === "forbidden");
     await db.query("UPDATE users SET is_blocked=FALSE,is_verified=FALSE WHERE id=$1", [staff]);
-    await assert.rejects(createTransaction(db, { visit: { bookingId: booking }, paymentMethod: "cash" }, staff),
+    await assert.rejects(createTransaction(db, { visit: { bookingId: booking }, paymentMethod: "cash", amountReceived: 1000 }, staff),
       (error: unknown) => error instanceof PaymentServiceError && error.kind === "forbidden");
     await db.query("UPDATE users SET is_verified=TRUE WHERE id=$1", [staff]);
 
@@ -79,6 +87,12 @@ test("completed bookings and walk-ins create unique snapshotted payments", { ski
     assert.equal(bookingPayment.serviceName, "Original cut");
     assert.equal(bookingPayment.customerName, "Ava Client");
     assert.equal(bookingPayment.cashierName, "Pat Cashier");
+    assert.equal(bookingPayment.subtotal, 425);
+    assert.equal(bookingPayment.total, 425);
+    assert.equal(bookingPayment.amountReceived, null);
+    assert.equal(bookingPayment.change, null);
+    assert.equal(bookingPayment.paymentStatus, "completed");
+    assert.ok(!Number.isNaN(Date.parse(bookingPayment.createdAt)));
     assert.match(bookingPayment.reference, /^TX-[A-F0-9]{32}$/);
 
     await db.query("UPDATE services SET name='Changed after walk-in',current_price=999 WHERE id='barracks-basic'");
@@ -88,8 +102,8 @@ test("completed bookings and walk-ins create unique snapshotted payments", { ski
     await db.query("UPDATE services SET name='Changed after completion',current_price=1250 WHERE id='barracks-basic'");
 
     const concurrent = await Promise.allSettled([
-      createTransaction(db, { visit: { queueEntryId: entry }, paymentMethod: "cash" }, staff),
-      createTransaction(db, { visit: { queueEntryId: entry }, paymentMethod: "cash" }, staff),
+      createTransaction(db, { visit: { queueEntryId: entry }, paymentMethod: "cash", amountReceived: 1000 }, staff),
+      createTransaction(db, { visit: { queueEntryId: entry }, paymentMethod: "cash", amountReceived: 1000 }, staff),
     ]);
     assert.equal(concurrent.filter((result) => result.status === "fulfilled").length, 1);
     assert.equal(concurrent.filter((result) => result.status === "rejected" &&
@@ -99,7 +113,12 @@ test("completed bookings and walk-ins create unique snapshotted payments", { ski
     assert.equal(walkInPayment.queueEntryId, Number(entry));
     assert.equal(walkInPayment.serviceName, "Barracks Basic");
     assert.equal(walkInPayment.amount, 300);
-    await assert.rejects(createTransaction(db, { visit: { queueEntryId: entry }, paymentMethod: "cash" }, staff),
+    assert.equal(walkInPayment.subtotal, 300);
+    assert.equal(walkInPayment.total, 300);
+    assert.equal(walkInPayment.amountReceived, 1000);
+    assert.equal(walkInPayment.change, 700);
+    assert.equal(walkInPayment.paymentMethod, "cash");
+    await assert.rejects(createTransaction(db, { visit: { queueEntryId: entry }, paymentMethod: "cash", amountReceived: 1000 }, staff),
       (error: unknown) => error instanceof PaymentServiceError && error.kind === "conflict");
 
     await db.query("UPDATE users SET first_name='Changed' WHERE id=$1", [customerUser]);
@@ -109,6 +128,7 @@ test("completed bookings and walk-ins create unique snapshotted payments", { ski
     assert.equal(saved?.barberName, "Bea Barber");
     assert.equal(saved?.serviceName, "Original cut");
     assert.equal(saved?.amount, 425);
+    assert.equal(saved?.amountReceived, null);
     assert.equal(Number((await db.query<{ count: string }>("SELECT count(*) FROM transaction_payments WHERE transaction_id=$1", [bookingPayment.id])).rows[0].count), 1);
     await assert.rejects(db.query("UPDATE transactions SET payment_method='bitcoin' WHERE id=$1", [bookingPayment.id]), { code: "23514" });
     await assert.rejects(db.query("UPDATE transactions SET payment_method='cash' WHERE id=$1", [bookingPayment.id]), {
@@ -142,6 +162,60 @@ test("completed bookings and walk-ins create unique snapshotted payments", { ski
     assert.equal(afterDelete?.visitType, "booking");
     assert.equal(afterDelete?.visitRecordId, Number(booking));
     assert.equal(afterDelete?.customerName, "Ava Client");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("exact cash checkout uses the booking snapshot and persists a balanced tender", { skip: !databaseConfigured }, async () => {
+  const { db, cleanup } = await createDisposableSchema();
+  const { createTransaction, findTransactionByReference, PaymentServiceError } = await import("@/server/services/payment.service");
+  try {
+    const cashier = (await db.query<{ id: number }>(
+      `INSERT INTO users(first_name,last_name,email,password_hash,role_id)
+       VALUES('Cash','Desk','cash-desk@test.local','hash',(SELECT id FROM roles WHERE name='manager')) RETURNING id`,
+    )).rows[0].id;
+    const supplier = (await db.query<{ id: number }>(
+      `INSERT INTO users(first_name,last_name,email,password_hash,role_id)
+       VALUES('Supplier','User','supplier-payment@test.local','hash',(SELECT id FROM roles WHERE name='supplier')) RETURNING id`,
+    )).rows[0].id;
+    const customer = (await db.query<{ id: number }>(
+      "INSERT INTO customers(first_name,last_name) VALUES('Exact','Customer') RETURNING id",
+    )).rows[0].id;
+    const barber = (await db.query<{ id: number }>(
+      "INSERT INTO barbers(first_name,last_name) VALUES('Exact','Barber') RETURNING id",
+    )).rows[0].id;
+    const booking = (await db.query<{ id: number }>(
+      `INSERT INTO bookings(customer_id,barber_id,service_id,service_name,service_price,booking_date,booking_time,status)
+       VALUES($1,$2,'barracks-basic','Snapshot cut',425.25,'2026-09-20','12:00','confirmed') RETURNING id`,
+      [customer, barber],
+    )).rows[0].id;
+    const request = { visit: { bookingId: booking }, paymentMethod: "cash" as const, amountReceived: 425.25 };
+    await assert.rejects(createTransaction(db, request, cashier),
+      (error: unknown) => error instanceof PaymentServiceError && error.kind === "invalid_state");
+    await db.query("UPDATE bookings SET status='completed' WHERE id=$1", [booking]);
+    await assert.rejects(createTransaction(db, request, supplier),
+      (error: unknown) => error instanceof PaymentServiceError && error.kind === "forbidden");
+    await db.query("UPDATE services SET current_price=900 WHERE id='barracks-basic'");
+    const paid = await createTransaction(db, request, cashier);
+    assert.equal(paid.subtotal, 425.25);
+    assert.equal(paid.total, 425.25);
+    assert.equal(paid.amountReceived, 425.25);
+    assert.equal(paid.change, 0);
+    assert.equal(paid.serviceName, "Snapshot cut");
+    assert.equal(paid.cashierName, "Cash Desk");
+    assert.equal(paid.paymentStatus, "completed");
+    const saved = await findTransactionByReference(db, paid.reference);
+    assert.deepEqual(saved, paid);
+    const tender = (await db.query<{ amount: string; amount_received: string; change_amount: string }>(
+      "SELECT amount,amount_received,change_amount FROM transaction_payments WHERE transaction_id=$1", [paid.id],
+    )).rows[0];
+    assert.equal(Number(tender.amount), 425.25);
+    assert.equal(Number(tender.amount_received), 425.25);
+    assert.equal(Number(tender.change_amount), 0);
+    await assert.rejects(db.query(
+      "UPDATE transaction_payments SET amount_received=400,change_amount=0 WHERE transaction_id=$1", [paid.id],
+    ), { code: "23514", constraint: "transaction_payments_cash_balance_check" });
   } finally {
     await cleanup();
   }
@@ -218,7 +292,7 @@ test("migration 017 diagnoses duplicate booking transactions and rolls back atom
 
     await db.query("DELETE FROM transactions WHERE id=$1", [transactionIds[1]]);
     await applyMigrations(db);
-    assert.equal(Number((await db.query("SELECT count(*) FROM schema_migrations")).rows[0].count), 18);
+    assert.equal(Number((await db.query("SELECT count(*) FROM schema_migrations")).rows[0].count), 19);
   } finally {
     await cleanup();
   }
