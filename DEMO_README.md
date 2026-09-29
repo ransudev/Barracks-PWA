@@ -32,7 +32,7 @@ Email: admin@example.com
 Password: the value of INITIAL_ADMIN_PASSWORD
 ```
 
-The administrator can access the Management workspace and switch to Shop floor.
+The administrator can access the Management workspace and switch to Front Desk.
 
 ### Front Desk
 
@@ -41,7 +41,7 @@ Email: demo.frontdesk@barracks.local
 Password: frontdesk123
 ```
 
-Front Desk users open directly in the Shop floor workspace. They can manage customer contact/preferences, barber roster details, and inventory, but cannot see or enter Management. Loyalty points and barber ratings remain administrator-only; barber service totals are read-only.
+Front Desk users open directly in the Front Desk workspace. They can manage customer contact/preferences, barber roster details, and inventory, but cannot see or enter Management. Loyalty points and barber ratings remain administrator-only; barber service totals are read-only.
 
 ### Manager
 
@@ -89,7 +89,7 @@ The second seeded supplier account is `demo.supplier.marco@barracks.local` with 
 7. Open **Suppliers** to show the two supplier records and supplier login setup.
 8. Open **Restocks** to show pending, delivered, and received requests. Receive the delivered request and confirm inventory and movement history update.
 9. Open **Inventory** and show the linked suppliers, In Stock/Low Stock/Out of Stock states, filters, and movement history.
-10. Use the account menu to switch to Shop floor.
+10. Use the workspace switcher to switch to Front Desk.
 11. Sign out and sign in as Front Desk. Confirm that the Management selector and User Management are not visible; create/update inventory and barber records, but note delete actions are administrator-only.
 12. Open **Customers** to show the seeded customer profiles and preferred barbers.
 13. Sign out and sign in as the demo Customer to show the unified customer account dashboard, including profile details and appointments.

@@ -9,6 +9,8 @@ export type IconName =
   | "box"
   | "settings"
   | "chart"
+  | "report"
+  | "frontDesk"
   | "briefcase"
   | "scissors"
   | "coffee"
@@ -118,6 +120,18 @@ const paths: Record<IconName, ReactNode> = {
       <path d="M10 20V4" />
       <path d="M16 20v-7" />
       <path d="M22 20H2" />
+    </>
+  ),
+  report: (
+    <>
+      <path d="M6 3h9l3 3v15H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
+      <path d="M15 3v4h3M8 11h6M8 15h8M8 19h5" />
+    </>
+  ),
+  frontDesk: (
+    <>
+      <circle cx="12" cy="5" r="2" />
+      <path d="M8 13v-2a4 4 0 0 1 8 0v2M3 13h18v6H3zM6 19v2M18 19v2" />
     </>
   ),
   briefcase: (

@@ -9,21 +9,21 @@ export const staffNavigation: Array<NavigationItem & { icon: IconName }> = [
   { id: "customers", label: "Customers", icon: "users" },
   { id: "barbers", label: "Barbers", icon: "scissors" },
   { id: "inventory", label: "Inventory", icon: "box" },
-  { id: "staff-suppliers", label: "Suppliers", icon: "users" },
-  { id: "restocks", label: "Restocks", icon: "box" },
+  { id: "staff-suppliers", label: "Suppliers", icon: "shoppingBag" },
+  { id: "restocks", label: "Restocks", icon: "stockIn" },
 ];
 
 export const adminNavigation: Array<NavigationItem & { icon: IconName }> = [
   { id: "admin-dashboard", label: "Dashboard", icon: "home" },
-  { id: "staff-management", label: "Staff", icon: "users" },
+  { id: "staff-management", label: "Staff", icon: "briefcase" },
   { id: "admin-customers", label: "Customers", icon: "users" },
   { id: "admin-barbers", label: "Barbers", icon: "scissors" },
-  { id: "admin-suppliers", label: "Suppliers", icon: "users" },
-  { id: "admin-restocks", label: "Restocks", icon: "calendar" },
-  { id: "admin-reports", label: "Reports", icon: "info" },
+  { id: "admin-suppliers", label: "Suppliers", icon: "shoppingBag" },
+  { id: "admin-restocks", label: "Restocks", icon: "stockIn" },
+  { id: "admin-reports", label: "Reports", icon: "report" },
   { id: "payments", label: "Payments", icon: "creditCard" },
   { id: "admin-inventory", label: "Inventory", icon: "box" },
-  { id: "admin-services", label: "Services", icon: "scissors" },
+  { id: "admin-services", label: "Services", icon: "comb" },
 ];
 
 export const managerNavigation = adminNavigation;

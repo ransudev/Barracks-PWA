@@ -121,7 +121,7 @@ export function StaffDashboard({
 
   return (
     <div className="staff-dashboard">
-      <PageHeader title="Dashboard" description="Overview of today’s shop floor operations" action={<Button icon="scissors" onClick={() => go("barbers")}>Manage roster</Button>} />
+      <PageHeader title="Dashboard" description="Overview of today’s Front Desk operations" action={<Button icon="scissors" onClick={() => go("barbers")}>Manage roster</Button>} />
       <div className="metrics-grid metrics-grid--four">
         <MetricCard label="Customers in queue" value={queueLoading || queueError ? "—" : String(activeQueue.length)} change={queueError ? "Unable to load queue" : undefined} changeTone="warning" icon="queue" accent="blue" />
         <MetricCard label="Today’s bookings" value={loading ? "—" : String(todayBookings.length)} icon="calendar" accent="amber" />

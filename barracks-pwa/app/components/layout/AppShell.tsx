@@ -106,18 +106,18 @@ function Sidebar({
               className={`workspace-option ${!isManagement ? "is-active" : ""}`}
               type="button"
               aria-pressed={!isManagement}
-              title="Shop floor · Live operations"
+              title="Front Desk · Live operations"
               onClick={() => {
                 if (isManagement) {
                   navigate("staff-dashboard");
-                  onToast("Switched to shop floor");
+                  onToast("Switched to Front Desk");
                 }
               }}
             >
               <span className="workspace-option__mark">
-                <Icon name="scissors" size={15} />
+                <Icon name="frontDesk" size={15} />
               </span>
-              <span className="workspace-option__label">Shop floor</span>
+              <span className="workspace-option__label">Front Desk</span>
             </button>
           </div>
         </div>
@@ -220,7 +220,7 @@ function Topbar({
         </div>
       </div>
       <div className="topbar__context">
-        <span>{isManagement ? "Management" : "Shop floor"}</span>
+        <span>{isManagement ? "Management" : "Front Desk"}</span>
         <Icon name="chevronRight" size={13} />
         <strong>
           {isManagement ? "Business overview" : "Operations"}

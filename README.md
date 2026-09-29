@@ -52,7 +52,7 @@ The active `sprint-2` experience includes:
 - Supplier portal for a linked supplier account, its supplied items, deliveries, and restock requests.
 - PostgreSQL-backed CRUD for user accounts, barber employee profiles, services, inventory, suppliers, and restock requests, plus database-backed booking creation/editing/status updates.
 - Shared operational card/list/drawer modules that give customers, barbers, staff accounts, suppliers, restocks, bookings, queue, and inventory one consistent interaction language.
-- Role-aware workspace switching between Management and Shop floor.
+- Role-aware workspace switching between Management and Front Desk.
 
 The app uses URL-backed Next.js routes for the active surfaces. The browser restores the requested page after refresh, and protected routes rehydrate the current account from the HTTP-only session cookie before rendering the workspace.
 
@@ -76,9 +76,9 @@ Every queue API record includes a derived `visitType`: `walk_in` for an entry wi
 
 There are five account roles:
 
-- `administrator`: can enter Management and Shop floor, manage staff accounts, and access all sprint data.
-- `manager`: can enter Management and Shop floor and manage day-to-day business operations, including customers, barbers, suppliers, inventory, restocks, reports, and bookings. Managers can also create, edit, manage lifecycle, and deactivate front-desk staff accounts only.
-- `front_desk`: works in Shop floor and can manage customers, barbers, bookings, and inventory. It can create/read/update inventory and barber records, but barber commission rates and ratings are administrator-only. It can edit and update booking status for operations, but only administrators and managers can permanently delete bookings. It cannot enter Management, manage user accounts, or delete inventory/barber records.
+- `administrator`: can enter Management and Front Desk, manage staff accounts, and access all sprint data.
+- `manager`: can enter Management and manage day-to-day business operations, including customers, barbers, suppliers, inventory, restocks, reports, and bookings. Managers can also create, edit, manage lifecycle, and deactivate front-desk staff accounts only.
+- `front_desk`: works in Front Desk and can manage customers, barbers, bookings, and inventory. It can create/read/update inventory and barber records, but barber commission rates and ratings are administrator-only. It can edit and update booking status for operations, but only administrators and managers can permanently delete bookings. It cannot enter Management, manage user accounts, or delete inventory/barber records.
 - `customer`: can access only their own customer dashboard/profile and booking flow, including editing or cancelling their own upcoming bookings; customers cannot complete or delete bookings.
 - `supplier`: can access the supplier portal for the linked supplier account and its restock requests.
 
@@ -183,7 +183,7 @@ The current sprint pages use the API for customers, barbers, inventory, supplier
 - Redirects unauthenticated users to login when a protected view is selected, preserving the requested destination after sign-in.
 - Redirects customers to the customer area and prevents them from entering staff views.
 - Redirects supplier accounts to the supplier portal and keeps them out of staff and management views.
-- Chooses the Management or Shop floor shell for authenticated staff.
+- Chooses the Management or Front Desk shell for authenticated staff.
 - Handles sign-out through `POST /api/auth/logout`.
 
 `barracks-pwa/app/utils/routes.ts` maps active view identifiers to canonical browser paths, while `barracks-pwa/app/[...slug]/page.tsx` exposes those paths through the App Router. `barracks-pwa/app/pages/PageRouter.tsx` maps active view identifiers to feature pages. `AppShell` owns sidebar navigation, workspace context, search, profile/sign-out controls, and the internal frame. This client routing is not a substitute for server-side authorization.

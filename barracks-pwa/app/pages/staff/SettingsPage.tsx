@@ -79,7 +79,7 @@ export function StaffSettingsPage({
             <Avatar initials="JM" tone="blue" size="lg" />
             <div>
               <strong>{name}</strong>
-              <small>{roleLabel(role)} · Shop floor</small>
+              <small>{roleLabel(role)} · Front Desk</small>
               <button
                 className="link-button"
                 type="button"
