@@ -25,7 +25,8 @@ export type ViewId =
   | "admin-reports"
   | "barbers"
   | "admin-inventory"
-  | "admin-services";
+  | "admin-services"
+  | "admin-branches";
 
 export type ShellArea = "staff" | "admin";
 

@@ -1,3 +1,4 @@
+import { BranchesManagement } from "@/app/pages/admin/BranchesManagement";
 import { AdminDashboard } from "@/app/pages/admin/AdminDashboard";
 import { BarbersManagement } from "@/app/pages/admin/BarbersManagement";
 import { AttendanceManagement } from "@/app/pages/admin/AttendanceManagement";
@@ -26,6 +27,8 @@ type PageRouterProps = {
 
 export function PageRouter({ view, go, onToast, currentUser }: PageRouterProps) {
   switch (view) {
+    case "admin-branches":
+      return <BranchesManagement currentUserRole={currentUser.role} onToast={onToast} />;
     case "admin-dashboard":
       return <AdminDashboard go={go} onToast={onToast} currentUser={currentUser} />;
     case "staff-management":

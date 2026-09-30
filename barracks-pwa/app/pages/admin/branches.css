@@ -1,0 +1,8 @@
+.branches-list { display: grid; gap: 16px; }
+.branch-summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.branch-summary h2 { margin: 0; font-size: 18px; }
+.branch-summary p { margin-top: 6px; }
+.branch-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.branch-members { list-style: none; padding: 0; margin: 0; display: grid; gap: 16px; }
+.branch-members li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.branches-list .panel, .branch-members li { overflow-wrap: anywhere; }

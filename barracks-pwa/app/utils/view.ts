@@ -7,7 +7,7 @@ export function workspaceAreaForView(view: ViewId, role: string): ShellArea {
 }
 
 export function requiresManagement(view: ViewId) {
-  return viewAccessGroups[view] === "management";
+  return ["management", "administrator"].includes(viewAccessGroups[view]);
 }
 
 export function isProtectedView(view: ViewId): boolean {
@@ -32,6 +32,7 @@ export function canAccessView(view: ViewId, role: string | null): boolean {
   if (!role) return false;
   if (group === "customer" || group === "supplier") return role === group;
   if (group === "front_desk") return role === "front_desk" || role === "administrator";
+  if (group === "administrator") return role === "administrator";
   if (group === "staff") return isStaffRole(role);
   return group === "management" && isManagementRole(role);
 }

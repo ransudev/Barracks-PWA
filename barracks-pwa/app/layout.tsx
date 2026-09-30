@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter, Libre_Baskerville, Sora } from "next/font/google";
 import { BarracksApp } from "@/app/components/BarracksApp";
 import "./globals.css";
+import "./pages/admin/branches.css";
 import "./theme.css";
 import "./pages/public/landing.css";
 import "./pages/auth/login.css";

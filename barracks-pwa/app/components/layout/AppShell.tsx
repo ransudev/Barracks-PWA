@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { canAccessView } from "@/app/utils/view";
 import { frontDeskNavigation, managementNavigation } from "@/app/constants/navigation";
 import { roleLabel as sharedRoleLabel } from "@/app/constants/roles";
 import {
@@ -55,7 +56,7 @@ function Sidebar({
 }) {
   const isManagement = area === "admin";
   const canSwitchWorkspace = currentUser.role === "administrator";
-  const navigation = isManagement ? managementNavigation : frontDeskNavigation;
+  const navigation = (isManagement ? managementNavigation : frontDeskNavigation).filter((item) => canAccessView(item.id, currentUser.role));
   const homeView = dashboardForArea(area);
   const navigate = (view: ViewId) => {
     onMobileClose();
