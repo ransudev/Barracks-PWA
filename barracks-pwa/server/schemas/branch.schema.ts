@@ -8,7 +8,13 @@ export const branchSchema = z.object({
   phone: z.string().trim().max(40).default(""),
   status: z.enum(["active", "inactive"]).default("active"),
 }).strict();
-export const branchUpdateSchema = branchSchema.partial().refine((input) => Object.keys(input).length > 0, "Provide a branch field");
+export const branchUpdateSchema = z.object({
+  name: branchSchema.shape.name.optional(),
+  code: branchSchema.shape.code.optional(),
+  address: z.string().trim().max(500).optional(),
+  phone: z.string().trim().max(40).optional(),
+  status: z.enum(["active", "inactive"]).optional(),
+}).strict().refine((input) => Object.keys(input).length > 0, "Provide a branch field");
 export const branchAssignmentSchema = z.object({ userId: z.number().int().positive().max(2147483647), isPrimary: z.boolean().default(false) }).strict();
 export const branchPrimarySchema = z.object({ isPrimary: z.literal(true) }).strict();
 export type BranchInput = z.infer<typeof branchSchema>;
