@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useBranchContext } from "@/app/utils/use-branch-context";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { apiRequest, readApiBody, type ApiAttendance, type ApiBarberAvailability, type ApiQueueEntry } from "@/app/lib/api";
 import { Avatar, Badge, Button, EmptyState, MetricCard, PageHeader, Panel, SelectField } from "@/app/components/ui";
 import { createInitials } from "@/app/utils/format";
@@ -14,6 +15,8 @@ const manilaTime = (value: string | null) => value ? new Intl.DateTimeFormat("en
 }).format(new Date(value)) : "—";
 
 export function BarberFloorPage() {
+  const { branches, branchId, setBranchId, branchError } = useBranchContext();
+  const loadVersion = useRef(0);
   const [barbers, setBarbers] = useState<ApiBarberAvailability[]>([]);
   const [queue, setQueue] = useState<ApiQueueEntry[]>([]);
   const [attendance, setAttendance] = useState<ApiAttendance[]>([]);
@@ -24,10 +27,12 @@ export function BarberFloorPage() {
   const [attendanceSavingId, setAttendanceSavingId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
+    const version = ++loadVersion.current;
+    if (!branchId) { setBarbers([]); setLoading(false); return; }
     setLoading(true);
     try {
       const [barberResponse, queueResponse, attendanceResponse] = await Promise.all([
-        apiRequest("/api/barbers", { cache: "no-store" }),
+        apiRequest(`/api/barbers?branchId=${branchId}`, { cache: "no-store" }),
         apiRequest("/api/queue?view=active", { cache: "no-store" }),
         apiRequest("/api/attendance/today", { cache: "no-store" }),
       ]);
@@ -39,20 +44,22 @@ export function BarberFloorPage() {
       if (!barberResponse.ok || !barberBody?.success || !barberBody.barbers) throw new Error(barberBody?.message ?? "Unable to load barbers");
       if (!queueResponse.ok || !queueBody?.success || !queueBody.queue) throw new Error(queueBody?.message ?? "Unable to load the current queue");
       if (!attendanceResponse.ok || !attendanceBody?.success || !attendanceBody.attendance) throw new Error(attendanceBody?.message ?? "Unable to load attendance");
+      if (version !== loadVersion.current) return;
       setBarbers(barberBody.barbers);
       setQueue(queueBody.queue);
       setAttendance(attendanceBody.attendance);
       setError("");
     } catch (cause) {
+      if (version !== loadVersion.current) return;
       setError(cause instanceof Error ? cause.message : "Unable to load the barber floor");
     } finally {
-      setLoading(false);
+      if (version === loadVersion.current) setLoading(false);
     }
-  }, []);
+  }, [branchId]);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => { void load(); });
-    return () => window.cancelAnimationFrame(frame);
+    return () => { ++loadVersion.current; window.cancelAnimationFrame(frame); };
   }, [load]);
 
   async function changeStatus(barber: ApiBarberAvailability, status: ApiBarberAvailability["status"]) {
@@ -85,11 +92,11 @@ export function BarberFloorPage() {
     } finally { setAttendanceSavingId(null); }
   }
 
-  const serving = queue.filter((entry) => entry.status === "in_progress" && entry.barberId !== null);
+  const serving = queue.filter((entry) => entry.status === "in_progress" && barbers.some((barber) => barber.id === entry.barberId));
   const available = barbers.filter((barber) => barber.status === "available" && !serving.some((entry) => entry.barberId === barber.id));
 
   return <div className="operational-workspace">
-    <PageHeader title="Barber Floor" description="See operational status, assignments, and today's attendance." action={<Button icon="refresh" variant="secondary" disabled={loading} onClick={() => void load()}>Refresh</Button>} />
+    <SelectField label="Branch" value={branchId} disabled={savingId !== null || attendanceSavingId !== null} onChange={(event) => { setBarbers([]); setBranchId(Number(event.target.value)); }}>{branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</SelectField>{branchError && <p role="alert">{branchError}</p>}<PageHeader title="Barber Floor" description="See operational status, assignments, and today's attendance." action={<Button icon="refresh" variant="secondary" disabled={loading} onClick={() => void load()}>Refresh</Button>} />
     <div className="metrics-grid metrics-grid--four">
       <MetricCard label="Barbers" value={loading ? "—" : String(barbers.length)} icon="scissors" accent="blue" />
       <MetricCard label="Available" value={loading ? "—" : String(available.length)} icon="check" accent="green" />

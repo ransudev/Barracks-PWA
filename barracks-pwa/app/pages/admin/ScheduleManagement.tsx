@@ -12,7 +12,7 @@ type Absence = { id: number; startsAt: string; endsAt: string; reason: string };
 const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const timeInput = (value: string, onChange: (value: string) => void) => <input type="time" value={value} onChange={(event) => onChange(event.target.value)} />;
 
-export function ScheduleManagement({ barbers, onToast }: { barbers: ApiBarber[]; onToast: (message: string) => void }) {
+export function ScheduleManagement({ branchId, barbers, onToast }: { branchId: number; barbers: ApiBarber[]; onToast: (message: string) => void }) {
   const [hours, setHours] = useState<Hours[]>([]);
   const [barberId, setBarberId] = useState(0);
   const [shifts, setShifts] = useState<Shift[]>([]);
@@ -23,16 +23,17 @@ export function ScheduleManagement({ barbers, onToast }: { barbers: ApiBarber[];
   const [loadedBarberId, setLoadedBarberId] = useState(0);
 
   useEffect(() => { const id = window.requestAnimationFrame(() => { void (async () => {
-    try { const response = await apiRequest("/api/shop-hours", { cache: "no-store" }); const body = await readApiBody<{ hours?: Hours[]; message?: string }>(response); if (!response.ok || !body?.hours) throw new Error(body?.message ?? "Unable to load hours"); setHours(body.hours); }
+    if (!branchId) return;
+    try { const response = await apiRequest(`/api/shop-hours?branchId=${branchId}`, { cache: "no-store" }); const body = await readApiBody<{ hours?: Hours[]; message?: string }>(response); if (!response.ok || !body?.hours) throw new Error(body?.message ?? "Unable to load hours"); setHours(body.hours); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to load hours"); }
-  })(); }); return () => window.cancelAnimationFrame(id); }, []);
-  useEffect(() => { const id = window.requestAnimationFrame(() => { void (async () => {
+  })(); }); return () => window.cancelAnimationFrame(id); }, [branchId]);
+  useEffect(() => { let active = true; const id = window.requestAnimationFrame(() => { void (async () => {
     setLoadedBarberId(0);
     if (!barberId) { setShifts([]); setAbsences([]); return; }
-    try { const response = await apiRequest(`/api/barbers/${barberId}/schedule`, { cache: "no-store" }); const body = await readApiBody<{ schedules?: Shift[]; unavailability?: Absence[]; message?: string }>(response); if (!response.ok || !body?.schedules) throw new Error(body?.message ?? "Unable to load schedule"); setShifts(body.schedules); setAbsences(body.unavailability ?? []); setError(""); setLoadedBarberId(barberId); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to load schedule"); }
-  })(); }); return () => window.cancelAnimationFrame(id); }, [barberId]);
-  async function saveHour(hour: Hours) { setBusy(true); setError(""); try { const response = await apiRequest("/api/shop-hours", { method: "PUT", body: JSON.stringify(hour) }); const body = await readApiBody<{ hours?: Hours[]; message?: string }>(response); if (!response.ok || !body?.hours) throw new Error(body?.message ?? "Unable to save hours"); setHours(body.hours); onToast(`${days[hour.dayOfWeek]} shop hours saved`); } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to save hours"); } finally { setBusy(false); } }
+    try { const response = await apiRequest(`/api/barbers/${barberId}/schedule`, { cache: "no-store" }); const body = await readApiBody<{ schedules?: Shift[]; unavailability?: Absence[]; message?: string }>(response); if (!response.ok || !body?.schedules) throw new Error(body?.message ?? "Unable to load schedule"); if (!active) return; setShifts(body.schedules); setAbsences(body.unavailability ?? []); setError(""); setLoadedBarberId(barberId); }
+    catch (cause) { if (active) setError(cause instanceof Error ? cause.message : "Unable to load schedule"); }
+  })(); }); return () => { active = false; window.cancelAnimationFrame(id); }; }, [barberId]);
+  async function saveHour(hour: Hours) { setBusy(true); setError(""); try { const response = await apiRequest(`/api/shop-hours?branchId=${branchId}`, { method: "PUT", body: JSON.stringify(hour) }); const body = await readApiBody<{ hours?: Hours[]; message?: string }>(response); if (!response.ok || !body?.hours) throw new Error(body?.message ?? "Unable to save hours"); setHours(body.hours); onToast(`${days[hour.dayOfWeek]} shop hours saved`); } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to save hours"); } finally { setBusy(false); } }
   async function saveShift(shift: Shift) { setBusy(true); setError(""); try { const response = await apiRequest(`/api/barbers/${barberId}/schedule`, { method: "PUT", body: JSON.stringify(shift) }); const body = await readApiBody<{ schedules?: Shift[]; message?: string; errors?: Record<string, string[]> }>(response); if (!response.ok || !body?.schedules) throw new Error(Object.values(body?.errors ?? {}).flat().join(" ") || body?.message || "Unable to save shift"); setShifts(body.schedules); onToast(`${days[shift.dayOfWeek]} shift saved`); } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to save shift"); } finally { setBusy(false); } }
   async function addAbsence() { setBusy(true); setError(""); try { const response = await apiRequest(`/api/barbers/${barberId}/schedule`, { method: "POST", body: JSON.stringify({ startsAt: new Date(`${start}:00+08:00`).toISOString(), endsAt: new Date(`${end}:00+08:00`).toISOString(), reason }) }); const body = await readApiBody<{ unavailability?: Absence; message?: string }>(response); if (!response.ok || !body?.unavailability) throw new Error(body?.message ?? "Unable to add absence"); setAbsences((current) => [...current, body.unavailability!]); setStart(""); setEnd(""); setReason(""); onToast("Unavailable period added"); } catch (cause) { setError(cause instanceof Error ? cause.message : "Check the dates and reason"); } finally { setBusy(false); } }
   async function removeAbsence(id: number) { setBusy(true); setError(""); try { const response = await apiRequest(`/api/barbers/${barberId}/schedule?periodId=${id}`, { method: "DELETE" }); if (!response.ok) throw new Error("Unable to remove period"); setAbsences((current) => current.filter((item) => item.id !== id)); onToast("Unavailable period removed"); } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to remove period"); } finally { setBusy(false); } }
@@ -52,7 +53,7 @@ export function ScheduleManagement({ barbers, onToast }: { barbers: ApiBarber[];
 
       <div className="schedule-management__section">
         <div className="schedule-management__section-head">
-          <div><h3>Shop operating hours</h3><p>Weekly opening window for all appointments.</p></div>
+          <div><h3>Shop operating hours</h3><p>Weekly opening window for the selected branch.</p></div>
         </div>
         <div className="schedule-management__rows">
           {hours.map((hour) => (
@@ -70,7 +71,7 @@ export function ScheduleManagement({ barbers, onToast }: { barbers: ApiBarber[];
       <div className="schedule-management__section">
         <div className="schedule-management__section-head">
           <div><h3>Barber schedule</h3><p>Choose a barber to manage working days, breaks, and time away.</p></div>
-          <SelectField label="Barber" className="schedule-management__barber-select" value={barberId} onChange={(event) => setBarberId(Number(event.target.value))}>
+          <SelectField label="Barber" className="schedule-management__barber-select" value={barberId} disabled={busy} onChange={(event) => { setLoadedBarberId(0); setShifts([]); setAbsences([]); setBarberId(Number(event.target.value)); }}>
             <option value={0}>Select barber</option>
             {barbers.map((barber) => <option key={barber.id} value={barber.id}>{barber.firstName} {barber.lastName}</option>)}
           </SelectField>
@@ -79,7 +80,7 @@ export function ScheduleManagement({ barbers, onToast }: { barbers: ApiBarber[];
           {loadedBarberId === barberId && shifts.length < 7 && <p role="alert" className="form-hint schedule-management__hint">This barber needs a complete weekly schedule. Save each missing day before taking appointments for it.</p>}
           <div className="schedule-management__rows">
             {days.map((day, dayOfWeek) => {
-              const shift = shifts.find((item) => item.dayOfWeek === dayOfWeek) ?? { dayOfWeek, isWorking: false, startTime: "09:00", endTime: "19:30", breaks: [] };
+              const shift = shifts.find((item) => item.dayOfWeek === dayOfWeek) ?? { dayOfWeek, isWorking: false, startTime: hours.find((item) => item.dayOfWeek === dayOfWeek)?.openTime ?? "09:00", endTime: hours.find((item) => item.dayOfWeek === dayOfWeek)?.closeTime ?? "19:30", breaks: [] };
               const update = (patch: Partial<Shift>) => {
                 if (!shifts.some((item) => item.dayOfWeek === dayOfWeek)) setShifts((current) => [...current, { ...shift, ...patch }]);
                 else updateShift(dayOfWeek, patch);
@@ -89,7 +90,7 @@ export function ScheduleManagement({ barbers, onToast }: { barbers: ApiBarber[];
                 <label className="schedule-management__toggle"><input type="checkbox" checked={shift.isWorking} onChange={(event) => update({ isWorking: event.target.checked })} /> Working</label>
                 <label className="schedule-management__time"><span>Starts</span>{timeInput(shift.startTime, (value) => update({ startTime: value }))}</label>
                 <label className="schedule-management__time"><span>Ends</span>{timeInput(shift.endTime, (value) => update({ endTime: value }))}</label>
-                <Button variant="secondary" size="sm" disabled={busy} onClick={() => void saveShift(shift)}>Save shift</Button>
+                <Button variant="secondary" size="sm" disabled={busy || loadedBarberId !== barberId} onClick={() => void saveShift(shift)}>Save shift</Button>
                 <div className="schedule-management__breaks">
                   <span>Breaks</span>
                   {shift.breaks.map((item, index) => <div className="schedule-management__break" key={index}>
@@ -109,7 +110,7 @@ export function ScheduleManagement({ barbers, onToast }: { barbers: ApiBarber[];
               <label>Start<input type="datetime-local" value={start} onChange={(event) => setStart(event.target.value)} /></label>
               <label>End<input type="datetime-local" value={end} onChange={(event) => setEnd(event.target.value)} /></label>
               <label>Reason<input value={reason} maxLength={200} onChange={(event) => setReason(event.target.value)} /></label>
-              <Button variant="secondary" size="sm" disabled={busy || !start || !end || !reason.trim()} onClick={() => void addAbsence()}>Add period</Button>
+              <Button variant="secondary" size="sm" disabled={busy || loadedBarberId !== barberId || !start || !end || !reason.trim()} onClick={() => void addAbsence()}>Add period</Button>
             </div>
             {absences.map((item) => <div className="schedule-management__absence-item" key={item.id}>
               <span>{new Date(item.startsAt).toLocaleString("en-PH", { timeZone: "Asia/Manila" })} – {new Date(item.endsAt).toLocaleString("en-PH", { timeZone: "Asia/Manila" })}</span>

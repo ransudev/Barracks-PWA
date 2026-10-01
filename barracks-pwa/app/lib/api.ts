@@ -15,6 +15,7 @@ export type ApiUser = {
 
 export type ApiBarber = {
   id: number;
+  branchId: number;
   firstName: string;
   lastName: string;
   status: "available" | "busy" | "unavailable";
