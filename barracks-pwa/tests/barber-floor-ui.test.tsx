@@ -30,8 +30,9 @@ test("Front Desk barber floor shows operational data and changes status through 
     if (path === "/api/queue?view=active&branchId=1") return Response.json({ success: true, queue: [
       { id: 8, barberId: 3, customerName: "Ava Client", serviceName: "Original cut", status: "in_progress" },
     ] });
-    if (path === "/api/attendance/today") return Response.json({ success: true, attendance: [] });
-    if (path === "/api/attendance/today/4" && init?.method === "POST") {
+    if (path === "/api/attendance/today?branchId=2") return Response.json({ success: true, attendance: [] });
+    if (path === "/api/attendance/today?branchId=1") return Response.json({ success: true, attendance: [] });
+    if (path === "/api/attendance/today/4?branchId=1" && init?.method === "POST") {
       assert.deepEqual(JSON.parse(String(init.body)), { action: "mark", status: "present" });
       return Response.json({ success: true, attendance: { id: 2, barberId: 4, barberName: "Cal Cutter", date: "2026-09-29", status: "present", clockIn: null, clockOut: null } });
     }
@@ -55,7 +56,7 @@ test("Front Desk barber floor shows operational data and changes status through 
     for (const forbidden of ["Commission", "Revenue", "Rating", "Add barber", "Edit profile", "Shop hours", "Schedule", "Absences", "Set commission rate"]) {
       assert.equal(content.includes(forbidden), false, forbidden);
     }
-    assert.deepEqual(requests.sort(), ["GET /api/branch-context", "GET /api/barbers?branchId=1", "GET /api/queue?view=active&branchId=1", "GET /api/attendance/today"].sort());
+    assert.deepEqual(requests.sort(), ["GET /api/branch-context", "GET /api/barbers?branchId=1", "GET /api/queue?view=active&branchId=1", "GET /api/attendance/today?branchId=1"].sort());
     const statusSelect = container.querySelector('select[aria-label="Operational status for Cal Cutter"]') as HTMLSelectElement;
     assert.ok(statusSelect);
     await act(async () => {
@@ -70,7 +71,7 @@ test("Front Desk barber floor shows operational data and changes status through 
       (Array.from(card.querySelectorAll("button")).find((button) => button.textContent?.includes("Mark present")) as HTMLButtonElement).click();
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    assert.ok(requests.includes("POST /api/attendance/today/4"));
+    assert.ok(requests.includes("POST /api/attendance/today/4?branchId=1"));
     const branchSelect = container.querySelector('select') as HTMLSelectElement;
     await act(async () => { branchSelect.value = "2"; branchSelect.dispatchEvent(new dom.window.Event("change", { bubbles: true })); });
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 30)); });

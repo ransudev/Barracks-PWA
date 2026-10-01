@@ -31,6 +31,7 @@ export type ApiBarber = {
 export type ApiBarberAvailability = Pick<ApiBarber, "id" | "firstName" | "lastName" | "status">;
 
 export type ApiAttendance = {
+  branchId: number;
   id: number;
   barberId: number;
   barberName: string;

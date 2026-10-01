@@ -20,9 +20,12 @@ for (const role of ["manager", "administrator"] as const) {
     const requests: string[] = [];
     globalThis.fetch = async (input, init) => {
       const path = String(input);
+      if (path === "/api/branch-context") return Response.json({ branches: [{ id: 1, name: "Main Branch", status: "active" }, { id: 2, name: "Second Branch", status: "active" }], primaryBranch: { id: 1 } });
       requests.push(`${init?.method ?? "GET"} ${path}`);
+      if (path.startsWith("/api/attendance/history") && path.includes("branchId=2")) return Response.json({ success: true, attendance: [{ id: 6, branchId: 2, barberId: 9, barberName: "Second Barber", date: "2026-09-29", status: "present", clockIn: null, clockOut: null, recordedBy: 2, updatedBy: 2 }] });
+      if (path === "/api/barbers?branchId=2") return Response.json({ success: true, barbers: [{ id: 9, firstName: "Second", lastName: "Barber", status: "available" }] });
       if (path.startsWith("/api/attendance/history")) return Response.json({ success: true, attendance: [{ id: 5, barberId: 3, barberName: "Bea Barber", date: "2026-09-29", status: "late", clockIn: null, clockOut: null, recordedBy: 2, updatedBy: 2, createdAt: "2026-09-29T01:00:00Z", updatedAt: "2026-09-29T01:00:00Z" }] });
-      if (path === "/api/barbers") return Response.json({ success: true, barbers: [{ id: 3, firstName: "Bea", lastName: "Barber", status: "available" }] });
+      if (path === "/api/barbers?branchId=1") return Response.json({ success: true, barbers: [{ id: 3, firstName: "Bea", lastName: "Barber", status: "available" }] });
       if (path === "/api/attendance/5/corrections") return Response.json({ success: true, corrections: [{ id: 1, reason: "Reviewed shift", correctedByName: "Mae Manager", createdAt: "2026-09-29T02:00:00Z", previousValues: { status: "present", clockIn: null, clockOut: null }, newValues: { status: "late", clockIn: null, clockOut: null } }] });
       throw new Error(`Unexpected request ${path}`);
     };
@@ -34,7 +37,7 @@ for (const role of ["manager", "administrator"] as const) {
       await act(async () => { await new Promise((resolve) => setTimeout(resolve, 30)); });
       assert.match(container.textContent ?? "", /Barber attendance/);
       assert.match(container.textContent ?? "", /Bea Barber/);
-      assert.ok(requests.some((request) => request.startsWith("GET /api/attendance/history?date=")));
+      assert.ok(requests.some((request) => request.includes("/api/attendance/history?branchId=1&date=")));
       await act(async () => {
         (Array.from(container.querySelectorAll("button")).find((button) => button.textContent?.includes("View record")) as HTMLButtonElement).click();
         await new Promise((resolve) => setTimeout(resolve, 0));
@@ -42,6 +45,15 @@ for (const role of ["manager", "administrator"] as const) {
       assert.match(container.textContent ?? "", /Reviewed shift/);
       assert.match(container.textContent ?? "", /Correction reason/);
       assert.ok(requests.includes("GET /api/attendance/5/corrections"));
+      if (role === "manager") {
+        const select = container.querySelector("select")!;
+        await act(async () => { select.value = "2"; select.dispatchEvent(new dom.window.Event("change", { bubbles: true })); });
+        await act(async () => { await new Promise((resolve) => setTimeout(resolve, 30)); });
+        assert.match(container.querySelector("table")?.textContent ?? "", /Second Barber/);
+        assert.doesNotMatch(container.textContent ?? "", /Bea Barber|Reviewed shift/);
+        assert.ok(requests.some((path) => path.includes("/api/attendance/history?branchId=2")));
+        assert.ok(requests.includes("GET /api/barbers?branchId=2"));
+      }
     } finally {
       await act(async () => root.unmount());
       container.remove();

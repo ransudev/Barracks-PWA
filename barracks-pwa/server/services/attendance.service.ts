@@ -1,9 +1,14 @@
+import { listAccessibleBranches, requireBranchAccess } from "@/server/auth/branch-access";
+import { resolveOperationalBranch, type BranchActor } from "@/server/auth/barber-branch-access";
+import { BranchError } from "@/server/services/branch.service";
+import type { UserRole } from "@/server/schemas/user.schema";
+import type { PoolClient } from "pg";
 import type { Pool } from "pg";
 import type { z } from "zod";
 import type { attendanceActionSchema, attendanceCorrectionSchema, attendanceHistorySchema } from "@/server/schemas/attendance.schema";
 
 type AttendanceRow = {
-  id: string | number; barber_id: number; barber_name: string; attendance_date: string;
+  branch_id: number; id: string | number; barber_id: number; barber_name: string; attendance_date: string;
   status: "present" | "late" | "absent"; clock_in: Date | string | null; clock_out: Date | string | null;
   recorded_by: number; updated_by: number; created_at: Date | string; updated_at: Date | string;
 };
@@ -16,7 +21,7 @@ function iso(value: Date | string | null): string | null {
 
 function toAttendance(row: AttendanceRow) {
   return {
-    id: Number(row.id), barberId: Number(row.barber_id), barberName: row.barber_name,
+    branchId: Number(row.branch_id), id: Number(row.id), barberId: Number(row.barber_id), barberName: row.barber_name,
     date: row.attendance_date,
     status: row.status, clockIn: iso(row.clock_in), clockOut: iso(row.clock_out),
     recordedBy: Number(row.recorded_by), updatedBy: Number(row.updated_by),
@@ -25,36 +30,43 @@ function toAttendance(row: AttendanceRow) {
 }
 
 // Keep the Manila calendar date as text; pg parses DATE at server-local midnight.
-const select = `SELECT a.id, a.barber_id, a.attendance_date::text AS attendance_date,
+const select = `SELECT a.branch_id, a.id, a.barber_id, a.attendance_date::text AS attendance_date,
   a.status, a.clock_in, a.clock_out, a.recorded_by, a.updated_by, a.created_at, a.updated_at,
   b.first_name || ' ' || b.last_name AS barber_name
   FROM barber_attendance a JOIN barbers b ON b.id = a.barber_id`;
 
-export async function listTodayAttendance(db: Pool) {
+export async function listTodayAttendance(db: Pool, branchIds?: number[]) {
   const result = await db.query<AttendanceRow>(`${select}
     WHERE a.attendance_date = (clock_timestamp() AT TIME ZONE 'Asia/Manila')::date
-    ORDER BY b.first_name, b.last_name, b.id`);
+      AND ($1::integer[] IS NULL OR a.branch_id=ANY($1))
+    ORDER BY b.first_name, b.last_name, b.id`, [branchIds ?? null]);
   return result.rows.map(toAttendance);
 }
 
-export async function listAttendanceHistory(db: Pool, filters: z.infer<typeof attendanceHistorySchema>) {
+export async function listAttendanceHistory(db: Pool, filters: z.infer<typeof attendanceHistorySchema>, branchIds?: number[]) {
   const result = await db.query<AttendanceRow>(`${select}
     WHERE ($1::integer IS NULL OR a.barber_id = $1)
       AND ($2::date IS NULL OR a.attendance_date = $2)
       AND ($3::varchar IS NULL OR a.status = $3)
-    ORDER BY a.attendance_date DESC, b.first_name, b.last_name, a.id DESC`, [filters.barberId ?? null, filters.date ?? null, filters.status ?? null]);
+      AND ($4::integer[] IS NULL OR a.branch_id=ANY($4))
+    ORDER BY a.attendance_date DESC, b.first_name, b.last_name, a.id DESC`, [filters.barberId ?? null, filters.date ?? null, filters.status ?? null, branchIds ?? null]);
   return result.rows.map(toAttendance);
 }
 
-export async function actOnTodayAttendance(db: Pool, barberId: number, actorId: number, action: z.infer<typeof attendanceActionSchema>) {
+export async function actOnTodayAttendance(db: Pool, barberId: number, actorId: number, action: z.infer<typeof attendanceActionSchema>, selectedBranchId?: number) {
   const client = await db.connect();
   try {
     await client.query("BEGIN");
-    const barber = await client.query("SELECT id FROM barbers WHERE id = $1 FOR UPDATE", [barberId]);
+    const actor = await attendanceActor(client, actorId, ["administrator", "manager", "front_desk"]);
+    const barber = await client.query<{ id: number; branch_id: number }>("SELECT id,branch_id FROM barbers WHERE id = $1 FOR UPDATE", [barberId]);
     if (!barber.rowCount) { await client.query("ROLLBACK"); return null; }
     const existing = await client.query<AttendanceRow>(`${select}
       WHERE a.barber_id = $1 AND a.attendance_date = (clock_timestamp() AT TIME ZONE 'Asia/Manila')::date FOR UPDATE OF a`, [barberId]);
     const record = existing.rows[0];
+    const owner = Number(record?.branch_id ?? barber.rows[0].branch_id);
+    await requireBranchAccess(client, actor, owner);
+    if (selectedBranchId !== undefined && selectedBranchId !== owner)
+      throw new BranchError("Today's attendance belongs to a different branch", 403);
     if (action.action === "clock_out" && (!record?.clock_in || record.clock_out))
       throw new AttendanceConflict("Clock-out requires an open clock-in");
     if (action.action === "clock_in" && record?.clock_in)
@@ -69,10 +81,10 @@ export async function actOnTodayAttendance(db: Pool, barberId: number, actorId: 
           updated_by = $4, updated_at = clock_timestamp() WHERE id = $1 RETURNING id`,
           [record.id, status, action.action, actorId])
       : await client.query<{ id: number }>(`INSERT INTO barber_attendance
-          (barber_id, attendance_date, status, clock_in, recorded_by, updated_by)
+          (barber_id, attendance_date, status, clock_in, recorded_by, updated_by, branch_id)
           VALUES ($1, (clock_timestamp() AT TIME ZONE 'Asia/Manila')::date, $2,
-          CASE WHEN $3 = 'clock_in' THEN clock_timestamp() ELSE NULL END, $4, $4) RETURNING id`,
-          [barberId, status, action.action, actorId]);
+          CASE WHEN $3 = 'clock_in' THEN clock_timestamp() ELSE NULL END, $4, $4, $5) RETURNING id`,
+          [barberId, status, action.action, actorId, owner]);
     const saved = await client.query<AttendanceRow>(`${select} WHERE a.id = $1`, [changed.rows[0].id]);
     await client.query("COMMIT");
     return toAttendance(saved.rows[0]);
@@ -86,8 +98,10 @@ export async function correctAttendance(db: Pool, id: number, actorId: number, i
   const client = await db.connect();
   try {
     await client.query("BEGIN");
+    const actor = await attendanceActor(client, actorId, ["administrator", "manager"]);
     const current = await client.query<AttendanceRow>(`${select} WHERE a.id = $1 FOR UPDATE OF a`, [id]);
     if (!current.rows[0]) { await client.query("ROLLBACK"); return null; }
+    await requireBranchAccess(client, actor, Number(current.rows[0].branch_id));
     const before = toAttendance(current.rows[0]);
     const next = { status: input.status, clockIn: input.clockIn, clockOut: input.clockOut };
     const previous = { status: before.status, clockIn: before.clockIn, clockOut: before.clockOut };
@@ -106,14 +120,29 @@ export async function correctAttendance(db: Pool, id: number, actorId: number, i
   } finally { client.release(); }
 }
 
-export async function listAttendanceCorrections(db: Pool, id: number) {
+export async function listAttendanceCorrections(db: Pool, id: number, branchIds?: number[]) {
   const result = await db.query<{
     id: string | number; previous_values: unknown; new_values: unknown; reason: string;
     corrected_by: number; corrected_by_name: string; created_at: Date | string;
   }>(`SELECT c.*, u.first_name || ' ' || u.last_name AS corrected_by_name
-    FROM barber_attendance_corrections c JOIN users u ON u.id=c.corrected_by
-    WHERE c.attendance_id=$1 ORDER BY c.id DESC`, [id]);
+    FROM barber_attendance_corrections c JOIN barber_attendance a ON a.id=c.attendance_id JOIN users u ON u.id=c.corrected_by
+    WHERE c.attendance_id=$1 AND ($2::integer[] IS NULL OR a.branch_id=ANY($2)) ORDER BY c.id DESC`, [id, branchIds ?? null]);
   return result.rows.map((row) => ({ id: Number(row.id), previousValues: row.previous_values,
     newValues: row.new_values, reason: row.reason, correctedBy: Number(row.corrected_by),
     correctedByName: row.corrected_by_name, createdAt: iso(row.created_at)! }));
+}
+
+// Reads may span accessible branches, while an explicit selection narrows them.
+export async function attendanceBranches(db: Pool, actor: BranchActor, request: Request): Promise<number[] | undefined> {
+  const raw = new URL(request.url).searchParams.get("branchId");
+  if (raw !== null) return [await resolveOperationalBranch(db, actor, raw)];
+  return actor.role === "administrator" ? undefined : (await listAccessibleBranches(db, actor)).map((branch) => branch.id);
+}
+
+async function attendanceActor(client: PoolClient, id: number, roles: UserRole[]): Promise<BranchActor> {
+  // Membership edits lock the user too; keep authorization stable through writes.
+  const row = (await client.query<{ role: UserRole }>(`SELECT r.name AS role FROM users u JOIN roles r ON r.id=u.role_id
+    WHERE u.id=$1 AND u.deleted_at IS NULL AND u.is_verified AND NOT u.is_blocked FOR SHARE OF u`, [id])).rows[0];
+  if (!row || !roles.includes(row.role)) throw new BranchError("Attendance staff access is required", 403);
+  return { id, role: row.role };
 }

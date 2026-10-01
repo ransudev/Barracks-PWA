@@ -1,3 +1,6 @@
+import { resolveOperationalBranch } from "@/server/auth/barber-branch-access";
+import { BranchError } from "@/server/services/branch.service";
+import { branchApiError } from "@/server/services/branch-api";
 import { requireStaffUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { attendanceActionSchema } from "@/server/schemas/attendance.schema";
@@ -18,10 +21,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ bar
   const parsed = attendanceActionSchema.safeParse(body);
   if (!parsed.success) return Response.json({ success: false, message: "Invalid attendance action" }, { status: 400 });
   try {
-    const attendance = await actOnTodayAttendance(pool, barberId, user.id, parsed.data);
+    const rawBranch = new URL(request.url).searchParams.get("branchId");
+    const branchId = rawBranch === null ? undefined : await resolveOperationalBranch(pool, user, rawBranch);
+    const attendance = await actOnTodayAttendance(pool, barberId, user.id, parsed.data, branchId);
     return attendance ? Response.json({ success: true, attendance })
       : Response.json({ success: false, message: "Barber not found" }, { status: 404 });
   } catch (error) {
+    if (error instanceof BranchError) return branchApiError(error);
     if (error instanceof AttendanceConflict) return Response.json({ success: false, message: error.message }, { status: 409 });
     console.error("Unable to update attendance", error);
     return Response.json({ success: false, message: "Unable to update attendance" }, { status: 500 });

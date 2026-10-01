@@ -35,7 +35,7 @@ export function BarberFloorPage() {
       const [barberResponse, queueResponse, attendanceResponse] = await Promise.all([
         apiRequest(`/api/barbers?branchId=${branchId}`, { cache: "no-store" }),
         apiRequest(`/api/queue?view=active&branchId=${branchId}`, { cache: "no-store" }),
-        apiRequest("/api/attendance/today", { cache: "no-store" }),
+        apiRequest(`/api/attendance/today?branchId=${branchId}`, { cache: "no-store" }),
       ]);
       const [barberBody, queueBody, attendanceBody] = await Promise.all([
         readApiBody<{ success: boolean; barbers?: ApiBarberAvailability[]; message?: string }>(barberResponse),
@@ -84,7 +84,7 @@ export function BarberFloorPage() {
     setAttendanceSavingId(barberId);
     setStatusError("");
     try {
-      const response = await apiRequest(`/api/attendance/today/${barberId}`, { method: "POST", body: JSON.stringify(action) });
+      const response = await apiRequest(`/api/attendance/today/${barberId}?branchId=${branchId}`, { method: "POST", body: JSON.stringify(action) });
       const body = await readApiBody<{ success: boolean; attendance?: ApiAttendance; message?: string }>(response);
       if (!response.ok || !body?.success || !body.attendance) throw new Error(body?.message ?? "Unable to update attendance");
       setAttendance((current) => [...current.filter((item) => item.barberId !== barberId), body.attendance!]);
