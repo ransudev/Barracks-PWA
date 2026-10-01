@@ -20,10 +20,12 @@ test("Front Desk barber floor shows operational data and changes status through 
   globalThis.fetch = async (input, init) => {
     const path = String(input);
     requests.push(`${init?.method ?? "GET"} ${path}`);
-    if (path === "/api/barbers") return Response.json({ success: true, barbers: [
+    if (path === "/api/branch-context") return Response.json({ branches: [{ id: 1, name: "Main Branch", status: "active" }, { id: 2, name: "Second Branch", status: "active" }], primaryBranch: { id: 1 } });
+    if (path === "/api/barbers?branchId=1") return Response.json({ success: true, barbers: [
       { id: 3, firstName: "Bea", lastName: "Barber", status: "available" },
       { id: 4, firstName: "Cal", lastName: "Cutter", status: "unavailable" },
     ] });
+    if (path === "/api/barbers?branchId=2") return Response.json({ success: true, barbers: [{ id: 9, firstName: "Second", lastName: "Barber", status: "available" }] });
     if (path === "/api/queue?view=active") return Response.json({ success: true, queue: [
       { id: 8, barberId: 3, customerName: "Ava Client", serviceName: "Original cut", status: "in_progress" },
     ] });
@@ -52,7 +54,7 @@ test("Front Desk barber floor shows operational data and changes status through 
     for (const forbidden of ["Commission", "Revenue", "Rating", "Add barber", "Edit profile", "Shop hours", "Schedule", "Absences", "Set commission rate"]) {
       assert.equal(content.includes(forbidden), false, forbidden);
     }
-    assert.deepEqual(requests.sort(), ["GET /api/barbers", "GET /api/queue?view=active", "GET /api/attendance/today"].sort());
+    assert.deepEqual(requests.sort(), ["GET /api/branch-context", "GET /api/barbers?branchId=1", "GET /api/queue?view=active", "GET /api/attendance/today"].sort());
     const statusSelect = container.querySelector('select[aria-label="Operational status for Cal Cutter"]') as HTMLSelectElement;
     assert.ok(statusSelect);
     await act(async () => {
@@ -68,6 +70,13 @@ test("Front Desk barber floor shows operational data and changes status through 
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     assert.ok(requests.includes("POST /api/attendance/today/4"));
+    const branchSelect = container.querySelector('select') as HTMLSelectElement;
+    await act(async () => { branchSelect.value = "2"; branchSelect.dispatchEvent(new dom.window.Event("change", { bubbles: true })); });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 30)); });
+    assert.match(container.textContent ?? "", /Second Barber/);
+    assert.equal(container.textContent?.includes("Bea Barber"), false);
+    assert.equal(container.textContent?.includes("Cal Cutter"), false);
+    assert.ok(requests.includes("GET /api/barbers?branchId=2"));
   } finally {
     await act(async () => root.unmount());
     container.remove();
@@ -79,10 +88,13 @@ async function renderManagementBarbers(role: "manager" | "administrator") {
   const previousFetch = globalThis.fetch;
   globalThis.fetch = async (input) => {
     const path = String(input);
-    if (path === "/api/barbers") return Response.json({ success: true, barbers: [
+    if (path === "/api/branch-context") return Response.json({ branches: [{ id: 1, name: "Main Branch", status: "active" }, { id: 2, name: "Second Branch", status: "active" }], primaryBranch: { id: 1 } });
+    if (path === "/api/barbers?branchId=1") return Response.json({ success: true, barbers: [
       { id: 3, firstName: "Bea", lastName: "Barber", status: "available", commissionRate: 20, servicesDone: 4, revenue: 1200, rating: 4.5, scheduleDayCount: 7, createdAt: "2026-09-29T00:00:00Z", updatedAt: "2026-09-29T00:00:00Z" },
     ] });
-    if (path === "/api/shop-hours") return Response.json({ hours: [] });
+    if (path === "/api/barbers?branchId=2") return Response.json({ success: true, barbers: [{ id: 9, branchId: 2, firstName: "Second", lastName: "Barber", status: "available", commissionRate: null, servicesDone: 0, revenue: 0, rating: null, scheduleDayCount: 7 }] });
+    if (path === "/api/shop-hours?branchId=2") return Response.json({ hours: [{ dayOfWeek: 1, openTime: "12:00", closeTime: "16:00", isClosed: false }] });
+    if (path === "/api/shop-hours?branchId=1") return Response.json({ hours: [] });
     throw new Error(`Unexpected request ${path}`);
   };
   const container = dom.window.document.createElement("div");
@@ -114,3 +126,20 @@ test("Administrator keeps bulk commission and barber deletion controls", async (
     assert.match(page.container.textContent ?? "", /Remove barber/);
   } finally { await page.cleanup(); }
 });
+
+for (const role of ["manager", "administrator"] as const) {
+  test(`${role} branch selection reloads the roster and branch hours together`, async () => {
+    const page = await renderManagementBarbers(role);
+    try {
+      const selector = page.container.querySelector("select") as HTMLSelectElement;
+      await act(async () => { selector.value = "2"; selector.dispatchEvent(new dom.window.Event("change", { bubbles: true })); });
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 30)); });
+      assert.match(page.container.textContent ?? "", /Second Barber/);
+      assert.equal(page.container.textContent?.includes("Bea Barber"), false);
+      assert.equal((page.container.querySelector('input[type="time"]') as HTMLInputElement).value, "12:00");
+      const barberSelector = page.container.querySelector('.schedule-management__barber-select select') as HTMLSelectElement;
+      assert.match(barberSelector?.textContent ?? "", /Second Barber/);
+      assert.equal(barberSelector?.textContent?.includes("Bea Barber"), false);
+    } finally { await page.cleanup(); }
+  });
+}

@@ -73,7 +73,7 @@ test("booking writes keep active customer ownership after deactivation", { skip:
   const { db, cleanup } = await createDisposableSchema();
   try {
     await db.query("INSERT INTO services(id,name,current_price,duration_minutes,active) VALUES('customer-guard-cut','Guard cut',100,45,true)");
-    const barber = await createBarber(db, { firstName: "Guard", lastName: "Barber", status: "available" });
+    const barber = await createBarber(db, { branchId: Number((await db.query("SELECT id FROM branches WHERE code='MAIN'")).rows[0].id), firstName: "Guard", lastName: "Barber", status: "available" });
     const customers: number[] = [];
     for (const index of [0, 1]) {
       const user = (await db.query<{ id: number }>(
@@ -106,7 +106,7 @@ test("concurrent booking creation and customer deactivation cannot hide an activ
   const { db, cleanup } = await createDisposableSchema();
   try {
     await db.query("INSERT INTO services(id,name,current_price,duration_minutes,active) VALUES('customer-race-cut','Race cut',100,45,true)");
-    const barber = await createBarber(db, { firstName: "Race", lastName: "Barber", status: "available" });
+    const barber = await createBarber(db, { branchId: Number((await db.query("SELECT id FROM branches WHERE code='MAIN'")).rows[0].id), firstName: "Race", lastName: "Barber", status: "available" });
     const user = (await db.query<{ id: number }>(
       `INSERT INTO users(first_name,last_name,email,password_hash,role_id)
        VALUES('Race','Customer','customer-race@test.local','test',(SELECT id FROM roles WHERE name='customer')) RETURNING id`,

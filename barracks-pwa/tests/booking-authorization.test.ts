@@ -8,7 +8,7 @@ import { createDisposableSchema, databaseConfigured } from "./helpers/database";
 test("customer cancellation is owner-scoped and limited to confirmed bookings", { skip: !databaseConfigured }, async () => {
   const { db, cleanup } = await createDisposableSchema();
   try {
-    const barber = await createBarber(db, { firstName: "Policy", lastName: "Barber", status: "available" });
+    const barber = await createBarber(db, { branchId: Number((await db.query("SELECT id FROM branches WHERE code='MAIN'")).rows[0].id), firstName: "Policy", lastName: "Barber", status: "available" });
     const customers: number[] = [];
     for (const index of [0, 1]) {
       const user = await db.query<{ id: number }>(`INSERT INTO users(first_name,last_name,email,password_hash,role_id)

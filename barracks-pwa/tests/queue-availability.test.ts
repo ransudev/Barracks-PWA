@@ -7,7 +7,7 @@ import { createDisposableSchema, databaseConfigured } from "./helpers/database";
 function fakeDb(input: { status?: string; active?: boolean; breakNow?: boolean; working?: boolean; absent?: boolean }): Pool {
   const instant = new Date("2026-10-05T02:00:00Z"); // Monday 10:00 Manila
   return { query: async (sql: string) => {
-    if (sql.includes("SELECT status FROM barbers")) return { rows: [{ status: input.status ?? "available" }] };
+    if (sql.includes("SELECT status, branch_id FROM barbers")) return { rows: [{ branch_id: 1, status: input.status ?? "available" }] };
     if (sql.includes("FROM queue_entries")) return { rows: input.active ? [{ id: 42 }] : [] };
     if (sql.includes("WITH clock AS")) return { rows: [{ instant, local_time: "10:00:00", weekday: 1 }] };
     if (sql.includes("FROM shop_operating_hours")) return { rows: [{ day_of_week: 1, open_time: "09:00:00", close_time: "19:30:00", is_closed: false }] };

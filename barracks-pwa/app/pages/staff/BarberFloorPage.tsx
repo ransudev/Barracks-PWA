@@ -17,6 +17,7 @@ const manilaTime = (value: string | null) => value ? new Intl.DateTimeFormat("en
 export function BarberFloorPage() {
   const { branches, branchId, setBranchId, branchError } = useBranchContext();
   const loadVersion = useRef(0);
+  const invalidateLoad = useCallback(() => { ++loadVersion.current; }, []);
   const [barbers, setBarbers] = useState<ApiBarberAvailability[]>([]);
   const [queue, setQueue] = useState<ApiQueueEntry[]>([]);
   const [attendance, setAttendance] = useState<ApiAttendance[]>([]);
@@ -59,8 +60,8 @@ export function BarberFloorPage() {
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => { void load(); });
-    return () => { ++loadVersion.current; window.cancelAnimationFrame(frame); };
-  }, [load]);
+    return () => { invalidateLoad(); window.cancelAnimationFrame(frame); };
+  }, [load, invalidateLoad]);
 
   async function changeStatus(barber: ApiBarberAvailability, status: ApiBarberAvailability["status"]) {
     setSavingId(barber.id);

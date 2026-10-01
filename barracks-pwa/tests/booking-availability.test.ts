@@ -55,7 +55,7 @@ test("invalid hours, breaks and absences are rejected", () => {
 function fakeDatabase(status: string, booking = false): Pool {
   return { query: async (sql: string) => {
     if (sql.includes("FROM services")) return { rows: [{ id: "cut", name: "Cut", description: "", current_price: "100", duration_minutes: 45, active: true, created_at: new Date(), updated_at: new Date() }] };
-    if (sql.includes("FROM barbers")) return { rows: [{ id: 1, first_name: "A", last_name: "B", status, commission_rate: null, services_done: 0, revenue: 0, rating: null, created_at: new Date(), updated_at: new Date() }] };
+    if (sql.includes("FROM barbers")) return { rows: [{ id: 1, branch_id: 1, first_name: "A", last_name: "B", status, commission_rate: null, services_done: 0, revenue: 0, rating: null, created_at: new Date(), updated_at: new Date() }] };
     if (sql.includes("FROM shop_operating_hours")) return { rows: [{ day_of_week: 1, open_time: "09:00:00", close_time: "19:30:00", is_closed: false }] };
     if (sql.includes("FROM barber_schedules")) return { rows: [{ id: 1, day_of_week: 1, is_working: true, start_time: "09:00:00", end_time: "19:30:00" }] };
     if (sql.includes("FROM barber_schedule_breaks")) return { rows: [] };
@@ -84,7 +84,7 @@ test("Any Available Barber includes free slots and orders eligible barbers by lo
     if (sql.includes("COUNT(*) AS appointment_count")) return { rows: [{ barber_id: 5, appointment_count: "2" }, { barber_id: 2, appointment_count: "1" }, { barber_id: 9, appointment_count: "1" }] };
     if (sql.includes("FROM barbers")) {
       const ids = params?.length ? [Number(params[0])] : [5, 2, 9, 3];
-      return { rows: ids.map((id) => ({ id, first_name: "A", last_name: "B", status: id === 3 ? "unavailable" : "available", commission_rate: null, services_done: 0, revenue: 0, rating: null, created_at: new Date(), updated_at: new Date() })) };
+      return { rows: ids.map((id) => ({ id, branch_id: 1, first_name: "A", last_name: "B", status: id === 3 ? "unavailable" : "available", commission_rate: null, services_done: 0, revenue: 0, rating: null, created_at: new Date(), updated_at: new Date() })) };
     }
     if (sql.includes("FROM shop_operating_hours")) return { rows: [{ day_of_week: 1, open_time: "09:00:00", close_time: "19:30:00", is_closed: false }] };
     if (sql.includes("FROM barber_schedules")) return { rows: [{ id: 1, day_of_week: 1, is_working: true, start_time: "09:00:00", end_time: "19:30:00" }] };
@@ -105,7 +105,7 @@ test("missing schedules block only the affected barber and report fully unconfig
     if (sql.includes("FROM shop_operating_hours")) { hoursQueries++; return { rows: [{ day_of_week: 1, open_time: "09:00:00", close_time: "19:30:00", is_closed: false }] }; }
     if (sql.includes("FROM barbers")) {
       const ids = params?.length ? [Number(params[0])] : [1, 2];
-      return { rows: ids.map((id) => ({ id, first_name: "A", last_name: "B", status: "available", commission_rate: null, services_done: 0, revenue: 0, rating: null, schedule_day_count: id === 1 || allMissing ? 0 : 7, created_at: new Date(), updated_at: new Date() })) };
+      return { rows: ids.map((id) => ({ id, branch_id: 1, first_name: "A", last_name: "B", status: "available", commission_rate: null, services_done: 0, revenue: 0, rating: null, schedule_day_count: id === 1 || allMissing ? 0 : 7, created_at: new Date(), updated_at: new Date() })) };
     }
     if (sql.includes("FROM barber_schedules")) return { rows: Number(params?.[0]) === 1 || allMissing ? [] : [{ id: 2, day_of_week: 1, is_working: true, start_time: "09:00:00", end_time: "19:30:00" }] };
     if (sql.includes("FROM barber_schedule_breaks") || sql.includes("FROM barber_unavailability") || sql.includes("FROM bookings")) return { rows: [] };

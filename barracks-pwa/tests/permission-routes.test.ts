@@ -6,10 +6,13 @@ import type { UserRole } from "@/app/constants/roles";
 let actorRole: UserRole | null = null;
 const queries: Array<{ sql: string; values: unknown[] }> = [];
 const pool = {
+  async connect() { return { query: pool.query, release() {} }; },
   async query(sql: string, values: unknown[] = []) {
     queries.push({ sql, values });
-    if (sql.includes("UPDATE barbers SET status")) return { rows: [{ id: 7, first_name: "Ana", last_name: "Barber", status: values[0] }], rowCount: 1 };
-    if (sql.includes("FROM barbers") && sql.includes("WHERE id")) return { rows: [{ id: 7, first_name: "Ana", last_name: "Barber", status: "available", commission_rate: 20, services_done: 4, revenue: 1000, rating: 5, schedule_day_count: 7, created_at: new Date(), updated_at: new Date() }], rowCount: 1 };
+    if (sql.includes("FROM branches")) return { rows: [{ id: 1, name: "Main Branch", code: "MAIN", status: "active", address: "", phone: "", created_at: new Date(), updated_at: new Date() }], rowCount: 1 };
+    if (sql.includes("FROM user_branches")) return { rows: [{ branch_id: 1 }], rowCount: 1 };
+    if (sql.includes("UPDATE barbers SET status")) return { rows: [{ id: 7, branch_id: 1, first_name: "Ana", last_name: "Barber", status: values[0] }], rowCount: 1 };
+    if (sql.includes("FROM barbers") && sql.includes("WHERE id")) return { rows: [{ id: 7, branch_id: 1, first_name: "Ana", last_name: "Barber", status: "available", commission_rate: 20, services_done: 4, revenue: 1000, rating: 5, schedule_day_count: 7, created_at: new Date(), updated_at: new Date() }], rowCount: 1 };
     if (sql.includes("FROM suppliers s") && sql.includes("WHERE id")) return { rows: [{ id: 7, company_name: "Supplies Co", contact_person: "Sam", phone: "09123456789", email: "", address: "", notes: "", status: "active", has_account: false, created_at: new Date(), updated_at: new Date() }], rowCount: 1 };
     if (sql.includes("FROM transactions t JOIN transaction_payments p") && sql.includes("WHERE t.reference")) return { rows: [{ id: "9", reference: "TX-AUDIT", visit_type: "booking", visit_record_id: "1", booking_id: 1, queue_entry_id: null, customer_id: 2, barber_id: 3, service_id: "cut", processed_by: 4, customer_name: "Ava", barber_name: "Bea", cashier_name: "Fran", service_name: "Cut", amount: "300", amount_received: "300", change_amount: "0", payment_method: "cash", status: "refunded", created_at: new Date(), actions: [{ id: "2", transaction_id: "9", action_type: "refund", amount: "300", reason: "Manager correction", staff_id: 5, staff_name: "Mae", created_at: new Date() }] }], rowCount: 1 };
     return { rows: [], rowCount: 0 };
@@ -146,9 +149,10 @@ test("allowed daily and management writes pass authorization, while barber statu
   for (const role of ["front_desk", "manager", "administrator"] as const) {
     const result = await call({ path: "barbers/[id]/status", method: "PATCH", allowed: [], body: { status: "busy" } }, role);
     assert.equal(result.status, 200, role);
-    assert.deepEqual(queries, [{ sql: queries[0].sql, values: ["busy", 7] }]);
-    assert.match(queries[0].sql, /^UPDATE barbers SET status = \$1, updated_at = NOW\(\) WHERE id = \$2/);
-    assert.deepEqual((await result.json()).barber, { id: 7, firstName: "Ana", lastName: "Barber", status: "busy" });
+    const writes = queries.filter(({ sql }) => sql.startsWith("UPDATE"));
+    assert.deepEqual(writes.map(({ values }) => values), [["busy", 7]]);
+    assert.match(writes[0].sql, /^UPDATE barbers SET status = \$1, updated_at = NOW\(\) WHERE id = \$2/);
+    assert.deepEqual((await result.json()).barber, { id: 7, branchId: 1, firstName: "Ana", lastName: "Barber", status: "busy" });
   }
   const invalid = await call({ path: "barbers/[id]/status", method: "PATCH", allowed: [], body: { status: "busy", commissionRate: 90 } }, "front_desk");
   assert.equal(invalid.status, 400);
@@ -160,8 +164,9 @@ test("Front Desk barber reads expose only operational fields", async () => {
   assert.deepEqual((await single.json()).barber, { id: 7, firstName: "Ana", lastName: "Barber", status: "available" });
   const list = await call({ path: "barbers", method: "GET", allowed: [] }, "front_desk");
   assert.deepEqual((await list.json()).barbers, []);
-  assert.match(queries[0].sql, /SELECT id, first_name, last_name, status/);
-  assert.equal(queries[0].sql.includes("commission_rate"), false);
+  const barberQuery = queries.find(({ sql }) => sql.includes("FROM barbers"))!;
+  assert.match(barberQuery.sql, /SELECT id, branch_id, first_name, last_name, status/);
+  assert.equal(barberQuery.sql.includes("commission_rate"), false);
 });
 
 test("Manager cannot deactivate a supplier through profile update or DELETE", async () => {

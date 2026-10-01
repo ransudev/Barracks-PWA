@@ -149,7 +149,7 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
       (error: unknown) => error instanceof Error && error.message === "NEGATIVE_STOCK",
     );
 
-    const createdBarber = await barbers.createBarber(pool, {
+    const createdBarber = await barbers.createBarber(pool, { branchId: Number((await pool.query("SELECT id FROM branches WHERE code='MAIN'")).rows[0].id),
       firstName: "Codex",
       lastName: `Barber ${randomUUID().slice(0, 8)}`,
       status: "available",
@@ -164,6 +164,7 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
     assert.deepEqual(initialSchedules.rows.map((row) => row.day_of_week), [0, 1, 2, 3, 4, 5, 6]);
     assert.equal(initialSchedules.rows.every((row) => row.is_working && row.start_time === "09:00:00" && row.end_time === "19:30:00"), true);
     const changedBarber = await barbers.updateBarber(pool, barberId, {
+      branchId: createdBarber.branchId,
       firstName: createdBarber.firstName,
       lastName: createdBarber.lastName,
       status: "busy",
@@ -173,6 +174,7 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
     assert.equal(changedBarber?.status, "busy");
     assert.equal(changedBarber?.rating, 4.7);
     const rosterEdit = await barbers.updateBarber(pool, barberId, {
+      branchId: createdBarber.branchId,
       firstName: changedBarber!.firstName,
       lastName: changedBarber!.lastName,
       status: "available",

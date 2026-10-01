@@ -57,12 +57,14 @@ test("inventory and barber schemas reject unsafe values", () => {
     unitCost: 1.001,
   }).success, false);
   assert.equal(barberSchema.safeParse({
+    branchId: 1,
     firstName: "Miko",
     lastName: "Reyes",
     status: "available",
     commissionRate: 101,
   }).success, false);
   assert.equal(barberSchema.safeParse({
+    branchId: 1,
     firstName: "Miko",
     lastName: "Reyes",
     status: "available",
@@ -70,6 +72,7 @@ test("inventory and barber schemas reject unsafe values", () => {
     rating: 4.8,
   }).success, true);
   assert.equal(barberSchema.safeParse({
+    branchId: 1,
     firstName: "Miko",
     lastName: "Reyes",
     status: "available",
@@ -77,17 +80,20 @@ test("inventory and barber schemas reject unsafe values", () => {
     rating: 5.1,
   }).success, false);
   assert.equal(barberStaffSchema.safeParse({
+    branchId: 1,
     firstName: "Miko",
     lastName: "Reyes",
     status: "available",
   }).success, true);
   assert.equal(barberStaffSchema.safeParse({
+    branchId: 1,
     firstName: "Miko",
     lastName: "Reyes",
     status: "available",
     commissionRate: 45.25,
   }).success, false);
   assert.equal(barberStaffSchema.safeParse({
+    branchId: 1,
     firstName: "Miko",
     lastName: "Reyes",
     status: "available",
