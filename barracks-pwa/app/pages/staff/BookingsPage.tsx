@@ -1,11 +1,12 @@
 "use client";
+import { useBranchContext } from "@/app/utils/use-branch-context";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { BookingForm, type BookingFormValue } from "@/app/components/bookings/BookingForm";
 import type { Service } from "@/app/types/domain";
 import type { ApiBarberAvailability, ApiBooking, ApiBookingStatus, ApiCustomer } from "@/app/lib/api";
 import { apiRequest, readApiBody } from "@/app/lib/api";
-import { Avatar, Badge, Button, ConfirmDialog, EmptyState, MetricCard, Modal, PageHeader, Panel, Tabs } from "@/app/components/ui";
+import { Avatar, Badge, Button, ConfirmDialog, EmptyState, MetricCard, Modal, PageHeader, Panel, SelectField, Tabs } from "@/app/components/ui";
 import { createInitials, dateInputValue, formatCurrency, futureDateInputValue } from "@/app/utils/format";
 import { DetailDrawer, DrawerSection, FilterToolbar, RecordCard, ResponsiveTable, ViewToggle, type OperationalViewMode } from "@/app/components/operations/OperationalPrimitives";
 import { mayMarkNoShow } from "@/app/constants/booking";
@@ -16,7 +17,15 @@ const freshForm = (customerId = ""): BookingFormValue => ({ customerId, serviceI
 const formFromBooking = (booking: ApiBooking): BookingFormValue => ({ customerId: String(booking.customerId), serviceId: booking.serviceId, barberId: String(booking.barberId), date: booking.date, time: booking.time, notes: booking.notes ?? "" });
 const bookingPayload = (value: BookingFormValue) => ({ customerId: Number(value.customerId), serviceId: value.serviceId, barberId: value.barberId ? Number(value.barberId) : null, date: value.date, time: value.time, notes: value.notes });
 
-export function BookingsPage({ onToast, canOperate = true, canDelete = false }: { onToast: (message: string) => void; canOperate?: boolean; canDelete?: boolean }) {
+export function BookingsPage({ onToast, canOperate = true, canDelete = false }: { onToast: (message: string) => void; canOperate?: boolean; canDelete?: boolean; }) {
+  const { branches, branchId, setBranchId, branchError } = useBranchContext();
+  return <><SelectField label="Branch" value={branchId || ""} onChange={(event) => setBranchId(Number(event.target.value))}>
+    {branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+  </SelectField>{branchError && <p role="alert">{branchError}</p>}
+  {branchId > 0 && <BookingsPageContent key={branchId} branchId={branchId} onToast={onToast} canOperate={canOperate} canDelete={canDelete} />}</>;
+}
+
+function BookingsPageContent({ onToast, canOperate = true, canDelete = false, branchId }: { onToast: (message: string) => void; branchId: number; canOperate?: boolean; canDelete?: boolean }) {
   const [items, setItems] = useState<ApiBooking[]>([]);
   const [customers, setCustomers] = useState<ApiCustomer[]>([]);
   const [barbers, setBarbers] = useState<ApiBarberAvailability[]>([]);
@@ -39,15 +48,15 @@ export function BookingsPage({ onToast, canOperate = true, canDelete = false }: 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 10_000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [branchId]);
 
   useEffect(() => {
     let active = true;
     async function load() {
       try {
         const [bookingResponse, customerResponse, barberResponse, serviceResponse] = await Promise.all([
-          apiRequest("/api/bookings", { cache: "no-store" }), apiRequest("/api/customers", { cache: "no-store" }),
-          apiRequest("/api/barbers", { cache: "no-store" }), apiRequest("/api/services", { cache: "no-store" }),
+          apiRequest(`/api/bookings?branchId=${branchId}`, { cache: "no-store" }), apiRequest("/api/customers", { cache: "no-store" }),
+          apiRequest(`/api/barbers?branchId=${branchId}`, { cache: "no-store" }), apiRequest("/api/services", { cache: "no-store" }),
         ]);
         const [bookings, customerData, barberData, serviceData] = await Promise.all([
           readApiBody<{ success: boolean; bookings?: ApiBooking[]; message?: string }>(bookingResponse),
@@ -70,13 +79,13 @@ export function BookingsPage({ onToast, canOperate = true, canDelete = false }: 
     }
     void load();
     return () => { active = false; };
-  }, []);
+  }, [branchId]);
 
   const counts = Object.fromEntries(["today", ...statuses].map((status) => [status, items.filter((item) => status === "today" ? item.date === dateInputValue() : item.status === status).length]));
   const visible = useMemo(() => items.filter((item) => (tab === "today" ? item.date === dateInputValue() : item.status === tab) &&
     `${item.customerName} ${item.barberName} ${item.serviceName}`.toLowerCase().includes(search.trim().toLowerCase()))
     .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)), [items, tab, search]);
-  const bookingForm = <BookingForm value={draft} customers={customers} services={services} barbers={barbers} excludeBookingId={editing ? selected?.id : undefined} availabilityVersion={availabilityVersion}
+  const bookingForm = <BookingForm branchId={branchId} value={draft} customers={customers} services={services} barbers={barbers} excludeBookingId={editing ? selected?.id : undefined} availabilityVersion={availabilityVersion}
     submitLabel={editing ? "Save booking" : "Create booking"} submitting={busy} onChange={setDraft} onSubmit={saveBooking} onCancel={() => { setCreating(false); setEditing(false); }} />;
 
   async function saveBooking(event: FormEvent<HTMLFormElement>) {
@@ -84,7 +93,7 @@ export function BookingsPage({ onToast, canOperate = true, canDelete = false }: 
     if (!draft.customerId || !draft.serviceId || !draft.time) return;
     setBusy(true);
     try {
-      const response = await apiRequest(editing && selected ? `/api/bookings/${selected.id}` : "/api/bookings", {
+      const response = await apiRequest(editing && selected ? `/api/bookings/${selected.id}` : `/api/bookings?branchId=${branchId}`, {
         method: editing ? "PUT" : "POST", body: JSON.stringify(bookingPayload(draft)),
       });
       const body = await readApiBody<{ success: boolean; booking?: ApiBooking; message?: string }>(response);

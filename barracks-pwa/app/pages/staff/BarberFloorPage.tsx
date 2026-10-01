@@ -34,7 +34,7 @@ export function BarberFloorPage() {
     try {
       const [barberResponse, queueResponse, attendanceResponse] = await Promise.all([
         apiRequest(`/api/barbers?branchId=${branchId}`, { cache: "no-store" }),
-        apiRequest("/api/queue?view=active", { cache: "no-store" }),
+        apiRequest(`/api/queue?view=active&branchId=${branchId}`, { cache: "no-store" }),
         apiRequest("/api/attendance/today", { cache: "no-store" }),
       ]);
       const [barberBody, queueBody, attendanceBody] = await Promise.all([

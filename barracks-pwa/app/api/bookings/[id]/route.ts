@@ -1,3 +1,4 @@
+import { authorizeVisit, visitBranchError } from "@/server/auth/visit-branch-access";
 import { canManageBooking, type BookingAction } from "@/app/constants/roles";
 import { requireRolesUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
@@ -32,6 +33,10 @@ async function authorizeBookingAction(
     return Response.json({ success: false, message: "You do not have permission to manage this booking" }, { status: 403 });
   }
 
+  if (actor.role !== "customer") {
+    try { await authorizeVisit(pool, actor, booking.branchId); }
+    catch (error) { const response = visitBranchError(error); if (response) return response; throw error; }
+  }
   return { booking, customerId };
 }
 
@@ -81,6 +86,8 @@ export async function PATCH(
     if (!booking) return Response.json({ success: false, message: "Booking not found" }, { status: 404 });
     return Response.json({ success: true, booking });
   } catch (error) {
+    const branchResponse = visitBranchError(error);
+    if (branchResponse) return branchResponse;
     if (error instanceof BookingServiceError) {
       if (error.kind === "forbidden") return Response.json({ success: false, message: error.message }, { status: 403 });
       if (error.kind === "not_updatable" || error.kind === "conflict") return Response.json({ success: false, message: error.message }, { status: 409 });
@@ -123,6 +130,7 @@ export async function PUT(
 
   try {
     const input = {
+      branchId: authorization.booking.branchId,
       customerId: actor.role === "customer"
         ? authorization.customerId as number
         : Number("customerId" in parsed.data ? parsed.data.customerId : authorization.customerId),
@@ -141,6 +149,8 @@ export async function PUT(
     if (!booking) return Response.json({ success: false, message: "Booking not found" }, { status: 404 });
     return Response.json({ success: true, booking });
   } catch (error) {
+    const branchResponse = visitBranchError(error);
+    if (branchResponse) return branchResponse;
     if (error instanceof BookingServiceError) {
       if (error.kind === "forbidden") return Response.json({ success: false, message: error.message }, { status: 403 });
       const status = error.kind === "conflict" || error.kind === "unavailable" || error.kind === "not_updatable" ? 409 : 400;
@@ -170,6 +180,8 @@ export async function DELETE(
     if (!deleted) return Response.json({ success: false, message: "Booking not found" }, { status: 404 });
     return Response.json({ success: true, message: "Booking deleted" });
   } catch (error) {
+    const branchResponse = visitBranchError(error);
+    if (branchResponse) return branchResponse;
     if (error instanceof BookingServiceError && error.kind === "not_deletable") {
       return Response.json({ success: false, message: error.message }, { status: 409 });
     }

@@ -65,3 +65,62 @@ test("barber and hours APIs enforce assigned branches, roles and IDs; Administra
     actor = null; assert.equal((await collection.GET(request())).status, 401);
   } finally { await fixture.cleanup(); }
 });
+
+const bookings = await import("@/app/api/bookings/route");
+const bookingItem = await import("@/app/api/bookings/[id]/route");
+const queueApi = await import("@/app/api/queue/route");
+const queueItem = await import("@/app/api/queue/[id]/route");
+const bookingServices = await import("@/server/services/booking.service");
+const queueServices = await import("@/server/services/queue.service");
+const availability = await import("@/server/services/booking-availability.service");
+
+test("Phase 3 visits persist branch ownership, isolate staff access and inherit appointment branches", { skip: !databaseConfigured }, async () => {
+  const fixture = await createDisposableSchema(); db = fixture.db;
+  try {
+    const main = Number((await db.query("SELECT id FROM branches WHERE code='MAIN'")).rows[0].id);
+    const second = Number((await db.query("INSERT INTO branches(name,code) VALUES('Visit branch','VISIT') RETURNING id")).rows[0].id);
+    const a = await createBarber(db, { branchId: main, firstName: "Main", lastName: "Barber", status: "available" });
+    const b = await createBarber(db, { branchId: second, firstName: "Second", lastName: "Barber", status: "available" });
+    await db.query("UPDATE shop_operating_hours SET open_time='00:00',close_time='23:59',is_closed=false");
+    await db.query("UPDATE barber_schedules SET start_time='00:00',end_time='23:59',is_working=true");
+    const user = Number((await db.query("INSERT INTO users(first_name,last_name,email,password_hash,role_id) VALUES('Visit','Customer','visit@test.local','test',(SELECT id FROM roles WHERE name='customer')) RETURNING id")).rows[0].id);
+    const customerId = Number((await db.query("INSERT INTO customers(user_id) VALUES($1) RETURNING id", [user])).rows[0].id);
+    const staffId = Number((await db.query("INSERT INTO users(first_name,last_name,email,password_hash,role_id) VALUES('Visit','Staff','visit-staff@test.local','test',(SELECT id FROM roles WHERE name='front_desk')) RETURNING id")).rows[0].id);
+    await db.query("INSERT INTO user_branches(user_id,branch_id,is_primary) VALUES($1,$2,true)", [staffId, second]);
+    actor = { id: staffId, role: "front_desk" };
+    const input = { customerId, serviceId: "barracks-basic", barberId: b.id, date: "2099-10-05", time: "12:00" };
+    const created = await bookings.POST(request(input, `?branchId=${second}`));
+    assert.equal(created.status, 201);
+    const booking = (await created.json()).booking;
+    assert.equal(booking.branchId, second);
+    const walked = await queueApi.POST(request({ customerId, serviceId: input.serviceId, idempotencyKey: "80eeff0a-bc02-4d1d-8415-18df4533ee7f" }, `?branchId=${second}`));
+    assert.equal(walked.status, 201);
+    const walk = (await walked.json()).entry;
+    assert.equal(walk.branchId, second);
+    await bookingServices.updateBooking(db, booking.id, { status: "checked_in" });
+    const appointment = (await queueServices.listQueue(db, "active", second)).find((entry) => entry.bookingId === booking.id)!;
+    assert.equal(appointment.branchId, second);
+    assert.equal((await bookings.POST(request({ ...input, barberId: a.id, time: "13:00" }, `?branchId=${second}`))).status, 400);
+    await assert.rejects(queueServices.assignQueueBarber(db, walk.id, a.id), /visit branch/);
+    const candidates = await availability.findAvailableBarbers(db, { serviceId: input.serviceId, date: input.date, time: "14:00", branchId: second });
+    assert.deepEqual(candidates, [b.id]);
+    const foreignBooking = { params: Promise.resolve({ id: String(booking.id) }) };
+    const foreignQueue = { params: Promise.resolve({ id: String(walk.id) }) };
+    await db.query("DELETE FROM user_branches WHERE user_id=$1", [staffId]);
+    await db.query("INSERT INTO user_branches(user_id,branch_id,is_primary) VALUES($1,$2,true)", [staffId, main]);
+    for (const role of ["manager", "front_desk"] as const) {
+      actor = { id: staffId, role };
+      assert.equal((await bookings.GET(request({}, `?branchId=${second}`))).status, 403);
+      assert.equal((await queueApi.GET(request({}, `?branchId=${second}`))).status, 403);
+    }
+    actor = { id: staffId, role: "front_desk" };
+    assert.equal((await bookingItem.PATCH(request({ status: "cancelled" }), foreignBooking)).status, 403);
+    assert.equal((await queueItem.PATCH(request({ barberId: b.id }), foreignQueue)).status, 403);
+    actor = { id: 999, role: "administrator" };
+    assert.equal((await (await bookings.GET(request({}, `?branchId=${second}`))).json()).bookings[0].id, booking.id);
+    assert.equal((await (await queueApi.GET(request({}, `?branchId=${second}`))).json()).queue.length, 2);
+    assert.equal((await bookings.GET(request({}, `?branchId=${main}`))).status, 200);
+    const mainWalk = await queueServices.addWalkIn(db, { customerId, serviceId: input.serviceId, branchId: main });
+    assert.equal((await queueServices.getNextCustomer(db, a.id, main))?.id, mainWalk.id);
+  } finally { await fixture.cleanup(); }
+});

@@ -101,21 +101,21 @@ export async function canStartServiceNow(db: Db, input: { serviceId: string; bar
   return intervalFits({ start, end: start + context.durationMinutes, hours: hours, schedule, blocks });
 }
 
-export async function getBookingAvailability(db: Pool, input: { serviceId: string; barberId: number; date: string }, options: AvailabilityOptions = {}): Promise<AvailabilityResult> {
+export async function getBookingAvailability(db: Pool, input: { serviceId: string; barberId: number; date: string; branchId?: number }, options: AvailabilityOptions = {}): Promise<AvailabilityResult> {
   const [context, barber] = await Promise.all([loadContext(db, input.serviceId, input.date), findBarberById(db, input.barberId)]);
-  if (!barber) throw new AvailabilityError("barber_not_found", "Barber not found");
+  if (!barber || (input.branchId !== undefined && barber.branchId !== input.branchId)) throw new AvailabilityError("barber_not_found", "Barber not found");
   return availabilityForBarber(db, input, barber, context, options);
 }
 
-export async function isBookingSlotAvailable(db: Pool, input: { serviceId: string; barberId: number; date: string; time: string }, options: { now?: Date; excludeBookingId?: number } = {}): Promise<boolean> {
+export async function isBookingSlotAvailable(db: Pool, input: { serviceId: string; barberId: number; date: string; time: string; branchId?: number }, options: { now?: Date; excludeBookingId?: number } = {}): Promise<boolean> {
   const result = await getBookingAvailability(db, input, options);
   return result.slots.some((slot) => slot.startTime === input.time);
 }
 
-export async function findAvailableBarbers(db: Pool, input: { serviceId: string; date: string; time: string }, options: { now?: Date; excludeBookingId?: number } = {}): Promise<number[]> {
+export async function findAvailableBarbers(db: Pool, input: { serviceId: string; date: string; time: string; branchId?: number }, options: { now?: Date; excludeBookingId?: number } = {}): Promise<number[]> {
   const [context, allBarbers, counts] = await Promise.all([
     loadContext(db, input.serviceId, input.date),
-    listBarberAvailability(db),
+    listBarberAvailability(db, input.branchId === undefined ? undefined : [input.branchId]),
     db.query<{ barber_id: number; appointment_count: string }>(
       `SELECT barber_id, COUNT(*) AS appointment_count FROM bookings
        WHERE booking_date=$1 AND status IN ('confirmed','checked_in','in_progress')
@@ -133,8 +133,8 @@ export async function findAvailableBarbers(db: Pool, input: { serviceId: string;
     .sort((a, b) => (countByBarber.get(a) ?? 0) - (countByBarber.get(b) ?? 0) || a - b);
 }
 
-export async function getAnyBarberAvailability(db: Pool, input: { serviceId: string; date: string }, options: { now?: Date; excludeBookingId?: number } = {}): Promise<AvailabilityResult> {
-  const [context, allBarbers] = await Promise.all([loadContext(db, input.serviceId, input.date), listBarberAvailability(db)]);
+export async function getAnyBarberAvailability(db: Pool, input: { serviceId: string; date: string; branchId?: number }, options: { now?: Date; excludeBookingId?: number } = {}): Promise<AvailabilityResult> {
+  const [context, allBarbers] = await Promise.all([loadContext(db, input.serviceId, input.date), listBarberAvailability(db, input.branchId === undefined ? undefined : [input.branchId])]);
   const barbers = allBarbers.filter((barber) => barber.status !== "unavailable");
   const results = await Promise.all(barbers.map((barber) => availabilityForBarber(db, { barberId: barber.id, date: input.date }, barber, context, options)));
   const slots = new Map<string, AvailabilitySlot>();

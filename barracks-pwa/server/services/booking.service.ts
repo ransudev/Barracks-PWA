@@ -11,6 +11,7 @@ import type {
 } from "@/server/schemas/sprint.schema";
 
 type BookingRow = {
+  branch_id: number;
   id: number;
   booking_date: string | Date;
   booking_time: string | Date;
@@ -31,6 +32,7 @@ type BookingRow = {
 };
 
 export type BookingRecord = {
+  branchId: number;
   id: number;
   date: string;
   time: string;
@@ -62,6 +64,7 @@ export class BookingServiceError extends Error {
 
 const bookingSelect = `
   SELECT
+    b.branch_id,
     b.id,
     b.booking_date,
     b.booking_time,
@@ -105,6 +108,7 @@ function toIso(value: string | Date): string {
 
 function toBooking(row: BookingRow): BookingRecord {
   return {
+    branchId: Number(row.branch_id),
     id: Number(row.id),
     date: toDateOnly(row.booking_date),
     time: toTimeOnly(row.booking_time),
@@ -128,20 +132,23 @@ function toBooking(row: BookingRow): BookingRecord {
 export async function listBookings(
   db: Pool,
   customerId?: number,
+  branchId?: number,
 ): Promise<BookingRecord[]> {
   const result = await db.query<BookingRow>(
     `${bookingSelect}
-      ${customerId ? "WHERE b.customer_id = $1" : ""}
+      WHERE ($1::integer IS NULL OR b.customer_id=$1) AND ($2::integer IS NULL OR b.branch_id=$2)
       ORDER BY b.booking_date ASC, b.booking_time ASC, b.id ASC`,
-    customerId ? [customerId] : undefined,
+    [customerId ?? null, branchId ?? null],
   );
   return result.rows.map(toBooking);
 }
 
 export async function createBooking(
   db: Pool,
-  input: BookingCreateInput & { customerId: number },
+  input: BookingCreateInput & { customerId: number; branchId?: number },
 ): Promise<BookingRecord> {
+  const branchId = input.branchId ?? Number((await db.query("SELECT id FROM branches WHERE code='MAIN'")).rows[0].id);
+  input = { ...input, branchId };
   const slot = new Date(`${input.date}T${input.time}:00+08:00`);
   if (Number.isNaN(slot.getTime()) || slot.getTime() <= Date.now()) {
     throw new BookingServiceError("past", "Choose a future booking time");
@@ -175,9 +182,9 @@ export async function createBooking(
       const inserted = await db.query<{ id: number }>(
       `
         INSERT INTO bookings
-          (customer_id, barber_id, service_id, service_name, service_price, service_duration_minutes, booking_date, booking_time, end_time, notes)
+          (customer_id, barber_id, service_id, service_name, service_price, service_duration_minutes, booking_date, booking_time, end_time, notes, branch_id)
         SELECT $1, $2, $3, $4, $5, $6::integer, $7, $8,
-          ($8::time + $6::integer * INTERVAL '1 minute')::time, $9
+          ($8::time + $6::integer * INTERVAL '1 minute')::time, $9, COALESCE($10::integer,(SELECT id FROM branches WHERE code='MAIN'))
         FROM customers c
         INNER JOIN users u ON u.id = c.user_id
         WHERE c.id = $1 AND u.deleted_at IS NULL
@@ -194,6 +201,7 @@ export async function createBooking(
         input.date,
         input.time,
         input.notes?.trim() || null,
+        input.branchId ?? null,
       ],
     );
       if (!inserted.rows[0]) throw new BookingServiceError("not_found", "Customer not found");
@@ -212,9 +220,9 @@ export async function createBooking(
   throw new BookingServiceError("conflict", "No barber is available at that time. Please choose another slot");
 }
 
-async function bookingCandidates(db: Pool, input: { serviceId: string; barberId?: number | null; date: string; time: string }, excludeBookingId?: number): Promise<number[]> {
+async function bookingCandidates(db: Pool, input: { serviceId: string; barberId?: number | null; date: string; time: string; branchId?: number }, excludeBookingId?: number): Promise<number[]> {
   if (!input.barberId) return findAvailableBarbers(db, input, { excludeBookingId });
-  const barber = await db.query<{ id: number; status: string }>("SELECT id, status FROM barbers WHERE id=$1", [input.barberId]);
+  const barber = await db.query<{ id: number; status: string }>("SELECT id, status FROM barbers WHERE id=$1 AND ($2::integer IS NULL OR branch_id=$2)", [input.barberId, input.branchId ?? null]);
   if (!barber.rows[0]) throw new BookingServiceError("not_found", "Barber not found");
   if (barber.rows[0].status === "unavailable") throw new BookingServiceError("unavailable", "That barber is currently unavailable");
   return [input.barberId];
@@ -293,9 +301,12 @@ export async function updateBooking(
 export async function updateBookingDetails(
   db: Pool,
   id: number,
-  input: BookingEditInput,
+  input: BookingEditInput & { branchId?: number },
   scope?: { customerId?: number },
 ): Promise<BookingRecord | null> {
+  const existingBooking = await findBookingById(db, id);
+  if (!existingBooking) return null;
+  input = { ...input, branchId: existingBooking.branchId };
   const slot = new Date(`${input.date}T${input.time}:00+08:00`);
   if (Number.isNaN(slot.getTime()) || slot.getTime() <= Date.now()) {
     throw new BookingServiceError("past", "Choose a future booking time");

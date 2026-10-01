@@ -6,6 +6,7 @@ import { initialQueueStatus, QueueLifecycleError, transitionQueue, type QueueSta
 
 type Db = Pool | PoolClient;
 type WalkInInput = {
+  branchId?: number;
   serviceId: string;
   barberId?: number | null;
   idempotencyKey?: string;
@@ -15,6 +16,7 @@ type WalkInInput = {
 );
 export type { QueueStatus } from "@/server/services/queue-lifecycle";
 type QueueRow = {
+  branch_id: number;
   id: number; booking_id: number | null; customer_id: number; customer_name: string;
   service_id: string; service_name: string; barber_id: number | null; barber_name: string | null;
   scheduled_date: string | null; scheduled_time: string | null; booking_status: string | null;
@@ -29,6 +31,7 @@ async function lockQueueEntry(client: PoolClient, id: number): Promise<LockedQue
   return result.rows[0];
 }
 export type QueueRecord = {
+  branchId: number;
   id: number; bookingId: number | null; customerId: number; customerName: string;
   serviceId: string; serviceName: string; barberId: number | null; barberName: string | null;
   visitType: "walk_in" | "appointment"; scheduledDate: string | null;
@@ -73,7 +76,7 @@ const queueSelect = `SELECT q.*, CONCAT(COALESCE(u.first_name,c.first_name),' ',
   LEFT JOIN bookings b ON b.id=q.booking_id`;
 const iso = (value: Date | string | null) => value === null ? null : new Date(value).toISOString();
 function toQueue(row: QueueRow): QueueRecord {
-  return { id: Number(row.id), bookingId: row.booking_id === null ? null : Number(row.booking_id),
+  return { branchId: Number(row.branch_id), id: Number(row.id), bookingId: row.booking_id === null ? null : Number(row.booking_id),
     customerId: Number(row.customer_id), customerName: row.customer_name, serviceId: row.service_id,
     serviceName: row.service_name, barberId: row.barber_id === null ? null : Number(row.barber_id),
     barberName: row.barber_name, visitType: row.booking_id === null ? "walk_in" : "appointment",
@@ -82,7 +85,7 @@ function toQueue(row: QueueRow): QueueRecord {
     completedAt: iso(row.completed_at), createdAt: iso(row.created_at)!, updatedAt: iso(row.updated_at)! };
 }
 export type QueueView = "active" | "completed-today";
-export async function listQueue(db: Db, view: QueueView = "active"): Promise<QueueRecord[]> {
+export async function listQueue(db: Db, view: QueueView = "active", branchId?: number): Promise<QueueRecord[]> {
   // Convert Manila-local midnight to timestamptz for session-independent
   // instant comparisons; UTC midnight is not the shop's day boundary.
   const where = view === "active"
@@ -91,7 +94,7 @@ export async function listQueue(db: Db, view: QueueView = "active"): Promise<Que
         OR (q.status='in_progress' AND b.status='in_progress'))`
     : `q.status='completed' AND q.completed_at >= ((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Manila')::date::timestamp AT TIME ZONE 'Asia/Manila')
        AND q.completed_at < (((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Manila')::date + 1)::timestamp AT TIME ZONE 'Asia/Manila')`;
-  const result = await db.query<QueueRow>(`${queueSelect} WHERE ${where} ORDER BY q.joined_at, q.id`);
+  const result = await db.query<QueueRow>(`${queueSelect} WHERE (${where}) AND ($1::integer IS NULL OR q.branch_id=$1) ORDER BY q.joined_at, q.id`, [branchId ?? null]);
   return result.rows.map(toQueue);
 }
 export async function findQueueEntry(db: Db, id: number): Promise<QueueRecord | null> {
@@ -100,15 +103,15 @@ export async function findQueueEntry(db: Db, id: number): Promise<QueueRecord | 
 }
 // Preserve ready-entry priority, then scan unassigned walk-ins in FIFO order.
 // A walk-in is only offered when its full service fits the current availability.
-async function selectNextCustomer(db: Db, barberId: number): Promise<QueueRecord | null> {
+async function selectNextCustomer(db: Db, barberId: number, branchId?: number): Promise<QueueRecord | null> {
   const result = await db.query<QueueRow>(
-    `${queueSelect} WHERE q.started_at IS NULL AND q.completed_at IS NULL AND (
+    `${queueSelect} WHERE q.branch_id=COALESCE($2::integer,(SELECT branch_id FROM barbers WHERE id=$1)) AND q.started_at IS NULL AND q.completed_at IS NULL AND (
        (q.status='ready' AND q.barber_id=$1 AND
          (q.booking_id IS NULL OR (b.status='checked_in' AND b.barber_id=$1)))
        OR (q.status='waiting' AND q.barber_id IS NULL AND q.booking_id IS NULL)
      )
      ORDER BY CASE WHEN q.booking_id IS NOT NULL THEN 0 WHEN q.status='ready' THEN 1 ELSE 2 END, q.joined_at, q.id`,
-    [barberId],
+    [barberId, branchId ?? null],
   );
   const now = new Date();
   for (const row of result.rows) {
@@ -122,10 +125,10 @@ async function selectNextCustomer(db: Db, barberId: number): Promise<QueueRecord
   }
   return null;
 }
-export async function getNextCustomer(db: Pool, barberId: number): Promise<QueueRecord | null> {
+export async function getNextCustomer(db: Pool, barberId: number, branchId?: number): Promise<QueueRecord | null> {
   try {
     requireBarberOperationalAvailability(await getBarberOperationalAvailability(db, barberId));
-    return await selectNextCustomer(db, barberId);
+    return await selectNextCustomer(db, barberId, branchId);
   } catch (error) {
     if (error instanceof BarberOperationalAvailabilityError)
       throw new QueueServiceError(error.message === "Barber not found." ? "not_found" : "conflict", error.message);
@@ -133,14 +136,14 @@ export async function getNextCustomer(db: Pool, barberId: number): Promise<Queue
     throw error;
   }
 }
-export async function confirmNextCustomerAssignment(db: Pool, barberId: number, entryId: number): Promise<QueueRecord> {
+export async function confirmNextCustomerAssignment(db: Pool, barberId: number, entryId: number, branchId?: number): Promise<QueueRecord> {
   return withQueueTransaction(db, async (client) => {
     const current = await lockQueueEntry(client, entryId);
     if (current.booking_id !== null || current.status !== "waiting" || current.barber_id !== null)
       throw new QueueServiceError("conflict", "This suggestion changed. Find the next customer again.");
     transitionQueue(queueState(current), { barberId });
     await requireBarber(client, barberId);
-    const next = await selectNextCustomer(client, barberId);
+    const next = await selectNextCustomer(client, barberId, branchId);
     if (next?.id !== entryId)
       throw new QueueServiceError("conflict", "This suggestion changed. Find the next customer again.");
     const updated = await client.query(
@@ -158,6 +161,7 @@ function walkInFingerprint(input: WalkInInput): string {
     : { customer: input.customer };
   return createHash("sha256").update(JSON.stringify({
     ...identity,
+    branchId: input.branchId ?? null,
     serviceId: input.serviceId,
     barberId: input.barberId ?? null,
   })).digest("hex");
@@ -209,9 +213,9 @@ export async function addWalkIn(db: Pool, input: WalkInInput): Promise<QueueReco
       const inserted = await client.query<{ id: number }>(
         `INSERT INTO queue_entries(
            customer_id,service_id,barber_id,service_name_snapshot,service_price_snapshot,
-           status,idempotency_key,idempotency_fingerprint
+           status,idempotency_key,idempotency_fingerprint,branch_id
          )
-         SELECT c.id,s.id,br.id,s.name,s.current_price,$4,$5::uuid,$6::char(64)
+         SELECT c.id,s.id,br.id,s.name,s.current_price,$4,$5::uuid,$6::char(64),COALESCE($7::integer,(SELECT id FROM branches WHERE code='MAIN'))
          FROM customers c
          LEFT JOIN users u ON u.id=c.user_id
          LEFT JOIN roles r ON r.id=u.role_id
@@ -222,7 +226,7 @@ export async function addWalkIn(db: Pool, input: WalkInInput): Promise<QueueReco
            AND s.id=$2 AND s.active=true
            AND ($3::integer IS NULL OR br.id IS NOT NULL)
          RETURNING id`,
-        [customerId, input.serviceId, barberId, initialQueueStatus(barberId), input.idempotencyKey ?? null, fingerprint],
+        [customerId, input.serviceId, barberId, initialQueueStatus(barberId), input.idempotencyKey ?? null, fingerprint, input.branchId ?? null],
       );
       if (!inserted.rows[0]) throw new QueueServiceError("invalid", "Choose an active customer, service, and available barber");
       return (await findQueueEntry(client, inserted.rows[0].id))!;
@@ -273,8 +277,8 @@ export async function updateWalkInStatus(db: Pool, id: number, status: QueueStat
 export async function syncAppointmentQueue(client: PoolClient, bookingId: number, status: "checked_in" | "in_progress" | "completed" | "cancelled"): Promise<void> {
   if (status === "checked_in") {
     const inserted = await client.query(
-      `INSERT INTO queue_entries(booking_id,customer_id,service_id,service_name_snapshot,service_price_snapshot,barber_id,status)
-       SELECT id,customer_id,service_id,service_name,service_price,barber_id,'ready'
+      `INSERT INTO queue_entries(booking_id,customer_id,service_id,service_name_snapshot,service_price_snapshot,barber_id,status,branch_id)
+       SELECT id,customer_id,service_id,service_name,service_price,barber_id,'ready',branch_id
        FROM bookings WHERE id=$1 AND barber_id IS NOT NULL
        ON CONFLICT (booking_id) DO NOTHING RETURNING id`, [bookingId],
     );

@@ -1,3 +1,4 @@
+import { visitBranch, visitBranchError } from "@/server/auth/visit-branch-access";
 import { requireRolesUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import {
@@ -13,7 +14,7 @@ import { findCustomerByUserId } from "@/server/services/customer.service";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(request: Request) {
   const user = await requireRolesUser(["administrator", "manager", "front_desk", "customer"]);
   if (user instanceof Response) return user;
 
@@ -23,8 +24,10 @@ export async function GET() {
       if (!customer) return Response.json({ success: false, message: "Customer profile not found" }, { status: 404 });
       return Response.json({ success: true, bookings: await listBookings(pool, customer.id) });
     }
-    return Response.json({ success: true, bookings: await listBookings(pool) });
+    return Response.json({ success: true, bookings: await listBookings(pool, undefined, await visitBranch(pool, user, request)) });
   } catch (error) {
+    const branchResponse = visitBranchError(error);
+    if (branchResponse) return branchResponse;
     console.error("Unable to list bookings", error);
     return Response.json({ success: false, message: "Unable to load bookings" }, { status: 500 });
   }
@@ -60,9 +63,12 @@ export async function POST(request: Request) {
       return Response.json({ success: false, message: "Choose a customer" }, { status: 400 });
     }
 
-    const booking = await createBooking(pool, { ...parsed.data, customerId });
+    const branchId = await visitBranch(pool, user, request);
+    const booking = await createBooking(pool, { ...parsed.data, customerId, branchId });
     return Response.json({ success: true, booking }, { status: 201 });
   } catch (error) {
+    const branchResponse = visitBranchError(error);
+    if (branchResponse) return branchResponse;
     if (error instanceof BookingServiceError) {
       const status = error.kind === "conflict" || error.kind === "unavailable" ? 409 : 400;
       return Response.json({ success: false, message: error.message }, { status });

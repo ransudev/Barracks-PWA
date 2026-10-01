@@ -1,3 +1,4 @@
+import { visitBranch } from "@/server/auth/visit-branch-access";
 import { requireBranchAccess, listAccessibleBranches } from "@/server/auth/branch-access";
 import { resolveOperationalBranch } from "@/server/auth/barber-branch-access";
 import { branchApiError } from "@/server/services/branch-api";
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
   try {
     const actor = authorizationResult;
     const rawBranch = new URL(request.url).searchParams.get("branchId");
-    const branchIds = actor.role === "customer" ? undefined
+    const branchIds = actor.role === "customer" ? [await visitBranch(pool, actor, request)]
       : rawBranch !== null || actor.role === "front_desk" ? [await resolveOperationalBranch(pool, actor, rawBranch)]
       : actor.role === "administrator" ? undefined : (await listAccessibleBranches(pool, actor)).map((branch) => branch.id);
     const barbers = authorizationResult.role === "customer" || authorizationResult.role === "front_desk"

@@ -1,4 +1,5 @@
 "use client";
+import { useBranchContext } from "@/app/utils/use-branch-context";
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { ApiBarberAvailability, ApiCustomer, ApiQueueEntry } from "@/app/lib/api";
@@ -18,7 +19,15 @@ const scheduledTime = (entry: ApiQueueEntry) => {
   return `${hours % 12 || 12}:${String(minutes).padStart(2, "0")} ${hours >= 12 ? "PM" : "AM"}`;
 };
 
-export function QueuePage({ onToast, canOperate = true }: { onToast: (message: string) => void; canOperate?: boolean }) {
+export function QueuePage({ onToast, canOperate = true }: { onToast: (message: string) => void; canOperate?: boolean; }) {
+  const { branches, branchId, setBranchId, branchError } = useBranchContext();
+  return <><SelectField label="Branch" value={branchId || ""} onChange={(event) => setBranchId(Number(event.target.value))}>
+    {branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+  </SelectField>{branchError && <p role="alert">{branchError}</p>}
+  {branchId > 0 && <QueuePageContent key={branchId} branchId={branchId} onToast={onToast} canOperate={canOperate}  />}</>;
+}
+
+function QueuePageContent({ onToast, canOperate = true, branchId }: { branchId: number; onToast: (message: string) => void; canOperate?: boolean }) {
   const [queue, setQueue] = useState<ApiQueueEntry[]>([]);
   const [completed, setCompleted] = useState<ApiQueueEntry[]>([]);
   const [queueTab, setQueueTab] = useState<"active" | "completed-today">("active");
@@ -50,8 +59,8 @@ export function QueuePage({ onToast, canOperate = true }: { onToast: (message: s
     async function load() {
       try {
         const [queueResponse, customerResponse, serviceResponse, barberResponse] = await Promise.all([
-          apiRequest("/api/queue?view=active", { cache: "no-store" }), apiRequest("/api/customers", { cache: "no-store" }),
-          apiRequest("/api/services", { cache: "no-store" }), apiRequest("/api/barbers", { cache: "no-store" }),
+          apiRequest(`/api/queue?view=active&branchId=${branchId}`, { cache: "no-store" }), apiRequest("/api/customers", { cache: "no-store" }),
+          apiRequest("/api/services", { cache: "no-store" }), apiRequest(`/api/barbers?branchId=${branchId}`, { cache: "no-store" }),
         ]);
         const [queueData, customerData, serviceData, barberData] = await Promise.all([
           readApiBody<{ success: boolean; queue?: ApiQueueEntry[]; message?: string }>(queueResponse),
@@ -74,7 +83,7 @@ export function QueuePage({ onToast, canOperate = true }: { onToast: (message: s
     }
     void load();
     return () => { active = false; };
-  }, []);
+  }, [branchId]);
 
   useEffect(() => {
     if (queueTab !== "completed-today") return;
@@ -83,7 +92,7 @@ export function QueuePage({ onToast, canOperate = true }: { onToast: (message: s
       setCompletedLoading(true);
       setCompletedError("");
       try {
-        const response = await apiRequest("/api/queue?view=completed-today", { cache: "no-store" });
+        const response = await apiRequest(`/api/queue?view=completed-today&branchId=${branchId}`, { cache: "no-store" });
         const body = await readApiBody<{ success: boolean; queue?: ApiQueueEntry[]; message?: string }>(response);
         if (!response.ok || !body?.success || !body.queue) throw new Error(body?.message ?? "Unable to load completed queue");
         if (active) setCompleted(body.queue);
@@ -92,7 +101,7 @@ export function QueuePage({ onToast, canOperate = true }: { onToast: (message: s
     }
     void loadCompleted();
     return () => { active = false; };
-  }, [queueTab]);
+  }, [queueTab, branchId]);
 
   const visible = useMemo(() => (queueTab === "active" ? queue : completed).filter((entry) =>
     (queueTab === "completed-today" || statusFilter === "all" || entry.status === statusFilter) &&
@@ -134,7 +143,7 @@ export function QueuePage({ onToast, canOperate = true }: { onToast: (message: s
         barberId: draft.barberId ? Number(draft.barberId) : null,
         idempotencyKey,
       };
-      const response = await apiRequest("/api/queue", { method: "POST", body: JSON.stringify(payload) });
+      const response = await apiRequest(`/api/queue?branchId=${branchId}`, { method: "POST", body: JSON.stringify(payload) });
       const body = await readApiBody<{ success: boolean; entry?: ApiQueueEntry; message?: string }>(response);
       if (!response.ok || !body?.success || !body.entry) throw new Error(body?.message ?? "Unable to add walk-in");
       setQueue((current) => [...current, body.entry!]);
@@ -176,7 +185,7 @@ export function QueuePage({ onToast, canOperate = true }: { onToast: (message: s
     setNextEntry(null);
     setNextMessage("");
     try {
-      const response = await apiRequest(`/api/queue/next?barberId=${nextBarberId}`, { cache: "no-store" });
+      const response = await apiRequest(`/api/queue/next?barberId=${nextBarberId}&branchId=${branchId}`, { cache: "no-store" });
       const body = await readApiBody<{ success: boolean; entry?: ApiQueueEntry | null; message?: string }>(response);
       if (!response.ok || !body?.success) throw new Error(body?.message ?? "Unable to find next customer");
       setNextEntry(body.entry ?? null);
@@ -189,7 +198,7 @@ export function QueuePage({ onToast, canOperate = true }: { onToast: (message: s
     if (!nextEntry || !nextBarberId || nextEntry.status !== "waiting") return;
     setNextBusy(true);
     try {
-      const response = await apiRequest("/api/queue/next", { method: "POST", body: JSON.stringify({ barberId: Number(nextBarberId), entryId: nextEntry.id }) });
+      const response = await apiRequest(`/api/queue/next?branchId=${branchId}`, { method: "POST", body: JSON.stringify({ barberId: Number(nextBarberId), entryId: nextEntry.id }) });
       const body = await readApiBody<{ success: boolean; entry?: ApiQueueEntry; message?: string }>(response);
       if (!response.ok || !body?.success || !body.entry) throw new Error(body?.message ?? "Unable to assign next customer");
       setQueue((current) => current.map((entry) => entry.id === body.entry!.id ? body.entry! : entry));

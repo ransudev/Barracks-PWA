@@ -26,7 +26,8 @@ test("Front Desk barber floor shows operational data and changes status through 
       { id: 4, firstName: "Cal", lastName: "Cutter", status: "unavailable" },
     ] });
     if (path === "/api/barbers?branchId=2") return Response.json({ success: true, barbers: [{ id: 9, firstName: "Second", lastName: "Barber", status: "available" }] });
-    if (path === "/api/queue?view=active") return Response.json({ success: true, queue: [
+    if (path === "/api/queue?view=active&branchId=2") return Response.json({ success: true, queue: [] });
+    if (path === "/api/queue?view=active&branchId=1") return Response.json({ success: true, queue: [
       { id: 8, barberId: 3, customerName: "Ava Client", serviceName: "Original cut", status: "in_progress" },
     ] });
     if (path === "/api/attendance/today") return Response.json({ success: true, attendance: [] });
@@ -54,7 +55,7 @@ test("Front Desk barber floor shows operational data and changes status through 
     for (const forbidden of ["Commission", "Revenue", "Rating", "Add barber", "Edit profile", "Shop hours", "Schedule", "Absences", "Set commission rate"]) {
       assert.equal(content.includes(forbidden), false, forbidden);
     }
-    assert.deepEqual(requests.sort(), ["GET /api/branch-context", "GET /api/barbers?branchId=1", "GET /api/queue?view=active", "GET /api/attendance/today"].sort());
+    assert.deepEqual(requests.sort(), ["GET /api/branch-context", "GET /api/barbers?branchId=1", "GET /api/queue?view=active&branchId=1", "GET /api/attendance/today"].sort());
     const statusSelect = container.querySelector('select[aria-label="Operational status for Cal Cutter"]') as HTMLSelectElement;
     assert.ok(statusSelect);
     await act(async () => {

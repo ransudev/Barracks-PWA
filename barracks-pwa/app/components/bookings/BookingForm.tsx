@@ -16,6 +16,7 @@ export type BookingFormValue = {
 
 export function BookingForm({
   value,
+  branchId,
   customers = [],
   services,
   barbers,
@@ -29,6 +30,7 @@ export function BookingForm({
   onCancel,
 }: {
   value: BookingFormValue;
+  branchId?: number;
   customers?: ApiCustomer[];
   services: Service[];
   barbers: ApiBarberAvailability[];
@@ -50,6 +52,7 @@ export function BookingForm({
     if (!serviceId || !date) return;
     let active = true;
     const params = new URLSearchParams({ serviceId, date });
+    if (branchId) params.set("branchId", String(branchId));
     if (barberId) params.set("barberId", barberId);
     if (excludeBookingId) params.set("excludeBookingId", String(excludeBookingId));
     async function load() {
@@ -67,7 +70,7 @@ export function BookingForm({
     }
     void load();
     return () => { active = false; };
-  }, [serviceId, barberId, date, excludeBookingId, availabilityVersion]);
+  }, [branchId, serviceId, barberId, date, excludeBookingId, availabilityVersion]);
   const selectedSlot = slots.find((slot) => slot.startTime === value.time);
   const selectedService = services.find((service) => service.id === value.serviceId);
   const selectedBarber = barbers.find((barber) => String(barber.id) === value.barberId);

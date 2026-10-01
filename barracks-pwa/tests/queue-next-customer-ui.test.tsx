@@ -19,10 +19,15 @@ const waiting: ApiQueueEntry = { id: 7, bookingId: null, visitType: "walk_in", s
 async function renderQueue(candidate: ApiQueueEntry | null, holdQueuePost = false, completed: ApiQueueEntry[] = []) {
   const previousFetch = globalThis.fetch;
   const requests: string[] = [];
+  const branchRequests: string[] = [];
   const postedBodies: Record<string, unknown>[] = [];
   let releaseQueuePost: ((response: Response) => void) | undefined;
   globalThis.fetch = async (input, init) => {
-    const path = String(input);
+    const rawPath = String(input);
+    branchRequests.push(rawPath);
+    if (rawPath === "/api/branch-context") return Response.json({ branches: [{ id: 1, name: "Main Branch", status: "active" }, { id: 2, name: "Second Branch", status: "active" }], primaryBranch: { id: 1 } });
+    if (rawPath === "/api/queue?view=active&branchId=2") return Response.json({ success: true, queue: [] });
+    const path = rawPath.replace(/([?&])branchId=\d+&?/, "$1").replace(/[?&]$/, "");
     requests.push(`${init?.method ?? "GET"} ${path}`);
     if (path === "/api/queue?view=active") return Response.json({ success: true, queue: candidate ? [candidate] : [] });
     if (path === "/api/queue?view=completed-today") return Response.json({ success: true, queue: completed });
@@ -49,7 +54,7 @@ async function renderQueue(candidate: ApiQueueEntry | null, holdQueuePost = fals
   try {
     await act(async () => { root.render(<QueuePage onToast={() => undefined} />); });
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
-    return { container, requests, postedBodies, releaseQueuePost: (response: Response) => releaseQueuePost?.(response), cleanup: async () => { await act(async () => root.unmount()); container.remove(); globalThis.fetch = previousFetch; } };
+    return { container, requests, branchRequests, postedBodies, releaseQueuePost: (response: Response) => releaseQueuePost?.(response), cleanup: async () => { await act(async () => root.unmount()); container.remove(); globalThis.fetch = previousFetch; } };
   } catch (error) {
     await act(async () => root.unmount()); container.remove(); globalThis.fetch = previousFetch;
     throw error;
@@ -185,5 +190,19 @@ test("Queue form blocks a rapid duplicate submission while the first request is 
     const body = payload.customerId ? waiting : { ...waiting, id: 8 };
     view.releaseQueuePost(Response.json({ success: true, entry: body }));
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+  } finally { await view.cleanup(); }
+});
+
+test("queue branch switching reloads scoped data and clears the previous suggestion", async () => {
+  const view = await renderQueue(waiting);
+  try {
+    await selectBarberAndSuggest(view.container);
+    assert.ok(view.container.querySelector(".queue-next__suggestion"));
+    const select = view.container.querySelector<HTMLSelectElement>("select")!;
+    await act(async () => { select.value = "2"; select.dispatchEvent(new dom.window.Event("change", { bubbles: true })); });
+    assert.ok(view.branchRequests.includes("/api/queue?view=active&branchId=2"));
+    assert.ok(view.branchRequests.includes("/api/barbers?branchId=2"));
+    assert.equal(view.container.querySelector(".queue-next__suggestion"), null);
+    assert.doesNotMatch(view.container.querySelector(".operational-card-grid")?.textContent ?? "", /Next Customer/);
   } finally { await view.cleanup(); }
 });
