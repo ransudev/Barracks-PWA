@@ -1,3 +1,6 @@
+import { listAccessibleBranches } from "@/server/auth/branch-access";
+import { resolveOperationalBranch } from "@/server/auth/barber-branch-access";
+import { visitBranchError } from "@/server/auth/visit-branch-access";
 import { requireFrontDeskUser, requireStaffUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { createTransactionSchema, transactionHistorySchema } from "@/server/schemas/payment.schema";
@@ -22,13 +25,17 @@ export async function GET(request: Request) {
   )) : null;
   if (parsed && !parsed.success) return Response.json({ success: false, message: "Invalid history filters" }, { status: 400 });
   try {
-    if (view === "eligible") return Response.json({ success: true, visits: await listEligibleVisits(pool) });
-    if (parsed?.success) return Response.json({ success: true, ...await listTransactionHistory(pool, parsed.data) });
-    const transaction = await findTransactionByReference(pool, reference!);
+    const rawBranch = params.get("branchId");
+    const branchIds = rawBranch !== null ? [await resolveOperationalBranch(pool, user, rawBranch)]
+      : user.role === "administrator" ? undefined : (await listAccessibleBranches(pool, user)).map((branch) => branch.id);
+    if (view === "eligible") return Response.json({ success: true, visits: await listEligibleVisits(pool, branchIds) });
+    if (parsed?.success) return Response.json({ success: true, ...await listTransactionHistory(pool, parsed.data, branchIds) });
+    const transaction = await findTransactionByReference(pool, reference!, branchIds);
     return transaction
       ? Response.json({ success: true, transaction: user.role === "front_desk" ? { ...transaction, actions: undefined } : transaction })
       : Response.json({ success: false, message: "Transaction not found" }, { status: 404 });
   } catch (error) {
+    const branchError = visitBranchError(error); if (branchError) return branchError;
     console.error("Unable to load transaction", error);
     return Response.json({ success: false, message: "Unable to load transaction" }, { status: 500 });
   }
@@ -46,6 +53,7 @@ export async function POST(request: Request) {
     const transaction = await createTransaction(pool, parsed.data, user.id);
     return Response.json({ success: true, transaction }, { status: 201 });
   } catch (error) {
+    const branchError = visitBranchError(error); if (branchError) return branchError;
     if (error instanceof PaymentServiceError) {
       const status = error.kind === "forbidden" ? 403 : error.kind === "not_found" ? 404
         : error.kind === "insufficient_cash" ? 422 : 409;

@@ -1,4 +1,5 @@
 "use client";
+import { useBranchContext } from "@/app/utils/use-branch-context";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiRequest, readApiBody } from "@/app/lib/api";
@@ -48,6 +49,14 @@ function Receipt({ transaction, onClose }: { transaction: TransactionRecord; onC
 }
 
 export function PaymentPage({ onToast, canCheckout = false, canManageFinancialActions = false }: { onToast: (message: string) => void; canCheckout?: boolean; canManageFinancialActions?: boolean }) {
+  const { branches, branchId, setBranchId, branchError } = useBranchContext();
+  return <><SelectField label="Branch" value={branchId || ""} onChange={(event) => setBranchId(Number(event.target.value))}>
+    {branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+  </SelectField>{branchError && <p role="alert">{branchError}</p>}
+  {branchId > 0 && <PaymentBranch key={branchId} branchId={branchId} onToast={onToast} canCheckout={canCheckout} canManageFinancialActions={canManageFinancialActions} />}</>;
+}
+
+function PaymentBranch({ branchId, onToast, canCheckout, canManageFinancialActions }: { branchId: number; onToast: (message: string) => void; canCheckout: boolean; canManageFinancialActions: boolean }) {
   const [visits, setVisits] = useState<EligibleVisit[]>([]);
   const [history, setHistory] = useState<TransactionRecord[]>([]);
   const [page, setPage] = useState(1);
@@ -81,8 +90,8 @@ export function PaymentPage({ onToast, canCheckout = false, canManageFinancialAc
     setLoading(true);
     try {
       const [visitsResponse, historyResponse] = await Promise.all([
-        canCheckout ? apiRequest("/api/transactions?view=eligible", { cache: "no-store" }) : Promise.resolve(null),
-        apiRequest(historyUrl(page, search, methodFilter, dateFrom, dateTo), { cache: "no-store" }),
+        canCheckout ? apiRequest(`/api/transactions?view=eligible&branchId=${branchId}`, { cache: "no-store" }) : Promise.resolve(null),
+        apiRequest(`${historyUrl(page, search, methodFilter, dateFrom, dateTo)}&branchId=${branchId}`, { cache: "no-store" }),
       ]);
       const [visitsBody, historyBody] = await Promise.all([
         visitsResponse ? readApiBody<{ success: boolean; visits?: EligibleVisit[]; message?: string }>(visitsResponse) : Promise.resolve(null),
@@ -104,7 +113,7 @@ export function PaymentPage({ onToast, canCheckout = false, canManageFinancialAc
     } finally {
       if (version === requestVersion.current) setLoading(false);
     }
-  }, [canCheckout, page, search, methodFilter, dateFrom, dateTo]);
+  }, [branchId, canCheckout, page, search, methodFilter, dateFrom, dateTo]);
 
   useEffect(() => {
     const versionRef = requestVersion;
@@ -135,7 +144,7 @@ export function PaymentPage({ onToast, canCheckout = false, canManageFinancialAc
     printWhenReady.current = false;
     setReceiptLoading(true);
     try {
-      const response = await apiRequest(`/api/transactions?reference=${encodeURIComponent(reference)}`, { cache: "no-store" });
+      const response = await apiRequest(`/api/transactions?reference=${encodeURIComponent(reference)}&branchId=${branchId}`, { cache: "no-store" });
       const body = await readApiBody<{ success: boolean; transaction?: TransactionRecord; message?: string }>(response);
       if (!response.ok || !body?.success || !body.transaction) throw new Error(body?.message ?? "Unable to load receipt");
       printWhenReady.current = print;

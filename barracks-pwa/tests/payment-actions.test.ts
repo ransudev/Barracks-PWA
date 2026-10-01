@@ -21,6 +21,7 @@ test("refund and void preserve sales, capture audit history, and reject duplicat
          VALUES($1,'Operator',$2,'hash',(SELECT id FROM roles WHERE name=$3)) RETURNING id`,
         [role, `${role}-actions@test.local`, role])).rows[0].id);
     }
+    await db.query("INSERT INTO user_branches(user_id,branch_id) SELECT $1,id FROM branches WHERE code='MAIN'", [ids.manager]);
     const customer = Number((await db.query<{ id: number }>("INSERT INTO customers(first_name,last_name) VALUES('Payment','Client') RETURNING id")).rows[0].id);
     const barber = Number((await db.query<{ id: number }>("INSERT INTO barbers(first_name,last_name) VALUES('Payment','Barber') RETURNING id")).rows[0].id);
     const pay = async (time: string) => {
@@ -73,6 +74,7 @@ test("concurrent refunds serialize and a failed status write rolls back the audi
     const staff = Number((await db.query<{ id: number }>(
       `INSERT INTO users(first_name,last_name,email,password_hash,role_id)
        VALUES('Audit','Manager','audit-manager@test.local','hash',(SELECT id FROM roles WHERE name='manager')) RETURNING id`)).rows[0].id);
+    await db.query("INSERT INTO user_branches(user_id,branch_id) SELECT $1,id FROM branches WHERE code='MAIN'", [staff]);
     const customer = Number((await db.query<{ id: number }>("INSERT INTO customers(first_name,last_name) VALUES('Audit','Client') RETURNING id")).rows[0].id);
     const barber = Number((await db.query<{ id: number }>("INSERT INTO barbers(first_name,last_name) VALUES('Audit','Barber') RETURNING id")).rows[0].id);
     const pay = async (time: string) => {

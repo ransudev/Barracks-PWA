@@ -12,9 +12,9 @@ const { act } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { PaymentPage } = await import("@/app/pages/staff/PaymentPage");
 
-const booking: EligibleVisit = { visitType: "booking", visitRecordId: 11, customerName: "Ava Client", serviceName: "Original cut", barberName: "Bea Barber", servicePrice: 425, total: 425 };
-const walkIn: EligibleVisit = { visitType: "queue", visitRecordId: 12, customerName: "Will Walkin", serviceName: "Basic cut", barberName: "Bea Barber", servicePrice: 300, total: 300 };
-const paid: TransactionRecord = { id: 1, reference: "TX-TEST", visitType: "booking", visitRecordId: 11, bookingId: 11, queueEntryId: null,
+const booking: EligibleVisit = { branchId: 1, visitType: "booking", visitRecordId: 11, customerName: "Ava Client", serviceName: "Original cut", barberName: "Bea Barber", servicePrice: 425, total: 425 };
+const walkIn: EligibleVisit = { branchId: 1, visitType: "queue", visitRecordId: 12, customerName: "Will Walkin", serviceName: "Basic cut", barberName: "Bea Barber", servicePrice: 300, total: 300 };
+const paid: TransactionRecord = { branchId: 1, id: 1, reference: "TX-TEST", visitType: "booking", visitRecordId: 11, bookingId: 11, queueEntryId: null,
   customerId: 2, barberId: 3, serviceId: "cut", processedBy: 4, customerName: "Ava Client", barberName: "Bea Barber", cashierName: "Pat Cashier",
   serviceName: "Original cut", amount: 425, subtotal: 425, total: 425, paymentMethod: "cash", amountReceived: 500, change: 75,
   status: "completed", paymentStatus: "completed", createdAt: "2026-09-29T04:00:00Z" };
@@ -26,11 +26,17 @@ async function renderPayment({ canCheckout = true, canManageFinancialActions = f
   let historyTotal = 0;
   const posts: Record<string, unknown>[] = [];
   const requests: string[] = [];
+  const branchRequests: string[] = [];
   let postResponse: Response | null = null;
   let receiptRecord = paid;
   let releasePost: ((response: Response) => void) | undefined;
   globalThis.fetch = async (input, init) => {
-    const path = String(input);
+    const rawPath = String(input);
+    branchRequests.push(rawPath);
+    if (rawPath === "/api/branch-context") return Response.json({ branches: [{ id: 1, name: "Main Branch", status: "active" }, { id: 2, name: "Second Branch", status: "active" }], primaryBranch: { id: 1 } });
+    if (rawPath.includes("branchId=2") && rawPath.includes("view=eligible")) return Response.json({ success: true, visits: [{ ...walkIn, branchId: 2, customerName: "Second Visit" }] });
+    if (rawPath.includes("branchId=2") && rawPath.includes("view=history")) return Response.json({ success: true, transactions: [{ ...paid, branchId: 2, reference: "TX-SECOND", customerName: "Second Sale" }], total: 1, totalPages: 1 });
+    const path = rawPath.replace(/&branchId=\d+/, "");
     requests.push(`${init?.method ?? "GET"} ${path}`);
     if (path === "/api/transactions?view=eligible") return Response.json({ success: true, visits });
     if (path.startsWith("/api/transactions?view=history")) return Response.json({ success: true, transactions: history, total: historyTotal || history.length, totalPages: Math.ceil((historyTotal || history.length) / 20) });
@@ -46,7 +52,7 @@ async function renderPayment({ canCheckout = true, canManageFinancialActions = f
   dom.window.document.body.append(container);
   const root = createRoot(container);
   await act(async () => { root.render(<PaymentPage onToast={() => undefined} canCheckout={canCheckout} canManageFinancialActions={canManageFinancialActions} />); });
-  return { container, posts, requests, setVisits: (next: EligibleVisit[]) => { visits = next; },
+  return { container, posts, requests, branchRequests, setVisits: (next: EligibleVisit[]) => { visits = next; },
     setHistory: (next: TransactionRecord[]) => { history = next; },
     setHistoryTotal: (next: number) => { historyTotal = next; },
     setReceipt: (next: TransactionRecord) => { receiptRecord = next; },
@@ -56,11 +62,11 @@ async function renderPayment({ canCheckout = true, canManageFinancialActions = f
 }
 
 async function choose(container: HTMLElement, value: string) {
-  const select = container.querySelectorAll('select')[0] as HTMLSelectElement;
+  const select = container.querySelector('.payment-form-panel select') as HTMLSelectElement;
   await act(async () => { select.value = value; select.dispatchEvent(new dom.window.Event("change", { bubbles: true })); });
 }
 async function setMethod(container: HTMLElement, value: string) {
-  const select = container.querySelectorAll('select')[1] as HTMLSelectElement;
+  const select = container.querySelectorAll('.payment-form-panel select')[1] as HTMLSelectElement;
   await act(async () => { select.value = value; select.dispatchEvent(new dom.window.Event("change", { bubbles: true })); });
 }
 function setInputValue(input: HTMLInputElement, value: string) {
@@ -199,5 +205,22 @@ test("refunded receipt and history display the status and saved audit details", 
     await act(async () => { Array.from(page.container.querySelectorAll("button")).find((button) => button.textContent === "View receipt")!.click(); });
     assert.match(page.container.querySelector(".receipt-paper")?.textContent ?? "", /refunded[\s\S]*Refund₱425 · Customer request · Morgan Manager/);
     assert.match(page.container.querySelector(".financial-audit-panel")?.textContent ?? "", /refund · ₱425 · Customer request · Morgan Manager/);
+  } finally { await page.cleanup(); }
+});
+
+test("switching payment branches reloads visits/history and clears the previous receipt", async () => {
+  const page = await renderPayment();
+  try {
+    page.setHistory([paid]);
+    await act(async () => { Array.from(page.container.querySelectorAll("button")).find((button) => button.textContent === "Refresh")!.click(); });
+    await act(async () => { Array.from(page.container.querySelectorAll("button")).find((button) => button.textContent === "View receipt")!.click(); });
+    assert.ok(page.container.querySelector(".receipt-paper"));
+    const branch = page.container.querySelector("select")!;
+    await act(async () => { branch.value = "2"; branch.dispatchEvent(new dom.window.Event("change", { bubbles: true })); });
+    assert.match(page.container.querySelector(".payment-form-panel")?.textContent ?? "", /Second Visit/);
+    assert.match(page.container.querySelector(".transaction-list")?.textContent ?? "", /Second Sale/);
+    assert.doesNotMatch(page.container.querySelector(".transaction-list")?.textContent ?? "", /Ava Client/);
+    assert.equal(page.container.querySelector(".receipt-paper"), null);
+    assert.ok(page.branchRequests.some((path) => path.includes("view=history") && path.includes("branchId=2")));
   } finally { await page.cleanup(); }
 });

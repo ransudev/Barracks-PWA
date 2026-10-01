@@ -8,6 +8,7 @@ test("payment request accepts one visit and a supported method only", () => {
   assert.equal(createTransactionSchema.safeParse({ visit: { bookingId: 1 }, paymentMethod: "cash", amountReceived: 425 }).success, true);
   assert.equal(createTransactionSchema.safeParse({ visit: { queueEntryId: 2 }, paymentMethod: "e_wallet" }).success, true);
   for (const input of [
+    { visit: { bookingId: 1 }, paymentMethod: "card", branchId: 99 },
     { visit: { bookingId: 1, queueEntryId: 2 }, paymentMethod: "cash", amountReceived: 1000 },
     { visit: { bookingId: 1 }, paymentMethod: "crypto" },
     { visit: { bookingId: 1 }, paymentMethod: "cash", amount: 0 },
@@ -35,6 +36,7 @@ test("completed bookings and walk-ins create unique snapshotted payments", { ski
       `INSERT INTO users(first_name,last_name,email,password_hash,role_id)
        VALUES('Pat','Cashier','cashier@test.local','hash',(SELECT id FROM roles WHERE name='front_desk')) RETURNING id`,
     )).rows[0].id;
+    await db.query("INSERT INTO user_branches(user_id,branch_id) SELECT $1,id FROM branches WHERE code='MAIN'", [staff]);
     const customerUser = (await db.query<{ id: number }>(
       `INSERT INTO users(first_name,last_name,email,password_hash,role_id)
        VALUES('Ava','Client','client@test.local','hash',(SELECT id FROM roles WHERE name='customer')) RETURNING id`,
@@ -203,6 +205,7 @@ test("exact cash checkout uses the booking snapshot and persists a balanced tend
       `INSERT INTO users(first_name,last_name,email,password_hash,role_id)
        VALUES('Cash','Desk','cash-desk@test.local','hash',(SELECT id FROM roles WHERE name='manager')) RETURNING id`,
     )).rows[0].id;
+    await db.query("INSERT INTO user_branches(user_id,branch_id) SELECT $1,id FROM branches WHERE code='MAIN'", [cashier]);
     const supplier = (await db.query<{ id: number }>(
       `INSERT INTO users(first_name,last_name,email,password_hash,role_id)
        VALUES('Supplier','User','supplier-payment@test.local','hash',(SELECT id FROM roles WHERE name='supplier')) RETURNING id`,
@@ -331,8 +334,40 @@ test("migration 017 diagnoses duplicate booking transactions and rolls back atom
 
     await db.query("DELETE FROM transactions WHERE id=$1", [transactionIds[1]]);
     await applyMigrations(db);
-    assert.equal(Number((await db.query("SELECT count(*) FROM schema_migrations")).rows[0].count), 24);
+    assert.equal(Number((await db.query("SELECT count(*) FROM schema_migrations")).rows[0].count), 25);
   } finally {
     await cleanup();
   }
+});
+
+test("Phase 4 Main Branch backfill preserves finalized sale, tender and refund audit history", { skip: !databaseConfigured }, async () => {
+  const { db, cleanup } = await createDisposableSchema(24);
+  try {
+    const customer = Number((await db.query("INSERT INTO customers(first_name,last_name) VALUES('Historical','Payment') RETURNING id")).rows[0].id);
+    const barber = Number((await db.query("INSERT INTO barbers(first_name,last_name) VALUES('Historical','Barber') RETURNING id")).rows[0].id);
+    const booking = Number((await db.query("INSERT INTO bookings(customer_id,barber_id,service_id,service_name,service_price,booking_date,booking_time,status) VALUES($1,$2,'barracks-basic','Historical cut',300,'2026-09-20','12:00','completed') RETURNING id", [customer, barber])).rows[0].id);
+    const client = await db.connect();
+    let id: number;
+    try {
+      await client.query("BEGIN");
+      id = Number((await client.query("INSERT INTO transactions(booking_id,visit_type,visit_record_id,customer_name,barber_name,service_name,amount,payment_method,status) VALUES($1,'booking',$1,'Saved customer','Saved barber','Saved cut',300,'card','completed') RETURNING id", [booking])).rows[0].id);
+      await client.query("INSERT INTO transaction_payments(transaction_id,payment_method,amount,status) VALUES($1,'card',300,'completed')", [id]);
+      await client.query("INSERT INTO transaction_financial_actions(transaction_id,action_type,amount,reason,staff_name) VALUES($1,'refund',300,'Historical refund','Saved manager')", [id]);
+      await client.query("UPDATE transactions SET status='refunded' WHERE id=$1", [id]);
+      await client.query("UPDATE transaction_payments SET status='refunded' WHERE transaction_id=$1", [id]);
+      await client.query("COMMIT");
+    } catch (error) { await client.query("ROLLBACK"); throw error; }
+    finally { client.release(); }
+    const before = (await db.query("SELECT * FROM transactions WHERE id=$1", [id])).rows[0];
+    const tenders = (await db.query("SELECT * FROM transaction_payments WHERE transaction_id=$1", [id])).rows;
+    const actions = (await db.query("SELECT * FROM transaction_financial_actions WHERE transaction_id=$1", [id])).rows;
+    await applyMigrations(db);
+    const after = (await db.query("SELECT * FROM transactions WHERE id=$1", [id])).rows[0];
+    assert.equal(after.branch_id, Number((await db.query("SELECT id FROM branches WHERE code='MAIN'")).rows[0].id));
+    delete after.branch_id;
+    assert.deepEqual(after, before);
+    assert.deepEqual((await db.query("SELECT * FROM transaction_payments WHERE transaction_id=$1", [id])).rows, tenders);
+    assert.deepEqual((await db.query("SELECT * FROM transaction_financial_actions WHERE transaction_id=$1", [id])).rows, actions);
+    await assert.rejects(db.query("UPDATE transactions SET amount=1 WHERE id=$1", [id]), { code: "23514", constraint: "finalized_financial_record_immutable" });
+  } finally { await cleanup(); }
 });

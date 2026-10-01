@@ -124,3 +124,61 @@ test("Phase 3 visits persist branch ownership, isolate staff access and inherit 
     assert.equal((await queueServices.getNextCustomer(db, a.id, main))?.id, mainWalk.id);
   } finally { await fixture.cleanup(); }
 });
+
+const paymentApi = await import("@/app/api/transactions/route");
+const payment = await import("@/server/services/payment.service");
+
+test("Phase 4 payments inherit visit branches and enforce transaction access and database integrity", { skip: !databaseConfigured }, async () => {
+  const fixture = await createDisposableSchema(); db = fixture.db;
+  try {
+    const main = Number((await db.query("SELECT id FROM branches WHERE code='MAIN'")).rows[0].id);
+    const second = Number((await db.query("INSERT INTO branches(name,code) VALUES('Payment branch','PAY') RETURNING id")).rows[0].id);
+    const barber = await createBarber(db, { branchId: second, firstName: "Payment", lastName: "Barber", status: "available" });
+    const customer = Number((await db.query("INSERT INTO customers(first_name,last_name) VALUES('Payment','Customer') RETURNING id")).rows[0].id);
+    const book = Number((await db.query("INSERT INTO bookings(branch_id,customer_id,barber_id,service_id,service_name,service_price,booking_date,booking_time,status) VALUES($1,$2,$3,'barracks-basic','Saved cut',300,'2099-10-05','12:00','completed') RETURNING id", [second, customer, barber.id])).rows[0].id);
+    const walk = Number((await db.query("INSERT INTO queue_entries(branch_id,customer_id,barber_id,service_id,status,started_at,completed_at) VALUES($1,$2,$3,'barracks-basic','completed',NOW(),NOW()) RETURNING id", [second, customer, barber.id])).rows[0].id);
+    const ids: Record<string, number> = {};
+    for (const role of ["manager", "front_desk", "administrator"] as const) {
+      ids[role] = Number((await db.query("INSERT INTO users(first_name,last_name,email,password_hash,role_id) VALUES('Payment','Operator',$1,'hash',(SELECT id FROM roles WHERE name=$2)) RETURNING id", [`payment-${role}@test.local`, role])).rows[0].id);
+      if (role !== "administrator") await db.query("INSERT INTO user_branches(user_id,branch_id) VALUES($1,$2)", [ids[role], main]);
+    }
+    for (const role of ["manager", "front_desk"] as const) {
+      actor = { id: ids[role], role };
+      assert.equal((await paymentApi.GET(request({}, `?view=eligible&branchId=${second}`))).status, 403);
+      await assert.rejects(payment.createTransaction(db, { visit: { bookingId: book }, paymentMethod: "card" }, ids[role]), { kind: "forbidden" });
+    }
+    actor = { id: ids.front_desk, role: "front_desk" };
+    assert.equal((await paymentApi.POST(request({ visit: { queueEntryId: walk }, paymentMethod: "card" }, `?branchId=${main}`))).status, 403);
+    await db.query("INSERT INTO user_branches(user_id,branch_id) VALUES($1,$2)", [ids.front_desk, second]);
+    const paidBooking = await paymentApi.POST(request({ visit: { bookingId: book }, paymentMethod: "card" }, `?branchId=${main}`));
+    assert.equal(paidBooking.status, 201);
+    const sale = (await paidBooking.json()).transaction;
+    assert.equal(sale.branchId, second, "visit determines ownership even when query names another branch");
+    const queueSale = await payment.createTransaction(db, { visit: { queueEntryId: walk }, paymentMethod: "card" }, ids.administrator);
+    assert.equal(queueSale.branchId, second);
+    await db.query("DELETE FROM user_branches WHERE user_id=$1 AND branch_id=$2", [ids.front_desk, second]);
+    for (const role of ["manager", "front_desk"] as const) {
+      actor = { id: ids[role], role };
+      const ownHistory = await (await paymentApi.GET(request({}, "?view=history"))).json();
+      assert.equal(ownHistory.total, 0);
+      assert.equal((await paymentApi.GET(request({}, `?reference=${sale.reference}`))).status, 404);
+    }
+    await assert.rejects(payment.applyFinancialAction(db, sale.reference, { action: "refund", amount: 300, reason: "Foreign branch" }, ids.manager), { kind: "forbidden" });
+    const mainBarber = await createBarber(db, { branchId: main, firstName: "Main", lastName: "Payment", status: "available" });
+    const mainBook = Number((await db.query("INSERT INTO bookings(branch_id,customer_id,barber_id,service_id,service_name,service_price,booking_date,booking_time,status) VALUES($1,$2,$3,'barracks-basic','Main cut',300,'2099-10-05','13:00','completed') RETURNING id", [main, customer, mainBarber.id])).rows[0].id);
+    const mainSale = await payment.createTransaction(db, { visit: { bookingId: mainBook }, paymentMethod: "card" }, ids.administrator);
+    actor = { id: ids.administrator, role: "administrator" };
+    assert.equal((await (await paymentApi.GET(request({}, "?view=history"))).json()).total, 3);
+    assert.equal((await (await paymentApi.GET(request({}, `?view=history&branchId=${second}`))).json()).total, 2);
+    assert.equal((await paymentApi.GET(request({}, `?reference=${mainSale.reference}`))).status, 200);
+    assert.equal((await paymentApi.GET(request({}, `?reference=${sale.reference}`))).status, 200);
+    assert.equal((await paymentApi.GET(request({}, `?reference=${queueSale.reference}`))).status, 200);
+    // BEFORE INSERT guard must reject both visit mismatches before uniqueness/tender checks.
+    for (const [type, visitId] of [["booking", book], ["queue", walk]] as const) {
+      await assert.rejects(db.query(`INSERT INTO transactions(branch_id,booking_id,queue_entry_id,visit_type,visit_record_id,customer_name,barber_name,service_name,amount,payment_method,status)
+        VALUES($1,$2,$3,$4,$5,'Saved customer','Saved barber','Saved cut',300,'card','completed')`,
+        [main, type === "booking" ? visitId : null, type === "queue" ? visitId : null, type, visitId]), { code: "23514", constraint: "transaction_visit_branch_match" });
+    }
+    assert.equal((await payment.findTransactionByReference(db, sale.reference))?.status, "completed");
+  } finally { await fixture.cleanup(); }
+});

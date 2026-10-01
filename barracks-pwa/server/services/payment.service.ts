@@ -1,7 +1,10 @@
+import { checkBranchAccess } from "@/server/auth/branch-access";
+import type { UserRole } from "@/server/schemas/user.schema";
 import type { Pool } from "pg";
 import type { CreateTransactionInput, FinancialActionInput, PaymentMethod, PaymentStatus, TransactionHistoryInput } from "@/server/schemas/payment.schema";
 
 type VisitRow = {
+  branch_id: number;
   booking_id: number | null; queue_entry_id: number | null; customer_id: number;
   barber_id: number; service_id: string; customer_name: string;
   barber_name: string; service_name: string; amount: string; visit_status: string;
@@ -18,6 +21,7 @@ type FinancialActionRow = { id: string; transaction_id: string; action_type: "re
 export type FinancialActionRecord = { id: number; transactionId: number; action: "refund" | "void"; amount: number; reason: string; staffId: number | null; staffName: string; createdAt: string };
 
 export type TransactionRecord = {
+  branchId: number;
   id: number; reference: string; visitType: "booking" | "queue" | "legacy"; visitRecordId: number;
   bookingId: number | null; queueEntryId: number | null;
   customerId: number; barberId: number; serviceId: string; processedBy: number | null;
@@ -29,6 +33,7 @@ export type TransactionRecord = {
 };
 
 export type EligibleVisit = {
+  branchId: number;
   visitType: "booking" | "queue"; visitRecordId: number;
   customerName: string; serviceName: string; barberName: string; servicePrice: number; total: number;
 };
@@ -41,7 +46,7 @@ export class PaymentServiceError extends Error {
 
 function toTransaction(row: TransactionRow): TransactionRecord {
   return {
-    id: Number(row.id), reference: row.reference, visitType: row.visit_type, visitRecordId: Number(row.visit_record_id),
+    branchId: Number(row.branch_id), id: Number(row.id), reference: row.reference, visitType: row.visit_type, visitRecordId: Number(row.visit_record_id),
     bookingId: row.booking_id === null ? null : Number(row.booking_id),
     queueEntryId: row.queue_entry_id === null ? null : Number(row.queue_entry_id),
     customerId: Number(row.customer_id), barberId: Number(row.barber_id), serviceId: row.service_id,
@@ -58,26 +63,31 @@ function toTransaction(row: TransactionRow): TransactionRecord {
   };
 }
 
-export async function findTransactionByReference(db: Pool, reference: string): Promise<TransactionRecord | null> {
+export async function findTransactionByReference(db: Pool, reference: string, branchIds?: number[]): Promise<TransactionRecord | null> {
   const result = await db.query<TransactionRow>(
     `SELECT t.*,p.amount_received,p.change_amount,
        (SELECT json_agg(a ORDER BY a.created_at,a.id) FROM transaction_financial_actions a WHERE a.transaction_id=t.id) AS actions
-     FROM transactions t JOIN transaction_payments p ON p.transaction_id=t.id WHERE t.reference=$1`, [reference]);
+     FROM transactions t JOIN transaction_payments p ON p.transaction_id=t.id WHERE t.reference=$1 AND ($2::integer[] IS NULL OR t.branch_id=ANY($2))`, [reference, branchIds ?? null]);
   return result.rows[0] ? toTransaction(result.rows[0]) : null;
 }
 
-export async function listTransactions(db: Pool): Promise<TransactionRecord[]> {
+export async function listTransactions(db: Pool, branchIds?: number[]): Promise<TransactionRecord[]> {
   const result = await db.query<TransactionRow>(
     `SELECT t.*,p.amount_received,p.change_amount FROM transactions t
      JOIN transaction_payments p ON p.transaction_id=t.id
-     ORDER BY t.created_at DESC,t.id DESC LIMIT 100`,
+     WHERE ($1::integer[] IS NULL OR t.branch_id=ANY($1))
+     ORDER BY t.created_at DESC,t.id DESC LIMIT 100`, [branchIds ?? null],
   );
   return result.rows.map(toTransaction);
 }
 
-export async function listTransactionHistory(db: Pool, filters: TransactionHistoryInput) {
+export async function listTransactionHistory(db: Pool, filters: TransactionHistoryInput, branchIds?: number[]) {
   const conditions: string[] = [];
-  const values: (string | number)[] = [];
+  const values: (string | number | number[])[] = [];
+  if (branchIds !== undefined) {
+    values.push(branchIds);
+    conditions.push(`t.branch_id=ANY($${values.length}::integer[])`);
+  }
   if (filters.search) {
     values.push(filters.search);
     conditions.push(`(strpos(lower(t.reference),lower($${values.length})) > 0 OR strpos(lower(t.customer_name),lower($${values.length})) > 0)`);
@@ -114,15 +124,17 @@ export async function applyFinancialAction(db: Pool, reference: string, input: F
   const client = await db.connect();
   try {
     await client.query("BEGIN");
-    const staff = await client.query<{ name: string }>(
-      `SELECT concat_ws(' ',u.first_name,u.last_name) AS name FROM users u JOIN roles r ON r.id=u.role_id
+    const staff = await client.query<{ name: string; role: UserRole }>(
+      `SELECT concat_ws(' ',u.first_name,u.last_name) AS name,r.name AS role FROM users u JOIN roles r ON r.id=u.role_id
        WHERE u.id=$1 AND u.deleted_at IS NULL AND u.is_verified=TRUE AND u.is_blocked=FALSE
        AND r.name IN ('administrator','manager') FOR SHARE OF u`, [staffId]);
     if (!staff.rows[0]) throw new PaymentServiceError("forbidden", "Administrator or manager access is required");
-    const result = await client.query<{ id: string; amount: string; status: PaymentStatus }>(
-      "SELECT id,amount,status FROM transactions WHERE reference=$1 FOR UPDATE", [reference]);
+    const result = await client.query<{ id: string; amount: string; status: PaymentStatus; branch_id: number }>(
+      "SELECT id,amount,status,branch_id FROM transactions WHERE reference=$1 FOR UPDATE", [reference]);
     const transaction = result.rows[0];
     if (!transaction) throw new PaymentServiceError("not_found", "Transaction not found");
+    if (!await checkBranchAccess(client, { id: staffId, role: staff.rows[0].role }, Number(transaction.branch_id)))
+      throw new PaymentServiceError("forbidden", "You do not have access to this transaction branch");
     if (transaction.status !== "completed") throw new PaymentServiceError("invalid_state", "Only a completed, unreversed transaction can be refunded or voided");
     if (Math.round(input.amount * 100) !== Math.round(Number(transaction.amount) * 100)) {
       throw new PaymentServiceError("invalid_state", "Action amount must equal the full paid amount");
@@ -143,31 +155,31 @@ export async function applyFinancialAction(db: Pool, reference: string, input: F
   } finally { client.release(); }
 }
 
-export async function listEligibleVisits(db: Pool): Promise<EligibleVisit[]> {
+export async function listEligibleVisits(db: Pool, branchIds?: number[]): Promise<EligibleVisit[]> {
   const result = await db.query<{
-    visit_type: "booking" | "queue"; visit_record_id: string;
+    branch_id: number; visit_type: "booking" | "queue"; visit_record_id: string;
     customer_name: string; service_name: string; barber_name: string; service_price: string;
   }>(
-    `SELECT 'booking' AS visit_type,b.id AS visit_record_id,
+    `SELECT b.branch_id,'booking' AS visit_type,b.id AS visit_record_id,
        concat_ws(' ',COALESCE(cu.first_name,c.first_name),COALESCE(cu.last_name,c.last_name)) AS customer_name,
        b.service_name,concat_ws(' ',br.first_name,br.last_name) AS barber_name,b.service_price AS service_price,
        b.updated_at AS completed_at
      FROM bookings b JOIN customers c ON c.id=b.customer_id
      LEFT JOIN users cu ON cu.id=c.user_id JOIN barbers br ON br.id=b.barber_id
-     WHERE b.status='completed' AND NOT EXISTS
+     WHERE b.status='completed' AND ($1::integer[] IS NULL OR b.branch_id=ANY($1)) AND NOT EXISTS
        (SELECT 1 FROM transactions t WHERE t.visit_type='booking' AND t.visit_record_id=b.id)
      UNION ALL
-     SELECT 'queue' AS visit_type,q.id AS visit_record_id,
+     SELECT q.branch_id,'queue' AS visit_type,q.id AS visit_record_id,
        concat_ws(' ',COALESCE(cu.first_name,c.first_name),COALESCE(cu.last_name,c.last_name)) AS customer_name,
        q.service_name_snapshot AS service_name,concat_ws(' ',br.first_name,br.last_name) AS barber_name,
        q.service_price_snapshot AS service_price,q.completed_at
      FROM queue_entries q JOIN customers c ON c.id=q.customer_id
      LEFT JOIN users cu ON cu.id=c.user_id JOIN barbers br ON br.id=q.barber_id
-     WHERE q.status='completed' AND q.booking_id IS NULL AND NOT EXISTS
+     WHERE q.status='completed' AND ($1::integer[] IS NULL OR q.branch_id=ANY($1)) AND q.booking_id IS NULL AND NOT EXISTS
        (SELECT 1 FROM transactions t WHERE t.visit_type='queue' AND t.visit_record_id=q.id)
-     ORDER BY completed_at DESC,visit_record_id DESC`,
+     ORDER BY completed_at DESC,visit_record_id DESC`, [branchIds ?? null],
   );
-  return result.rows.map((row) => ({ visitType: row.visit_type, visitRecordId: Number(row.visit_record_id),
+  return result.rows.map((row) => ({ branchId: Number(row.branch_id), visitType: row.visit_type, visitRecordId: Number(row.visit_record_id),
     customerName: row.customer_name, serviceName: row.service_name, barberName: row.barber_name,
     servicePrice: Number(row.service_price), total: Number(row.service_price) }));
 }
@@ -176,8 +188,8 @@ export async function createTransaction(db: Pool, input: CreateTransactionInput,
   const client = await db.connect();
   try {
     await client.query("BEGIN");
-    const cashier = await client.query<{ name: string }>(
-      `SELECT concat_ws(' ',u.first_name,u.last_name) AS name FROM users u
+    const cashier = await client.query<{ name: string; role: UserRole }>(
+      `SELECT concat_ws(' ',u.first_name,u.last_name) AS name,r.name AS role FROM users u
        JOIN roles r ON r.id=u.role_id WHERE u.id=$1 AND u.deleted_at IS NULL
        AND u.is_verified=TRUE AND u.is_blocked=FALSE
        AND r.name IN ('administrator','manager','front_desk') FOR SHARE OF u`, [cashierId],
@@ -188,7 +200,7 @@ export async function createTransaction(db: Pool, input: CreateTransactionInput,
     const queueEntryId = "queueEntryId" in input.visit ? input.visit.queueEntryId : null;
     const result = bookingId !== null
       ? await client.query<VisitRow>(
-        `SELECT b.id AS booking_id, NULL::bigint AS queue_entry_id, b.customer_id, b.barber_id,
+        `SELECT b.branch_id,b.id AS booking_id, NULL::bigint AS queue_entry_id, b.customer_id, b.barber_id,
           b.service_id, b.service_name, b.service_price AS amount, b.status AS visit_status,
           concat_ws(' ',COALESCE(cu.first_name,c.first_name),COALESCE(cu.last_name,c.last_name)) AS customer_name,
           concat_ws(' ',br.first_name,br.last_name) AS barber_name
@@ -197,7 +209,7 @@ export async function createTransaction(db: Pool, input: CreateTransactionInput,
          WHERE b.id=$1 FOR UPDATE OF b`, [bookingId],
       )
       : await client.query<VisitRow>(
-        `SELECT NULL::bigint AS booking_id, q.id AS queue_entry_id, q.customer_id, q.barber_id,
+        `SELECT q.branch_id,NULL::bigint AS booking_id, q.id AS queue_entry_id, q.customer_id, q.barber_id,
           q.service_id, q.service_name_snapshot AS service_name,
           q.service_price_snapshot AS amount, q.status AS visit_status,
           concat_ws(' ',COALESCE(cu.first_name,c.first_name),COALESCE(cu.last_name,c.last_name)) AS customer_name,
@@ -208,6 +220,8 @@ export async function createTransaction(db: Pool, input: CreateTransactionInput,
       );
     const visit = result.rows[0];
     if (!visit) throw new PaymentServiceError("not_found", "Visit not found");
+    if (!await checkBranchAccess(client, { id: cashierId, role: cashier.rows[0].role }, Number(visit.branch_id)))
+      throw new PaymentServiceError("forbidden", "You do not have access to this visit branch");
     if (visit.visit_status !== "completed") throw new PaymentServiceError("invalid_state", "Only completed visits can be checked out");
 
     const totalCents = Math.round(Number(visit.amount) * 100);
@@ -221,12 +235,12 @@ export async function createTransaction(db: Pool, input: CreateTransactionInput,
     const inserted = await client.query<TransactionRow>(
       `INSERT INTO transactions
         (customer_id,booking_id,queue_entry_id,visit_type,visit_record_id,barber_id,service_id,processed_by,
-         customer_name,barber_name,cashier_name,service_name,amount,payment_method,status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'completed') RETURNING *`,
+         customer_name,barber_name,cashier_name,service_name,amount,payment_method,status,branch_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'completed',$15) RETURNING *`,
       [visit.customer_id, visit.booking_id, visit.queue_entry_id, bookingId !== null ? "booking" : "queue",
         bookingId ?? queueEntryId, visit.barber_id, visit.service_id, cashierId,
         visit.customer_name, visit.barber_name, cashier.rows[0].name,
-        visit.service_name, visit.amount, input.paymentMethod],
+        visit.service_name, visit.amount, input.paymentMethod, visit.branch_id],
     );
     const transaction = inserted.rows[0];
     await client.query(
