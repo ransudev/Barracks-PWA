@@ -20,7 +20,7 @@ The main goals are:
 - Use feature branches for new work.
 - Make small, meaningful commits that act as savepoints.
 - Avoid losing or overwriting existing work.
-- Test changes before considering them complete.
+- Create or run tests and validation commands only when the user explicitly requests them in a prompt.
 - Keep Git history clean and easy to understand.
 
 ## 1. General Development Rules
@@ -90,7 +90,7 @@ Agents must not automatically merge a feature branch into main.
 
 When implementation is complete:
 
-1. Run the required checks.
+1. Run only checks explicitly requested by the user; otherwise review the code and diff.
 2. Review the changes.
 3. Ensure all work is committed.
 4. Report that the branch is ready for review.
@@ -120,7 +120,7 @@ feat: add booking database fields
 feat: add barber availability service
 feat: expose availability through booking api
 feat: connect availability to booking form
-test: add booking availability tests
+test: add booking availability tests (only when explicitly requested)
 ```
 
 Bad commit sequence
@@ -207,20 +207,11 @@ Check for:
 
 ### Step 4: Validate
 
-Run the relevant checks when available.
+Tests and validation commands are opt-in. Do not create, modify, or run tests unless the user explicitly requests that work in a prompt. Do not run lint, type checks, builds, browser validation, or other validation suites unless the user explicitly requests them either.
 
-Examples:
+A request to implement, fix, refactor, commit, push, or prepare a Pull Request does not by itself authorize tests or validation commands. Do not ask for permission to run them as a routine step; proceed with code and diff review and report that they were not run.
 
-```bash
-npm run lint
-npm run typecheck
-npm test
-npm run build
-```
-
-Use the scripts that actually exist in the project.
-
-Do not invent commands that the repository does not support.
+When the user explicitly requests validation, run only the requested checks using scripts that actually exist in the project. Do not invent unsupported commands or expand a narrow check into a full suite.
 
 ### Step 5: Stage Only Relevant Files
 
@@ -308,7 +299,7 @@ feature branch
   ↓
 small commits
   ↓
-tests and validation
+requested tests and validation (if any)
   ↓
 push branch
   ↓
@@ -322,8 +313,9 @@ merge into main
 Before declaring a branch ready for a Pull Request:
 
 - Working tree should be clean.
-- Relevant tests should pass.
-- Build should pass when applicable.
+- Tests should pass if explicitly requested.
+- Build should pass if explicitly requested.
+- Unrequested tests and validation commands must be skipped and reported as not run.
 - No secrets should be included.
 - No unrelated files should be changed.
 - Commits should have meaningful messages.
@@ -369,7 +361,7 @@ feat: add inventory api routes
 commit 4:
 feat: add inventory management interface
 
-commit 5:
+optional commit 5 (only when explicitly requested):
 test: add inventory workflow tests
 ```
 
@@ -382,8 +374,8 @@ For bug fixes:
 1. Understand and reproduce the bug when possible.
 2. Identify the root cause.
 3. Make the smallest reasonable fix.
-4. Test the affected workflow.
-5. Check for regressions.
+4. Review the affected workflow in the code; test it only when explicitly requested.
+5. Review for regressions; run regression checks only when explicitly requested.
 6. Commit the fix.
 
 Example:
@@ -401,7 +393,7 @@ A refactor should not intentionally change application behavior.
 Before refactoring:
 
 - Understand the current behavior.
-- Ensure tests exist when possible.
+- Inspect existing tests if useful; create, modify, or run them only when explicitly requested.
 - Keep refactors focused.
 
 Separate refactoring from new feature implementation when practical.
@@ -449,7 +441,7 @@ When changing APIs:
 - Respect authentication and authorization.
 - Avoid exposing sensitive information.
 
-Update related frontend code and tests when necessary.
+Update related frontend code when necessary. Update tests only when explicitly requested.
 
 ## 17. Role and Permission Rules
 
@@ -459,27 +451,20 @@ When adding functionality:
 
 - Identify which roles may access it.
 - Reuse the existing authorization system.
-- Test unauthorized access.
+- Review backend access enforcement; test unauthorized access only when explicitly requested.
 - Do not rely only on hiding frontend buttons.
 
 Authorization should also be enforced on the backend when applicable.
 
 ## 18. Testing Expectations
 
-For every meaningful feature or fix, consider:
+Do not create, modify, or run any tests unless the user explicitly requests them in a prompt. This includes functional, workflow, validation, edge-case, regression, role and permission, UI, and integration tests.
 
-- Functional testing
-- Workflow testing
-- Validation testing
-- Edge-case testing
-- Regression testing
-- Role and permission testing
-- UI testing
-- Integration testing
+Do not run lint, type checks, builds, browser validation, or other validation suites unless explicitly requested. This rule applies to features, bug fixes, refactors, database changes, API changes, and Pull Request preparation, and takes precedence over any general testing or validation expectation elsewhere in this file.
 
-Do not claim something is tested unless the relevant check was actually performed.
+Use focused code inspection and diff review by default to keep tasks fast and conserve usage. Do not add tests or run checks merely to satisfy a completion checklist.
 
-If tests cannot be run, clearly state that.
+When tests or checks are requested, keep them within the requested scope. Do not claim something is tested unless the relevant check was actually performed. Otherwise report: "Tests and validation commands were not run because they were not requested."
 
 ## 19. Secrets and Sensitive Files
 
@@ -525,7 +510,7 @@ A task is complete only when:
 
 - The requested feature or fix is implemented.
 - Existing architecture was respected where reasonable.
-- Relevant tests/checks were run.
+- Explicitly requested tests/checks were run; unrequested tests/checks were skipped and reported.
 - No known unrelated functionality was broken.
 - No secrets were introduced.
 - Changes were reviewed using `git diff`.
@@ -547,10 +532,8 @@ Commits:
 - ghi9012 test: add example tests
 
 Validation:
-- Lint: passed
-- Typecheck: passed
-- Tests: passed
-- Build: passed
+- Tests and validation commands: not run (not requested)
+- If explicitly requested, list each performed check and its actual result.
 
 Status:
 Ready for review / Pull Request.
@@ -575,13 +558,13 @@ make one logical change
   ↓
 review
   ↓
-test
+requested tests/checks only (if any)
   ↓
 commit savepoint
   ↓
 repeat
   ↓
-final validation
+final code/diff review and any explicitly requested validation
   ↓
 Pull Request
   ↓
