@@ -42,22 +42,28 @@ export class AvailabilityError extends Error {
 }
 
 type AvailabilityOptions = { now?: Date; excludeBookingId?: number };
-type AvailableBarber = { id: number; status: string };
+type AvailableBarber = { id: number; status: string; branchId: number };
 
 async function loadContext(db: Db, serviceId: string, date: string) {
   const service = await findServiceById(db, serviceId);
-  const hours = await listShopHours(db);
   if (!service?.active || !service.durationMinutes) throw new AvailabilityError("service_not_found", "Service is not available");
   const weekday = new Date(`${date}T00:00:00Z`).getUTCDay();
-  return { durationMinutes: service.durationMinutes, hours: hours.find((item) => item.dayOfWeek === weekday), weekday };
+  return { durationMinutes: service.durationMinutes, weekday, branchHours: new Map<number, Promise<ShopHours[]>>() };
+}
+
+function branchHours(db: Db, context: Awaited<ReturnType<typeof loadContext>>, branchId: number) {
+  let hours = context.branchHours.get(branchId);
+  if (!hours) { hours = listShopHours(db, branchId); context.branchHours.set(branchId, hours); }
+  return hours;
 }
 
 async function availabilityForBarber(db: Pool, input: { barberId: number; date: string }, barber: AvailableBarber, context: Awaited<ReturnType<typeof loadContext>>, options: AvailabilityOptions): Promise<AvailabilityResult> {
   const empty: AvailabilityResult = { date: input.date, durationMinutes: context.durationMinutes, slots: [] };
   if (barber.status === "unavailable") return empty;
+  const hours = (await branchHours(db, context, barber.branchId)).find((item) => item.dayOfWeek === context.weekday);
   const { schedule, blocks } = await loadBarberIntervals(db, input.barberId, input.date, context.weekday, options);
-  if (!schedule) return context.hours && !context.hours.isClosed ? { ...empty, reason: "schedule_not_configured" } : empty;
-  return { ...empty, slots: calculateSlots({ date: input.date, durationMinutes: context.durationMinutes, hours: context.hours, schedule, blocks, now: options.now }) };
+  if (!schedule) return hours && !hours.isClosed ? { ...empty, reason: "schedule_not_configured" } : empty;
+  return { ...empty, slots: calculateSlots({ date: input.date, durationMinutes: context.durationMinutes, hours: hours, schedule, blocks, now: options.now }) };
 }
 
 async function loadBarberIntervals(db: Db, barberId: number, date: string, weekday: number, options: AvailabilityOptions) {
@@ -89,9 +95,10 @@ export async function canStartServiceNow(db: Db, input: { serviceId: string; bar
   catch (error) { if (error instanceof AvailabilityError && error.kind === "service_not_found") return false; throw error; }
   const barber = await findBarberById(db, input.barberId);
   if (!barber || barber.status === "unavailable") return false;
+  const hours = (await branchHours(db, context, barber.branchId)).find((item) => item.dayOfWeek === context.weekday);
   const { schedule, blocks } = await loadBarberIntervals(db, input.barberId, date, context.weekday, {});
   const start = (now.getTime() - Date.parse(`${date}T00:00:00+08:00`)) / 60_000;
-  return intervalFits({ start, end: start + context.durationMinutes, hours: context.hours, schedule, blocks });
+  return intervalFits({ start, end: start + context.durationMinutes, hours: hours, schedule, blocks });
 }
 
 export async function getBookingAvailability(db: Pool, input: { serviceId: string; barberId: number; date: string }, options: AvailabilityOptions = {}): Promise<AvailabilityResult> {

@@ -30,9 +30,10 @@ FOR EACH ROW EXECUTE FUNCTION initialize_branch_hours();
 -- hours or committed operational work; no booking/queue branch columns are added.
 CREATE FUNCTION validate_barber_branch_move() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
+  IF NEW.branch_id IS NULL THEN RETURN NEW; END IF;
   IF NEW.branch_id=OLD.branch_id THEN RETURN NEW; END IF;
   IF EXISTS(SELECT 1 FROM bookings WHERE barber_id=OLD.id AND status IN ('confirmed','checked_in','in_progress'))
-    OR EXISTS(SELECT 1 FROM queue_entries WHERE barber_id=OLD.id AND status IN ('waiting','in_progress')) THEN
+    OR EXISTS(SELECT 1 FROM queue_entries WHERE barber_id=OLD.id AND status IN ('waiting','ready','in_progress')) THEN
     RAISE EXCEPTION 'Resolve active bookings and queue entries before moving this barber' USING ERRCODE='23514';
   END IF;
   IF (SELECT count(*) FROM shop_operating_hours WHERE branch_id=NEW.branch_id)<>7

@@ -13,7 +13,7 @@ export function branchApiError(error: unknown): Response {
   if (error instanceof BranchError) return Response.json({ success: false, message: error.message }, { status: error.status });
   if (error && typeof error === "object" && "code" in error) {
     if (error.code === "23505") return Response.json({ success: false, message: "Branch code or staff assignment already exists" }, { status: 409 });
-    if (error.code === "23514") return Response.json({ success: false, message: "Invalid branch or staff assignment" }, { status: 400 });
+    if (error.code === "23514") return Response.json({ success: false, message: error && "message" in error && typeof error.message === "string" ? error.message : "Invalid branch or staff assignment" }, { status: 400 });
   }
   console.error("Unable to process branch request", error);
   return Response.json({ success: false, message: "Unable to process branch request" }, { status: 500 });

@@ -12,7 +12,7 @@ const blocked = (reason: OperationalReason, activeQueueEntryId: number | null = 
 // Call inside the queue/booking transaction after locking the barber row. The
 // partial unique index remains the database-level arbiter for concurrent starts.
 export async function getBarberOperationalAvailability(db: Db, barberId: number): Promise<OperationalAvailability> {
-  const barber = await db.query<{ status: "available" | "busy" | "unavailable" }>("SELECT status FROM barbers WHERE id=$1", [barberId]);
+  const barber = await db.query<{ branch_id: number; status: "available" | "busy" | "unavailable" }>("SELECT status, branch_id FROM barbers WHERE id=$1", [barberId]);
   if (!barber.rows[0]) return blocked("barber_not_found");
   if (barber.rows[0].status === "unavailable") return blocked("unavailable");
 
@@ -26,7 +26,7 @@ export async function getBarberOperationalAvailability(db: Db, barberId: number)
        EXTRACT(DOW FROM instant AT TIME ZONE 'Asia/Manila')::integer AS weekday FROM clock`);
   const { instant, local_time: localTime, weekday } = clock.rows[0];
   // A PoolClient runs one query at a time; issue these reads in sequence.
-  const hours = await listShopHours(db);
+  const hours = await listShopHours(db, barber.rows[0].branch_id);
   const schedules = await listBarberSchedules(db, barberId);
   const absences = await listBarberUnavailability(db, barberId, instant.toISOString(), new Date(instant.getTime() + 1).toISOString());
   const shop = hours.find((day) => day.dayOfWeek === weekday);

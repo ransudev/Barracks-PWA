@@ -1,5 +1,7 @@
+import { withAuthorizedBarber } from "@/server/auth/barber-branch-access";
+import { branchApiError } from "@/server/services/branch-api";
 import { z } from "zod";
-import { requireStaff } from "@/server/auth/require-role";
+import { requireStaffUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { barberStatusSchema } from "@/server/schemas/sprint.schema";
 import { updateBarberStatus } from "@/server/services/barber.service";
@@ -9,8 +11,8 @@ export const runtime = "nodejs";
 const statusUpdateSchema = z.object({ status: barberStatusSchema }).strict();
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const denied = await requireStaff();
-  if (denied) return denied;
+  const actor = await requireStaffUser();
+  if (actor instanceof Response) return actor;
   const rawId = (await params).id;
   const id = Number(rawId);
   if (!/^\d+$/.test(rawId) || !Number.isSafeInteger(id) || id < 1)
@@ -21,12 +23,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const parsed = statusUpdateSchema.safeParse(body);
   if (!parsed.success) return Response.json({ success: false, message: "Invalid barber status" }, { status: 400 });
   try {
-    const barber = await updateBarberStatus(pool, id, parsed.data.status);
+    const barber = await withAuthorizedBarber(pool, actor, id, (client) => updateBarberStatus(client, id, parsed.data.status));
     return barber
       ? Response.json({ success: true, barber })
       : Response.json({ success: false, message: "Barber not found" }, { status: 404 });
   } catch (error) {
-    console.error("Unable to update barber status", error);
-    return Response.json({ success: false, message: "Unable to update barber status" }, { status: 500 });
+    return branchApiError(error);
   }
 }

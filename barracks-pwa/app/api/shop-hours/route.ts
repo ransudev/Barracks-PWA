@@ -1,22 +1,29 @@
-import { requireRoles, requireManagement } from "@/server/auth/require-role";
+import { resolveOperationalBranch } from "@/server/auth/barber-branch-access";
+import { branchApiError } from "@/server/services/branch-api";
+import { requireRolesUser, requireManagementUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { hoursSchema } from "@/server/schemas/schedule.schema";
 import { listShopHours, saveShopHours } from "@/server/services/schedule.service";
 
 export const runtime = "nodejs";
-export async function GET() {
-  const denied = await requireRoles(["customer", "front_desk", "manager", "administrator"]);
-  if (denied) return denied;
-  try { return Response.json({ success: true, hours: await listShopHours(pool), timezone: "Asia/Manila" }); }
-  catch (error) { console.error("Unable to load shop hours", error); return Response.json({ success: false, message: "Unable to load shop hours" }, { status: 500 }); }
+export async function GET(request: Request) {
+  const actor = await requireRolesUser(["customer", "front_desk", "manager", "administrator"]);
+  if (actor instanceof Response) return actor;
+  try {
+    const branchId = actor.role === "customer"
+      ? Number((await pool.query("SELECT id FROM branches WHERE code='MAIN'")).rows[0].id)
+      : await resolveOperationalBranch(pool, actor, new URL(request.url).searchParams.get("branchId"));
+    return Response.json({ success: true, hours: await listShopHours(pool, branchId), timezone: "Asia/Manila" });
+  }
+  catch (error) { return branchApiError(error); }
 }
 export async function PUT(request: Request) {
-  const denied = await requireManagement();
-  if (denied) return denied;
+  const actor = await requireManagementUser();
+  if (actor instanceof Response) return actor;
   let body: unknown;
   try { body = await request.json(); } catch { return Response.json({ success: false, message: "Invalid hours" }, { status: 400 }); }
   const parsed = hoursSchema.safeParse(body);
   if (!parsed.success) return Response.json({ success: false, message: "Invalid hours", errors: parsed.error.flatten().fieldErrors }, { status: 400 });
-  try { return Response.json({ success: true, hours: await saveShopHours(pool, parsed.data) }); }
-  catch (error) { console.error("Unable to save shop hours", error); return Response.json({ success: false, message: "Unable to save shop hours" }, { status: 500 }); }
+  try { return Response.json({ success: true, hours: await saveShopHours(pool, parsed.data, await resolveOperationalBranch(pool, actor, new URL(request.url).searchParams.get("branchId"))) }); }
+  catch (error) { return branchApiError(error); }
 }

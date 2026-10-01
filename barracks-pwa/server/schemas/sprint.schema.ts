@@ -54,6 +54,7 @@ const bookingTimeSchema = z
 
 export const barberSchema = z
   .object({
+    branchId: z.number().int().positive(),
     firstName: z.string().trim().min(1, "First name is required").max(100),
     lastName: z.string().trim().min(1, "Last name is required").max(100),
     status: barberStatusSchema,

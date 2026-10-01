@@ -7,8 +7,8 @@ type Db = Pool | PoolClient;
 type Actor = Pick<PublicUser, "id" | "role">;
 export const isBranchStaff = (role: string) => role === "manager" || role === "front_desk";
 
-// Phase 1 exposes membership in active and inactive branches. Operational status
-// policies belong to later phases; no operational route calls these helpers yet.
+// Membership includes active and inactive branches. Phase 2 uses these checks
+// for barbers and scheduling; activation policies remain deferred.
 export async function listAccessibleBranches(db: Db, actor: Actor): Promise<Branch[]> {
   if (actor.role === "administrator") return listBranches(db);
   if (!isBranchStaff(actor.role)) return [];

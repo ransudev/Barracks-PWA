@@ -1,8 +1,10 @@
 import type { Pool, PoolClient } from "pg";
+import { inTransaction, type Db } from "@/server/db/transaction";
 import type { BarberInput, BarberStaffInput } from "@/server/schemas/sprint.schema";
 
 type BarberRow = {
   id: number;
+  branch_id: number;
   first_name: string;
   last_name: string;
   status: "available" | "busy" | "unavailable";
@@ -17,6 +19,7 @@ type BarberRow = {
 
 export type BarberRecord = {
   id: number;
+  branchId: number;
   firstName: string;
   lastName: string;
   status: BarberRow["status"];
@@ -29,14 +32,14 @@ export type BarberRecord = {
   updatedAt: string;
 };
 
-export type BarberAvailabilityRecord = Pick<BarberRecord, "id" | "firstName" | "lastName" | "status">;
+export type BarberAvailabilityRecord = Pick<BarberRecord, "branchId" | "id" | "firstName" | "lastName" | "status">;
 
-type BarberAvailabilityRow = Pick<BarberRow, "id" | "first_name" | "last_name" | "status">;
+type BarberAvailabilityRow = Pick<BarberRow, "branch_id" | "id" | "first_name" | "last_name" | "status">;
 
 export type BarberDeleteResult = "deleted" | "not_found" | "referenced";
 
 const barberSelect = `
-  SELECT id, first_name, last_name, status, commission_rate, services_done, revenue, rating, created_at, updated_at,
+  SELECT id, branch_id, first_name, last_name, status, commission_rate, services_done, revenue, rating, created_at, updated_at,
     (SELECT COUNT(*) FROM barber_schedules s WHERE s.barber_id = barbers.id) AS schedule_day_count
   FROM barbers
 `;
@@ -48,6 +51,7 @@ function toIso(value: Date | string): string {
 function toBarber(row: BarberRow): BarberRecord {
   return {
     id: Number(row.id),
+    branchId: Number(row.branch_id),
     firstName: row.first_name,
     lastName: row.last_name,
     status: row.status,
@@ -61,23 +65,26 @@ function toBarber(row: BarberRow): BarberRecord {
   };
 }
 
-export async function listBarbers(db: Pool): Promise<BarberRecord[]> {
+export async function listBarbers(db: Db, branchIds?: number[]): Promise<BarberRecord[]> {
   const result = await db.query<BarberRow>(
-    `${barberSelect} ORDER BY first_name ASC, last_name ASC, id ASC`,
+    `${barberSelect} ${branchIds ? "WHERE branch_id = ANY($1::int[])" : ""} ORDER BY first_name ASC, last_name ASC, id ASC`,
+    branchIds ? [branchIds] : [],
   );
   return result.rows.map(toBarber);
 }
 
-export async function listBarberAvailability(db: Pool): Promise<BarberAvailabilityRecord[]> {
+export async function listBarberAvailability(db: Db, branchIds?: number[]): Promise<BarberAvailabilityRecord[]> {
   const result = await db.query<BarberAvailabilityRow>(
     `
-      SELECT id, first_name, last_name, status
+      SELECT id, branch_id, first_name, last_name, status
       FROM barbers
+      ${branchIds ? "WHERE branch_id = ANY($1::int[])" : ""}
       ORDER BY first_name ASC, last_name ASC, id ASC
-    `,
+    `, branchIds ? [branchIds] : [],
   );
   return result.rows.map((row) => ({
     id: Number(row.id),
+    branchId: Number(row.branch_id),
     firstName: row.first_name,
     lastName: row.last_name,
     status: row.status,
@@ -91,40 +98,33 @@ export async function findBarberById(db: Pool | PoolClient, id: number): Promise
 
 type BarberMutationInput = BarberInput | BarberStaffInput;
 
-export async function createBarber(db: Pool, input: BarberMutationInput): Promise<BarberRecord> {
+export async function createBarber(db: Db, input: BarberMutationInput): Promise<BarberRecord> {
   const commissionRate = "commissionRate" in input ? input.commissionRate : null;
   const rating = "rating" in input ? input.rating : null;
-  const client = await db.connect();
-  let id: number;
-  try {
-    await client.query("BEGIN");
+  return inTransaction(db, async (client) => {
     const inserted = await client.query<{ id: number }>(
-      `INSERT INTO barbers (first_name, last_name, status, commission_rate, rating)
-       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [input.firstName, input.lastName, input.status, commissionRate, rating ?? null],
+      `INSERT INTO barbers (first_name, last_name, status, commission_rate, rating, branch_id)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      [input.firstName, input.lastName, input.status, commissionRate, rating ?? null, input.branchId],
     );
-    id = inserted.rows[0].id;
+    const id = inserted.rows[0].id;
     const scheduled = await client.query(
       `INSERT INTO barber_schedules (barber_id, day_of_week, is_working, start_time, end_time)
-       SELECT $1, day_of_week, NOT is_closed, open_time, close_time FROM shop_operating_hours
-       RETURNING day_of_week`, [id],
+       SELECT $1, day_of_week, NOT is_closed, open_time, close_time FROM shop_operating_hours WHERE branch_id=$2
+       RETURNING day_of_week`, [id, input.branchId],
     );
     if (scheduled.rowCount !== 7) throw new Error("Configure all seven shop days before adding a barber");
-    await client.query("COMMIT");
-  } catch (error) {
-    await client.query("ROLLBACK").catch(() => undefined);
-    throw error;
-  } finally { client.release(); }
-  return (await findBarberById(db, id)) as BarberRecord;
+    return (await findBarberById(client, id)) as BarberRecord;
+  });
 }
 
 export async function updateBarber(
-  db: Pool,
+  db: Db,
   id: number,
   input: BarberMutationInput,
 ): Promise<BarberRecord | null> {
-  const values: Array<string | number | null> = [input.firstName, input.lastName, input.status];
-  const updates = ["first_name = $1", "last_name = $2", "status = $3"];
+  const values: Array<string | number | null> = [input.firstName, input.lastName, input.status, input.branchId];
+  const updates = ["first_name = $1", "last_name = $2", "status = $3", "branch_id = $4"];
   const commissionRate = "commissionRate" in input ? input.commissionRate : undefined;
   const rating = "rating" in input ? input.rating : undefined;
 
@@ -151,17 +151,18 @@ export async function updateBarber(
 }
 
 export async function updateBarberStatus(
-  db: Pool,
+  db: Db,
   id: number,
   status: BarberAvailabilityRecord["status"],
 ): Promise<BarberAvailabilityRecord | null> {
   const result = await db.query<BarberAvailabilityRow>(
     `UPDATE barbers SET status = $1, updated_at = NOW() WHERE id = $2
-     RETURNING id, first_name, last_name, status`,
+     RETURNING id, branch_id, first_name, last_name, status`,
     [status, id],
   );
   const row = result.rows[0];
-  return row ? { id: Number(row.id), firstName: row.first_name, lastName: row.last_name, status: row.status } : null;
+  return row ? { id: Number(row.id),
+    branchId: Number(row.branch_id), firstName: row.first_name, lastName: row.last_name, status: row.status } : null;
 }
 
 export async function updateAllBarberCommissionRates(
