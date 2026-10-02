@@ -1,3 +1,4 @@
+import { resolveCustomerBranch } from "@/server/auth/visit-branch-access";
 import type { Pool, PoolClient } from "pg";
 import { findServiceById } from "@/server/services/service.service";
 import { findAvailableBarbers, isBookingSlotAvailable } from "@/server/services/booking-availability.service";
@@ -12,6 +13,7 @@ import type {
 
 type BookingRow = {
   branch_id: number;
+  branch_name: string;
   id: number;
   booking_date: string | Date;
   booking_time: string | Date;
@@ -33,6 +35,7 @@ type BookingRow = {
 
 export type BookingRecord = {
   branchId: number;
+  branchName: string;
   id: number;
   date: string;
   time: string;
@@ -65,6 +68,7 @@ export class BookingServiceError extends Error {
 const bookingSelect = `
   SELECT
     b.branch_id,
+    branch.name AS branch_name,
     b.id,
     b.booking_date,
     b.booking_time,
@@ -83,6 +87,7 @@ const bookingSelect = `
     b.created_at,
     b.updated_at
   FROM bookings b
+  INNER JOIN branches branch ON branch.id = b.branch_id
   INNER JOIN customers c ON c.id = b.customer_id
   INNER JOIN users cu ON cu.id = c.user_id AND cu.deleted_at IS NULL
   INNER JOIN barbers br ON br.id = b.barber_id
@@ -109,6 +114,7 @@ function toIso(value: string | Date): string {
 function toBooking(row: BookingRow): BookingRecord {
   return {
     branchId: Number(row.branch_id),
+    branchName: row.branch_name,
     id: Number(row.id),
     date: toDateOnly(row.booking_date),
     time: toTimeOnly(row.booking_time),
@@ -147,7 +153,7 @@ export async function createBooking(
   db: Pool,
   input: BookingCreateInput & { customerId: number; branchId?: number },
 ): Promise<BookingRecord> {
-  const branchId = input.branchId ?? Number((await db.query("SELECT id FROM branches WHERE code='MAIN'")).rows[0].id);
+  const branchId = await resolveCustomerBranch(db, input.branchId === undefined ? null : String(input.branchId));
   input = { ...input, branchId };
   const slot = new Date(`${input.date}T${input.time}:00+08:00`);
   if (Number.isNaN(slot.getTime()) || slot.getTime() <= Date.now()) {
@@ -184,11 +190,12 @@ export async function createBooking(
         INSERT INTO bookings
           (customer_id, barber_id, service_id, service_name, service_price, service_duration_minutes, booking_date, booking_time, end_time, notes, branch_id)
         SELECT $1, $2, $3, $4, $5, $6::integer, $7, $8,
-          ($8::time + $6::integer * INTERVAL '1 minute')::time, $9, COALESCE($10::integer,(SELECT id FROM branches WHERE code='MAIN'))
+          ($8::time + $6::integer * INTERVAL '1 minute')::time, $9, selected_branch.id
         FROM customers c
         INNER JOIN users u ON u.id = c.user_id
+        INNER JOIN branches selected_branch ON selected_branch.id=$10 AND selected_branch.status='active'
         WHERE c.id = $1 AND u.deleted_at IS NULL
-        FOR SHARE OF c, u
+        FOR SHARE OF c, u, selected_branch
         RETURNING id
       `,
       [
@@ -204,7 +211,10 @@ export async function createBooking(
         input.branchId ?? null,
       ],
     );
-      if (!inserted.rows[0]) throw new BookingServiceError("not_found", "Customer not found");
+      if (!inserted.rows[0]) {
+        await resolveCustomerBranch(db, String(branchId));
+        throw new BookingServiceError("not_found", "Customer not found");
+      }
       return (await findBookingById(db, inserted.rows[0].id)) as BookingRecord;
     } catch (error) {
       if (isOverlapViolation(error, "bookings_active_customer_overlap")) {

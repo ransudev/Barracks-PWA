@@ -116,6 +116,8 @@ export type ApiCustomer = {
 export type ApiBookingStatus = "confirmed" | "checked_in" | "in_progress" | "completed" | "cancelled" | "no_show";
 
 export type ApiBooking = {
+  branchId: number;
+  branchName: string;
   id: number;
   date: string;
   time: string;

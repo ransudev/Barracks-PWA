@@ -10,8 +10,8 @@ const mapBranch = (row: BranchRow): Branch => ({ id: row.id, name: row.name, cod
 export class BranchError extends Error {
   constructor(message: string, public status: number) { super(message); }
 }
-export async function listBranches(db: Db): Promise<Branch[]> {
-  return (await db.query<BranchRow>(`SELECT ${columns} FROM branches ORDER BY name, id`)).rows.map(mapBranch);
+export async function listBranches(db: Db, activeOnly = false): Promise<Branch[]> {
+  return (await db.query<BranchRow>(`SELECT ${columns} FROM branches ${activeOnly ? "WHERE status='active'" : ""} ORDER BY name, id`)).rows.map(mapBranch);
 }
 export async function findBranch(db: Db, id: number): Promise<Branch | null> {
   const row = (await db.query<BranchRow>(`SELECT ${columns} FROM branches WHERE id=$1`, [id])).rows[0];

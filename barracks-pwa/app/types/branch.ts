@@ -26,3 +26,5 @@ export type BranchAssignment = {
 };
 
 export type BranchContext = { branches: Branch[]; primaryBranch: Branch | null };
+
+export type CustomerBranch = Pick<Branch, "id" | "name" | "code" | "address" | "phone">;

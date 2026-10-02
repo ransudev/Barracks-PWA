@@ -1,3 +1,4 @@
+import { visitBranch } from "@/server/auth/visit-branch-access";
 import { resolveOperationalBranch } from "@/server/auth/barber-branch-access";
 import { branchApiError } from "@/server/services/branch-api";
 import { requireRolesUser, requireManagementUser } from "@/server/auth/require-role";
@@ -10,9 +11,7 @@ export async function GET(request: Request) {
   const actor = await requireRolesUser(["customer", "front_desk", "manager", "administrator"]);
   if (actor instanceof Response) return actor;
   try {
-    const branchId = actor.role === "customer"
-      ? Number((await pool.query("SELECT id FROM branches WHERE code='MAIN'")).rows[0].id)
-      : await resolveOperationalBranch(pool, actor, new URL(request.url).searchParams.get("branchId"));
+    const branchId = await visitBranch(pool, actor, request);
     return Response.json({ success: true, hours: await listShopHours(pool, branchId), timezone: "Asia/Manila" });
   }
   catch (error) { return branchApiError(error); }

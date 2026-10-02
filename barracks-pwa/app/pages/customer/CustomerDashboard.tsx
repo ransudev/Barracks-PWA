@@ -85,8 +85,10 @@ export function CustomerDashboard({
 }) {
   const [customer, setCustomer] = useState<ApiCustomer | null>(null);
   const [barbers, setBarbers] = useState<ApiBarberAvailability[]>([]);
+  const [bookingBarbers, setBookingBarbers] = useState<ApiBarberAvailability[]>([]);
+  const [bookingServices, setBookingServices] = useState<Service[]>([]);
+  const [bookingChoicesLoading, setBookingChoicesLoading] = useState(false);
   const [bookings, setBookings] = useState<ApiBooking[]>([]);
-  const [services, setServices] = useState<Service[]>([]);
   const [draft, setDraft] = useState<ProfileDraft>({
     firstName: "",
     lastName: "",
@@ -107,16 +109,14 @@ export function CustomerDashboard({
   useEffect(() => {
     async function load() {
       try {
-        const [customerResponse, bookingResponse, barberResponse, serviceResponse] = await Promise.all([
+        const [customerResponse, bookingResponse, barberResponse] = await Promise.all([
           apiRequest("/api/customers/me"),
           apiRequest("/api/bookings"),
           apiRequest("/api/barbers"),
-          apiRequest("/api/services"),
         ]);
         const customerBody = await readApiBody<{ success: boolean; customer?: ApiCustomer; message?: string }>(customerResponse);
         const bookingBody = await readApiBody<{ success: boolean; bookings?: ApiBooking[]; message?: string }>(bookingResponse);
         const barberBody = await readApiBody<{ success: boolean; barbers?: ApiBarberAvailability[] }>(barberResponse);
-        const serviceBody = await readApiBody<{ success: boolean; services?: Service[] }>(serviceResponse);
 
         if (!customerResponse.ok || !customerBody?.success || !customerBody.customer) {
           throw new Error(customerBody?.message ?? "Unable to load customer dashboard");
@@ -129,7 +129,6 @@ export function CustomerDashboard({
         setDraft(profileForm(customerBody.customer));
         setBookings(bookingBody.bookings ?? []);
         if (barberResponse.ok && barberBody?.success) setBarbers(barberBody.barbers ?? []);
-        if (serviceResponse.ok && serviceBody?.success) setServices(serviceBody.services ?? []);
       } catch (error) {
         onToast(error instanceof Error ? error.message : "Unable to load customer dashboard");
       } finally {
@@ -139,6 +138,27 @@ export function CustomerDashboard({
 
     void load();
   }, [onToast]);
+
+  useEffect(() => {
+    if (!editingBooking) return;
+    let active = true;
+    const branchQuery = editingBooking.branchId ? `?branchId=${editingBooking.branchId}` : "";
+    async function loadChoices() {
+      setBookingChoicesLoading(true);
+      try {
+        const [response, serviceResponse] = await Promise.all([apiRequest(`/api/barbers${branchQuery}`), apiRequest(`/api/services${branchQuery}`)]);
+        const body = await readApiBody<{ success: boolean; barbers?: ApiBarberAvailability[]; message?: string }>(response);
+        if (!response.ok || !body?.success) throw new Error(body?.message ?? "Unable to load appointment barbers");
+        const serviceBody = await readApiBody<{ success: boolean; services?: Service[]; message?: string }>(serviceResponse);
+        if (!serviceResponse.ok || !serviceBody?.success) throw new Error(serviceBody?.message ?? "Unable to load appointment services");
+        if (active) { setBookingBarbers(body.barbers ?? []); setBookingServices(serviceBody.services ?? []); }
+      } catch (error) {
+        if (active) onToast(error instanceof Error ? error.message : "Unable to load appointment barbers");
+      } finally { if (active) setBookingChoicesLoading(false); }
+    }
+    void loadChoices();
+    return () => { active = false; };
+  }, [editingBooking, onToast]);
 
   function openProfileEditor() {
     if (!customer) return;
@@ -176,6 +196,9 @@ export function CustomerDashboard({
   }
 
   function openBookingEditor(booking: ApiBooking) {
+    setBookingBarbers([]);
+    setBookingServices([]);
+    setBookingChoicesLoading(true);
     setEditingBooking(booking);
     setBookingDraft(bookingFormValue(booking));
   }
@@ -294,7 +317,7 @@ export function CustomerDashboard({
                           <div className="customer-booking-card__content">
                             <strong>{formatDate(booking.date)}</strong>
                             <span>{formatTime(booking.time)} · {booking.serviceName}</span>
-                            <small>with {booking.barberName}</small>
+                            <small>with {booking.barberName} · {booking.branchName ?? "Main Branch"}</small>
                           </div>
                           <div className="customer-booking-card__actions">
                             <Badge tone="warning">{booking.status === "confirmed" ? "Confirmed" : booking.status === "checked_in" ? "Checked in" : "In progress"}</Badge>
@@ -323,6 +346,7 @@ export function CustomerDashboard({
                         <div>
                           <strong>{formatDate(booking.date)}</strong>
                           <span>{booking.serviceName} · {booking.barberName}</span>
+                          <small>{booking.branchName ?? "Main Branch"}</small>
                         </div>
                         <Badge tone={booking.status === "completed" ? "success" : "danger"}>
                           {booking.status === "completed" ? "Completed" : booking.status === "no_show" ? "No show" : "Cancelled"}
@@ -347,11 +371,15 @@ export function CustomerDashboard({
         description="You can adjust your own upcoming appointment. Changes are subject to barber availability."
         onClose={() => !bookingSaving && setEditingBooking(null)}
       >
-        {bookingDraft && (
+        <p>Branch: {editingBooking?.branchName ?? "Main Branch"}</p>
+        {bookingChoicesLoading && <p>Loading appointment barbers…</p>}
+        {bookingDraft && !bookingChoicesLoading && (
           <BookingForm
+            key={editingBooking?.id}
+            branchId={editingBooking?.branchId}
             value={bookingDraft}
-            services={services}
-            barbers={barbers.filter((barber) => barber.status !== "unavailable")}
+            services={bookingServices}
+            barbers={bookingBarbers.filter((barber) => barber.status !== "unavailable")}
             hideCustomer
             excludeBookingId={editingBooking?.id}
             availabilityVersion={availabilityVersion}

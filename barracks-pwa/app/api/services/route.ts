@@ -1,3 +1,4 @@
+import { visitBranch, visitBranchError } from "@/server/auth/visit-branch-access";
 import { requireRolesUser, requireManagement } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { serviceSchema } from "@/server/schemas/service.schema";
@@ -5,11 +6,18 @@ import { formatValidationErrors } from "@/server/schemas/user.schema";
 import { createService, listServices } from "@/server/services/service.service";
 
 export const runtime = "nodejs";
-export async function GET() {
+export async function GET(request: Request) {
   const actor = await requireRolesUser(["customer", "front_desk", "manager", "administrator"]);
   if (actor instanceof Response) return actor;
-  try { return Response.json({ success: true, services: await listServices(pool, actor.role === "customer") }); }
-  catch (error) { console.error("Unable to list services", error); return Response.json({ success: false, message: "Unable to load services" }, { status: 500 }); }
+  try {
+    if (actor.role === "customer") await visitBranch(pool, actor, request);
+    return Response.json({ success: true, services: await listServices(pool, actor.role === "customer") });
+  } catch (error) {
+    const response = visitBranchError(error);
+    if (response) return response;
+    console.error("Unable to list services", error);
+    return Response.json({ success: false, message: "Unable to load services" }, { status: 500 });
+  }
 }
 export async function POST(request: Request) {
   const denied = await requireManagement(); if (denied) return denied;
