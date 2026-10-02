@@ -1,4 +1,5 @@
 import type { Pool, PoolClient } from "pg";
+import { inTransaction } from "@/server/db/transaction";
 import type { InventoryMovementInput } from "@/server/schemas/sprint2.schema";
 import { resolveLowStockAcknowledgements } from "@/server/services/inventory-alert.service";
 
@@ -13,14 +14,12 @@ function deltaFor(input: InventoryMovementInput): number {
 }
 
 export async function applyInventoryMovement(
-  db: Pool,
+  db: Pool | PoolClient,
   inventoryItemId: number,
   userId: number,
   input: InventoryMovementInput,
 ) {
-  const client = await db.connect();
-  try {
-    await client.query("BEGIN");
+  return inTransaction(db, async (client) => {
     const itemResult = await client.query<{
       quantity: number;
       supplier_id: number | null;
@@ -57,21 +56,15 @@ export async function applyInventoryMovement(
       `INSERT INTO inventory_movements
         (inventory_item_id,supplier_id,branch,movement_type,quantity,previous_stock,new_stock,unit_cost,reference,notes,created_by)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-       RETURNING id,inventory_item_id,supplier_id,branch,movement_type,quantity,previous_stock,new_stock,unit_cost,reference,notes,created_by,created_at`,
+       RETURNING id,inventory_item_id,supplier_id,branch,branch_id,movement_type,quantity,previous_stock,new_stock,unit_cost,reference,notes,created_by,created_at`,
       [inventoryItemId, supplierId, item.branch, input.movementType, input.quantity, previousStock, newStock, unitCost,
         input.reference ?? null, input.notes, userId],
     );
-    await client.query("COMMIT");
     return movement.rows[0];
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
+  });
 }
 
-export async function listInventoryMovements(db: Queryable, inventoryItemId?: number) {
+export async function listInventoryMovements(db: Queryable, inventoryItemId?: number, branchId?: number) {
   if (inventoryItemId) {
     return (await db.query(
       `SELECT m.*, u.first_name || ' ' || u.last_name AS created_by_name, s.company_name AS supplier_name
@@ -79,7 +72,7 @@ export async function listInventoryMovements(db: Queryable, inventoryItemId?: nu
        JOIN inventory_items i ON i.id=m.inventory_item_id
        JOIN users u ON u.id=m.created_by
        LEFT JOIN suppliers s ON s.id=m.supplier_id
-       WHERE m.inventory_item_id=$1 ORDER BY m.created_at DESC`, [inventoryItemId])).rows;
+       WHERE m.inventory_item_id=$1 AND ($2::integer IS NULL OR m.branch_id=$2) ORDER BY m.created_at DESC`, [inventoryItemId, branchId ?? null])).rows;
   }
   return (await db.query(
     `SELECT m.*, i.name AS item_name, u.first_name || ' ' || u.last_name AS created_by_name, s.company_name AS supplier_name

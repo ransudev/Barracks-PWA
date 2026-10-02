@@ -1,4 +1,5 @@
-import { requireManagement } from "@/server/auth/require-role";
+import { listAccessibleBranches } from "@/server/auth/branch-access";
+import { requireManagementUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 
 export const runtime = "nodejs";
@@ -14,8 +15,8 @@ function parseDate(raw: string | null): Date | null {
 }
 
 export async function GET(request: Request) {
-  const denied = await requireManagement();
-  if (denied) return denied;
+  const user = await requireManagementUser();
+  if (user instanceof Response) return user;
 
   const url = new URL(request.url);
   const today = new Date();
@@ -38,28 +39,30 @@ export async function GET(request: Request) {
   const previousTo = new Date(from);
 
   try {
+    const branchIds = (await listAccessibleBranches(pool, user)).map((branch) => branch.id);
     const [valuation, supplierSpending, movements, usageSummary] = await Promise.all([
       pool.query(`
         SELECT
           COALESCE(SUM(quantity * unit_cost), 0) AS total_value,
           COUNT(*) FILTER (WHERE status='active') AS active_items,
           COUNT(*) FILTER (WHERE status='active' AND quantity <= minimum_stock) AS low_stock_items
-        FROM inventory_items
-      `),
+        FROM inventory_items WHERE branch_id=ANY($1::integer[])
+      `, [branchIds]),
       pool.query(`
         SELECT s.id AS supplier_id, s.company_name AS supplier_name,
           COALESCE(SUM(ri.delivered_quantity * COALESCE(ri.unit_cost, i.unit_cost)), 0) AS total_spend,
           COUNT(DISTINCT r.id) AS received_deliveries
         FROM suppliers s
         LEFT JOIN restock_requests r ON r.supplier_id=s.id
+          AND r.branch_id=ANY($3::integer[])
           AND r.status='Received'
           AND r.received_at >= $1
           AND r.received_at < $2
         LEFT JOIN restock_request_items ri ON ri.restock_request_id=r.id
-        LEFT JOIN inventory_items i ON i.id=ri.inventory_item_id
+        LEFT JOIN inventory_items i ON i.id=ri.inventory_item_id AND i.branch_id=ANY($3::integer[])
         GROUP BY s.id, s.company_name
         ORDER BY total_spend DESC, s.company_name ASC
-      `, [from, toExclusive]),
+      `, [from, toExclusive, branchIds]),
       pool.query(`
         SELECT m.id, m.movement_type, m.quantity, m.previous_stock, m.new_stock, m.unit_cost,
           m.reference, m.notes, m.created_at, i.name AS item_name, m.branch,
@@ -69,10 +72,10 @@ export async function GET(request: Request) {
         JOIN inventory_items i ON i.id=m.inventory_item_id
         JOIN users u ON u.id=m.created_by
         LEFT JOIN suppliers s ON s.id=m.supplier_id
-        WHERE m.created_at >= $1 AND m.created_at < $2
+        WHERE m.created_at >= $1 AND m.created_at < $2 AND m.branch_id=ANY($3::integer[])
         ORDER BY m.created_at DESC
         LIMIT 250
-      `, [from, toExclusive]),
+      `, [from, toExclusive, branchIds]),
       pool.query(`
         SELECT
           i.id AS item_id,
@@ -88,12 +91,12 @@ export async function GET(request: Request) {
           COALESCE(SUM(CASE WHEN m.created_at >= $1 AND m.created_at < $2 AND m.movement_type IN ('USE','STAFF_USAGE','CUSTOMER_PURCHASE','DAMAGE','DISCARD') THEN m.quantity ELSE 0 END),0) AS current_activity,
           COALESCE(SUM(CASE WHEN m.created_at >= $3 AND m.created_at < $4 AND m.movement_type IN ('USE','STAFF_USAGE','CUSTOMER_PURCHASE','DAMAGE','DISCARD') THEN m.quantity ELSE 0 END),0) AS previous_activity
         FROM inventory_items i
-        LEFT JOIN inventory_movements m ON m.inventory_item_id=i.id
+        LEFT JOIN inventory_movements m ON m.inventory_item_id=i.id AND m.branch_id=ANY($5::integer[])
           AND m.created_at >= $3 AND m.created_at < $2
-        WHERE i.status='active'
+        WHERE i.status='active' AND i.branch_id=ANY($5::integer[])
         GROUP BY i.id,i.name,i.branch,i.quantity,i.minimum_stock
         ORDER BY current_activity DESC, i.name ASC
-      `, [from, toExclusive, previousFrom, previousTo]),
+      `, [from, toExclusive, previousFrom, previousTo, branchIds]),
     ]);
 
     const totals = valuation.rows[0] ?? { total_value: 0, active_items: 0, low_stock_items: 0 };

@@ -1,12 +1,18 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import test from "node:test";
+import { mock, test } from "node:test";
+import type { Pool } from "pg";
+import type { UserRole } from "@/server/schemas/user.schema";
+import { createDisposableSchema, databaseConfigured } from "./helpers/database";
 
-const databaseConfigured = Boolean(process.env.DATABASE_URL || process.env.POSTGRES_URL);
+let apiDb: Pool;
+let actor: { id: number; role: UserRole } | null;
+mock.module("@/server/auth/session", { namedExports: { getCurrentUser: async () => actor } });
+mock.module("@/server/db/pool", { namedExports: { pool: { query: (...args: Parameters<Pool["query"]>) => apiDb.query(...args), connect: () => apiDb.connect() } } });
 
 test("Sprint 2 supplier, restock, and receiving workflow is relational and auditable", { skip: !databaseConfigured }, async () => {
-  const [{ pool }, users, suppliers, inventory, restocks] = await Promise.all([
-    import("@/server/db/pool"),
+  const { db: pool, cleanup } = await createDisposableSchema();
+  const [users, suppliers, inventory, restocks] = await Promise.all([
     import("@/server/services/user.service"),
     import("@/server/services/supplier.service"),
     import("@/server/services/inventory.service"),
@@ -124,18 +130,18 @@ test("Sprint 2 supplier, restock, and receiving workflow is relational and audit
       unitCost: item.unitCost,
       status: item.status,
     });
-    assert.equal(editedItem?.branch, "Maa Branch");
+    assert.equal(editedItem?.branch, "Main Branch");
     const thresholdHistory = await pool.query<{ branch: string; changed_by: number }>(
       "SELECT branch,changed_by FROM inventory_threshold_history WHERE inventory_item_id=$1 ORDER BY changed_at DESC LIMIT 1",
       [inventoryId],
     );
-    assert.equal(thresholdHistory.rows[0]?.branch, "Maa Branch");
+    assert.equal(thresholdHistory.rows[0]?.branch, "Main Branch");
     assert.equal(Number(thresholdHistory.rows[0]?.changed_by), adminUserId);
 
     const secondItem = await inventory.createInventoryItem(pool, {
       name: `Second supplier item ${randomUUID().slice(0, 8)}`,
       category: "Supplies",
-      branch: "Maa Branch",
+      branch: "Main Branch",
       supplierId,
       unit: "box",
       sku: `TEST2-${randomUUID().slice(0, 8)}`,
@@ -167,7 +173,7 @@ test("Sprint 2 supplier, restock, and receiving workflow is relational and audit
     await assert.rejects(
       () => restocks.createRestockRequest(pool, adminUserId!, {
         supplierId: otherSupplierId!,
-        branch: "Maa Branch",
+        branch: "Main Branch",
         reference: "wrong-supplier",
         notes: "Must fail",
         items: [{ inventoryItemId: inventoryId!, requestedQuantity: 5, unitCost: 50 }],
@@ -177,7 +183,7 @@ test("Sprint 2 supplier, restock, and receiving workflow is relational and audit
 
     const restock = await restocks.createRestockRequest(pool, adminUserId, {
       supplierId,
-      branch: "Maa Branch",
+      branch: "Main Branch",
       reference: "PO-TEST",
       notes: "Integration restock",
       items: [
@@ -231,7 +237,7 @@ test("Sprint 2 supplier, restock, and receiving workflow is relational and audit
     assert.equal(Number(movement.rows[0]?.previous_stock), 2);
     assert.equal(Number(movement.rows[0]?.new_stock), 7);
     assert.equal(Number(movement.rows[0]?.created_by), frontDeskUserId);
-    assert.equal(movement.rows[0]?.branch, "Maa Branch");
+    assert.equal(movement.rows[0]?.branch, "Main Branch");
     assert.equal(Number(movement.rows[0]?.supplier_id), supplierId);
 
     await assert.rejects(
@@ -260,7 +266,7 @@ test("Sprint 2 supplier, restock, and receiving workflow is relational and audit
       () => inventory.createInventoryItem(pool, {
         name: "Inactive supplier item",
         category: "Supplies",
-        branch: "Maa Branch",
+        branch: "Main Branch",
         supplierId: supplierId!,
         unit: "unit",
         sku: `INACTIVE-${randomUUID().slice(0, 8)}`,
@@ -289,6 +295,122 @@ test("Sprint 2 supplier, restock, and receiving workflow is relational and audit
     if (supplierId) await pool.query("DELETE FROM suppliers WHERE id=$1", [supplierId]);
     if (otherSupplierId) await pool.query("DELETE FROM suppliers WHERE id=$1", [otherSupplierId]);
     if (adminUserId) await pool.query("DELETE FROM users WHERE id=$1", [adminUserId]);
-    await pool.end();
+    await cleanup();
   }
+});
+
+test("branch inventory APIs isolate stock, receiving and history with persisted authorization", { skip: !databaseConfigured }, async () => {
+  const fixture = await createDisposableSchema(); apiDb = fixture.db;
+  const db = apiDb;
+  const inventory = await import("@/app/api/inventory/route");
+  const item = await import("@/app/api/inventory/[id]/route");
+  const movements = await import("@/app/api/inventory/[id]/movements/route");
+  const thresholds = await import("@/app/api/inventory/[id]/threshold-history/route");
+  const alerts = await import("@/app/api/inventory/alerts/route");
+  const acknowledge = await import("@/app/api/inventory/alerts/[id]/acknowledge/route");
+  const supplierProfile = await import("@/app/api/suppliers/[id]/route");
+  const reports = await import("@/app/api/reports/inventory/route");
+  const restocks = await import("@/app/api/restocks/route");
+  const delivered = await import("@/app/api/restocks/[id]/delivered/route");
+  const receive = await import("@/app/api/restocks/[id]/receive/route");
+  const request = (branch: number, body?: unknown) => new Request(`http://localhost/api/inventory?branchId=${branch}`, { ...(body === undefined ? {} : { method: "POST", body: JSON.stringify(body) }) });
+  const params = (id: number) => ({ params: Promise.resolve({ id: String(id) }) });
+  try {
+    const main = Number((await db.query("SELECT id FROM branches WHERE code='MAIN'")).rows[0].id);
+    const second = Number((await db.query("INSERT INTO branches(name,code) VALUES('Second Branch','SECOND') RETURNING id")).rows[0].id);
+    async function user(role: UserRole) {
+      const id = Number((await db.query("INSERT INTO users(first_name,last_name,email,password_hash,role_id) VALUES('Inventory','Staff',$1,'test',(SELECT id FROM roles WHERE name=$2)) RETURNING id", [`${role}@branch.test`, role])).rows[0].id);
+      if (role !== "administrator") await db.query("INSERT INTO user_branches(user_id,branch_id,is_primary) VALUES($1,$2,true)", [id,main]);
+      return { id,role };
+    }
+    const admin = await user("administrator");
+    const manager = await user("manager");
+    const frontDesk = await user("front_desk");
+    actor = admin;
+    const supplier = Number((await db.query("INSERT INTO suppliers(company_name,phone) VALUES('Shared Supplier','09123456789') RETURNING id")).rows[0].id);
+    const payload = { name: "Same product", category: "Products", branch: "Forged label", supplierId: supplier, unit: "bottle", sku: "SHARED-SKU", minimumStock: 5, maximumStock: 20, unitCost: 10, status: "active", initialQuantity: 4 };
+    const mainResponse = await inventory.POST(request(main,payload)); assert.equal(mainResponse.status,201);
+    const a = (await mainResponse.json()).item;
+    const secondResponse = await inventory.POST(request(second,{ ...payload,initialQuantity: 9 })); assert.equal(secondResponse.status,201);
+    const b = (await secondResponse.json()).item;
+    assert.equal(a.branchId,main); assert.equal(b.branchId,second); assert.equal(b.branch,"Second Branch");
+    assert.equal((await inventory.POST(request(second,payload))).status,409);
+    const purchase = { movementType: "CUSTOMER_PURCHASE",quantity: 2,notes: "Sale" };
+    assert.equal((await movements.POST(request(second,purchase),params(b.id))).status,201);
+    // Even an Administrator cannot mutate an item from the wrong selected workspace.
+    assert.equal((await movements.POST(request(main,purchase),params(b.id))).status,403);
+    assert.deepEqual((await (await inventory.GET(request(main))).json()).items.map((row: { quantity: number }) => row.quantity),[4]);
+    assert.deepEqual((await (await inventory.GET(request(second))).json()).items.map((row: { quantity: number }) => row.quantity),[7]);
+    const restockPayload = { supplierId: supplier,branch: "Forged label",notes: "Stock second only",items: [{ inventoryItemId: b.id,requestedQuantity: 3 }] };
+    assert.equal((await restocks.POST(request(main,restockPayload))).status,400);
+    const createResponse = await restocks.POST(request(second,restockPayload)); assert.equal(createResponse.status,201);
+    const restock = (await createResponse.json()).restock;
+    assert.equal(Number(restock.branch_id),second);
+    await db.query("UPDATE restock_requests SET status='Shipped' WHERE id=$1",[restock.id]);
+    for (const staff of [manager,frontDesk]) {
+      actor = staff;
+      assert.equal((await inventory.GET(request(second))).status,403);
+      assert.equal((await item.GET(request(main),params(b.id))).status,403);
+      assert.equal((await movements.POST(request(main,purchase),params(b.id))).status,403);
+      assert.equal((await item.PUT(request(main,{ ...payload,initialQuantity: undefined }),params(b.id))).status,403);
+      assert.equal((await thresholds.GET(request(main),params(b.id))).status,403);
+      assert.equal((await alerts.GET(request(second))).status,403);
+      assert.equal((await acknowledge.POST(request(main),params(b.id))).status,403);
+      assert.equal((await restocks.GET(request(second))).status,403);
+      assert.equal((await restocks.POST(request(second,restockPayload))).status,403);
+      assert.equal((await delivered.POST(request(main),params(restock.id))).status,403);
+      assert.equal((await receive.POST(request(main,{ items: [{ restockRequestItemId: restock.items[0].id,deliveredQuantity: 3 }] }),params(restock.id))).status,403);
+    }
+    actor = manager;
+    assert.deepEqual((await (await inventory.GET(request(main))).json()).items.map((row: { id: number }) => row.id),[a.id]);
+    const profile = (await (await supplierProfile.GET(request(main),params(supplier))).json()).profile;
+    assert.deepEqual(profile.suppliedItems.map((row: { id: number }) => row.id),[a.id]);
+    const report = await reports.GET(request(main)); assert.equal(report.status,200);
+    const reportBody = await report.json(); assert.equal(reportBody.valuation.activeItems,1);
+    assert.equal(reportBody.movements.length,0);
+    actor = admin;
+    assert.equal((await delivered.POST(request(second),params(restock.id))).status,200);
+    const received = await receive.POST(request(second,{ items: [{ restockRequestItemId: restock.items[0].id,deliveredQuantity: 3 }] }),params(restock.id));
+    assert.equal(received.status,200);
+    assert.equal((await (await item.GET(request(second),params(b.id))).json()).item.quantity,10);
+    assert.equal((await (await item.GET(request(main),params(a.id))).json()).item.quantity,4);
+    assert.equal((await receive.POST(request(second,{ items: [{ restockRequestItemId: restock.items[0].id,deliveredQuantity: 3 }] }),params(restock.id))).status,400);
+    // Later user assignments, supplier edits and branch renames leave snapshots intact.
+    await db.query("UPDATE suppliers SET company_name='Renamed supplier' WHERE id=$1",[supplier]);
+    await db.query("DELETE FROM user_branches WHERE user_id=$1",[manager.id]);
+    await db.query("UPDATE branches SET name='Renamed branch' WHERE id=$1",[second]);
+    const history = (await (await movements.GET(request(second),params(b.id))).json()).movements;
+    assert.equal(history.length,2);
+    assert.ok(history.every((row: { branch_id: number; branch: string }) => Number(row.branch_id)===second && row.branch==="Second Branch"));
+    assert.equal(Number((await db.query("SELECT branch_id FROM restock_requests WHERE id=$1",[restock.id])).rows[0].branch_id),second);
+    await assert.rejects(db.query("UPDATE inventory_items SET branch_id=$1 WHERE id=$2",[main,b.id]),{ code:"23514" });
+    await assert.rejects(db.query("UPDATE inventory_movements SET branch_id=$1 WHERE inventory_item_id=$2",[main,b.id]),{ code:"23514" });
+    await assert.rejects(db.query("UPDATE restock_requests SET branch_id=$1 WHERE id=$2",[main,restock.id]),{ code:"23514" });
+    await assert.rejects(db.query("INSERT INTO restock_request_items(restock_request_id,inventory_item_id,requested_quantity) VALUES($1,$2,1)",[restock.id,a.id]),{ code:"23514" });
+  } finally { actor=null; await fixture.cleanup(); }
+});
+
+test("inventory migration preserves legacy rows and independent historical branch labels", { skip: !databaseConfigured }, async () => {
+  const { db,cleanup } = await createDisposableSchema(26);
+  const { applyMigrations } = await import("@/server/db/migrate");
+  try {
+    const main = Number((await db.query("SELECT id FROM branches WHERE code='MAIN'")).rows[0].id);
+    const second = Number((await db.query("INSERT INTO branches(name,code) VALUES('Known Branch','KNOWN') RETURNING id")).rows[0].id);
+    const user = Number((await db.query("INSERT INTO users(first_name,last_name,email,password_hash,role_id) VALUES('Old','Admin','legacy@test.local','test',(SELECT id FROM roles WHERE name='administrator')) RETURNING id")).rows[0].id);
+    const supplier = Number((await db.query("INSERT INTO suppliers(company_name) VALUES('Legacy Supplier') RETURNING id")).rows[0].id);
+    const item = Number((await db.query("INSERT INTO inventory_items(name,category,quantity,minimum_stock,unit_cost,branch) VALUES('Legacy product','Products',8,2,10,'Known Branch') RETURNING id")).rows[0].id);
+    await db.query("INSERT INTO inventory_movements(inventory_item_id,movement_type,quantity,previous_stock,new_stock,created_by,branch) VALUES($1,'USE',1,9,8,$2,'Unknown historical location')",[item,user]);
+    const restock = Number((await db.query("INSERT INTO restock_requests(supplier_id,requested_by,branch,status) VALUES($1,$2,'Unknown historical location','Received') RETURNING id",[supplier,user])).rows[0].id);
+    await db.query("INSERT INTO restock_request_items(restock_request_id,inventory_item_id,requested_quantity,delivered_quantity) VALUES($1,$2,2,2)",[restock,item]);
+    const beforeItem = (await db.query("SELECT * FROM inventory_items WHERE id=$1",[item])).rows[0];
+    const beforeMovement = (await db.query("SELECT * FROM inventory_movements WHERE inventory_item_id=$1",[item])).rows[0];
+    const beforeRestock = (await db.query("SELECT * FROM restock_requests WHERE id=$1",[restock])).rows[0];
+    await applyMigrations(db);
+    const { branch_id: itemBranch,...afterItem } = (await db.query("SELECT * FROM inventory_items WHERE id=$1",[item])).rows[0];
+    const { branch_id: movementBranch,...afterMovement } = (await db.query("SELECT * FROM inventory_movements WHERE inventory_item_id=$1",[item])).rows[0];
+    const { branch_id: restockBranch,...afterRestock } = (await db.query("SELECT * FROM restock_requests WHERE id=$1",[restock])).rows[0];
+    assert.equal(itemBranch,second); assert.equal(movementBranch,main); assert.equal(restockBranch,main);
+    assert.deepEqual(afterItem,beforeItem); assert.deepEqual(afterMovement,beforeMovement); assert.deepEqual(afterRestock,beforeRestock);
+    assert.equal(Number((await db.query("SELECT count(*) FROM restock_request_items WHERE restock_request_id=$1",[restock])).rows[0].count),1);
+  } finally { await cleanup(); }
 });

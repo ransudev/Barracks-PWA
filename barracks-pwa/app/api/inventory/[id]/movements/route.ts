@@ -1,3 +1,4 @@
+import { withInventoryOwner, inventoryBranchError } from "@/server/auth/inventory-branch-access";
 import { requireManagementUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { inventoryMovementSchema } from "@/server/schemas/sprint2.schema";
@@ -6,10 +7,12 @@ import { applyInventoryMovement, listInventoryMovements } from "@/server/service
 export const runtime = "nodejs";
 const parseId = (raw: string) => /^\d+$/.test(raw) && Number(raw) > 0 ? Number(raw) : null;
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await requireManagementUser(); if (user instanceof Response) return user;
   const id = parseId((await params).id); if (!id) return Response.json({success:false,message:"Invalid inventory item id"},{status:400});
-  return Response.json({success:true,movements:await listInventoryMovements(pool,id)});
+  try { return Response.json({success:true,movements:await withInventoryOwner(pool, user, request, "inventory_items", id, (client, branchId) => listInventoryMovements(client,id,branchId))}); }
+  catch (error) {
+    const branchError = inventoryBranchError(error); if (branchError) return branchError; return Response.json({success:false,message:"Unable to load stock history"},{status:500}); }
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -22,9 +25,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   try {
-    const movement = await applyInventoryMovement(pool,id,staff.id,parsed.data);
+    const movement = await withInventoryOwner(pool, staff, request, "inventory_items", id, (client) => applyInventoryMovement(client,id,staff.id,parsed.data));
     return Response.json({success:true,movement},{status:201});
   } catch (error) {
+    const branchError = inventoryBranchError(error); if (branchError) return branchError;
     const code = error instanceof Error ? error.message : "";
     const message = code === "NEGATIVE_STOCK"
       ? "Stock cannot become negative"

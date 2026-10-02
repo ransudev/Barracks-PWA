@@ -1,4 +1,5 @@
 import type { Pool, PoolClient } from "pg";
+import { inTransaction } from "@/server/db/transaction";
 
 type Queryable = Pool | PoolClient;
 
@@ -34,16 +35,17 @@ export async function resolveLowStockAcknowledgements(
   );
 }
 
-export async function listLowStockAlerts(db: Pool, userId: number): Promise<LowStockAlert[]> {
+export async function listLowStockAlerts(db: Pool | PoolClient, userId: number, branchId?: number): Promise<LowStockAlert[]> {
   await db.query(
     `UPDATE inventory_alert_acknowledgements a
      SET resolved_at = COALESCE(a.resolved_at, NOW())
      FROM inventory_items i
      WHERE a.inventory_item_id = i.id
        AND a.acknowledged_by = $1
+       AND ($2::integer IS NULL OR i.branch_id=$2)
        AND a.resolved_at IS NULL
        AND i.quantity > i.minimum_stock`,
-    [userId],
+    [userId, branchId ?? null],
   );
   const result = await db.query<{
     id: number;
@@ -61,11 +63,11 @@ export async function listLowStockAlerts(db: Pool, userId: number): Promise<LowS
        ON a.inventory_item_id = i.id
       AND a.acknowledged_by = $1
       AND a.resolved_at IS NULL
-     WHERE i.status = 'active'
+     WHERE ($2::integer IS NULL OR i.branch_id=$2) AND i.status = 'active'
        AND i.quantity <= i.minimum_stock
        AND a.id IS NULL
      ORDER BY i.quantity ASC, i.name ASC, i.id ASC`,
-    [userId],
+    [userId, branchId ?? null],
   );
 
   return result.rows.map((row) => ({
@@ -80,13 +82,11 @@ export async function listLowStockAlerts(db: Pool, userId: number): Promise<LowS
 }
 
 export async function acknowledgeLowStockAlert(
-  db: Pool,
+  db: Pool | PoolClient,
   inventoryItemId: number,
   userId: number,
 ): Promise<LowStockAlert> {
-  const client = await db.connect();
-  try {
-    await client.query("BEGIN");
+  return inTransaction(db, async (client) => {
     const item = await client.query<{
       id: number;
       name: string;
@@ -115,7 +115,6 @@ export async function acknowledgeLowStockAlert(
                      resolved_at = NULL`,
       [inventoryItemId, row.branch, userId, row.quantity],
     );
-    await client.query("COMMIT");
     return {
       id: Number(row.id),
       itemId: Number(row.id),
@@ -125,10 +124,5 @@ export async function acknowledgeLowStockAlert(
       threshold: Number(row.minimum_stock),
       unit: row.unit,
     };
-  } catch (error) {
-    await client.query("ROLLBACK").catch(() => undefined);
-    throw error;
-  } finally {
-    client.release();
-  }
+  });
 }

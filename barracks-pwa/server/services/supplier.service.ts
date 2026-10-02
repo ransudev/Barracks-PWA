@@ -112,13 +112,13 @@ export async function linkSupplierAccount(db: Pool, supplierId: number, userId: 
     ON CONFLICT (user_id) DO UPDATE SET supplier_id=EXCLUDED.supplier_id, updated_at=NOW()`, [supplierId, userId]);
 }
 
-export async function getSupplierProfile(db: Pool, supplierId: number) {
+export async function getSupplierProfile(db: Pool, supplierId: number, branchIds?: number[]) {
   const supplier = await findSupplier(db, supplierId);
   if (!supplier) return null;
   const [items, deliveries, restocks] = await Promise.all([
-    db.query("SELECT id,name,category,quantity,minimum_stock,maximum_stock,unit,sku,unit_cost,status,branch FROM inventory_items WHERE supplier_id=$1 ORDER BY name", [supplierId]),
-    db.query("SELECT id,status,branch,reference,received_at,created_at FROM restock_requests WHERE supplier_id=$1 AND status='Received' ORDER BY received_at DESC NULLS LAST LIMIT 20", [supplierId]),
-    db.query("SELECT id,status,branch,reference,notes,created_at,updated_at FROM restock_requests WHERE supplier_id=$1 ORDER BY created_at DESC LIMIT 50", [supplierId]),
+    db.query("SELECT id,name,category,quantity,minimum_stock,maximum_stock,unit,sku,unit_cost,status,branch,branch_id FROM inventory_items WHERE supplier_id=$1 AND ($2::integer[] IS NULL OR branch_id=ANY($2)) ORDER BY name", [supplierId,branchIds ?? null]),
+    db.query("SELECT id,status,branch,branch_id,reference,received_at,created_at FROM restock_requests WHERE supplier_id=$1 AND ($2::integer[] IS NULL OR branch_id=ANY($2)) AND status='Received' ORDER BY received_at DESC NULLS LAST LIMIT 20", [supplierId,branchIds ?? null]),
+    db.query("SELECT id,status,branch,branch_id,reference,notes,created_at,updated_at FROM restock_requests WHERE supplier_id=$1 AND ($2::integer[] IS NULL OR branch_id=ANY($2)) ORDER BY created_at DESC LIMIT 50", [supplierId,branchIds ?? null]),
   ]);
   return { supplier, suppliedItems: items.rows, recentDeliveries: deliveries.rows, restockHistory: restocks.rows };
 }

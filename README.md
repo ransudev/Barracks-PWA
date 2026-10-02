@@ -324,15 +324,15 @@ Staff customer management includes search, profile details, contact/preference e
 
 ### Inventory
 
-- `GET /api/inventory` and `POST /api/inventory` — administrator/manager; list/create inventory items. Inventory rows carry an editable branch (default `Main Branch`); `GET` accepts an optional `branch` query filter.
+- `GET /api/inventory` and `POST /api/inventory` — administrator/manager; list/create inventory items. Inventory rows have immutable numeric branch ownership; `GET` and `POST` accept `?branchId=...`, defaulting to the staff primary/first accessible branch.
 - `GET /api/inventory/:id` and `PUT /api/inventory/:id` — administrator/manager; read/update an item.
-- Inventory SKUs are unique across items (case-insensitive, blank SKUs excluded). Creating an item with, or editing an item onto, a SKU that is already in use returns `409` with "Another inventory item already uses this SKU" instead of a generic failure.
-- `DELETE /api/inventory/:id` — administrator only; deletes an item after confirmation in the UI.
+- Inventory SKUs are unique within each branch (case-insensitive, blank SKUs excluded). Creating an item with, or editing an item onto, a SKU that is already in use returns `409` with "Another inventory item already uses this SKU" instead of a generic failure.
+- `DELETE /api/inventory/:id` — administrator only; deactivates an item with movement, restock or threshold history; otherwise deletes it after confirmation in the UI.
 - `GET /api/inventory/:id/movements` and `POST /api/inventory/:id/movements` — administrator/manager; list or record auditable stock movements with item branch context.
 - `GET /api/inventory/:id/threshold-history` — administrator/manager; returns item/branch threshold changes with actor and timestamp.
 - `GET /api/inventory/alerts` and `POST /api/inventory/alerts/:id/acknowledge` — administrator/manager; list and persist low-stock acknowledgements per user. Acknowledgements reactivate after stock rises above the branch threshold and later falls below it again.
 
-Inventory state is derived from quantity and the branch-specific minimum stock: In Stock, Low Stock, or Out of Stock. The UI provides search, branch/category/status/supplier filters, editable branch and minimum/maximum thresholds, validation, loading/empty/error states, metrics, confirmation dialogs, stock movement recording, and movement history. Threshold changes retain the item, branch, user, and timestamp. Receiving a restock also writes an auditable `RECEIVE` movement.
+Inventory state is derived from quantity and the branch-specific minimum stock: In Stock, Low Stock, or Out of Stock. The UI provides a branch selector, search, category/status/supplier filters, editable minimum/maximum thresholds, validation, loading/empty/error states, metrics, confirmation dialogs, stock movement recording, and movement history. Threshold changes retain the item, branch, user, and timestamp. Receiving a restock also writes an auditable `RECEIVE` movement.
 
 ### Suppliers and restocks
 
@@ -341,7 +341,7 @@ Inventory state is derived from quantity and the branch-specific minimum stock: 
 - `POST /api/suppliers/:id/account` — administrator only; creates or links one supplier portal account.
 - `GET /api/supplier/me` — supplier only; returns the linked profile, supplied items, deliveries, and restock history.
 - `PATCH /api/supplier/me` — the linked supplier can update its company name, contact person, phone, email, address, and notes; status remains staff-managed.
-- `GET /api/restocks` — administrator/manager receive internal requests; supplier accounts receive only requests for their active supplier.
+- `GET /api/restocks?branchId=...` — administrator/manager receive requests for the authorized selected branch; supplier accounts receive only requests for their active supplier.
 - `POST /api/restocks` — administrator/manager; creates a branch-scoped request with one or more unique items linked to the selected active supplier and branch. The staff Restocks workspace supports adding, removing, and editing lines.
 - `PATCH /api/restocks/:id/status` — the linked supplier advances Pending → Accepted → Preparing → Shipped.
 - `POST /api/restocks/:id/delivered` — administrator/manager; confirms a shipped request as delivered.
@@ -425,7 +425,7 @@ Together these migrations create:
 
 The migration is compatible with the existing Supabase project `simplecrudapp`. The Next.js server connects through the database connection string and keeps authorization in the application session/role guards; no Supabase secret or database credential is sent to the browser.
 
-Important database constraints include case-insensitive unique user email, explicit account lifecycle columns, valid role/status/category values, non-blank names, non-negative quantities and monetary values with two-decimal precision, commission bounds, customer/user uniqueness, foreign keys, and a unique active barber slot for upcoming bookings. Inventory adds a case-insensitive unique SKU (ignoring blank SKUs) and a maximum-stock check that tracks the minimum, suppliers add a case-insensitive unique active company name plus one account per supplier and per user, and restock requests enforce one line per item with a constrained status set.
+Important database constraints include case-insensitive unique user email, explicit account lifecycle columns, valid role/status/category values, non-blank names, non-negative quantities and monetary values with two-decimal precision, commission bounds, customer/user uniqueness, foreign keys, and a unique active barber slot for upcoming bookings. Inventory adds a case-insensitive unique SKU per branch (ignoring blank SKUs) and a maximum-stock check that tracks the minimum, suppliers add a case-insensitive unique active company name plus one account per supplier and per user, and restock requests enforce one line per item with a constrained status set.
 
 `scripts/seed-admin.ts` creates the initial administrator from `INITIAL_ADMIN_*` variables and is safe to rerun for the same administrator email. `scripts/seed-demo.ts` is a local Sprint 2 seed: it runs in one transaction, preserves administrator accounts, and loads the current supplier, inventory, restock, customer, booking, and transaction showcase records. It succeeds on a fresh disposable database; a repeat run is rejected once finalized financial records exist, preserving their history. Do not run it against production data.
 
@@ -554,7 +554,7 @@ The supplier portal shares the staff and management dashboard theme: the same da
 
 ## Booking foundation (Phase 1)
 
-Migration `009_services_booking_foundation.sql` adds service descriptions and integer durations, booking duration snapshots, expected end times, optional notes, and the statuses `confirmed`, `checked_in`, `in_progress`, `completed`, `cancelled`, and `no_show`. Existing `upcoming` bookings migrate to `confirmed`; their stored service names and prices remain unchanged. Unknown historical durations remain null. The service API exposes active services to customers, all services to front desk, and service creation/editing/enablement to managers and administrators. Scheduling, availability, booking lifecycle, queue persistence, the one-active-service guard, queue state integrity, and quick accountless queue customers are implemented in migrations 010–016. Migrations 017–020 add the payment backend foundation, integrity rules, cash checkout fields, and financial action history. Bookings and queue branch scoping is implemented in migration 024, transaction ownership in migration 025, and attendance ownership in migration 026. Inventory/restock branch ownership, branch aggregates, customer branch selection and notifications remain deferred. Payment Phase 3 connects checkout UI to the payment backend; Phase 4 adds receipt printing and filtered, paginated history without another invoice table; Phase 5 adds full refunds and voids.
+Migration `009_services_booking_foundation.sql` adds service descriptions and integer durations, booking duration snapshots, expected end times, optional notes, and the statuses `confirmed`, `checked_in`, `in_progress`, `completed`, `cancelled`, and `no_show`. Existing `upcoming` bookings migrate to `confirmed`; their stored service names and prices remain unchanged. Unknown historical durations remain null. The service API exposes active services to customers, all services to front desk, and service creation/editing/enablement to managers and administrators. Scheduling, availability, booking lifecycle, queue persistence, the one-active-service guard, queue state integrity, and quick accountless queue customers are implemented in migrations 010–016. Migrations 017–020 add the payment backend foundation, integrity rules, cash checkout fields, and financial action history. Bookings and queue branch scoping is implemented in migration 024, transaction ownership in migration 025, and attendance ownership in migration 026. Inventory/restock branch ownership is implemented in migration 027; branch aggregates, customer branch selection and notifications remain deferred. Payment Phase 3 connects checkout UI to the payment backend; Phase 4 adds receipt printing and filtered, paginated history without another invoice table; Phase 5 adds full refunds and voids.
 
 ### Multi-branch foundation (Phase 1)
 
@@ -612,4 +612,17 @@ Today's attendance, history and correction reads are scoped to accessible branch
 
 Attendance Management uses the existing branch context and resets its records, filters and correction dialog when branches change. Barber Floor reads and updates today's attendance for its selected branch. Historical filters include barbers represented in the loaded records even after they move. Apply migration 026 with the existing migration runner before using Phase 5. Verification uses disposable schemas and does not migrate the shop database.
 
-Phase 5 verification and the complete file list are recorded in [PHASE5_REPORT.md](PHASE5_REPORT.md). Phase 6 scope remains inventory/restock ownership, branch reports/dashboard aggregates and customer branch selection.
+Phase 5 verification and the complete file list are recorded in [PHASE5_REPORT.md](PHASE5_REPORT.md). Phase 6 inventory/restock ownership is described below. Phase 7 scope remains branch reports/dashboard aggregates and customer branch selection.
+
+
+### Multi-branch inventory and restocks (Phase 6)
+
+Migration `027_inventory_restock_branches.sql` adds required, restricted branch foreign keys to inventory stock rows, inventory movements and restock headers. Legacy labels matching exactly one existing branch name/code are mapped to it; unknown/ambiguous ownership falls back to Main Branch. Existing records, quantities, timestamps and text snapshots are preserved. Stock ownership cannot change: the same product/SKU can have a separate stock row in each branch, and SKU uniqueness is now case-insensitive within a branch. No transfers are introduced.
+
+New movements snapshot the persisted item's branch, including CUSTOMER_PURCHASE, and cannot change ownership. Restock lines inherit their immutable header branch without another branch column; the database rejects new cross-branch lines. Receiving locks the request and stock, validates every line and changes only the request branch's inventory. Suppliers and supplier accounts remain global; the supplier portal continues to see only its linked supplier's items and requests across branches.
+
+Inventory/restock collection APIs use `?branchId=...` and default to the staff primary/first accessible branch. ID operations authorize persisted ownership and reject a mismatched selected branch. Existing role permissions remain: Administrator/Manager operate inventory/restocks, only Administrator deletes inventory, and Front Desk has no inventory permission. Inventory, movement/threshold history, low-stock alerts and receiving enforce branch authorization. Inventory and Restock pages use the existing context, reload on selection, discard forms/dialogs/selections and ignore responses from the old workspace. Existing inventory report reads are restricted to authorized ownership; new branch report/dashboard aggregates are deferred.
+
+Apply migration 027 using `npm run db:migrate` before using Phase 6. Tests use disposable PostgreSQL schemas and do not migrate the shop database. Phase 7 remains branch revenue/report and dashboard aggregates plus customer-facing branch selection; inventory transfers remain deferred.
+
+Phase 6 verification and the complete file list are recorded in [PHASE6_REPORT.md](PHASE6_REPORT.md).

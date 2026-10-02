@@ -1,3 +1,4 @@
+import { withInventoryOwner, inventoryBranchError } from "@/server/auth/inventory-branch-access";
 import { requireManagementUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { receiveRestockSchema } from "@/server/schemas/sprint2.schema";
@@ -12,8 +13,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   let body: unknown; try { body = await request.json(); } catch { return Response.json({success:false,message:"Invalid receiving information"},{status:400}); }
   const parsed = receiveRestockSchema.safeParse(body); if (!parsed.success) return Response.json({success:false,message:"Invalid receiving information"},{status:400});
   try {
-    return Response.json({success:true,restock:await receiveRestock(pool,id,user.id,parsed.data)});
+    return Response.json({success:true,restock:await withInventoryOwner(pool, user, request, "restock_requests", id, (client) => receiveRestock(client,id,user.id,parsed.data))});
   } catch (error) {
+    const branchError = inventoryBranchError(error); if (branchError) return branchError;
     const code = error instanceof Error ? error.message : "";
     const message = code === "ALREADY_RECEIVED" ? "This delivery has already been received"
       : code === "NOT_READY_TO_RECEIVE" ? "The restock request is not ready to receive"

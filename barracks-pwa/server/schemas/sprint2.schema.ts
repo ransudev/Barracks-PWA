@@ -56,7 +56,7 @@ const inventoryImage = z.string().trim().max(2000000)
 const inventoryMetadataShape = {
   name: z.string().trim().min(1).max(160),
   category: z.enum(["Supplies", "Equipment", "Products"]),
-  branch: z.string().trim().min(1).max(120).default("Main Branch"),
+  branch: z.string().trim().min(1).max(160).default("Main Branch"),
   supplierId: positiveInt.nullable(),
   unit: z.string().trim().min(1).max(40),
   sku: z.string().trim().max(100).nullable(),
@@ -112,7 +112,7 @@ export const inventoryMovementSchema = z.object({
 
 export const restockCreateSchema = z.object({
   supplierId: positiveInt,
-  branch: z.string().trim().min(1).max(120).default("Main Branch"),
+  branch: z.string().trim().min(1).max(160).default("Main Branch"),
   reference: z.string().trim().max(160).nullable().optional(),
   notes: z.string().trim().max(4000).default(""),
   items: z.array(z.object({

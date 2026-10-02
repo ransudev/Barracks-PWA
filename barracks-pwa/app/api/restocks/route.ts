@@ -1,3 +1,4 @@
+import { inventoryBranch, inventoryBranchError } from "@/server/auth/inventory-branch-access";
 import { requireManagementUser, requireRolesUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { restockCreateSchema } from "@/server/schemas/sprint2.schema";
@@ -6,7 +7,7 @@ import { supplierIdForUser } from "@/server/services/supplier.service";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(request: Request) {
   const user = await requireRolesUser(["administrator", "manager", "supplier"]);
   if (user instanceof Response) return user;
   try {
@@ -14,8 +15,9 @@ export async function GET() {
     if (user.role === "supplier" && !supplierId) {
       return Response.json({ success: false, message: "Supplier account is inactive or not linked" }, { status: 403 });
     }
-    return Response.json({ success: true, restocks: await listRestockRequests(pool, supplierId ?? undefined) });
+    return Response.json({ success: true, restocks: await listRestockRequests(pool, supplierId ?? undefined, undefined, user.role === "supplier" ? undefined : await inventoryBranch(pool, user, request)) });
   } catch (error) {
+    const branchError = inventoryBranchError(error); if (branchError) return branchError;
     console.error("Unable to list restock requests", error);
     return Response.json({ success: false, message: "Unable to load restock requests" }, { status: 500 });
   }
@@ -33,9 +35,10 @@ export async function POST(request: Request) {
     return Response.json({ success: false, message: "Invalid restock request", errors: parsed.error.flatten().fieldErrors }, { status: 400 });
   }
   try {
-    const restock = await createRestockRequest(pool, user.id, parsed.data);
+    const restock = await createRestockRequest(pool, user.id, parsed.data, await inventoryBranch(pool, user, request));
     return Response.json({ success: true, restock }, { status: 201 });
   } catch (error) {
+    const branchError = inventoryBranchError(error); if (branchError) return branchError;
       const message = error instanceof Error && error.message === "SUPPLIER_UNAVAILABLE"
       ? "Supplier is inactive or unavailable"
       : error instanceof Error && error.message === "ITEM_NOT_LINKED_TO_SUPPLIER"

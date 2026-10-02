@@ -1,4 +1,5 @@
-import { requireAdministrator, requireManagement, requireManagementUser } from "@/server/auth/require-role";
+import { listAccessibleBranches } from "@/server/auth/branch-access";
+import { requireAdministrator, requireManagementUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { supplierSchema } from "@/server/schemas/sprint2.schema";
 import { findSupplier, getSupplierProfile, updateSupplier } from "@/server/services/supplier.service";
@@ -7,9 +8,9 @@ export const runtime = "nodejs";
 const parseId = (raw: string) => /^\d+$/.test(raw) && Number(raw) > 0 ? Number(raw) : null;
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const denied = await requireManagement(); if (denied) return denied;
+  const user = await requireManagementUser(); if (user instanceof Response) return user;
   const id = parseId((await params).id); if (!id) return Response.json({ success:false,message:"Invalid supplier id" },{status:400});
-  const profile = await getSupplierProfile(pool, id);
+  const profile = await getSupplierProfile(pool, id, (await listAccessibleBranches(pool, user)).map((branch) => branch.id));
   return profile ? Response.json({ success:true, profile }) : Response.json({ success:false,message:"Supplier not found" },{status:404});
 }
 

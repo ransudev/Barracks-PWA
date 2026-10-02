@@ -1,4 +1,5 @@
 "use client";
+import { useBranchContext } from "@/app/utils/use-branch-context";
 
 /* Inventory photos are user-supplied data URLs, which next/image cannot resize
    or cache, so plain img tags are the right fit for this screen. */
@@ -415,7 +416,19 @@ function InventoryDrawer({
   );
 }
 
-export function InventoryPage({ onToast, admin = false, canDelete }: { onToast: (message: string) => void; admin?: boolean; canDelete: boolean }) {
+export function InventoryPage(props: { onToast: (message: string) => void; admin?: boolean; canDelete: boolean }) {
+  const { branches, branchId, setBranchId, branchError } = useBranchContext();
+  const branchName = branches.find((branch) => branch.id === branchId)?.name ?? "";
+  return <><SelectField label="Branch" value={branchId || ""} onChange={(event) => setBranchId(Number(event.target.value))}>
+    {branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+  </SelectField>{branchError && <p role="alert">{branchError}</p>}
+  {branchId > 0 && <InventoryPageContent key={branchId} {...props} branchId={branchId} branchName={branchName} />}</>;
+}
+
+function InventoryPageContent({ onToast: notify, admin = false, canDelete, branchId, branchName }: { onToast: (message: string) => void; admin?: boolean; canDelete: boolean; branchId: number; branchName: string }) {
+  const active = useRef(true);
+  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
+  const onToast = useCallback((message: string) => { if (active.current) notify(message); }, [notify]);
   const [items, setItems] = useState<ApiInventoryItem[]>([]);
   const [suppliers, setSuppliers] = useState<ApiSupplier[]>([]);
   const [loading, setLoading] = useState(true);
@@ -423,7 +436,6 @@ export function InventoryPage({ onToast, admin = false, canDelete }: { onToast: 
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
-  const [branchFilter, setBranchFilter] = useState("all");
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [status, setStatus] = useState<StockFilter>("all");
   const [sortKey, setSortKey] = useState<SortKey>("name");
@@ -456,10 +468,12 @@ export function InventoryPage({ onToast, admin = false, canDelete }: { onToast: 
   const [restockError, setRestockError] = useState("");
 
   const loadInventory = useCallback(async () => {
+    if (!active.current) return;
     setLoading(true);
     try {
-      const response = await apiRequest("/api/inventory", { cache: "no-store" });
+      const response = await apiRequest(`/api/inventory?branchId=${branchId}`, { cache: "no-store" });
       const body = await readApiBody<{ success: boolean; items?: ApiInventoryItem[]; message?: string }>(response);
+      if (!active.current) return;
       if (!response.ok || !body?.success || !body.items) throw new Error(body?.message ?? "Unable to load inventory");
       setItems(body.items);
       setDrawerItem((current) => current ? body.items?.find((item) => item.id === current.id) ?? current : current);
@@ -471,12 +485,13 @@ export function InventoryPage({ onToast, admin = false, canDelete }: { onToast: 
     } finally {
       setLoading(false);
     }
-  }, [onToast]);
+  }, [onToast, branchId]);
 
   const loadSuppliers = useCallback(async () => {
     try {
       const response = await apiRequest("/api/suppliers", { cache: "no-store" });
       const body = await readApiBody<{ success: boolean; suppliers?: ApiSupplier[] }>(response);
+      if (!active.current) return;
       if (response.ok && body?.success) setSuppliers(body.suppliers ?? []);
     } catch { /* Inventory remains usable if supplier options fail to load. */ }
   }, []);
@@ -492,17 +507,15 @@ export function InventoryPage({ onToast, admin = false, canDelete }: { onToast: 
     for (const item of items) if (item.supplierId && item.supplierName) byId.set(item.supplierId, item.supplierName);
     return [...byId.entries()].sort((a, b) => a[1].localeCompare(b[1]));
   }, [items, suppliers]);
-  const branchOptions = useMemo(() => [...new Set(items.map((item) => item.branch).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [items]);
   const categoryFilterOptions = useMemo(() => [...new Set(items.map((item) => item.category))].sort(), [items]);
   const normalizedSearch = search.trim().toLowerCase();
   const filtered = useMemo(() => items.filter((item) => {
     const matchesSearch = !normalizedSearch || `${item.name} ${item.sku ?? ""}`.toLowerCase().includes(normalizedSearch);
     const matchesCategory = category === "all" || item.category === category;
-    const matchesBranch = branchFilter === "all" || item.branch === branchFilter;
     const matchesSupplier = supplierFilter === "all" || String(item.supplierId ?? "none") === supplierFilter;
     const matchesStatus = status === "all" || stockStatus(item) === status;
-    return matchesSearch && matchesCategory && matchesBranch && matchesSupplier && matchesStatus;
-  }), [branchFilter, category, normalizedSearch, items, status, supplierFilter]);
+    return matchesSearch && matchesCategory && matchesSupplier && matchesStatus;
+  }), [category, normalizedSearch, items, status, supplierFilter]);
   const sortedFiltered = useMemo(() => [...filtered].sort((first, second) => {
     const valueFor = (item: ApiInventoryItem) => sortKey === "name" ? item.name.toLowerCase() : sortKey === "sku" ? (item.sku ?? "").toLowerCase() : sortKey === "supplier" ? (item.supplierName ?? "").toLowerCase() : sortKey === "quantity" ? item.quantity : sortKey === "threshold" ? item.minimumStock : sortKey === "unitCost" ? item.unitCost : stockStatusLabel(stockStatus(item)).toLowerCase();
     const left = valueFor(first);
@@ -516,7 +529,7 @@ export function InventoryPage({ onToast, admin = false, canDelete }: { onToast: 
   const inventoryValue = items.reduce((sum, item) => sum + item.quantity * item.unitCost, 0);
   const drawerDirty = drawerItem ? formHasChanged(drawerItem, drawerForm) : false;
 
-  function openCreate() { setForm(emptyForm); setFormError(""); setModalOpen(true); }
+  function openCreate() { setForm({ ...emptyForm, branch: branchName }); setFormError(""); setModalOpen(true); }
   function closeEditor() { if (!submitting) { setModalOpen(false); setFormError(""); } }
   function openDrawer(item: ApiInventoryItem) { setDrawerItem(item); setDrawerOpen(true); setDrawerForm(formFromItem(item)); setDrawerEditing(false); setDrawerClosePrompt(false); setDrawerHistory([]); void loadDrawerHistory(item); }
   function requestDrawerClose() { if (drawerSaving) return; if (drawerDirty) setDrawerClosePrompt(true); else { setDrawerOpen(false); setDrawerEditing(false); } }
@@ -525,8 +538,9 @@ export function InventoryPage({ onToast, admin = false, canDelete }: { onToast: 
   async function loadDrawerHistory(item: ApiInventoryItem) {
     setDrawerHistoryLoading(true);
     try {
-      const response = await apiRequest(`/api/inventory/${item.id}/movements`, { cache: "no-store" });
+      const response = await apiRequest(`/api/inventory/${item.id}/movements?branchId=${branchId}`, { cache: "no-store" });
       const body = await readApiBody<{ success: boolean; movements?: Movement[]; message?: string }>(response);
+      if (!active.current) return;
       if (!response.ok || !body?.success) throw new Error(body?.message ?? "Unable to load movement history");
       setDrawerHistory(body.movements ?? []);
     } catch (error) { setDrawerHistory([]); onToast(error instanceof Error ? error.message : "Unable to load movement history"); }
@@ -537,8 +551,9 @@ export function InventoryPage({ onToast, admin = false, canDelete }: { onToast: 
     event.preventDefault(); setFormError(""); setSubmitting(true);
     try {
       if (!form.name.trim()) throw new Error("Item name is required.");
-      const response = await apiRequest("/api/inventory", { method: "POST", body: JSON.stringify(itemPayload(form, true)) });
+      const response = await apiRequest(`/api/inventory?branchId=${branchId}`, { method: "POST", body: JSON.stringify(itemPayload(form, true)) });
       const body = await readApiBody<{ success: boolean; item?: ApiInventoryItem; message?: string; errors?: Record<string, string[]> }>(response);
+      if (!active.current) return;
       if (!response.ok || !body?.success || !body.item) throw new Error(responseMessage(body, "Unable to add inventory item"));
       setModalOpen(false); onToast(`${body.item.name} added to inventory`); await loadInventory();
     } catch (error) { setFormError(error instanceof Error ? error.message : "Unable to add inventory item"); }
@@ -549,8 +564,9 @@ export function InventoryPage({ onToast, admin = false, canDelete }: { onToast: 
     event.preventDefault(); if (!drawerItem) return; setDrawerSaving(true);
     try {
       if (!drawerForm.name.trim()) throw new Error("Item name is required.");
-      const response = await apiRequest(`/api/inventory/${drawerItem.id}`, { method: "PUT", body: JSON.stringify(itemPayload(drawerForm, false)) });
+      const response = await apiRequest(`/api/inventory/${drawerItem.id}?branchId=${branchId}`, { method: "PUT", body: JSON.stringify(itemPayload(drawerForm, false)) });
       const body = await readApiBody<{ success: boolean; item?: ApiInventoryItem; message?: string; errors?: Record<string, string[]> }>(response);
+      if (!active.current) return;
       if (!response.ok || !body?.success || !body.item) throw new Error(responseMessage(body, "Unable to save inventory item"));
       setDrawerItem(body.item); setDrawerForm(formFromItem(body.item)); setDrawerEditing(false); onToast(`${body.item.name} updated`); await loadInventory();
     } catch (error) { onToast(error instanceof Error ? error.message : "Unable to save inventory item"); }
@@ -563,8 +579,9 @@ export function InventoryPage({ onToast, admin = false, canDelete }: { onToast: 
     try {
       if (movementForm.movementType === "ADJUSTMENT" && !movementForm.notes.trim()) throw new Error("A reason is required for manual adjustments.");
       const payload = { movementType: movementForm.movementType, quantity: parsePositiveInt(movementForm.quantity, "Quantity"), supplierId: movementItem.supplierId, unitCost: movementForm.unitCost.trim() ? parseNumber(movementForm.unitCost, "Unit cost") : null, reference: movementForm.reference.trim() || null, notes: movementForm.notes.trim(), ...(movementForm.movementType === "ADJUSTMENT" ? { adjustmentDirection: movementForm.adjustmentDirection } : {}) };
-      const response = await apiRequest(`/api/inventory/${movementItem.id}/movements`, { method: "POST", body: JSON.stringify(payload) });
+      const response = await apiRequest(`/api/inventory/${movementItem.id}/movements?branchId=${branchId}`, { method: "POST", body: JSON.stringify(payload) });
       const body = await readApiBody<{ success: boolean; message?: string; errors?: Record<string, string[]> }>(response);
+      if (!active.current) return;
       if (!response.ok || !body?.success) throw new Error(responseMessage(body, "Unable to record stock operation"));
       setMovementItem(null); onToast(`${movementForm.movementType.replaceAll("_", " ")} recorded for ${movementItem.name}`); await loadInventory();
       if (drawerItem?.id === movementItem.id) void loadDrawerHistory(movementItem);
@@ -575,8 +592,9 @@ export function InventoryPage({ onToast, admin = false, canDelete }: { onToast: 
   async function openHistory(item: ApiInventoryItem) {
     setHistoryItem(item); setHistoryLoading(true);
     try {
-      const response = await apiRequest(`/api/inventory/${item.id}/movements`, { cache: "no-store" });
+      const response = await apiRequest(`/api/inventory/${item.id}/movements?branchId=${branchId}`, { cache: "no-store" });
       const body = await readApiBody<{ success: boolean; movements?: Movement[]; message?: string }>(response);
+      if (!active.current) return;
       if (!response.ok || !body?.success) throw new Error(body?.message ?? "Unable to load movement history");
       setHistory(body.movements ?? []);
     } catch (error) { onToast(error instanceof Error ? error.message : "Unable to load movement history"); setHistory([]); }
@@ -592,8 +610,9 @@ export function InventoryPage({ onToast, admin = false, canDelete }: { onToast: 
     event.preventDefault(); if (!restockItem?.supplierId) return; setRestockSubmitting(true); setRestockError("");
     try {
       const requestedQuantity = parsePositiveInt(restockQuantity, "Requested quantity");
-      const response = await apiRequest("/api/restocks", { method: "POST", body: JSON.stringify({ supplierId: restockItem.supplierId, branch: restockItem.branch, reference: null, notes: restockNotes.trim(), items: [{ inventoryItemId: restockItem.id, requestedQuantity, unitCost: restockItem.unitCost }] }) });
+      const response = await apiRequest(`/api/restocks?branchId=${branchId}`, { method: "POST", body: JSON.stringify({ supplierId: restockItem.supplierId, branch: restockItem.branch, reference: null, notes: restockNotes.trim(), items: [{ inventoryItemId: restockItem.id, requestedQuantity, unitCost: restockItem.unitCost }] }) });
       const body = await readApiBody<{ success: boolean; message?: string; errors?: Record<string, string[]> }>(response);
+      if (!active.current) return;
       if (!response.ok || !body?.success) throw new Error(responseMessage(body, "Unable to create restock request"));
       setRestockItem(null); onToast(`Restock request submitted for ${restockItem.name}`);
     } catch (error) { setRestockError(error instanceof Error ? error.message : "Unable to create restock request"); }
@@ -603,8 +622,9 @@ export function InventoryPage({ onToast, admin = false, canDelete }: { onToast: 
   async function deleteItem(item: ApiInventoryItem) {
     setDeleting(true);
     try {
-      const response = await apiRequest(`/api/inventory/${item.id}`, { method: "DELETE" });
+      const response = await apiRequest(`/api/inventory/${item.id}?branchId=${branchId}`, { method: "DELETE" });
       const body = await readApiBody<{ success: boolean; message?: string }>(response);
+      if (!active.current) return;
       if (!response.ok || !body?.success) throw new Error(body?.message ?? "Unable to deactivate inventory item");
       setPendingDelete(null); if (drawerItem?.id === item.id) setDrawerOpen(false); onToast(`${item.name} deactivated`); await loadInventory();
     } catch (error) { onToast(error instanceof Error ? error.message : "Unable to deactivate inventory item"); }
@@ -617,18 +637,18 @@ export function InventoryPage({ onToast, admin = false, canDelete }: { onToast: 
 
   return (
     <div className="inventory-workspace">
-      <PageHeader title="Inventory Management" description={admin ? "Review the full stock catalog and keep every branch supplied." : "Keep the shop floor supplied, visible, and ready for the next service."} action={<><OperationalViewToggle view={viewMode} onChange={setViewMode} label="Choose inventory view" /><Button icon="plus" onClick={openCreate}>Add item</Button></>} />
+      <PageHeader title="Inventory Management" description={admin ? "Review stock and keep the selected branch supplied." : "Keep the shop floor supplied, visible, and ready for the next service."} action={<><OperationalViewToggle view={viewMode} onChange={setViewMode} label="Choose inventory view" /><Button icon="plus" onClick={openCreate}>Add item</Button></>} />
       <div className="metrics-grid metrics-grid--four inventory-metrics"><MetricCard label="Catalog items" value={String(items.length)} icon="box" accent="blue" /><MetricCard label="Active items" value={String(activeItems.length)} icon="checkCircle" accent="green" /><MetricCard label="Needs attention" value={String(lowStock.length + outOfStock.length)} icon="info" accent="amber" /><MetricCard label="Inventory value" value={formatCurrency(inventoryValue)} icon="wallet" accent="violet" /></div>
       <Panel className="inventory-catalog-panel">
         <div className="inventory-catalog-head"><div><span className="inventory-kicker">Stock catalog</span><h2>{viewMode === "cards" ? "Everyday inventory" : "Detailed inventory list"}</h2><p>{viewMode === "cards" ? "Open an item for its full record and stock actions." : "Sort, scan, and export the current filtered inventory."}</p></div><div className="inventory-catalog-count"><strong>{sortedFiltered.length}</strong><span>of {items.length} items</span></div></div>
-        <div className="inventory-filter-bar"><SearchInput value={search} onChange={setSearch} placeholder="Search item name or SKU" className="inventory-search" /><SelectField value={category} onChange={(event) => setCategory(event.target.value)} aria-label="Filter inventory by category"><option value="all">All categories</option>{categoryFilterOptions.map((option) => <option key={option} value={option}>{option}</option>)}</SelectField><SelectField value={supplierFilter} onChange={(event) => setSupplierFilter(event.target.value)} aria-label="Filter inventory by supplier"><option value="all">All suppliers</option><option value="none">No supplier</option>{supplierOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</SelectField><SelectField className="inventory-status-filter" value={status} onChange={(event) => setStatus(event.target.value as StockFilter)} aria-label="Filter inventory by stock status"><option value="all">All stock statuses</option><option value="in_stock">In stock</option><option value="low_stock">Low stock</option><option value="out_of_stock">Out of stock</option><option value="inactive">Inactive</option></SelectField><SelectField value={branchFilter} onChange={(event) => setBranchFilter(event.target.value)} aria-label="Filter inventory by branch"><option value="all">All branches</option>{branchOptions.map((branch) => <option key={branch} value={branch}>{branch}</option>)}</SelectField></div>
+        <div className="inventory-filter-bar"><SearchInput value={search} onChange={setSearch} placeholder="Search item name or SKU" className="inventory-search" /><SelectField value={category} onChange={(event) => setCategory(event.target.value)} aria-label="Filter inventory by category"><option value="all">All categories</option>{categoryFilterOptions.map((option) => <option key={option} value={option}>{option}</option>)}</SelectField><SelectField value={supplierFilter} onChange={(event) => setSupplierFilter(event.target.value)} aria-label="Filter inventory by supplier"><option value="all">All suppliers</option><option value="none">No supplier</option>{supplierOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</SelectField><SelectField className="inventory-status-filter" value={status} onChange={(event) => setStatus(event.target.value as StockFilter)} aria-label="Filter inventory by stock status"><option value="all">All stock statuses</option><option value="in_stock">In stock</option><option value="low_stock">Low stock</option><option value="out_of_stock">Out of stock</option><option value="inactive">Inactive</option></SelectField></div>
         <div className="inventory-results-bar"><span>{loading ? "Loading catalog…" : `${sortedFiltered.length} result${sortedFiltered.length === 1 ? "" : "s"}`}{search ? ` for “${search}”` : ""}</span>{viewMode === "table" && <Button size="sm" variant="ghost" icon="download" onClick={exportInventory} disabled={!sortedFiltered.length}>Export CSV</Button>}</div>
         {loading ? <LoadingCards /> : loadError ? <div className="inventory-state" role="alert"><Icon name="refresh" size={23} /><strong>{loadError}</strong><Button size="sm" variant="secondary" onClick={() => void loadInventory()}>Try again</Button></div> : sortedFiltered.length === 0 ? <EmptyState icon="box" title="No inventory matches" description="Try a different item name, SKU, category, supplier, or stock status." action={<Button size="sm" icon="plus" onClick={openCreate}>Add item</Button>} /> : viewMode === "cards" ? <div className="inventory-card-grid">{sortedFiltered.map((item) => <InventoryCard key={item.id} item={item} onOpen={() => openDrawer(item)} onRestock={() => openRestock(item)} />)}</div> : (
           <div className="inventory-table-wrap"><table className="inventory-data-table"><thead><tr>{([ ["name", "Item"], ["sku", "SKU"], ["supplier", "Supplier"], ["quantity", "Current stock"], ["threshold", "Min / max"], ["unitCost", "Unit cost"], ["status", "Status"] ] as Array<[SortKey, string]>).map(([key, label]) => <th key={key} scope="col"><button type="button" onClick={() => handleSort(key)}>{label}<Icon name={sortKey === key && sortDirection === "desc" ? "arrowDown" : "arrowUp"} size={12} className={sortKey === key ? "is-visible" : ""} /></button></th>)}<th scope="col">Actions</th></tr></thead><tbody>{sortedFiltered.map((item) => <tr key={item.id} tabIndex={0} onClick={() => openDrawer(item)} onKeyDown={(event) => tableRowKeyDown(event, item)} aria-label={`Open ${item.name}`}><td><button type="button" className="inventory-table__item" onClick={(event) => { event.stopPropagation(); openDrawer(item); }}><span className="inventory-table__icon">{item.imageUrl ? <img src={item.imageUrl} alt="" /> : <ProductImagePlaceholder />}</span><span><strong>{item.name}</strong><small>{item.category} · {item.branch}</small></span></button></td><td>{item.sku || "—"}</td><td>{item.supplierName || "Unassigned"}</td><td className={item.quantity <= item.minimumStock && item.status === "active" ? "inventory-table__stock-alert" : ""}><strong>{item.quantity}</strong> {item.unit}</td><td>{item.minimumStock} / {item.maximumStock ?? "—"}</td><td>{formatCurrency(item.unitCost)}</td><td><StatusBadge item={item} /></td><td><span className="inventory-table__actions" onClick={(event) => event.stopPropagation()}><IconButton label={`Restock ${item.name}`} icon="stockIn" disabled={item.status === "inactive" || !item.supplierId} onClick={() => openRestock(item)} /><IconButton label={`Edit ${item.name}`} icon="edit" onClick={() => openDrawer(item)} /><IconButton label={`History for ${item.name}`} icon="clock" onClick={() => openHistory(item)} /></span></td></tr>)}</tbody></table></div>
         )}
       </Panel>
 
-      <Modal open={modalOpen} title="Add inventory item" description="Create a trackable item for the selected branch." onClose={closeEditor}><form className="modal-form" onSubmit={saveItem}><TextField label="Item name" required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /><ItemPhotoField value={form.imageUrl} disabled={submitting} onChange={(imageUrl) => setForm({ ...form, imageUrl })} /><div className="form-grid form-grid--three"><SelectField label="Category" required value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value as ItemForm["category"] })}><option>Supplies</option><option>Equipment</option><option>Products</option></SelectField><TextField label="Branch" required value={form.branch} onChange={(event) => setForm({ ...form, branch: event.target.value })} placeholder="Main Branch" /><TextField label="Unit" required value={form.unit} onChange={(event) => setForm({ ...form, unit: event.target.value })} /></div><TextField label="SKU" value={form.sku} onChange={(event) => setForm({ ...form, sku: event.target.value })} /><SelectField label="Supplier" value={form.supplierId} onChange={(event) => setForm({ ...form, supplierId: event.target.value })}><option value="">No supplier</option>{suppliers.filter((supplier) => supplier.status === "active").map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.companyName}</option>)}</SelectField><div className="form-grid form-grid--three"><TextField label="Initial quantity" required type="number" min="0" step="1" value={form.initialQuantity} onChange={(event) => setForm({ ...form, initialQuantity: event.target.value })} /><TextField label="Minimum stock" required type="number" min="0" step="1" value={form.minimumStock} onChange={(event) => setForm({ ...form, minimumStock: event.target.value })} /><TextField label="Maximum stock" type="number" min="0" step="1" value={form.maximumStock} onChange={(event) => setForm({ ...form, maximumStock: event.target.value })} /></div><div className="form-grid"><TextField label="Unit cost" required type="number" min="0" step="0.01" value={form.unitCost} onChange={(event) => setForm({ ...form, unitCost: event.target.value })} /><SelectField label="Status" value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as ItemForm["status"] })}><option value="active">Active</option><option value="inactive">Inactive</option></SelectField></div>{formError && <p className="form-error" role="alert">{formError}</p>}<div className="modal-actions"><Button variant="secondary" type="button" disabled={submitting} onClick={closeEditor}>Cancel</Button><Button type="submit" icon="check" disabled={submitting}>{submitting ? "Saving…" : "Save item"}</Button></div></form></Modal>
+      <Modal open={modalOpen} title="Add inventory item" description="Create a trackable item for the selected branch." onClose={closeEditor}><form className="modal-form" onSubmit={saveItem}><TextField label="Item name" required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /><ItemPhotoField value={form.imageUrl} disabled={submitting} onChange={(imageUrl) => setForm({ ...form, imageUrl })} /><div className="form-grid form-grid--three"><SelectField label="Category" required value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value as ItemForm["category"] })}><option>Supplies</option><option>Equipment</option><option>Products</option></SelectField><TextField label="Branch" value={form.branch} readOnly /><TextField label="Unit" required value={form.unit} onChange={(event) => setForm({ ...form, unit: event.target.value })} /></div><TextField label="SKU" value={form.sku} onChange={(event) => setForm({ ...form, sku: event.target.value })} /><SelectField label="Supplier" value={form.supplierId} onChange={(event) => setForm({ ...form, supplierId: event.target.value })}><option value="">No supplier</option>{suppliers.filter((supplier) => supplier.status === "active").map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.companyName}</option>)}</SelectField><div className="form-grid form-grid--three"><TextField label="Initial quantity" required type="number" min="0" step="1" value={form.initialQuantity} onChange={(event) => setForm({ ...form, initialQuantity: event.target.value })} /><TextField label="Minimum stock" required type="number" min="0" step="1" value={form.minimumStock} onChange={(event) => setForm({ ...form, minimumStock: event.target.value })} /><TextField label="Maximum stock" type="number" min="0" step="1" value={form.maximumStock} onChange={(event) => setForm({ ...form, maximumStock: event.target.value })} /></div><div className="form-grid"><TextField label="Unit cost" required type="number" min="0" step="0.01" value={form.unitCost} onChange={(event) => setForm({ ...form, unitCost: event.target.value })} /><SelectField label="Status" value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as ItemForm["status"] })}><option value="active">Active</option><option value="inactive">Inactive</option></SelectField></div>{formError && <p className="form-error" role="alert">{formError}</p>}<div className="modal-actions"><Button variant="secondary" type="button" disabled={submitting} onClick={closeEditor}>Cancel</Button><Button type="submit" icon="check" disabled={submitting}>{submitting ? "Saving…" : "Save item"}</Button></div></form></Modal>
 
       {drawerItem && <InventoryDrawer open={drawerOpen} item={drawerItem} form={drawerForm} editing={drawerEditing} dirty={drawerDirty} canDelete={canDelete} saving={drawerSaving} history={drawerHistory} historyLoading={drawerHistoryLoading} suppliers={suppliers} onRequestClose={requestDrawerClose} onEdit={() => setDrawerEditing(true)} onFormChange={(field, value) => setDrawerForm((current) => ({ ...current, [field]: value }))} onSave={saveDrawerItem} onCancelEdit={() => { setDrawerForm(formFromItem(drawerItem)); setDrawerEditing(false); }} onReceive={() => openMovement(drawerItem, "RECEIVE")} onUsage={() => openMovement(drawerItem, "STAFF_USAGE")} onAdjust={() => openMovement(drawerItem, "ADJUSTMENT")} onDamage={() => openMovement(drawerItem, "DAMAGE")} onRestock={() => openRestock(drawerItem)} onHistory={() => void openHistory(drawerItem)} onDeactivate={() => setPendingDelete(drawerItem)} />}
 
