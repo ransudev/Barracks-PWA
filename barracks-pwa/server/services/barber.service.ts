@@ -39,7 +39,12 @@ type BarberAvailabilityRow = Pick<BarberRow, "branch_id" | "id" | "first_name" |
 export type BarberDeleteResult = "deleted" | "not_found" | "referenced";
 
 const barberSelect = `
-  SELECT id, branch_id, first_name, last_name, status, commission_rate, services_done, revenue, rating, created_at, updated_at,
+  SELECT id, branch_id, first_name, last_name, status, commission_rate,
+    (SELECT COUNT(*) FROM bookings b WHERE b.barber_id=barbers.id AND b.branch_id=barbers.branch_id AND b.status='completed')
+      + (SELECT COUNT(*) FROM queue_entries q WHERE q.barber_id=barbers.id AND q.branch_id=barbers.branch_id AND q.status='completed' AND q.booking_id IS NULL) AS services_done,
+    COALESCE((SELECT SUM(t.amount) FROM transactions t WHERE t.barber_id=barbers.id AND t.branch_id=barbers.branch_id
+      AND t.status IN ('completed','partially_refunded','refunded','voided')), 0) AS revenue,
+    rating, created_at, updated_at,
     (SELECT COUNT(*) FROM barber_schedules s WHERE s.barber_id = barbers.id) AS schedule_day_count
   FROM barbers
 `;
@@ -123,6 +128,16 @@ export async function updateBarber(
   id: number,
   input: BarberMutationInput,
 ): Promise<BarberRecord | null> {
+  const ownsClient = typeof (db as Pool).connect === "function";
+  const client: PoolClient = ownsClient ? await (db as Pool).connect() : db as PoolClient;
+  if (ownsClient) await client.query("BEGIN");
+  try {
+  const current = await client.query<{ branch_id: number }>("SELECT branch_id FROM barbers WHERE id=$1 FOR UPDATE", [id]);
+  if (!current.rows[0]) { if (ownsClient) await client.query("COMMIT"); return null; }
+  if (Number(current.rows[0].branch_id) !== input.branchId) {
+    const attendance = await client.query("SELECT 1 FROM barber_attendance WHERE barber_id=$1 AND attendance_date=(clock_timestamp() AT TIME ZONE 'Asia/Manila')::date AND clock_in IS NOT NULL AND clock_out IS NULL LIMIT 1", [id]);
+    if (attendance.rowCount) throw new BarberMoveConflict("This barber cannot move branches while today's attendance clock-in is open");
+  }
   const values: Array<string | number | null> = [input.firstName, input.lastName, input.status, input.branchId];
   const updates = ["first_name = $1", "last_name = $2", "status = $3", "branch_id = $4"];
   const commissionRate = "commissionRate" in input ? input.commissionRate : undefined;
@@ -138,7 +153,7 @@ export async function updateBarber(
   }
 
   values.push(id);
-  const result = await db.query<{ id: number }>(
+  const result = await client.query<{ id: number }>(
     `
       UPDATE barbers
       SET ${updates.join(", ")}, updated_at = NOW()
@@ -147,8 +162,16 @@ export async function updateBarber(
     `,
     values,
   );
-  return result.rows[0] ? findBarberById(db, id) : null;
+  const barber = result.rows[0] ? await findBarberById(client, id) : null;
+  if (ownsClient) await client.query("COMMIT");
+  return barber;
+  } catch (error) {
+    if (ownsClient) await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally { if (ownsClient) client.release(); }
 }
+
+export class BarberMoveConflict extends Error {}
 
 export async function updateBarberStatus(
   db: Db,

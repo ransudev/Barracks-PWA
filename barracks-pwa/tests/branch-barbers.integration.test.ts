@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createDisposableSchema, databaseConfigured } from "./helpers/database";
 import { applyMigrations } from "@/server/db/migrate";
-import { createBarber, findBarberById, updateBarber } from "@/server/services/barber.service";
+import { createBarber, findBarberById, listBarbers, updateBarber } from "@/server/services/barber.service";
 import { listBarberSchedules, listShopHours, saveBarberSchedule, saveShopHours } from "@/server/services/schedule.service";
 import { getBookingAvailability, getAnyBarberAvailability } from "@/server/services/booking-availability.service";
 import { getBarberOperationalAvailability } from "@/server/services/barber-operational-availability.service";
@@ -68,5 +68,30 @@ test("branch hours initialize barbers and drive availability; safe moves preserv
     await db.query("UPDATE bookings SET status='cancelled' WHERE barber_id=$1", [barber.id]);
     await db.query("INSERT INTO queue_entries(customer_id,barber_id,service_id,status) VALUES((SELECT id FROM customers LIMIT 1),$1,'barracks-basic','ready')", [barber.id]);
     await assert.rejects(updateBarber(db, barber.id, { branchId: second, firstName: "Second", lastName: "Barber", status: "available" }), /active bookings and queue/);
+  } finally { await cleanup(); }
+});
+
+test("barber roster metrics use branch-owned history after a move and retain portable counters untouched", { skip: !databaseConfigured }, async () => {
+  const { db, cleanup } = await createDisposableSchema();
+  try {
+    const main = Number((await db.query("SELECT id FROM branches WHERE code='MAIN'")).rows[0].id);
+    const second = Number((await db.query("INSERT INTO branches(name,code) VALUES('Metrics destination','METRICS') RETURNING id")).rows[0].id);
+    const barber = await createBarber(db, { branchId: main, firstName: "History", lastName: "Barber", status: "available" });
+    await db.query("UPDATE barbers SET services_done=12,revenue=840 WHERE id=$1", [barber.id]);
+    const customer = Number((await db.query("INSERT INTO customers(first_name,last_name) VALUES('History','Customer') RETURNING id")).rows[0].id);
+    const booking = Number((await db.query(`INSERT INTO bookings(customer_id,barber_id,service_id,service_name,service_price,service_duration_minutes,booking_date,booking_time,end_time,status,branch_id)
+      VALUES($1,$2,'barracks-basic','Saved cut',300,30,'2026-09-01','10:00','10:30','completed',$3) RETURNING id`, [customer, barber.id, main])).rows[0].id);
+    await db.query("BEGIN");
+    const transaction = Number((await db.query(`INSERT INTO transactions(branch_id,booking_id,barber_id,amount,status,visit_type,visit_record_id,customer_name,barber_name,service_name,payment_method)
+      VALUES($1,$2,$3,300,'completed','booking',$2,'History Customer','History Barber','Saved cut','card') RETURNING id`, [main, booking, barber.id])).rows[0].id);
+    await db.query("INSERT INTO transaction_payments(transaction_id,payment_method,amount,status) VALUES($1,'card',300,'completed')", [transaction]);
+    await db.query("COMMIT");
+    assert.equal((await updateBarber(db, barber.id, { branchId: second, firstName: "History", lastName: "Barber", status: "available" }))?.branchId, second);
+    const destination = (await listBarbers(db, [second]))[0];
+    assert.equal(destination.servicesDone, 0);
+    assert.equal(destination.revenue, 0);
+    const stored = (await db.query("SELECT services_done,revenue FROM barbers WHERE id=$1", [barber.id])).rows[0];
+    assert.equal(stored.services_done, 12);
+    assert.equal(Number(stored.revenue), 840);
   } finally { await cleanup(); }
 });

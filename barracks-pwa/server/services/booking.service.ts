@@ -317,6 +317,12 @@ export async function updateBookingDetails(
   const existingBooking = await findBookingById(db, id);
   if (!existingBooking) return null;
   input = { ...input, branchId: existingBooking.branchId };
+  if (scope?.customerId) {
+    const branch = await db.query<{ status: string }>("SELECT status FROM branches WHERE id=$1", [existingBooking.branchId]);
+    if (!branch.rows[0] || branch.rows[0].status !== "active") {
+      throw new BookingServiceError("not_updatable", "Appointments at inactive branches cannot be rescheduled");
+    }
+  }
   const slot = new Date(`${input.date}T${input.time}:00+08:00`);
   if (Number.isNaN(slot.getTime()) || slot.getTime() <= Date.now()) {
     throw new BookingServiceError("past", "Choose a future booking time");

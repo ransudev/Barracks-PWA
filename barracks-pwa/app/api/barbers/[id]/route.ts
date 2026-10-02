@@ -4,7 +4,7 @@ import { branchApiError } from "@/server/services/branch-api";
 import { requireAdministrator, requireManagementUser, requireStaffUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { barberSchema, barberStaffSchema, formatValidationErrors } from "@/server/schemas/sprint.schema";
-import { deleteBarber, findBarberById, updateBarber } from "@/server/services/barber.service";
+import { BarberMoveConflict, deleteBarber, findBarberById, updateBarber } from "@/server/services/barber.service";
 
 export const runtime = "nodejs";
 
@@ -47,6 +47,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     if (!barber) return Response.json({ success: false, message: "Barber not found" }, { status: 404 });
     return Response.json({ success: true, barber });
   } catch (error) {
+    if (error instanceof BarberMoveConflict) return Response.json({ success: false, message: error.message }, { status: 409 });
     return branchApiError(error);
   }
 }

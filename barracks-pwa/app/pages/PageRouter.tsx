@@ -49,7 +49,7 @@ export function PageRouter({ view, go, onToast, currentUser }: PageRouterProps) 
     case "customers":
       return <CustomersPage onToast={onToast} canDelete={currentUser.role === "administrator"} canManageLoyalty={isManagementRole(currentUser.role)} />;
     case "admin-barbers":
-      return <BarbersManagement onToast={onToast} canDelete={currentUser.role === "administrator"} canEditCommission={isManagementRole(currentUser.role)} canSetAllCommissions={currentUser.role === "administrator"} />;
+      return <BarbersManagement onToast={onToast} canDelete={currentUser.role === "administrator"} canEditCommission={currentUser.role === "administrator"} canSetAllCommissions={currentUser.role === "administrator"} />;
     case "admin-attendance":
       return <AttendanceManagement />;
     case "barbers":

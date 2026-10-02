@@ -22,6 +22,11 @@ export async function createBranch(db: Db, input: BranchInput): Promise<Branch> 
   return mapBranch(result.rows[0]);
 }
 export async function updateBranch(db: Db, id: number, input: BranchUpdateInput): Promise<Branch | null> {
+  const existing = (await db.query<{ code: string }>("SELECT code FROM branches WHERE id=$1", [id])).rows[0];
+  if (!existing) return null;
+  if (existing.code === "MAIN" && input.code !== undefined && input.code !== "MAIN") {
+    throw new BranchError("The MAIN branch code is reserved and cannot be changed", 409);
+  }
   const result = await db.query<BranchRow>(`UPDATE branches SET name=COALESCE($2,name), code=COALESCE($3,code), address=COALESCE($4,address), phone=COALESCE($5,phone), status=COALESCE($6,status), updated_at=NOW() WHERE id=$1 RETURNING ${columns}`, [id, input.name, input.code, input.address, input.phone, input.status]);
   return result.rows[0] ? mapBranch(result.rows[0]) : null;
 }

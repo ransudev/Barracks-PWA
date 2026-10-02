@@ -255,7 +255,7 @@ test("legacy movement and restock snapshots retain their branch even when the it
       VALUES($1,'USE',4,9,5,$2,'Second Branch','2026-09-02T12:00:00Z')`, [item, user]);
     const restock = Number((await db.query(`INSERT INTO restock_requests(supplier_id,requested_by,status,branch,received_at)
       VALUES($1,$2,'Received','Second Branch','2026-09-02T12:00:00Z') RETURNING id`, [supplier, user])).rows[0].id);
-    await db.query("INSERT INTO restock_request_items(restock_request_id,inventory_item_id,requested_quantity,delivered_quantity,unit_cost) VALUES($1,$2,1,1,10)", [restock, item]);
+    await db.query("INSERT INTO restock_request_items(restock_request_id,inventory_item_id,requested_quantity,delivered_quantity,unit_cost) VALUES($1,$2,1,1,NULL)", [restock, item]);
     await applyMigrations(db);
     const report = (branch: string) => getInventoryReport(db, admin, new Date("2026-09-02T00:00:00Z"), new Date("2026-09-03T00:00:00Z"), branch);
     const own = await report(String(main)), historical = await report(String(second)), global = await report("all");
@@ -266,8 +266,8 @@ test("legacy movement and restock snapshots retain their branch even when the it
     assert.equal(historical.usageSummary[0].used, 4);
     assert.equal(historical.usageSummary[0].currentQuantity, null);
     assert.equal(historical.movements.length, 1);
-    assert.equal(historical.supplierSpending[0].totalSpend, 10);
+    assert.equal(historical.supplierSpending[0].totalSpend, null, "unknown historical cost stays unknown despite the item's current cost");
     assert.equal(global.usageSummary.reduce((sum, row) => sum + row.used, 0), 4);
-    assert.equal(global.supplierSpending[0].totalSpend, 10);
+    assert.equal(global.supplierSpending[0].totalSpend, null);
   } finally { await cleanup(); }
 });

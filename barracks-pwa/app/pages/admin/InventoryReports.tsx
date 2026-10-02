@@ -26,7 +26,7 @@ type ReportBody = {
   message?: string;
   range?: { from:string; to:string; previousFrom:string; previousTo:string };
   valuation?: { totalValue:number; activeItems:number; lowStockItems:number };
-  supplierSpending?: Array<{ supplierId:number; supplierName:string; totalSpend:number; receivedDeliveries:number }>;
+  supplierSpending?: Array<{ supplierId:number; supplierName:string; totalSpend:number | null; receivedDeliveries:number }>;
   usageSummary?: UsageRow[];
   movements?: Array<{ id:number; movement_type:string; quantity:number; previous_stock:number; new_stock:number; item_name:string; branch:string; supplier_name:string|null; created_by_name:string; created_at:string }>;
 };
@@ -82,7 +82,7 @@ export function InventoryReports({ onToast, branch }:{ onToast:(message:string)=
       <MetricCard label="Inventory valuation" value={loading||!valuation?"—":formatCurrency(valuation.totalValue)} icon="box" accent="blue" />
       <MetricCard label="Active items" value={loading||!valuation?"—":String(valuation.activeItems)} icon="check" accent="green" />
       <MetricCard label="Low stock items" value={loading||!valuation?"—":String(valuation.lowStockItems)} icon="info" accent="amber" />
-      <MetricCard label="Suppliers with spend" value={loading?"—":String((data?.supplierSpending??[]).filter((s)=>s.totalSpend>0).length)} icon="users" accent="violet" />
+      <MetricCard label="Suppliers with spend" value={loading?"—":String((data?.supplierSpending??[]).filter((s)=>s.totalSpend !== null && s.totalSpend>0).length)} icon="users" accent="violet" />
     </div>
 
     <Panel className="inventory-report-period-panel">
@@ -109,7 +109,7 @@ export function InventoryReports({ onToast, branch }:{ onToast:(message:string)=
 
     <Panel>
       <SectionHeading title="Supplier spending" />
-      {loading?<div className="staff-table__empty">Loading supplier spending…</div>:(data?.supplierSpending?.length??0)>0?<div className="staff-table staff-table--cols-3"><div className="staff-table__head"><span>Supplier</span><span>Received deliveries</span><span>Total spend</span></div>{data?.supplierSpending?.map((supplier)=><div className="staff-table__row" key={supplier.supplierId}><span><strong>{supplier.supplierName}</strong></span><span>{supplier.receivedDeliveries}</span><span>{formatCurrency(supplier.totalSpend)}</span></div>)}</div>:<EmptyState icon="users" title="No supplier spending yet" description="Received restock deliveries will appear here." />}
+      {loading?<div className="staff-table__empty">Loading supplier spending…</div>:(data?.supplierSpending?.length??0)>0?<div className="staff-table staff-table--cols-3"><div className="staff-table__head"><span>Supplier</span><span>Received deliveries</span><span>Total spend</span></div>{data?.supplierSpending?.map((supplier)=><div className="staff-table__row" key={supplier.supplierId}><span><strong>{supplier.supplierName}</strong></span><span>{supplier.receivedDeliveries}</span><span>{supplier.totalSpend === null ? "Unknown" : formatCurrency(supplier.totalSpend)}</span></div>)}</div>:<EmptyState icon="users" title="No supplier spending yet" description="Received restock deliveries will appear here." />}
     </Panel>
 
     <Panel>

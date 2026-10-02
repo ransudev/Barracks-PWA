@@ -1,15 +1,26 @@
 "use client";
-import { useEffect, useState } from "react";
+import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { BranchContext } from "@/app/types/branch";
 import { resolveBranchSelection } from "@/app/utils/branch-context";
 import { apiRequest, readApiBody } from "@/app/lib/api";
 
-export function useBranchContext() {
+type BranchContextValue = BranchContext & {
+  branchId: number;
+  setBranchId: (id: number) => void;
+  branchError: string;
+  branchLoading: boolean;
+};
+
+const BranchSelectionContext = createContext<BranchContextValue | null>(null);
+
+function useLocalBranchContext(enabled: boolean): BranchContextValue {
   const [context, setContext] = useState<BranchContext>({ branches: [], primaryBranch: null });
   const [branchId, setBranchId] = useState(0);
   const [branchLoading, setBranchLoading] = useState(true);
   const [branchError, setBranchError] = useState("");
+  const selectBranch = useCallback((id: number) => setBranchId(id), []);
   useEffect(() => {
+    if (!enabled) return;
     let active = true;
     void (async () => {
       try {
@@ -21,6 +32,17 @@ export function useBranchContext() {
       finally { if (active) setBranchLoading(false); }
     })();
     return () => { active = false; };
-  }, []);
-  return { branches: context.branches, branchId, setBranchId, branchError, branchLoading };
+  }, [enabled]);
+  return useMemo(() => ({ ...context, branchId, setBranchId: selectBranch, branchError, branchLoading }), [context, branchId, selectBranch, branchError, branchLoading]);
+}
+
+export function BranchContextProvider({ children }: { children: ReactNode }) {
+  const value = useLocalBranchContext(true);
+  return createElement(BranchSelectionContext.Provider, { value }, children);
+}
+
+export function useBranchContext() {
+  const shared = useContext(BranchSelectionContext);
+  const local = useLocalBranchContext(shared === null);
+  return shared ?? local;
 }

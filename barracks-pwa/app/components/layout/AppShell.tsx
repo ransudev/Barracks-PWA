@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { canAccessView } from "@/app/utils/view";
 import { frontDeskNavigation, managementNavigation } from "@/app/constants/navigation";
 import { roleLabel as sharedRoleLabel } from "@/app/constants/roles";
@@ -14,6 +14,7 @@ import { Icon } from "@/app/components/ui/icons";
 import { apiRequest, readApiBody, type ApiLowStockAlert, type ApiUser } from "@/app/lib/api";
 import type { ShellArea, ViewId } from "@/app/types/domain";
 import { createInitials } from "@/app/utils/format";
+import { BranchContextProvider, useBranchContext } from "@/app/utils/use-branch-context";
 
 type AppShellProps = {
   area: ShellArea;
@@ -177,32 +178,48 @@ function Topbar({
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [lowStock, setLowStock] = useState<ApiLowStockAlert[]>([]);
+  const [lowStockBranchId, setLowStockBranchId] = useState(0);
   const [acknowledging, setAcknowledging] = useState(false);
+  const { branchId } = useBranchContext();
+  const branchRef = useRef(branchId);
+  const lowStockRequest = useRef(0);
   const isManagement = area === "admin";
   const canSwitchWorkspace = currentUser.role === "administrator";
   const name = displayName(currentUser);
   const initials = createInitials(name);
   const role = roleLabel(currentUser);
   const homeView = dashboardForArea(area);
-  const visibleLowStock = lowStock;
+  const visibleLowStock = lowStockBranchId === branchId ? lowStock : [];
 
-  async function refreshLowStock() {
+  const refreshLowStock = useCallback(async () => {
+    const selectedBranchId = branchId;
+    const requestId = ++lowStockRequest.current;
+    if (!selectedBranchId) { setLowStock([]); setLowStockBranchId(0); return; }
     try {
-      const response = await apiRequest("/api/inventory/alerts", { cache: "no-store" });
+      const response = await apiRequest(`/api/inventory/alerts?branchId=${selectedBranchId}`, { cache: "no-store" });
       const body = await readApiBody<{ success:boolean; alerts?:ApiLowStockAlert[] }>(response);
       if (!response.ok || !body?.success) return;
-      setLowStock(body.alerts ?? []);
+      if (requestId === lowStockRequest.current && branchRef.current === selectedBranchId) {
+        setLowStock(body.alerts ?? []);
+        setLowStockBranchId(selectedBranchId);
+      }
     } catch {
       // Notifications should not block the rest of the workspace.
     }
-  }
+  }, [branchId]);
+
+  useEffect(() => { branchRef.current = branchId; }, [branchId]);
 
   useEffect(() => {
     // The request updates notification state after the external API resolves.
     // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLowStock([]);
+    setLowStockBranchId(0);
+    setAcknowledging(false);
+    ++lowStockRequest.current;
     if (isManagement) void refreshLowStock();
     // A signed-in staff/admin account is required to render AppShell.
-  }, [currentUser.id, isManagement]);
+  }, [currentUser.id, isManagement, branchId, refreshLowStock]);
 
   return (
     <header className="topbar">
@@ -259,18 +276,22 @@ function Topbar({
                 type="button"
                 disabled={acknowledging}
                 onClick={() => {
+                  const selectedBranchId = branchId;
+                  const requestId = lowStockRequest.current;
                   setAcknowledging(true);
                   void Promise.all(visibleLowStock.map(async (item) => {
-                    const response = await apiRequest(`/api/inventory/alerts/${item.itemId}/acknowledge`, { method: "POST" });
+                    const response = await apiRequest(`/api/inventory/alerts/${item.itemId}/acknowledge?branchId=${selectedBranchId}`, { method: "POST" });
                     if (!response.ok) throw new Error("Unable to acknowledge stock alerts");
                   })).then(() => {
+                    if (requestId !== lowStockRequest.current || branchRef.current !== selectedBranchId) return;
                     setLowStock([]);
                     setNotificationsOpen(false);
                     onToast("Low stock alerts acknowledged");
                   }).catch((error: unknown) => {
+                    if (requestId !== lowStockRequest.current || branchRef.current !== selectedBranchId) return;
                     onToast(error instanceof Error ? error.message : "Unable to acknowledge stock alerts");
                     void refreshLowStock();
-                  }).finally(() => setAcknowledging(false));
+                  }).finally(() => { if (branchRef.current === selectedBranchId) setAcknowledging(false); });
                 }}
               >
                 {acknowledging ? "Acknowledging…" : "Acknowledge stock alerts"}
@@ -352,6 +373,7 @@ export function AppShell({
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   return (
+    <BranchContextProvider>
     <div
       className={`app-shell ${sidebarCollapsed ? "is-sidebar-collapsed" : ""}`}
     >
@@ -386,5 +408,6 @@ export function AppShell({
         <main className="app-content">{children}</main>
       </div>
     </div>
+    </BranchContextProvider>
   );
 }

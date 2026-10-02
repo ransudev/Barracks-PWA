@@ -121,6 +121,7 @@ test("customer branch selection scopes bookings and availability while preservin
     assert.equal(history.bookings.find((row: { id: number }) => row.id === booking.id).branchId, branchA);
     await db.query("UPDATE branches SET status='inactive' WHERE id=$1", [branchA]);
     assert.equal((await (await customerBookings.GET(request("bookings"))).json()).bookings.find((row: { id: number }) => row.id === booking.id).branchName, "Branch A");
+    assert.equal((await customerBookingItem.PUT(request(`bookings/${booking.id}`, { serviceId: input.serviceId, barberId: a.id, date: "2099-10-08", time: "14:00" }), { params: Promise.resolve({ id: String(booking.id) }) })).status, 409);
     assert.equal((await customerBookingItem.PATCH(request(`bookings/${booking.id}`, { status: "cancelled" }), { params: Promise.resolve({ id: String(booking.id) }) })).status, 200);
   } finally { await cleanup(); }
 });

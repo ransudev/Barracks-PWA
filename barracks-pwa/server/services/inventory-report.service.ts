@@ -21,7 +21,8 @@ export async function getInventoryReport(db: Pool, actor: BranchActor, from: Dat
     `, [branchIds]),
     db.query(`
       SELECT s.id AS supplier_id, s.company_name AS supplier_name,
-        COALESCE(SUM(ri.delivered_quantity * COALESCE(ri.unit_cost, i.unit_cost)), 0) AS total_spend,
+        CASE WHEN COUNT(*) FILTER (WHERE ri.delivered_quantity > 0 AND ri.unit_cost IS NULL) > 0 THEN NULL
+          ELSE COALESCE(SUM(ri.delivered_quantity * ri.unit_cost), 0) END AS total_spend,
         COUNT(DISTINCT r.id) AS received_deliveries
       FROM suppliers s
       JOIN restock_requests r ON r.supplier_id=s.id
@@ -30,7 +31,6 @@ export async function getInventoryReport(db: Pool, actor: BranchActor, from: Dat
         AND r.received_at >= $1
         AND r.received_at < $2
       LEFT JOIN restock_request_items ri ON ri.restock_request_id=r.id
-      LEFT JOIN inventory_items i ON i.id=ri.inventory_item_id
       GROUP BY s.id, s.company_name
       ORDER BY total_spend DESC, s.company_name ASC
     `, [from, toExclusive, branchIds]),
@@ -95,7 +95,7 @@ export async function getInventoryReport(db: Pool, actor: BranchActor, from: Dat
     supplierSpending: supplierSpending.rows.map((row) => ({
       supplierId: Number(row.supplier_id),
       supplierName: row.supplier_name,
-      totalSpend: Number(row.total_spend ?? 0),
+      totalSpend: row.total_spend === null ? null : Number(row.total_spend ?? 0),
       receivedDeliveries: Number(row.received_deliveries ?? 0),
     })),
     usageSummary: usageSummary.rows.map((row) => ({

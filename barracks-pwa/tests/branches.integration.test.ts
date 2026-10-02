@@ -18,6 +18,8 @@ test("branch migration backfills only staff; CRUD, access, membership and primar
     await applyMigrations(db); // The migration ledger prevents reseeding/resetting.
     const main = (await db.query("SELECT id FROM branches WHERE code='MAIN'")).rows[0].id as number;
     assert.equal((await findBranch(db, main))?.name, "Main Branch");
+    await assert.rejects(updateBranch(db, main, branchUpdateSchema.parse({ code: "PRIMARY" })), (error: unknown) => error instanceof BranchError && error.status === 409);
+    assert.equal((await updateBranch(db, main, branchUpdateSchema.parse({ address: "New Road" })))?.code, "MAIN");
     assert.deepEqual((await listAssignments(db, main)).map((assignment) => assignment.userId).sort(), [ids.manager, ids.front_desk].sort());
     assert.deepEqual((await listBranchStaff(db)).map((person) => person.role).sort(), ["front_desk", "manager"]);
     for (const role of roles) assert.equal((await getPrimaryBranch(db, { id: ids[role], role }))?.id ?? null, ["manager", "front_desk"].includes(role) ? main : null);

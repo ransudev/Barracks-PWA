@@ -100,6 +100,9 @@ test("attendance snapshots branch ownership, preserves it after barber moves and
     const other = await createBarber(db, { branchId: second, firstName: "Second", lastName: "Barber", status: "available" });
     const original = (await actOnTodayAttendance(db, moved.id, ids.front_desk, { action: "mark", status: "present" }))!;
     assert.equal(original.branchId, main);
+    await actOnTodayAttendance(db, moved.id, ids.front_desk, { action: "clock_in" });
+    await assert.rejects(updateBarber(db, moved.id, { branchId: second, firstName: "Moved", lastName: "Barber", status: "available" }), /attendance clock-in is open/);
+    await actOnTodayAttendance(db, moved.id, ids.front_desk, { action: "clock_out" });
     await updateBarber(db, moved.id, { branchId: second, firstName: "Moved", lastName: "Barber", status: "available" });
     assert.equal((await listTodayAttendance(db, [main]))[0].branchId, main);
     assert.equal((await listTodayAttendance(db, [second])).length, 0);
