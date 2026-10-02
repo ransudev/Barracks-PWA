@@ -263,14 +263,14 @@ The current sprint pages use the API for customers, barbers, inventory, supplier
 | Login/signup | `app/pages/auth/LoginPage.tsx` | `/api/auth/login`, `/api/auth/signup` |
 | Customer dashboard/profile | `app/pages/customer/CustomerDashboard.tsx` — dashboard-style color accents for metrics and appointment state; the empty upcoming state keeps booking in the panel header instead of repeating a second button | `/api/customers/me`, `/api/bookings`, `/api/barbers` |
 | Customer booking | `app/pages/customer/CustomerBookingPage.tsx` | Service catalog plus `/api/barbers` and `/api/bookings` |
-| Staff dashboard | `app/pages/staff/StaffDashboard.tsx` | `/api/barbers` |
+| Staff dashboard | `app/pages/staff/StaffDashboard.tsx` — selected branch booking and queue metrics | `/api/barbers`, `/api/bookings`, `/api/queue?view=active` with `branchId` |
 | Staff queue | `app/pages/staff/QueuePage.tsx` — active queue workflow and read-only completed-today view | `/api/queue?view=active`, `/api/queue?view=completed-today`, `/api/customers`, `/api/services`, `/api/barbers` |
 | Staff bookings | `app/pages/staff/BookingsPage.tsx` — card/list schedule with appointment drawer | `/api/bookings`, `/api/customers`, `/api/barbers` |
 | Staff customers | `app/pages/staff/CustomersPage.tsx` — card/list customer records, profile drawer, and CRUD | `/api/customers`, `/api/barbers` |
 | Front Desk Barber Floor | `app/pages/staff/BarberFloorPage.tsx` — current availability, queue assignments, and daily status updates | `/api/barbers`, `/api/barbers/:id/status`, `/api/queue?view=active` |
 | Management barbers | `app/pages/admin/BarbersManagement.tsx` — roster, profile drawer, and scheduling | `/api/barbers`, `/api/barbers/:id/schedule`, `/api/shop-hours` |
 | Management inventory | `app/pages/staff/InventoryPage.tsx` — item cards/list with photo, branch, and stock state plus an item drawer | `/api/inventory` |
-| Admin dashboard | `app/pages/admin/AdminDashboard.tsx` | `/api/barbers`, `/api/bookings`, `/api/customers`, `/api/inventory` |
+| Admin dashboard | `app/pages/admin/AdminDashboard.tsx` — branch or Administrator global aggregates | `/api/reports/dashboard?branchId=...` |
 | Admin staff accounts | `app/pages/admin/StaffManagement.tsx` — card/list access roster with lifecycle drawer | `/api/users` |
 | Management suppliers | `app/pages/admin/SuppliersManagement.tsx` — card/list vendor directory with profile drawer | `/api/suppliers`, `/api/inventory`, `/api/restocks` |
 | Management restocks | `app/pages/admin/RestockManagement.tsx` — workflow cards/list with request drawer | `/api/restocks`, `/api/suppliers`, `/api/inventory` |
@@ -612,7 +612,7 @@ Today's attendance, history and correction reads are scoped to accessible branch
 
 Attendance Management uses the existing branch context and resets its records, filters and correction dialog when branches change. Barber Floor reads and updates today's attendance for its selected branch. Historical filters include barbers represented in the loaded records even after they move. Apply migration 026 with the existing migration runner before using Phase 5. Verification uses disposable schemas and does not migrate the shop database.
 
-Phase 5 verification and the complete file list are recorded in [PHASE5_REPORT.md](PHASE5_REPORT.md). Phase 6 inventory/restock ownership is described below. Phase 7 scope remains branch reports/dashboard aggregates and customer branch selection.
+Phase 5 verification and the complete file list are recorded in [PHASE5_REPORT.md](PHASE5_REPORT.md). Phase 6 inventory/restock ownership is described below. Phase 7 implements branch reports/dashboard aggregates below; customer branch selection remains Phase 8.
 
 
 ### Multi-branch inventory and restocks (Phase 6)
@@ -621,8 +621,23 @@ Migration `027_inventory_restock_branches.sql` adds required, restricted branch 
 
 New movements snapshot the persisted item's branch, including CUSTOMER_PURCHASE, and cannot change ownership. Restock lines inherit their immutable header branch without another branch column; the database rejects new cross-branch lines. Receiving locks the request and stock, validates every line and changes only the request branch's inventory. Suppliers and supplier accounts remain global; the supplier portal continues to see only its linked supplier's items and requests across branches.
 
-Inventory/restock collection APIs use `?branchId=...` and default to the staff primary/first accessible branch. ID operations authorize persisted ownership and reject a mismatched selected branch. Existing role permissions remain: Administrator/Manager operate inventory/restocks, only Administrator deletes inventory, and Front Desk has no inventory permission. Inventory, movement/threshold history, low-stock alerts and receiving enforce branch authorization. Inventory and Restock pages use the existing context, reload on selection, discard forms/dialogs/selections and ignore responses from the old workspace. Existing inventory report reads are restricted to authorized ownership; new branch report/dashboard aggregates are deferred.
+Inventory/restock collection APIs use `?branchId=...` and default to the staff primary/first accessible branch. ID operations authorize persisted ownership and reject a mismatched selected branch. Existing role permissions remain: Administrator/Manager operate inventory/restocks, only Administrator deletes inventory, and Front Desk has no inventory permission. Inventory, movement/threshold history, low-stock alerts and receiving enforce branch authorization. Inventory and Restock pages use the existing context, reload on selection, discard forms/dialogs/selections and ignore responses from the old workspace. Phase 6 inventory report reads are restricted to authorized ownership; branch report/dashboard aggregates are implemented by Phase 7 below.
 
-Apply migration 027 using `npm run db:migrate` before using Phase 6. Tests use disposable PostgreSQL schemas and do not migrate the shop database. Phase 7 remains branch revenue/report and dashboard aggregates plus customer-facing branch selection; inventory transfers remain deferred.
+Apply migration 027 using `npm run db:migrate` before using Phase 6. Tests use disposable PostgreSQL schemas and do not migrate the shop database. Phase 7 implements branch revenue/report and dashboard aggregates below; Phase 8 remains customer-facing branch selection; inventory transfers remain deferred.
 
 Phase 6 verification and the complete file list are recorded in [PHASE6_REPORT.md](PHASE6_REPORT.md).
+
+
+### Multi-branch reports and dashboard aggregates (Phase 7)
+
+Management sales and inventory reports and both staff dashboards use the existing branch context. Administrator reports and the management dashboard default to **All branches (global)** and can select one branch. Managers and Front Desk select only assigned branches. Changing branches remounts the workspace, resets report periods/type and clears displayed data; superseded requests cannot populate the new workspace or show late error toasts. Front Desk retains its booking/queue/barber dashboard permissions and has no financial or inventory reporting access.
+
+`GET /api/reports/revenue`, `GET /api/reports/inventory`, and `GET /api/reports/dashboard` accept `branchId=<positive id>` or Administrator-only `branchId=all`. A missing selection aggregates the actor's accessible branches, including inactive ones; an unassigned Manager gets zero totals. The shared server resolver validates selections and rejects unauthorized branches/global requests with 403. All three services also enforce management roles and scope before querying aggregates.
+
+Revenue uses the immutable transaction branch snapshot for sales and related financial actions. Gross sales count completed sales, including sales later refunded/voided; reversals count the action ledger, and net revenue equals gross minus reversals. The legacy reversal fallback runs only where no action exists. Checkout and reversal dates retain the existing inclusive Manila-local date rules. Service/barber/payment breakdowns use saved transaction names/methods. Tender rows, cash received/change and `barbers.revenue` do not supply revenue totals.
+
+Inventory valuation and stock counts use item ownership; movement totals use movement ownership, grouped by item and numeric branch. Legacy movements retain their own branch even when it differs from the item's branch; those rows show historical stock status without exposing another branch's current quantity/threshold. Supplier spending and received-delivery counts follow restock header ownership, including preserved legacy lines. Shared suppliers are grouped once and each delivery is counted once. The existing restock line cost (with the existing legacy item-cost fallback) supplies spending. Current stock valuation remains independent of report dates; movement/spending dates retain their existing range behavior.
+
+The management dashboard aggregates existing inventory value, low stock, open restocks, today's/upcoming bookings, active barber roster and recent deliveries directly in PostgreSQL. Booking counts use booking snapshots, while current roster counts use barber ownership. The customer count is labeled **Customers with visits**: customers have no branch column, so it counts distinct customers referenced by bookings or queue records in the selected branches. A customer with visits in two branches counts once globally. Front Desk requests existing branch-scoped booking, queue and barber endpoints. No existing report/dashboard attendance metric is present, so attendance screens and metrics remain unchanged.
+
+No new migration is required beyond Phase 6's migration 027. Database verification uses disposable schemas and does not apply migrations to the shop database. Phase 7 verification and the changed-file list are recorded in [PHASE7_REPORT.md](PHASE7_REPORT.md). Phase 8 is solely customer branch selection and customer booking flow. Inventory transfers, additional analytics and payment functionality remain deferred.

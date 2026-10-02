@@ -19,9 +19,10 @@ async function renderDashboard(queueResponse: Response) {
   const previousFetch = globalThis.fetch;
   globalThis.fetch = async (input) => {
     const path = String(input);
-    if (path === "/api/queue?view=active") return queueResponse;
-    if (path === "/api/barbers") return Response.json({ success: true, barbers: [] });
-    if (path === "/api/bookings") return Response.json({ success: true, bookings: [] });
+    if (path === "/api/branch-context") return Response.json({ branches: [{ id: 1, name: "Main Branch", status: "active" }], primaryBranch: { id: 1 } });
+    if (path === "/api/queue?view=active&branchId=1") return queueResponse;
+    if (path === "/api/barbers?branchId=1") return Response.json({ success: true, barbers: [] });
+    if (path === "/api/bookings?branchId=1") return Response.json({ success: true, bookings: [] });
     if (path === "/api/inventory") return Response.json({ success: true, items: [] });
     throw new Error(`Unexpected request: ${path}`);
   };

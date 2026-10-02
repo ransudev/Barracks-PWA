@@ -7,6 +7,7 @@ import { apiRequest, readApiBody } from "@/app/lib/api";
 export function useBranchContext() {
   const [context, setContext] = useState<BranchContext>({ branches: [], primaryBranch: null });
   const [branchId, setBranchId] = useState(0);
+  const [branchLoading, setBranchLoading] = useState(true);
   const [branchError, setBranchError] = useState("");
   useEffect(() => {
     let active = true;
@@ -17,8 +18,9 @@ export function useBranchContext() {
         if (!response.ok || !body?.branches) throw new Error(body?.message ?? "Unable to load branches");
         if (active) { setContext(body); setBranchId(resolveBranchSelection(body)?.id ?? 0); }
       } catch (error) { if (active) setBranchError(error instanceof Error ? error.message : "Unable to load branches"); }
+      finally { if (active) setBranchLoading(false); }
     })();
     return () => { active = false; };
   }, []);
-  return { branches: context.branches, branchId, setBranchId, branchError };
+  return { branches: context.branches, branchId, setBranchId, branchError, branchLoading };
 }

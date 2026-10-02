@@ -42,7 +42,7 @@ export function PageRouter({ view, go, onToast, currentUser }: PageRouterProps) 
     case "restocks":
       return <RestockManagement onToast={onToast} />;
     case "admin-reports":
-      return <ManagementReports onToast={onToast} />;
+      return <ManagementReports globalAllowed={currentUser.role === "administrator"} onToast={onToast} />;
     case "admin-services":
       return <ServicesManagement onToast={onToast} />;
     case "admin-customers":

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { apiRequest, readApiBody } from "@/app/lib/api";
 import { formatCurrency } from "@/app/utils/format";
 import { Button, EmptyState, MetricCard, PageHeader, Panel, SectionHeading, TextField } from "@/app/components/ui";
@@ -30,7 +30,7 @@ function Breakdown({ title, description, rows }: { title: string; description: s
   </Panel>;
 }
 
-export function RevenueReports({ onToast }: { onToast: (message: string) => void }) {
+export function RevenueReports({ onToast, branch }: { onToast: (message: string) => void; branch: string }) {
   const defaults = useMemo(() => defaultDates(), []);
   const [from, setFrom] = useState(defaults.from);
   const [to, setTo] = useState(defaults.to);
@@ -38,24 +38,24 @@ export function RevenueReports({ onToast }: { onToast: (message: string) => void
   const [data, setData] = useState<ReportBody | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async (selected: { from: string; to: string }) => {
-    setLoading(true);
-    setData(null);
-    try {
-      const params = new URLSearchParams(selected);
-      const response = await apiRequest(`/api/reports/revenue?${params}`, { cache: "no-store" });
-      const body = await readApiBody<ReportBody>(response);
-      if (!response.ok || !body?.success) throw new Error(body?.message ?? "Unable to load revenue reports");
-      setData(body);
-    } catch (error) { onToast(error instanceof Error ? error.message : "Unable to load revenue reports"); }
-    finally { setLoading(false); }
-  }, [onToast]);
-
   useEffect(() => {
-    // The request updates report state after the external API resolves.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load(range);
-  }, [range, load]);
+    let active = true;
+    async function load() {
+      setLoading(true);
+      setData(null);
+      try {
+        const params = new URLSearchParams({ ...range, branchId: branch });
+        const response = await apiRequest(`/api/reports/revenue?${params}`, { cache: "no-store" });
+        const body = await readApiBody<ReportBody>(response);
+        if (!response.ok || !body?.success) throw new Error(body?.message ?? "Unable to load reports");
+        if (active) setData(body);
+      } catch (error) { if (active) onToast(error instanceof Error ? error.message : "Unable to load reports"); }
+      finally { if (active) setLoading(false); }
+    }
+    // The request clears and updates report state as the external API resolves.
+    void load();
+    return () => { active = false; };
+  }, [range, branch, onToast]);
 
   function applyRange(event: FormEvent) {
     event.preventDefault();

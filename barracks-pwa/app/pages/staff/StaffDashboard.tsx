@@ -1,5 +1,6 @@
 "use client";
 
+import { ReportBranchScope } from "@/app/components/ReportBranchScope";
 import { useEffect, useMemo, useState } from "react";
 import type { ApiBarberAvailability, ApiBooking, ApiQueueEntry } from "@/app/lib/api";
 import { apiRequest, readApiBody } from "@/app/lib/api";
@@ -38,13 +39,11 @@ function formatTime(time: string) {
   return `${hours % 12 || 12}:${String(minutes).padStart(2, "0")} ${meridiem}`;
 }
 
-export function StaffDashboard({
-  go,
-  onToast,
-}: {
-  go: (view: ViewId) => void;
-  onToast: (message: string) => void;
-}) {
+type DashboardProps = { go: (view: ViewId) => void; onToast: (message: string) => void };
+export function StaffDashboard(props: DashboardProps) {
+  return <ReportBranchScope>{(branch) => <StaffDashboardContent {...props} branch={branch} />}</ReportBranchScope>;
+}
+function StaffDashboardContent({ go, onToast, branch }: DashboardProps & { branch: string }) {
   const [barbers, setBarbers] = useState<ApiBarberAvailability[]>([]);
   const [bookings, setBookings] = useState<ApiBooking[]>([]);
   const [queue, setQueue] = useState<ApiQueueEntry[]>([]);
@@ -60,8 +59,8 @@ export function StaffDashboard({
     async function load() {
       try {
         const [barberResponse, bookingResponse] = await Promise.all([
-          apiRequest("/api/barbers"),
-          apiRequest("/api/bookings"),
+          apiRequest(`/api/barbers?branchId=${branch}`, { cache: "no-store" }),
+          apiRequest(`/api/bookings?branchId=${branch}`, { cache: "no-store" }),
         ]);
         const barberBody = await readApiBody<{ success: boolean; barbers?: ApiBarberAvailability[]; message?: string }>(barberResponse);
         const bookingBody = await readApiBody<{ success: boolean; bookings?: ApiBooking[]; message?: string }>(bookingResponse);
@@ -83,7 +82,7 @@ export function StaffDashboard({
 
     async function loadQueue() {
       try {
-        const response = await apiRequest("/api/queue?view=active", { cache: "no-store" });
+        const response = await apiRequest(`/api/queue?view=active&branchId=${branch}`, { cache: "no-store" });
         const body = await readApiBody<{ success: boolean; queue?: ApiQueueEntry[]; message?: string }>(response);
         if (!response.ok || !body?.success || !body.queue) throw new Error(body?.message ?? "Unable to load queue");
         if (!cancelled) { setQueue(body.queue); setQueueAsOf(Date.now()); setQueueError(""); }
@@ -97,7 +96,7 @@ export function StaffDashboard({
     return () => {
       cancelled = true;
     };
-  }, [onToast]);
+  }, [onToast, branch]);
 
   const today = dateString();
   const todayBookings = useMemo(
@@ -118,8 +117,8 @@ export function StaffDashboard({
       <PageHeader title="Dashboard" description="Overview of today’s Front Desk operations" action={<Button icon="scissors" onClick={() => go("barbers")}>View barber floor</Button>} />
       <div className="metrics-grid metrics-grid--four">
         <MetricCard label="Customers in queue" value={queueLoading || queueError ? "—" : String(activeQueue.length)} change={queueError ? "Unable to load queue" : undefined} changeTone="warning" icon="queue" accent="blue" />
-        <MetricCard label="Today’s bookings" value={loading ? "—" : String(todayBookings.length)} icon="calendar" accent="amber" />
-        <MetricCard label="Active barbers" value={loading ? "—" : String(activeBarbers)} icon="scissors" accent="green" />
+        <MetricCard label="Today’s bookings" value={loading || loadError ? "—" : String(todayBookings.length)} icon="calendar" accent="amber" />
+        <MetricCard label="Active barbers" value={loading || loadError ? "—" : String(activeBarbers)} icon="scissors" accent="green" />
         <MetricCard label="Ready to serve" value={queueLoading || queueError ? "—" : String(activeQueue.filter((entry) => entry.status === "ready").length)} icon="check" accent="violet" />
       </div>
 

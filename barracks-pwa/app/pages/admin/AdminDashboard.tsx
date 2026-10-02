@@ -2,72 +2,44 @@
 
 import { useEffect, useState } from "react";
 import type { ViewId } from "@/app/types/domain";
-import type { ApiBarber, ApiBooking, ApiCustomer, ApiInventoryItem, ApiUser } from "@/app/lib/api";
+import type { ApiUser } from "@/app/lib/api";
+import type { DashboardReport } from "@/server/services/dashboard-report.service";
+import { ReportBranchScope } from "@/app/components/ReportBranchScope";
 import { apiRequest, readApiBody } from "@/app/lib/api";
-import { dateInputValue, formatCurrency } from "@/app/utils/format";
+import { formatCurrency } from "@/app/utils/format";
 import { Button, EmptyState, MetricCard, PageHeader, Panel, SectionHeading } from "@/app/components/ui";
 
-type DashboardRestock = {
-  id: number;
-  supplier_name: string;
-  status: string;
-  reference: string | null;
-  received_at: string | null;
-  created_at: string;
-};
+type DashboardProps = { go: (view: ViewId) => void; onToast: (message: string) => void; currentUser: ApiUser };
 
-export function AdminDashboard({ go, onToast, currentUser }: { go: (view: ViewId) => void; onToast: (message: string) => void; currentUser: ApiUser }) {
-  const [barbers, setBarbers] = useState<ApiBarber[]>([]);
-  const [bookings, setBookings] = useState<ApiBooking[]>([]);
-  const [customers, setCustomers] = useState<ApiCustomer[]>([]);
-  const [inventory, setInventory] = useState<ApiInventoryItem[]>([]);
-  const [restocks, setRestocks] = useState<DashboardRestock[]>([]);
+export function AdminDashboard(props: DashboardProps) {
+  return <ReportBranchScope globalAllowed={props.currentUser.role === "administrator"}>
+    {(branch) => <AdminDashboardContent {...props} branch={branch} />}
+  </ReportBranchScope>;
+}
+
+function AdminDashboardContent({ go, onToast, currentUser, branch }: DashboardProps & { branch: string }) {
+  const [data, setData] = useState<DashboardReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-
   useEffect(() => {
-    async function load() {
+    let active = true;
+    void (async () => {
       try {
-        const [barberResponse, bookingResponse, customerResponse, inventoryResponse, restockResponse] = await Promise.all([
-          apiRequest("/api/barbers"),
-          apiRequest("/api/bookings"),
-          apiRequest("/api/customers"),
-          apiRequest("/api/inventory"),
-          apiRequest("/api/restocks"),
-        ]);
-        const barberBody = await readApiBody<{ success: boolean; barbers?: ApiBarber[] }>(barberResponse);
-        const bookingBody = await readApiBody<{ success: boolean; bookings?: ApiBooking[] }>(bookingResponse);
-        const customerBody = await readApiBody<{ success: boolean; customers?: ApiCustomer[] }>(customerResponse);
-        const inventoryBody = await readApiBody<{ success: boolean; items?: ApiInventoryItem[] }>(inventoryResponse);
-        const restockBody = await readApiBody<{ success: boolean; restocks?: DashboardRestock[] }>(restockResponse);
-        if (!barberResponse.ok || !barberBody?.success || !bookingResponse.ok || !bookingBody?.success || !customerResponse.ok || !customerBody?.success || !inventoryResponse.ok || !inventoryBody?.success || !restockResponse.ok || !restockBody?.success) throw new Error("Some dashboard data could not be loaded");
-        setBarbers(barberBody.barbers ?? []);
-        setBookings(bookingBody.bookings ?? []);
-        setCustomers(customerBody.customers ?? []);
-        setInventory(inventoryBody.items ?? []);
-        setRestocks(restockBody.restocks ?? []);
-        setLoadError("");
+        const response = await apiRequest(`/api/reports/dashboard?branchId=${branch}`, { cache: "no-store" });
+        const body = await readApiBody<DashboardReport & { success: boolean; message?: string }>(response);
+        if (!response.ok || !body?.success) throw new Error(body?.message ?? "Unable to load dashboard");
+        if (active) { setData(body); setLoadError(""); }
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Unable to load dashboard";
-        setLoadError(message);
-        onToast(message);
-      } finally {
-        setLoading(false);
-      }
-    }
-    void load();
-  }, [onToast]);
-
-  const attentionItems = inventory.filter((item) => item.status === "active" && item.quantity <= item.minimumStock);
-  const attention = attentionItems.length;
-  const inventoryValue = inventory.reduce((sum, item) => sum + item.quantity * item.unitCost, 0);
-  const pendingRestocks = restocks.filter((restock) => !["Received", "Cancelled"].includes(restock.status));
-  const recentDeliveries = restocks.filter((restock) => restock.status === "Received").slice(0, 5);
-  const today = dateInputValue();
-  const todayBookings = bookings.filter((booking) => booking.date === today && booking.status !== "cancelled").length;
-  const upcomingBookings = bookings.filter((booking) => booking.status === "confirmed" && booking.date >= today).length;
-  const activeBarbers = barbers.filter((barber) => barber.status !== "unavailable").length;
-  const metricValue = (value: number) => loading || loadError ? "—" : String(value);
+        if (active) { const message = error instanceof Error ? error.message : "Unable to load dashboard"; setLoadError(message); onToast(message); }
+      } finally { if (active) setLoading(false); }
+    })();
+    return () => { active = false; };
+  }, [branch, onToast]);
+  const attentionItems = data?.attentionItems ?? [];
+  const recentDeliveries = data?.recentDeliveries ?? [];
+  const attention = data?.lowStock ?? 0;
+  const inventoryValue = data?.inventoryValue ?? 0;
+  const metricValue = (value?: number) => loading || loadError ? "—" : String(value ?? 0);
 
   const dashboardTitle = currentUser.role === "manager" ? "Manager dashboard" : "Admin dashboard";
 
@@ -77,13 +49,13 @@ export function AdminDashboard({ go, onToast, currentUser }: { go: (view: ViewId
       <div className="admin-dashboard__primary-metrics">
         <MetricCard className="metric-card--hero" label="Inventory value" value={loading || loadError ? "—" : formatCurrency(inventoryValue)} icon="box" accent="blue" />
         <MetricCard label="Low / out of stock" value={metricValue(attention)} icon="info" accent="amber" />
-        <MetricCard label="Open restocks" value={metricValue(pendingRestocks.length)} icon="calendar" accent="violet" />
+        <MetricCard label="Open restocks" value={metricValue(data?.openRestocks)} icon="calendar" accent="violet" />
       </div>
       <div className="admin-dashboard__supporting-metrics">
-        <MetricCard label="Today’s bookings" value={metricValue(todayBookings)} icon="calendar" accent="amber" />
-        <MetricCard label="Upcoming bookings" value={metricValue(upcomingBookings)} icon="clock" accent="violet" />
-        <MetricCard label="Active barbers" value={metricValue(activeBarbers)} icon="scissors" accent="green" />
-        <MetricCard label="Customer accounts" value={metricValue(customers.length)} icon="users" accent="blue" />
+        <MetricCard label="Today’s bookings" value={metricValue(data?.todayBookings)} icon="calendar" accent="amber" />
+        <MetricCard label="Upcoming bookings" value={metricValue(data?.upcomingBookings)} icon="clock" accent="violet" />
+        <MetricCard label="Active barbers" value={metricValue(data?.activeBarbers)} icon="scissors" accent="green" />
+        <MetricCard label="Customers with visits" value={metricValue(data?.customers)} icon="users" accent="blue" />
       </div>
     </div>
 
@@ -94,7 +66,7 @@ export function AdminDashboard({ go, onToast, currentUser }: { go: (view: ViewId
       </Panel>
       <Panel>
         <SectionHeading title="Recent deliveries" action={<Button size="sm" variant="secondary" onClick={() => go("admin-restocks")}>Open restocks</Button>} />
-        {loading ? <div className="staff-table__empty">Loading deliveries…</div> : recentDeliveries.length ? <div className="admin-dashboard-low-stock">{recentDeliveries.map((restock) => <div key={restock.id}><span><strong>{restock.supplier_name}</strong><small>Request #{restock.id} · {restock.reference ?? "No reference"}</small></span><span>{restock.received_at ? new Date(restock.received_at).toLocaleDateString() : "Received"}</span></div>)}</div> : <EmptyState icon="box" title="No deliveries received yet" description="Confirmed supplier deliveries will appear here." />}
+        {loadError ? <div className="staff-table__empty">{loadError}</div> : loading ? <div className="staff-table__empty">Loading deliveries…</div> : recentDeliveries.length ? <div className="admin-dashboard-low-stock">{recentDeliveries.map((restock) => <div key={restock.id}><span><strong>{restock.supplier_name}</strong><small>Request #{restock.id} · {restock.reference ?? "No reference"}</small></span><span>{restock.received_at ? new Date(restock.received_at).toLocaleDateString() : "Received"}</span></div>)}</div> : <EmptyState icon="box" title="No deliveries received yet" description="Confirmed supplier deliveries will appear here." />}
       </Panel>
     </div>
   </div>;

@@ -1,4 +1,6 @@
 import type { Pool } from "pg";
+import type { BranchActor } from "@/server/auth/barber-branch-access";
+import { requireManagementReport, resolveReportBranches } from "@/server/auth/report-branch-access";
 
 export type RevenueRange = { from: string; to: string };
 export type RevenueTotals = { grossSales: number; refundedAmount: number; voidedAmount: number; reversedAmount: number; netRevenue: number; transactionCount: number };
@@ -68,7 +70,9 @@ function nextDate(date: string): string {
   return next.toISOString().slice(0, 10);
 }
 
-export async function getRevenueReport(db: Pool, range: RevenueRange): Promise<RevenueReport> {
+export async function getRevenueReport(db: Pool, range: RevenueRange, actor: BranchActor, rawBranch: string | null = null): Promise<RevenueReport> {
+  requireManagementReport(actor);
+  const branchIds = await resolveReportBranches(db, actor, rawBranch);
   const start = `${range.from}T00:00:00+08:00`;
   const end = `${nextDate(range.to)}T00:00:00+08:00`;
   const result = await db.query<EventRow>(`
@@ -76,21 +80,21 @@ export async function getRevenueReport(db: Pool, range: RevenueRange): Promise<R
       SELECT t.created_at AS occurred_at, t.service_name, t.barber_name, t.payment_method,
         'sale'::text AS event_type, t.amount, 1 AS transaction_count
       FROM transactions t
-      WHERE t.status IN ('completed','refunded','voided')
+      WHERE t.branch_id=ANY($3::integer[]) AND t.status IN ('completed','refunded','voided')
         AND t.created_at >= $1::timestamptz AND t.created_at < $2::timestamptz
       UNION ALL
       SELECT a.created_at, t.service_name, t.barber_name, t.payment_method,
         a.action_type, a.amount, 0
       FROM transaction_financial_actions a
       JOIN transactions t ON t.id=a.transaction_id
-      WHERE a.created_at >= $1::timestamptz AND a.created_at < $2::timestamptz
+      WHERE t.branch_id=ANY($3::integer[]) AND a.created_at >= $1::timestamptz AND a.created_at < $2::timestamptz
       UNION ALL
       -- Pre-Phase-5 reversed rows have no action timestamp. Attribute those
       -- reversals to their saved transaction date, once per transaction.
       SELECT t.created_at, t.service_name, t.barber_name, t.payment_method,
         CASE t.status WHEN 'refunded' THEN 'refund' ELSE 'void' END, t.amount, 0
       FROM transactions t
-      WHERE t.status IN ('refunded','voided')
+      WHERE t.branch_id=ANY($3::integer[]) AND t.status IN ('refunded','voided')
         AND t.created_at >= $1::timestamptz AND t.created_at < $2::timestamptz
         AND NOT EXISTS (SELECT 1 FROM transaction_financial_actions a WHERE a.transaction_id=t.id)
     )
@@ -99,6 +103,6 @@ export async function getRevenueReport(db: Pool, range: RevenueRange): Promise<R
       SUM(amount)::text AS amount, SUM(transaction_count)::text AS transaction_count
     FROM events
     GROUP BY day, service_name, barber_name, payment_method, event_type
-  `, [start, end]);
+  `, [start, end, branchIds]);
   return summarizeRevenueEvents(range, result.rows);
 }

@@ -1,16 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { apiRequest, readApiBody } from "@/app/lib/api";
 import { formatCurrency } from "@/app/utils/format";
 import { Badge, Button, EmptyState, MetricCard, PageHeader, Panel, SectionHeading, TextField } from "@/app/components/ui";
 
 type UsageRow = {
   itemId:number;
+  branchId:number;
   itemName:string;
   branch:string;
-  currentQuantity:number;
-  minimumStock:number;
+  currentQuantity:number|null;
+  minimumStock:number|null;
   received:number;
   used:number;
   sold:number;
@@ -38,7 +39,7 @@ function defaultDates() {
   return { from:dateOnly(from), to:dateOnly(to) };
 }
 
-export function InventoryReports({ onToast }:{ onToast:(message:string)=>void }) {
+export function InventoryReports({ onToast, branch }:{ onToast:(message:string)=>void; branch: string }) {
   const defaults = useMemo(() => defaultDates(),[]);
   const [from,setFrom] = useState(defaults.from);
   const [to,setTo] = useState(defaults.to);
@@ -46,23 +47,24 @@ export function InventoryReports({ onToast }:{ onToast:(message:string)=>void })
   const [data,setData] = useState<ReportBody|null>(null);
   const [loading,setLoading] = useState(true);
 
-  const load = useCallback(async(range:{from:string;to:string})=>{
-    setLoading(true);
-    try{
-      const params=new URLSearchParams({from:range.from,to:range.to});
-      const response=await apiRequest(`/api/reports/inventory?${params.toString()}`,{cache:"no-store"});
-      const body=await readApiBody<ReportBody>(response);
-      if(!response.ok||!body?.success) throw new Error(body?.message??"Unable to load reports");
-      setData(body);
-    }catch(error){ onToast(error instanceof Error?error.message:"Unable to load reports"); }
-    finally{ setLoading(false); }
-  },[onToast]);
-
-  useEffect(()=>{
-    // The request updates report state after the external API resolves.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load(appliedRange);
-  },[appliedRange,load]);
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      setLoading(true);
+      setData(null);
+      try {
+        const params = new URLSearchParams({ ...appliedRange, branchId: branch });
+        const response = await apiRequest(`/api/reports/inventory?${params}`, { cache: "no-store" });
+        const body = await readApiBody<ReportBody>(response);
+        if (!response.ok || !body?.success) throw new Error(body?.message ?? "Unable to load reports");
+        if (active) setData(body);
+      } catch (error) { if (active) onToast(error instanceof Error ? error.message : "Unable to load reports"); }
+      finally { if (active) setLoading(false); }
+    }
+    // The request clears and updates report state as the external API resolves.
+    void load();
+    return () => { active = false; };
+  }, [appliedRange, branch, onToast]);
 
   function applyRange(event:FormEvent){
     event.preventDefault();
@@ -95,12 +97,12 @@ export function InventoryReports({ onToast }:{ onToast:(message:string)=>void })
       <SectionHeading title="Inventory usage analytics" description="Movement totals are grouped by item and branch for the selected period." />
       {loading?<div className="staff-table__empty">Loading usage analytics…</div>:usage.length?<div className="staff-table staff-table--cols-5">
         <div className="staff-table__head"><span>Item / branch</span><span>Used / sold / wasted</span><span>Received / adjusted</span><span>Period comparison</span><span>Stock status</span></div>
-        {usage.map((row)=><div className="staff-table__row" key={row.itemId}>
+        {usage.map((row)=><div className="staff-table__row" key={`${row.itemId}:${row.branchId}`}>
           <span><strong>{row.itemName}</strong><small>{row.branch}</small></span>
           <span>{row.used} used · {row.sold} sold · {row.wasted} wasted</span>
           <span>{row.received} received · {row.adjusted} adjusted</span>
           <span><strong>{row.currentActivity}</strong><small>Previous: {row.previousActivity}{highestActivity>0&&row.currentActivity===highestActivity?" · Highest usage":""}</small></span>
-          <span><Badge tone={row.currentQuantity<=row.minimumStock?"warning":"success"}>{row.currentQuantity<=row.minimumStock?"Low stock":"In stock"}</Badge></span>
+          <span><Badge tone={row.currentQuantity===null||row.minimumStock===null?"neutral":row.currentQuantity<=row.minimumStock?"warning":"success"}>{row.currentQuantity===null||row.minimumStock===null?"Historical record":row.currentQuantity<=row.minimumStock?"Low stock":"In stock"}</Badge></span>
         </div>)}
       </div>:<EmptyState icon="box" title="No usage in this period" description="Choose another date range or record inventory movements first." />}
     </Panel>

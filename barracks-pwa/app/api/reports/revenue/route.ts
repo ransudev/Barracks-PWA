@@ -1,5 +1,6 @@
+import { branchApiError } from "@/server/services/branch-api";
 import { z } from "zod";
-import { requireManagement } from "@/server/auth/require-role";
+import { requireManagementUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { getRevenueReport } from "@/server/services/revenue-report.service";
 
@@ -14,8 +15,8 @@ function manilaToday(): string {
 }
 
 export async function GET(request: Request) {
-  const denied = await requireManagement();
-  if (denied) return denied;
+  const actor = await requireManagementUser();
+  if (actor instanceof Response) return actor;
   const params = new URL(request.url).searchParams;
   const today = manilaToday();
   const start = new Date(`${today}T00:00:00Z`);
@@ -24,9 +25,8 @@ export async function GET(request: Request) {
     to: params.get("to") ?? today });
   if (!parsed.success) return Response.json({ success: false, message: "Invalid report date range" }, { status: 400 });
   try {
-    return Response.json({ success: true, ...await getRevenueReport(pool, parsed.data) });
+    return Response.json({ success: true, ...await getRevenueReport(pool, parsed.data, actor, params.get("branchId")) });
   } catch (error) {
-    console.error("Unable to load revenue reports", error);
-    return Response.json({ success: false, message: "Unable to load revenue reports" }, { status: 500 });
+    return branchApiError(error);
   }
 }

@@ -87,6 +87,7 @@ const routes: Route[] = [
   { path: "restocks/[id]/receive", method: "POST", allowed: ["manager", "administrator"], body: {} },
   { path: "restocks/[id]/status", method: "PATCH", allowed: ["supplier"], body: {} },
   { path: "reports/inventory", method: "GET", allowed: ["manager", "administrator"] },
+  { path: "reports/dashboard", method: "GET", allowed: ["manager", "administrator"] },
   { path: "reports/revenue", method: "GET", allowed: ["manager", "administrator"] },
 ];
 
