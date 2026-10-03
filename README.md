@@ -566,6 +566,8 @@ Branch APIs use existing HTTP-only sessions and server role guards: Administrato
 
 Administrators have a **Branches** navigation entry at `/admin/branches`, using the existing panels, buttons, forms, and modals. They can create/edit branch details, activate/deactivate branches, view assigned staff, assign/remove eligible staff, and set a primary branch. Managers cannot see or open this page; the APIs enforce the same restriction independently.
 
+The Branches workspace uses padded cards with separate address and phone details, aligned status badges, and a divided action area. Cards form two columns on wide screens and a single column on smaller screens; mobile actions wrap with larger touch targets. The staff assignment dialog separates each member's details from their actions. Styling supports the existing light and dark themes without changing branch operations or permissions.
+
 Phase 1 verification: `tests/branch-permissions.test.ts`, `tests/branches.integration.test.ts`, `tests/branches-ui.test.tsx`, and the extended view-access tests cover API/UI permissions, persisted CRUD, migration backfill, duplicate assignment prevention, concurrent primary changes, Administrator global access, assigned staff access, and customer/supplier exclusion. Database tests use disposable schemas and need the existing database environment variables. Phase 1 added the 22nd migration; Phase 2 adds migration 023. Migration 022 must still be applied with `npm run db:migrate` to enable this feature in the shop database.
 
 ### Multi-branch barbers and scheduling (Phase 2)

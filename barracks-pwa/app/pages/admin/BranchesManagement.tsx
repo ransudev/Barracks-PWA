@@ -62,14 +62,16 @@ function AdministratorBranches({ onToast }: { onToast: (message: string) => void
     } catch (cause) { onToast(cause instanceof Error ? cause.message : "Unable to update branch"); }
     finally { setSaving(false); }
   }
-  return <>
-    <PageHeader title="Branches" action={<Button icon="plus" disabled={saving || loading} onClick={() => { setDraft(blank); setFormError(""); setAdding(true); }}>Add branch</Button>} />
-    <p>Manage branch details and Manager / Front Desk assignments.</p>
-    {loading ? <div role="status">Loading branches…</div> : error ? <div role="alert">{error}</div> : branches.length ? <div className="branches-list">
-      {branches.map((branch) => <Panel key={branch.id}>
+  return <div className="branches-management">
+    <PageHeader title="Branches" description="Manage branch details and Manager / Front Desk assignments." action={<Button icon="plus" disabled={saving || loading} onClick={() => { setDraft(blank); setFormError(""); setAdding(true); }}>Add branch</Button>} />
+    {loading ? <div className="branch-notice" role="status">Loading branches…</div> : error ? <div className="branch-notice" role="alert">{error}</div> : branches.length ? <div className="branches-list">
+      {branches.map((branch) => <Panel key={branch.id} className="branch-card">
         <div className="branch-summary"><div><h2>{branch.name}</h2><p>{branch.code}</p></div><Badge tone={branch.status === "active" ? "success" : "warning"}>{branch.status === "active" ? "Active" : "Inactive"}</Badge></div>
-        <p>{branch.address || "No address provided"}</p><p>{branch.phone || "No phone provided"}</p>
-        <div className="branch-actions">
+        <dl className="branch-details">
+          <div><dt>Address</dt><dd>{branch.address || "No address provided"}</dd></div>
+          <div><dt>Phone</dt><dd>{branch.phone || "No phone provided"}</dd></div>
+        </dl>
+        <div className="branch-actions branch-card__actions">
           <Button variant="secondary" size="sm" disabled={saving} onClick={() => { setEditing(branch); setDraft({ name: branch.name, code: branch.code, address: branch.address, phone: branch.phone, status: branch.status }); setFormError(""); }}>Edit</Button>
           <Button variant="secondary" size="sm" disabled={saving} onClick={() => void toggle(branch)}>{branch.status === "active" ? "Deactivate" : "Activate"}</Button>
           <Button variant="secondary" size="sm" disabled={saving} onClick={() => setAssignmentBranch(branch)}>Manage staff</Button>
@@ -88,7 +90,7 @@ function AdministratorBranches({ onToast }: { onToast: (message: string) => void
       </form>
     </Modal>
     {assignmentBranch && <AssignmentManager key={assignmentBranch.id} branch={assignmentBranch} staff={staff} onClose={() => setAssignmentBranch(null)} onToast={onToast} />}
-  </>;
+  </div>;
 }
 
 function AssignmentManager({ branch, staff, onClose, onToast }: { branch: Branch; staff: BranchStaff[]; onClose: () => void; onToast: (message: string) => void }) {
