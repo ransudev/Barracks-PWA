@@ -19,54 +19,16 @@ export function LandingPage({ go }: { go: (view: ViewId) => void }) {
       return;
     }
 
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
     site.classList.add("motion-ready");
 
     const sections = Array.from(
       site.querySelectorAll<HTMLElement>("main > section:not(#home)"),
     );
-    const parallaxTargets = Array.from(
-      site.querySelectorAll<HTMLElement>(
-        ".hero-gogrin__bg, .collage-quad__cell img, .services-menu-feature__image, .branches-carousel__media img, .studio-visual-frame img",
-      ),
-    );
-
-    let frame = 0;
-    const updateScrollMotion = () => {
-      if (frame) {
-        return;
-      }
-
-      frame = window.requestAnimationFrame(() => {
-        frame = 0;
-        const viewportCenter = window.innerHeight / 2;
-
-        parallaxTargets.forEach((target) => {
-          const rect = target.getBoundingClientRect();
-          const distanceFromCenter = (rect.top + rect.height / 2 - viewportCenter) / window.innerHeight;
-          const shift = Math.max(-18, Math.min(18, distanceFromCenter * -12));
-          target.style.setProperty("--scroll-shift", `${shift}px`);
-        });
-
-        const heroBackground = site.querySelector<HTMLElement>(".hero-gogrin__bg");
-        heroBackground?.style.setProperty(
-          "--hero-parallax",
-          `${Math.min(110, window.scrollY * 0.16)}px`,
-        );
-      });
-    };
-
-    window.addEventListener("scroll", updateScrollMotion, { passive: true });
-    window.addEventListener("resize", updateScrollMotion);
-    updateScrollMotion();
-
     if (!("IntersectionObserver" in window)) {
       sections.forEach((section) => section.classList.add("is-visible"));
       return () => {
-        window.removeEventListener("scroll", updateScrollMotion);
-        window.removeEventListener("resize", updateScrollMotion);
-        if (frame) {
-          window.cancelAnimationFrame(frame);
-        }
         site.classList.remove("motion-ready");
       };
     }
@@ -80,24 +42,19 @@ export function LandingPage({ go }: { go: (view: ViewId) => void }) {
           }
         });
       },
-      { rootMargin: "0px 0px -10% 0px", threshold: 0.12 },
+      { rootMargin: "0px 0px 80px 0px", threshold: 0 },
     );
 
     sections.forEach((section) => observer.observe(section));
 
     return () => {
       observer.disconnect();
-      window.removeEventListener("scroll", updateScrollMotion);
-      window.removeEventListener("resize", updateScrollMotion);
-      if (frame) {
-        window.cancelAnimationFrame(frame);
-      }
       site.classList.remove("motion-ready");
     };
   }, []);
 
   return (
-    <div className="public-site" data-motion="full">
+    <div className="public-site">
       <PublicHeader go={go} />
       <main>
         <HeroSection go={go} />

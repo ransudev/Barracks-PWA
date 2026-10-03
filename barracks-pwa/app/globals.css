@@ -222,9 +222,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .empty-state h3 { margin: 15px 0 4px; font-size: 14px; }
 .empty-state p { max-width: 280px; margin: 0; color: var(--text-muted); font-size: 12px; }
 .empty-state > .button { margin-top: 15px; }
-@keyframes modal-backdrop-in { from { opacity: 0; backdrop-filter: blur(0); } to { opacity: 1; backdrop-filter: blur(6px); } }
+@keyframes modal-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes modal-pop-in { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
-.modal-backdrop { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 30px; background: rgba(13, 15, 15, .72); backdrop-filter: blur(6px); animation: modal-backdrop-in .2s ease-out both; }
+.modal-backdrop { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 30px; background: rgba(13, 15, 15, .72); backdrop-filter: none; animation: modal-backdrop-in .2s ease-out both; }
 .modal { max-height: min(720px, calc(100vh - 60px)); overflow: auto; width: min(100%, 500px); border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--surface-raised); box-shadow: var(--shadow); animation: modal-pop-in .24s cubic-bezier(.16, 1, .3, 1) both; }
 .modal--sm { width: min(100%, 390px); }
 .modal--lg { width: min(100%, 700px); }
@@ -254,7 +254,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 /* Internal shell */
 .app-shell, .login-page, .customer-page { --text-muted: var(--barracks-muted); }
-.app-shell { display: grid; grid-template-columns: 238px minmax(0, 1fr); min-height: 100vh; background: var(--ink); transition: grid-template-columns .24s ease; }
+.app-shell { display: grid; grid-template-columns: 238px minmax(0, 1fr); min-height: 100vh; background: var(--ink); }
 .app-shell.is-sidebar-collapsed { grid-template-columns: 72px minmax(0, 1fr); }
 .sidebar { position: sticky; top: 0; z-index: 10; display: flex; height: 100vh; flex-direction: column; overflow: hidden; border-right: 1px solid var(--line); background: var(--ink-soft); }
 .sidebar__brand { display: flex; min-height: 86px; align-items: center; justify-content: space-between; gap: 12px; padding: 0 24px; border-bottom: 1px solid var(--line); }
@@ -303,7 +303,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .sidebar.is-collapsed .sidebar__footer { padding-right: 9px; padding-left: 9px; }
 .sidebar.is-collapsed .sidebar__signout, .sidebar.is-collapsed .sidebar__profile { justify-content: center; gap: 0; padding-right: 0; padding-left: 0; }
 .app-main { min-width: 0; }
-.topbar { position: sticky; top: 0; z-index: 8; align-items: center; display: flex; min-height: 72px; justify-content: space-between; gap: 24px; padding: 0 38px; border-bottom: 1px solid var(--line); background: rgba(13, 15, 15, .92); backdrop-filter: blur(14px); }
+.topbar { position: sticky; top: 0; z-index: 8; align-items: center; display: flex; min-height: 72px; justify-content: space-between; gap: 24px; padding: 0 38px; border-bottom: 1px solid var(--line); background: rgba(13, 15, 15, .92); backdrop-filter: none; }
 .topbar__mobile-start { display: none; align-items: center; gap: 8px; }
 .topbar__mobile-logo { display: none; }
 .mobile-nav-backdrop { display: none; }
@@ -1225,7 +1225,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   background: var(--glass-grain), linear-gradient(180deg, var(--glass-highlight), transparent), var(--glass-topbar);
   border-bottom-color: var(--glass-border);
   box-shadow: 0 4px 16px rgba(0, 0, 0, .08);
-  backdrop-filter: blur(14px);
+  backdrop-filter: none;
 }
 
 :is(.app-shell, .customer-page--dashboard) :is(.popover, .modal) {
@@ -1403,7 +1403,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 /* Blur is reserved for small elevated surfaces, never full scrolling panels. */
 :is(.app-shell, .customer-page--dashboard) :is(.popover, .modal) {
   background: var(--glass-reflection), color-mix(in srgb, var(--surface-raised) 94%, transparent);
-  backdrop-filter: blur(18px) saturate(115%);
+  backdrop-filter: none;
 }
 
 :is(.app-shell, .customer-page--dashboard) .metric-card__icon {
@@ -1512,33 +1512,33 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
   :is(.staff-dashboard, .admin-dashboard) > .page-header,
   .customer-dashboard > .customer-dashboard__heading {
-    animation: dashboard-enter .58s var(--dashboard-motion-ease) both;
+    animation: dashboard-enter .2s var(--dashboard-motion-ease) both;
   }
 
   :is(.staff-dashboard, .admin-dashboard, .customer-dashboard) > .metrics-grid .metric-card {
-    animation: dashboard-enter .66s var(--dashboard-motion-ease) both;
+    animation: dashboard-enter .2s var(--dashboard-motion-ease) both;
     transition-duration: .36s;
     transition-timing-function: var(--dashboard-motion-ease);
   }
 
-  :is(.staff-dashboard, .admin-dashboard, .customer-dashboard) > .metrics-grid .metric-card:nth-child(1) { animation-delay: 50ms; }
-  :is(.staff-dashboard, .admin-dashboard, .customer-dashboard) > .metrics-grid .metric-card:nth-child(2) { animation-delay: 88ms; }
-  :is(.staff-dashboard, .admin-dashboard, .customer-dashboard) > .metrics-grid .metric-card:nth-child(3) { animation-delay: 126ms; }
-  :is(.staff-dashboard, .admin-dashboard, .customer-dashboard) > .metrics-grid .metric-card:nth-child(4) { animation-delay: 164ms; }
-  :is(.staff-dashboard, .admin-dashboard, .customer-dashboard) > .metrics-grid .metric-card:nth-child(5) { animation-delay: 202ms; }
-  :is(.staff-dashboard, .admin-dashboard, .customer-dashboard) > .metrics-grid .metric-card:nth-child(6) { animation-delay: 240ms; }
-  :is(.staff-dashboard, .admin-dashboard, .customer-dashboard) > .metrics-grid .metric-card:nth-child(7) { animation-delay: 278ms; }
-  :is(.staff-dashboard, .admin-dashboard, .customer-dashboard) > .metrics-grid .metric-card:nth-child(8) { animation-delay: 316ms; }
+  :is(.staff-dashboard, .admin-dashboard, .customer-dashboard) > .metrics-grid .metric-card:nth-child(1) { animation-delay: 0ms; }
+  :is(.staff-dashboard, .admin-dashboard, .customer-dashboard) > .metrics-grid .metric-card:nth-child(2) { animation-delay: 0ms; }
+  :is(.staff-dashboard, .admin-dashboard, .customer-dashboard) > .metrics-grid .metric-card:nth-child(3) { animation-delay: 0ms; }
+  :is(.staff-dashboard, .admin-dashboard, .customer-dashboard) > .metrics-grid .metric-card:nth-child(4) { animation-delay: 0ms; }
+  :is(.staff-dashboard, .admin-dashboard, .customer-dashboard) > .metrics-grid .metric-card:nth-child(5) { animation-delay: 0ms; }
+  :is(.staff-dashboard, .admin-dashboard, .customer-dashboard) > .metrics-grid .metric-card:nth-child(6) { animation-delay: 0ms; }
+  :is(.staff-dashboard, .admin-dashboard, .customer-dashboard) > .metrics-grid .metric-card:nth-child(7) { animation-delay: 0ms; }
+  :is(.staff-dashboard, .admin-dashboard, .customer-dashboard) > .metrics-grid .metric-card:nth-child(8) { animation-delay: 0ms; }
 
   .staff-dashboard > .quick-actions > button {
-    animation: dashboard-enter .66s var(--dashboard-motion-ease) both;
+    animation: dashboard-enter .2s var(--dashboard-motion-ease) both;
     transition-duration: .36s;
     transition-timing-function: var(--dashboard-motion-ease);
   }
 
-  .staff-dashboard > .quick-actions > button:nth-child(1) { animation-delay: 180ms; }
-  .staff-dashboard > .quick-actions > button:nth-child(2) { animation-delay: 225ms; }
-  .staff-dashboard > .quick-actions > button:nth-child(3) { animation-delay: 270ms; }
+  .staff-dashboard > .quick-actions > button:nth-child(1) { animation-delay: 0ms; }
+  .staff-dashboard > .quick-actions > button:nth-child(2) { animation-delay: 0ms; }
+  .staff-dashboard > .quick-actions > button:nth-child(3) { animation-delay: 0ms; }
 
   .staff-dashboard > .dashboard-grid > .panel,
   .staff-dashboard > .barber-dashboard-panel,
@@ -1546,19 +1546,19 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .customer-dashboard > .customer-dashboard__grid > .panel,
   .customer-dashboard > .customer-history-panel,
   .customer-dashboard > .panel {
-    animation: dashboard-enter .72s var(--dashboard-motion-ease) both;
-    animation-delay: 260ms;
+    animation: dashboard-enter .2s var(--dashboard-motion-ease) both;
+    animation-delay: 0ms;
   }
 
   .staff-dashboard > .dashboard-grid > .panel:nth-child(2),
   .admin-dashboard > .dashboard-lower-grid > .panel:nth-child(2),
   .customer-dashboard > .customer-dashboard__grid > .panel:nth-child(2) {
-    animation-delay: 315ms;
+    animation-delay: 0ms;
   }
 
   .staff-dashboard > .barber-dashboard-panel,
   .customer-dashboard > .customer-history-panel {
-    animation-delay: 370ms;
+    animation-delay: 0ms;
   }
 
   :is(.staff-dashboard, .admin-dashboard, .customer-dashboard) .metric-card__icon {
@@ -1890,3 +1890,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .schedule-management__absence-form { grid-template-columns: 1fr; }
   .schedule-management__timezone { align-self: flex-start; }
 }
+
+/* Short entrances keep content usable while the surface settles. */
+.screen-loading { padding: 24px; color: var(--text-muted); }
+.app-shell .topbar { background: var(--ink); }
+:is(.app-shell, .customer-page--dashboard) :is(.popover, .modal) { background: var(--surface-raised); }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .modal-backdrop, .modal { animation: none; } }

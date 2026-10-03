@@ -1576,7 +1576,7 @@
   background: var(--glass-topbar);
   border-bottom-color: var(--glass-border);
   box-shadow: 0 4px 16px rgba(0, 0, 0, .08);
-  backdrop-filter: blur(14px);
+  backdrop-filter: none;
 }
 
 .supplier-portal__topbar-inner {
@@ -1737,21 +1737,21 @@
   .supplier-portal__overview,
   .supplier-portal__workspace,
   .supplier-account-panel {
-    animation: dashboard-enter .58s cubic-bezier(.22, 1, .36, 1) both;
+    animation: dashboard-enter .2s cubic-bezier(.22, 1, .36, 1) both;
   }
 
-  .supplier-portal__overview { animation-delay: 180ms; }
-  .supplier-portal__workspace { animation-delay: 260ms; }
-  .supplier-account-panel { animation-delay: 320ms; }
+  .supplier-portal__overview { animation-delay: 0ms; }
+  .supplier-portal__workspace { animation-delay: 0ms; }
+  .supplier-account-panel { animation-delay: 0ms; }
 
   .supplier-portal__metrics .metric-card {
-    animation: dashboard-enter .66s cubic-bezier(.22, 1, .36, 1) both;
+    animation: dashboard-enter .2s cubic-bezier(.22, 1, .36, 1) both;
   }
 
-  .supplier-portal__metrics .metric-card:nth-child(1) { animation-delay: 50ms; }
-  .supplier-portal__metrics .metric-card:nth-child(2) { animation-delay: 88ms; }
-  .supplier-portal__metrics .metric-card:nth-child(3) { animation-delay: 126ms; }
-  .supplier-portal__metrics .metric-card:nth-child(4) { animation-delay: 164ms; }
+  .supplier-portal__metrics .metric-card:nth-child(1) { animation-delay: 0ms; }
+  .supplier-portal__metrics .metric-card:nth-child(2) { animation-delay: 0ms; }
+  .supplier-portal__metrics .metric-card:nth-child(3) { animation-delay: 0ms; }
+  .supplier-portal__metrics .metric-card:nth-child(4) { animation-delay: 0ms; }
 }
 
 :root[data-theme="light"] .supplier-portal {
@@ -2157,3 +2157,5 @@
     transition: none;
   }
 }
+
+.supplier-portal__topbar { background: var(--ink); }
