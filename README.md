@@ -48,7 +48,7 @@ The active `sprint-2` experience includes:
 - Staff management is available to administrators and managers: administrators can view all staff accounts and create, edit, manage lifecycle, and deactivate permitted accounts, but cannot deactivate themselves or manage another administrator account; managers can view and manage front-desk accounts only.
 - Customer signup, login, profile details, preferred barber, loyalty points, booking, and appointment history.
 - Front Desk workspace with a live barber overview dashboard, queue, bookings, payments, customers, and a Barber Floor view with daily status controls. The dashboard shows the active queue count and a preview from `/api/queue?view=active`.
-- Management workspace with dashboard counts, staff account management, barber management, inventory, suppliers, restocks, inventory reporting, and payment-derived sales reporting.
+- Management workspace with dashboard counts, staff account management, barber management, inventory, suppliers, restocks, inventory reporting, and payment-derived sales reporting. Barber management keeps section spacing above and below the roster summary cards.
 - Supplier portal for a linked supplier account, its supplied items, deliveries, and restock requests.
 - PostgreSQL-backed CRUD for user accounts, barber employee profiles, services, inventory, suppliers, and restock requests, plus database-backed booking creation/editing/status updates.
 - Shared operational card/list/drawer modules that give customers, barbers, staff accounts, suppliers, restocks, bookings, queue, and inventory one consistent interaction language.
