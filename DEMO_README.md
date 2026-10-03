@@ -19,7 +19,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-`npm run db:seed-demo` replaces the local business/demo dataset in one transaction. It preserves administrator accounts but removes old customers, staff, barbers, inventory, bookings, suppliers, restocks, movements, services, and transactions before loading the current Sprint 2 showcase data. Use it only for local/demo databases.
+`npm run db:seed-demo` initializes a fresh disposable demo database in one transaction. It preserves administrator accounts, but attempts to remove existing business data; finalized financial records and attendance prevent destructive reseeding. On an already populated demo database, run `npm run db:refresh-demo` to add activity while preserving current records. Use these commands only for demo databases.
 
 ## Demo accounts
 
@@ -37,7 +37,7 @@ The administrator can access the Management workspace and switch to Front Desk.
 ### Front Desk
 
 ```text
-Email: demo.frontdesk@barracks.local
+Email: demo.frontdesk@barracks.app
 Password: frontdesk123
 ```
 
@@ -46,7 +46,7 @@ Front Desk users open directly in the Front Desk workspace. They can manage cust
 ### Manager
 
 ```text
-Email: demo.manager@barracks.local
+Email: demo.manager@barracks.app
 Password: manager123
 ```
 
@@ -55,16 +55,16 @@ Managers open in the Management workspace and can manage day-to-day business ope
 ### Customer
 
 ```text
-Email: demo.customer.ana@barracks.local
+Email: demo.customer.ana@barracks.app
 Password: customer123
 ```
 
 Customers can only access their own customer dashboard and profile. The other seeded customer accounts use the same password:
 
 ```text
-demo.customer.paulo@barracks.local
-demo.customer.samira@barracks.local
-demo.customer.jethro@barracks.local
+demo.customer.paulo@barracks.app
+demo.customer.samira@barracks.app
+demo.customer.jethro@barracks.app
 ```
 
 These are local demo credentials only. Do not use them in production.
@@ -72,11 +72,11 @@ These are local demo credentials only. Do not use them in production.
 ### Supplier
 
 ```text
-Email: demo.supplier.nina@barracks.local
+Email: demo.supplier.nina@barracks.app
 Password: supplier123
 ```
 
-The second seeded supplier account is `demo.supplier.marco@barracks.local` with the same password.
+The second seeded supplier account is `demo.supplier.marco@barracks.app` with the same password.
 
 ## Suggested walkthrough
 
@@ -99,17 +99,18 @@ The second seeded supplier account is `demo.supplier.marco@barracks.local` with 
 
 ## Seeded showcase data
 
-- Four barbers with available, busy, and unavailable statuses.
+- Four barbers with a working queue and an unavailable roster member.
 - Two active suppliers, each with a supplier portal account.
 - Twenty-six supplier-linked inventory items across Supplies, Products, and Equipment, including all 21 products shown on the public landing page and low-stock items.
 - Three restock requests in Pending, Delivered, and Received states, plus one audited receiving movement.
-- Four customer profiles with phone numbers, preferred barbers, and loyalty points.
-- Four bookings across upcoming, completed, and cancelled states, plus one persisted transaction.
+- Four customer accounts plus 12 accountless customer profiles with realistic names and phone numbers.
+- Four weeks of completed, cancelled, and no-show visits, paid receipts across cash/card/e-wallet, and a week of upcoming appointments. Existing reservations can reduce the number of new appointments.
+- Fourteen days of attendance history plus today's attendance; waiting, ready, in-progress, and completed unpaid walk-ins demonstrate the queue and checkout flow.
 - One Manager account and one Front Desk account.
 
 New accounts created from Management start unverified. Use the account details view to verify them before testing login; blocking an account revokes its active sessions.
 
-The booking flow is intentionally small: one-time appointments with one service, barber, date, and time. Payment entry and queue management remain legacy reference screens; the Sprint 2 database includes transaction records for the relational foundation.
+The booking flow uses one service, barber, date, and time. Front Desk can manage the queue and check out the completed unpaid walk-in. Payments have persisted visit identities and matching tenders; revenue reports include dated history rather than a single sale. The additive refresh also retains the four-branch stock/restock examples. Existing accounts, completed sales, request progress, and staff attendance edits remain intact.
 
 ## Troubleshooting
 

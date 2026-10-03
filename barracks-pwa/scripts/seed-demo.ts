@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import type { PoolClient } from "pg";
 import { landingProducts, type LandingProduct } from "../app/data/landing";
 import { inventoryImageByKey } from "../app/data/inventory-images";
@@ -261,8 +262,8 @@ async function seedBarbers(client: DatabaseClient): Promise<Map<string, number>>
   for (const barber of demoBarbers) {
     const result = await client.query<{ id: number }>(
       `INSERT INTO barbers (first_name,last_name,status,commission_rate,services_done,revenue,rating)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
-      [barber.firstName, barber.lastName, barber.status, barber.commissionRate, barber.servicesDone, barber.revenue, barber.rating],
+       VALUES ($1,$2,$3,$4,0,0,$5) RETURNING id`,
+      [barber.firstName, barber.lastName, barber.status === "busy" ? "available" : barber.status, barber.commissionRate, barber.rating],
     );
     ids.set(`${barber.firstName} ${barber.lastName}`, Number(result.rows[0].id));
     await client.query(`INSERT INTO barber_schedules (barber_id,day_of_week,is_working,start_time,end_time)
@@ -334,7 +335,7 @@ async function seedBookings(
     const result = await client.query<{ id: number }>(
       `INSERT INTO bookings
         (customer_id,barber_id,service_id,service_name,service_price,service_duration_minutes,booking_date,booking_time,end_time,status,demo_key)
-       VALUES ($1,$2,$3::varchar(80),$4,$5,(SELECT duration_minutes FROM services WHERE id=$3::varchar(80)),CURRENT_DATE + $6::integer,$7,($7::time + (SELECT duration_minutes FROM services WHERE id=$3::varchar(80)) * INTERVAL '1 minute')::time,$8,$9) RETURNING id`,
+       VALUES ($1,$2,$3::varchar(80),$4,$5,(SELECT duration_minutes FROM services WHERE id=$3::varchar(80)),(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Manila')::date + $6::integer,$7,($7::time + (SELECT duration_minutes FROM services WHERE id=$3::varchar(80)) * INTERVAL '1 minute')::time,$8,$9) RETURNING id`,
       [customerId, barberId, booking.serviceId, booking.serviceName, booking.servicePrice, booking.dayOffset, booking.time, booking.status, booking.demoKey],
     );
     ids.set(booking.demoKey, Number(result.rows[0].id));
@@ -393,18 +394,19 @@ async function seedTransactions(client: DatabaseClient, bookings: Map<string, nu
   if (!completedBooking || !bookingId || !customerId || !barberId) throw new Error("Unable to resolve demo transaction");
   for (const transaction of demoTransactions) {
     await client.query(
-      `INSERT INTO transactions (customer_id,booking_id,visit_type,visit_record_id,barber_id,service_id,amount,payment_method,status,customer_name,barber_name,service_name)
+      `INSERT INTO transactions (customer_id,booking_id,visit_type,visit_record_id,barber_id,service_id,amount,payment_method,status,customer_name,barber_name,service_name,created_at)
        SELECT $1,$2,'booking',$2,$3,$4,$5,$6,$7,
          concat_ws(' ',COALESCE(u.first_name,c.first_name),COALESCE(u.last_name,c.last_name)),
-         concat_ws(' ',br.first_name,br.last_name),s.name
+         concat_ws(' ',br.first_name,br.last_name),s.name,(bk.booking_date+bk.end_time) AT TIME ZONE 'Asia/Manila'
        FROM customers c LEFT JOIN users u ON u.id=c.user_id
-       JOIN barbers br ON br.id=$3 JOIN services s ON s.id=$4 WHERE c.id=$1`,
+       JOIN barbers br ON br.id=$3 JOIN services s ON s.id=$4 JOIN bookings bk ON bk.id=$2 WHERE c.id=$1`,
       [customerId, bookingId, barberId, completedBooking.serviceId, completedBooking.servicePrice, transaction.paymentMethod, transaction.status],
     );
     await client.query(
-      `INSERT INTO transaction_payments(transaction_id,payment_method,amount,status)
-       SELECT id,payment_method,amount,status FROM transactions WHERE booking_id=$1`, [bookingId],
+      `INSERT INTO transaction_payments(transaction_id,payment_method,amount,status,created_at)
+       SELECT id,payment_method,amount,status,created_at FROM transactions WHERE booking_id=$1`, [bookingId],
     );
+    await client.query("UPDATE barbers SET services_done=services_done+1,revenue=revenue+$2 WHERE id=$1", [barberId, completedBooking.servicePrice]);
   }
 }
 
@@ -430,9 +432,10 @@ async function seedDemoData() {
     await seedTransactions(client, bookings, customers, barbers);
     await createUser(client, demoManager);
     await createUser(client, demoFrontDesk);
+    await client.query(await readFile(new URL("./working-demo.sql", import.meta.url), "utf8"));
 
     await client.query("COMMIT");
-    console.log(`Sprint 2 demo data replaced: 4 barbers, ${demoInventory.length} inventory items (${landingProducts.length} products), 2 suppliers, 4 customers, 4 bookings, 3 restocks, 1 movement, 1 transaction, 1 manager account, 1 front-desk account, and 2 supplier accounts`);
+    console.log(`Demo data seeded: 4 barbers, ${demoInventory.length} inventory items (${landingProducts.length} products), 2 suppliers, customer accounts and walk-ins, four weeks of visits/payments, upcoming appointments, attendance history, and today's working queue.`);
     console.log("Front Desk login: demo.frontdesk@barracks.app / frontdesk123");
     console.log("Manager login: demo.manager@barracks.app / manager123");
     console.log("Supplier logins: demo.supplier.nina@barracks.app / supplier123 and demo.supplier.marco@barracks.app / supplier123");
