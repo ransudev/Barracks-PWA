@@ -2,71 +2,47 @@
 
 import { useEffect, useState } from "react";
 import type { ViewId } from "@/app/types/domain";
-import type { ApiBarber, ApiBooking, ApiCustomer, ApiInventoryItem, ApiUser } from "@/app/lib/api";
+import type { ApiUser } from "@/app/lib/api";
+import type { ManagementDashboardData } from "@/app/types/dashboard";
 import { apiRequest, readApiBody } from "@/app/lib/api";
-import { dateInputValue, formatCurrency } from "@/app/utils/format";
+import { formatCurrency } from "@/app/utils/format";
 import { Button, EmptyState, MetricCard, PageHeader, Panel, SectionHeading } from "@/app/components/ui";
 
-type DashboardRestock = {
-  id: number;
-  supplier_name: string;
-  status: string;
-  reference: string | null;
-  received_at: string | null;
-  created_at: string;
-};
-
 export function AdminDashboard({ go, onToast, currentUser }: { go: (view: ViewId) => void; onToast: (message: string) => void; currentUser: ApiUser }) {
-  const [barbers, setBarbers] = useState<ApiBarber[]>([]);
-  const [bookings, setBookings] = useState<ApiBooking[]>([]);
-  const [customers, setCustomers] = useState<ApiCustomer[]>([]);
-  const [inventory, setInventory] = useState<ApiInventoryItem[]>([]);
-  const [restocks, setRestocks] = useState<DashboardRestock[]>([]);
+  const [dashboard, setDashboard] = useState<ManagementDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
     async function load() {
       try {
-        const [barberResponse, bookingResponse, customerResponse, inventoryResponse, restockResponse] = await Promise.all([
-          apiRequest("/api/barbers"),
-          apiRequest("/api/bookings"),
-          apiRequest("/api/customers"),
-          apiRequest("/api/inventory"),
-          apiRequest("/api/restocks"),
-        ]);
-        const barberBody = await readApiBody<{ success: boolean; barbers?: ApiBarber[] }>(barberResponse);
-        const bookingBody = await readApiBody<{ success: boolean; bookings?: ApiBooking[] }>(bookingResponse);
-        const customerBody = await readApiBody<{ success: boolean; customers?: ApiCustomer[] }>(customerResponse);
-        const inventoryBody = await readApiBody<{ success: boolean; items?: ApiInventoryItem[] }>(inventoryResponse);
-        const restockBody = await readApiBody<{ success: boolean; restocks?: DashboardRestock[] }>(restockResponse);
-        if (!barberResponse.ok || !barberBody?.success || !bookingResponse.ok || !bookingBody?.success || !customerResponse.ok || !customerBody?.success || !inventoryResponse.ok || !inventoryBody?.success || !restockResponse.ok || !restockBody?.success) throw new Error("Some dashboard data could not be loaded");
-        setBarbers(barberBody.barbers ?? []);
-        setBookings(bookingBody.bookings ?? []);
-        setCustomers(customerBody.customers ?? []);
-        setInventory(inventoryBody.items ?? []);
-        setRestocks(restockBody.restocks ?? []);
+        const response = await apiRequest("/api/dashboard/management", { cache: "no-store" });
+        const body = await readApiBody<{ success: boolean; dashboard?: ManagementDashboardData; message?: string }>(response);
+        if (!response.ok || !body?.success || !body.dashboard) throw new Error(body?.message ?? "Unable to load dashboard");
+        if (cancelled) return;
+        setDashboard(body.dashboard);
         setLoadError("");
       } catch (error) {
+        if (cancelled) return;
         const message = error instanceof Error ? error.message : "Unable to load dashboard";
         setLoadError(message);
         onToast(message);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
     void load();
+    return () => { cancelled = true; };
   }, [onToast]);
 
-  const attentionItems = inventory.filter((item) => item.status === "active" && item.quantity <= item.minimumStock);
+  const attentionItems = dashboard?.lowStock ?? [];
   const attention = attentionItems.length;
-  const inventoryValue = inventory.reduce((sum, item) => sum + item.quantity * item.unitCost, 0);
-  const pendingRestocks = restocks.filter((restock) => !["Received", "Cancelled"].includes(restock.status));
-  const recentDeliveries = restocks.filter((restock) => restock.status === "Received").slice(0, 5);
-  const today = dateInputValue();
-  const todayBookings = bookings.filter((booking) => booking.date === today && booking.status !== "cancelled").length;
-  const upcomingBookings = bookings.filter((booking) => booking.status === "confirmed" && booking.date >= today).length;
-  const activeBarbers = barbers.filter((barber) => barber.status !== "unavailable").length;
+  const inventoryValue = dashboard?.inventoryValue ?? 0;
+  const recentDeliveries = dashboard?.recentDeliveries ?? [];
+  const todayBookings = dashboard?.todayBookings ?? 0;
+  const upcomingBookings = dashboard?.upcomingBookings ?? 0;
+  const activeBarbers = dashboard?.activeBarbers ?? 0;
   const metricValue = (value: number) => loading || loadError ? "—" : String(value);
 
   const dashboardTitle = currentUser.role === "manager" ? "Manager dashboard" : "Admin dashboard";
@@ -77,13 +53,13 @@ export function AdminDashboard({ go, onToast, currentUser }: { go: (view: ViewId
       <div className="admin-dashboard__primary-metrics">
         <MetricCard className="metric-card--hero" label="Inventory value" value={loading || loadError ? "—" : formatCurrency(inventoryValue)} icon="box" accent="blue" />
         <MetricCard label="Low / out of stock" value={metricValue(attention)} icon="info" accent="amber" />
-        <MetricCard label="Open restocks" value={metricValue(pendingRestocks.length)} icon="calendar" accent="violet" />
+        <MetricCard label="Open restocks" value={metricValue(dashboard?.openRestocks ?? 0)} icon="calendar" accent="violet" />
       </div>
       <div className="admin-dashboard__supporting-metrics">
         <MetricCard label="Today’s bookings" value={metricValue(todayBookings)} icon="calendar" accent="amber" />
         <MetricCard label="Upcoming bookings" value={metricValue(upcomingBookings)} icon="clock" accent="violet" />
         <MetricCard label="Active barbers" value={metricValue(activeBarbers)} icon="scissors" accent="green" />
-        <MetricCard label="Customer accounts" value={metricValue(customers.length)} icon="users" accent="blue" />
+        <MetricCard label="Customer accounts" value={metricValue(dashboard?.customerCount ?? 0)} icon="users" accent="blue" />
       </div>
     </div>
 

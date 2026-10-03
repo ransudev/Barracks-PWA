@@ -42,7 +42,7 @@ export function CustomerBookingPage({
   useEffect(() => {
     async function loadBarbers() {
       try {
-        const [response, serviceResponse] = await Promise.all([apiRequest("/api/barbers"), apiRequest("/api/services")]);
+        const [response, serviceResponse] = await Promise.all([apiRequest("/api/barbers"), apiRequest("/api/services", { cache: "no-store", reuseForMs: 15_000 })]);
         const body = await readApiBody<{ success: boolean; barbers?: ApiBarberAvailability[]; message?: string }>(response);
         const serviceBody = await readApiBody<{ success: boolean; services?: Service[]; message?: string }>(serviceResponse);
         if (!response.ok || !body?.success) throw new Error(body?.message ?? "Unable to load barbers");

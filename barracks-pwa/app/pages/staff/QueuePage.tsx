@@ -50,8 +50,8 @@ export function QueuePage({ onToast, canOperate = true }: { onToast: (message: s
     async function load() {
       try {
         const [queueResponse, customerResponse, serviceResponse, barberResponse] = await Promise.all([
-          apiRequest("/api/queue?view=active", { cache: "no-store" }), apiRequest("/api/customers", { cache: "no-store" }),
-          apiRequest("/api/services", { cache: "no-store" }), apiRequest("/api/barbers", { cache: "no-store" }),
+          apiRequest("/api/queue?view=active", { cache: "no-store" }), apiRequest("/api/customers", { cache: "no-store", reuseForMs: 15_000 }),
+          apiRequest("/api/services", { cache: "no-store", reuseForMs: 15_000 }), apiRequest("/api/barbers", { cache: "no-store" }),
         ]);
         const [queueData, customerData, serviceData, barberData] = await Promise.all([
           readApiBody<{ success: boolean; queue?: ApiQueueEntry[]; message?: string }>(queueResponse),
@@ -145,7 +145,7 @@ export function QueuePage({ onToast, canOperate = true }: { onToast: (message: s
       onToast("Walk-in added to the queue");
       if (draft.customerId === "new") {
         try {
-          const customerResponse = await apiRequest("/api/customers", { cache: "no-store" });
+          const customerResponse = await apiRequest("/api/customers", { cache: "no-store", reuseForMs: 15_000 });
           const customerBody = await readApiBody<{ success: boolean; customers?: ApiCustomer[] }>(customerResponse);
           if (customerResponse.ok && customerBody?.success && customerBody.customers) setCustomers(customerBody.customers);
         } catch { /* The queue entry is already committed; reload customers next time. */ }

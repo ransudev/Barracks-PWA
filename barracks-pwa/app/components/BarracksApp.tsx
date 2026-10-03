@@ -1,20 +1,23 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { usePathname, useRouter } from "next/navigation";
 import { AppShell } from "@/app/components/layout/AppShell";
-import { LoginPage } from "@/app/pages/auth/LoginPage";
-import { CustomerDashboard } from "@/app/pages/customer/CustomerDashboard";
-import { CustomerBookingPage } from "@/app/pages/customer/CustomerBookingPage";
-import { SupplierPortal } from "@/app/pages/supplier/SupplierPortal";
 import { LandingPage } from "@/app/pages/public/LandingPage";
 import { PageRouter } from "@/app/pages/PageRouter";
+import { ScreenLoading } from "@/app/components/ui/ScreenLoading";
 import { Toast } from "@/app/components/ui";
 import { isManagementRole } from "@/app/constants/roles";
 import type { ViewId } from "@/app/types/domain";
 import { canAccessView, canonicalView, isCustomerView, isProtectedView, isSupplierView, isWorkspaceView, workspaceAreaForView } from "@/app/utils/view";
 import { isKnownAppPath, pathForView, viewForPath } from "@/app/utils/routes";
-import { apiRequest, readApiBody, type ApiUser } from "@/app/lib/api";
+import { apiRequest, clearApiCache, readApiBody, type ApiUser } from "@/app/lib/api";
+
+const LoginPage = dynamic(() => import("@/app/pages/auth/LoginPage").then((module) => module.LoginPage), { loading: ScreenLoading });
+const CustomerDashboard = dynamic(() => import("@/app/pages/customer/CustomerDashboard").then((module) => module.CustomerDashboard), { loading: ScreenLoading });
+const CustomerBookingPage = dynamic(() => import("@/app/pages/customer/CustomerBookingPage").then((module) => module.CustomerBookingPage), { loading: ScreenLoading });
+const SupplierPortal = dynamic(() => import("@/app/pages/supplier/SupplierPortal").then((module) => module.SupplierPortal), { loading: ScreenLoading });
 
 function defaultViewForUser(user: ApiUser): ViewId {
   if (isManagementRole(user.role)) return "admin-dashboard";
@@ -34,6 +37,7 @@ export function BarracksApp() {
   const [currentUser, setCurrentUser] = useState<ApiUser | null>(null);
   const [sessionLoading, setSessionLoading] = useState(true);
   const [toast, setToast] = useState("");
+  const sessionVersion = useRef(0);
 
   const onToast = useCallback((message: string) => {
     setToast(message);
@@ -43,10 +47,12 @@ export function BarracksApp() {
   function navigate(nextView: ViewId, replace = false) {
     const nextPath = pathForView(nextView);
     if (pathname === nextPath) return;
+    // Every app screen lives in this persistent layout; its page renders null.
+    // Next's History API integration updates usePathname without an RSC trip.
     if (replace) {
-      router.replace(nextPath);
+      window.history.replaceState(null, "", nextPath);
     } else {
-      router.push(nextPath);
+      window.history.pushState(null, "", nextPath);
     }
   }
 
@@ -55,31 +61,65 @@ export function BarracksApp() {
 
   useEffect(() => {
     let cancelled = false;
+    let refreshing = false;
     async function loadSession() {
-      const requestedView = viewForPath(pathname);
-      setSessionLoading(true);
+      if (refreshing) return;
+      refreshing = true;
+      const version = ++sessionVersion.current;
       try {
         const response = await apiRequest("/api/auth/me", { cache: "no-store" });
         const body = await readApiBody<{ success: boolean; user?: ApiUser }>(response);
-        if (cancelled) return;
+        if (cancelled || version !== sessionVersion.current) return;
         if (response.ok && body?.success && body.user) {
           setCurrentUser(body.user);
-          if (requestedView === "login" || !canAccessView(requestedView, body.user.role)) router.replace(pathForView(defaultViewForUser(body.user)));
-          else if (canonicalView(requestedView) !== requestedView) router.replace(pathForView(canonicalView(requestedView)));
         } else {
           setCurrentUser(null);
-          if (isProtectedView(requestedView)) { setPendingView(requestedView); router.replace(pathForView("login")); }
+          clearApiCache();
         }
       } catch {
-        if (!cancelled) {
+        if (!cancelled && version === sessionVersion.current) {
           setCurrentUser(null);
-          if (isProtectedView(requestedView)) { setPendingView(requestedView); router.replace(pathForView("login")); }
+          clearApiCache();
         }
-      } finally { if (!cancelled) setSessionLoading(false); }
+      } finally {
+        refreshing = false;
+        if (!cancelled && version === sessionVersion.current) setSessionLoading(false);
+      }
     }
+    const refreshSession = () => {
+      if (document.visibilityState === "visible") {
+        clearApiCache();
+        void loadSession();
+      }
+    };
     void loadSession();
-    return () => { cancelled = true; };
-  }, [pathname, router]);
+    window.addEventListener("focus", refreshSession);
+    document.addEventListener("visibilitychange", refreshSession);
+    window.addEventListener("barracks:session-expired", refreshSession);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", refreshSession);
+      document.removeEventListener("visibilitychange", refreshSession);
+      window.removeEventListener("barracks:session-expired", refreshSession);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (sessionLoading || !isKnownAppPath(pathname)) return;
+    const requestedView = viewForPath(pathname);
+    if (!currentUser) {
+      if (isProtectedView(requestedView)) {
+        // Keep the requested destination while the login route is displayed.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setPendingView(requestedView);
+        router.replace(pathForView("login"));
+      }
+    } else if (requestedView === "login" || !canAccessView(requestedView, currentUser.role)) {
+      router.replace(pathForView(defaultViewForUser(currentUser)));
+    } else if (canonicalView(requestedView) !== requestedView) {
+      router.replace(pathForView(canonicalView(requestedView)));
+    }
+  }, [currentUser, pathname, router, sessionLoading]);
 
   if (!isKnownAppPath(pathname)) return null;
 
@@ -95,15 +135,20 @@ export function BarracksApp() {
     }
     if (!canAccessView(nextView, currentUser?.role ?? null)) { onToast("You do not have access to this page"); return; }
     navigate(canonicalView(nextView));
-    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "instant" });
   }
 
   function handleLogin(user: ApiUser) {
+    sessionVersion.current++;
+    clearApiCache();
+    setSessionLoading(false);
     const destination = pendingView && canAccessView(pendingView, user.role) ? pendingView : defaultViewForUser(user);
     setCurrentUser(user); setPendingView(null); navigate(canonicalView(destination)); onToast(`Signed in as ${user.firstName} ${user.lastName}`);
   }
 
   async function handleSignOut() {
+    sessionVersion.current++;
+    clearApiCache();
     let message = "Signed out";
     try {
       const response = await apiRequest("/api/auth/logout", { method: "POST" });

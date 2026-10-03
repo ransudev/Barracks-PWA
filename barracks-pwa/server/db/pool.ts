@@ -12,7 +12,7 @@ if (!connectionString) {
 export const pool = new Pool({
   connectionString,
   ssl,
-  max: Number(process.env.DATABASE_POOL_MAX ?? 10),
+  max: Number(process.env.DATABASE_POOL_MAX ?? (process.env.VERCEL ? 3 : 10)),
 });
 
 pool.on("error", (error) => {

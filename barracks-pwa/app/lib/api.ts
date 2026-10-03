@@ -159,21 +159,60 @@ export type ApiErrorBody = {
   errors?: Record<string, string[]>;
 };
 
+type ApiRequestInit = RequestInit & { reuseForMs?: number };
+const pendingReads = new Map<string, Promise<Response>>();
+const referenceReads = new Map<string, { expiresAt: number; response: Response }>();
+let cacheVersion = 0;
+
+export function clearApiCache() {
+  cacheVersion++;
+  pendingReads.clear();
+  referenceReads.clear();
+}
+
 export async function apiRequest(
   path: string,
-  init: RequestInit = {},
+  init: ApiRequestInit = {},
 ): Promise<Response> {
-  const headers = new Headers(init.headers);
+  const { reuseForMs = 0, ...requestInit } = init;
+  const headers = new Headers(requestInit.headers);
 
   if (init.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
 
-  return fetch(path, {
-    ...init,
-    credentials: "same-origin",
-    headers,
+  const isRead = (requestInit.method ?? "GET").toUpperCase() === "GET";
+  const canShare = typeof window !== "undefined" && isRead && !requestInit.signal && !requestInit.body;
+  // Only explicitly opted-in reference lists may survive a completed request.
+  // Operational data (queue, bookings, payments, stock) always remains fresh.
+  const lifetime = canShare && ["/api/services", "/api/customers"].includes(path)
+    ? Math.min(Math.max(reuseForMs, 0), 15_000) : 0;
+  const key = JSON.stringify([path, requestInit.cache, requestInit.credentials, Array.from(headers.entries())]);
+  const cached = lifetime ? referenceReads.get(key) : undefined;
+  if (cached && cached.expiresAt > Date.now()) return cached.response.clone();
+  if (cached) referenceReads.delete(key);
+  const pending = canShare ? pendingReads.get(key) : undefined;
+  if (pending) return (await pending).clone();
+
+  if (!isRead) clearApiCache();
+  const version = cacheVersion;
+  const request = fetch(path, { ...requestInit, credentials: "same-origin", headers }).then((response) => {
+    if (!isRead || response.status === 401 || response.status === 403) clearApiCache();
+    if (typeof window !== "undefined" && response.status === 401 && !path.startsWith("/api/auth/")) {
+      window.dispatchEvent(new Event("barracks:session-expired"));
+    }
+    if (response.ok && lifetime && version === cacheVersion) {
+      referenceReads.set(key, { expiresAt: Date.now() + lifetime, response: response.clone() });
+    }
+    return response;
   });
+  if (canShare) pendingReads.set(key, request);
+  try {
+    const response = await request;
+    return canShare ? response.clone() : response;
+  } finally {
+    if (pendingReads.get(key) === request) pendingReads.delete(key);
+  }
 }
 
 export async function readApiBody<T>(response: Response): Promise<T | null> {

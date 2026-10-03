@@ -111,7 +111,7 @@ export function CustomerDashboard({
           apiRequest("/api/customers/me"),
           apiRequest("/api/bookings"),
           apiRequest("/api/barbers"),
-          apiRequest("/api/services"),
+          apiRequest("/api/services", { cache: "no-store", reuseForMs: 15_000 }),
         ]);
         const customerBody = await readApiBody<{ success: boolean; customer?: ApiCustomer; message?: string }>(customerResponse);
         const bookingBody = await readApiBody<{ success: boolean; bookings?: ApiBooking[]; message?: string }>(bookingResponse);

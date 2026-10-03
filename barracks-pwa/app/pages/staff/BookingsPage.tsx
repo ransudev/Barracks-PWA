@@ -46,8 +46,8 @@ export function BookingsPage({ onToast, canOperate = true, canDelete = false }: 
     async function load() {
       try {
         const [bookingResponse, customerResponse, barberResponse, serviceResponse] = await Promise.all([
-          apiRequest("/api/bookings", { cache: "no-store" }), apiRequest("/api/customers", { cache: "no-store" }),
-          apiRequest("/api/barbers", { cache: "no-store" }), apiRequest("/api/services", { cache: "no-store" }),
+          apiRequest("/api/bookings", { cache: "no-store" }), apiRequest("/api/customers", { cache: "no-store", reuseForMs: 15_000 }),
+          apiRequest("/api/barbers", { cache: "no-store" }), apiRequest("/api/services", { cache: "no-store", reuseForMs: 15_000 }),
         ]);
         const [bookings, customerData, barberData, serviceData] = await Promise.all([
           readApiBody<{ success: boolean; bookings?: ApiBooking[]; message?: string }>(bookingResponse),
