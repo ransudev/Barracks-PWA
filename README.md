@@ -43,8 +43,7 @@ Barracks connects the daily rhythm of a barbershop—bookings, barber availabili
 
 The active `sprint-2` experience includes:
 
-- Public landing page with Barracks branding, service information, branches, contact details, and login/customer-account actions. Its full-bleed hero uses a landscape adaptation of the real Barracks shop photo at `barracks-pwa/public/barracks/hero-barracks-landscape.png`, retaining the Barracks uniform and lightly altering the faces. A lighter overlay reveals more of the barber at work, while a compact Barracks lockup and “Your next cut, done right.” heading lead into flat red booking and outlined service actions. Mobile spacing brings the service section closer; supporting text and service prices have clearer contrast and larger labels. Responsive navigation, smooth anchor scrolling, staged section reveals, and reduced-motion handling remain in place.
-- Sign-in and registration use flatter controls, clearer field borders, 16px input text, visible keyboard focus, and a plain “Sign in” action. At widths up to 960px, a compact logo/back header replaces the promotional panel so the form appears immediately; desktop retains the brand panel.
+- Public landing page with Barracks branding, service information, branches, contact details, and login/customer-account actions. Its full-bleed hero uses a landscape adaptation of the real Barracks shop photo at `barracks-pwa/public/barracks/hero-barracks-landscape.png`, retaining the Barracks uniform and lightly altering the faces; it pairs with a left-aligned Barracks lockup, red establishment kicker, appointment/service actions, bottom benefits rail, responsive navigation/footer rules, smooth anchor scrolling, scroll-linked image depth, staged section reveals, fully visible responsive service numerals, and compact inline icon labels.
 - Customer and supplier phone inputs are capped at 11 characters in the UI and server schemas, with the API enforcing the same limit for signup, profile, customer-management, and supplier-management payloads.
 - Staff management is available to administrators and managers: administrators can view all staff accounts and create, edit, manage lifecycle, and deactivate permitted accounts, but cannot deactivate themselves or manage another administrator account; managers can view and manage front-desk accounts only.
 - Customer signup, login, profile details, preferred barber, loyalty points, booking, and appointment history.
@@ -97,7 +96,7 @@ The financial audit panel is shown only in Management. Front Desk receipts still
 
 ### North star
 
-The product follows a restrained Barracks visual system. The public site keeps its charcoal surfaces, red booking actions, distinctive wordmark, and photography, while the authenticated product uses a compact dark operational workspace. Both retain the same brand voice while adapting density and interaction patterns to their context.
+The product follows a restrained Barracks monochrome system. The public site keeps its editorial identity, cream paper surfaces, and photography, while the authenticated product uses a compact dark operational workspace. Both retain the same brand voice while adapting density and interaction patterns to their context.
 
 Dark mode remains the default for operational surfaces. The existing light-mode preference uses `data-theme` and persists in `localStorage["barracks-theme"]`.
 
@@ -121,7 +120,7 @@ The inventory item drawer and the shared detail drawer use a simple two-state tr
 
 ### Typography
 
-- The public hero pairs the bundled Barracks lockup with a short Sora customer-benefit heading. Sora and Inter remain the public display and interface faces; booking controls and price labels use readable sentence case.
+- The public hero uses the bundled Barracks lockup image for the oversized brand moment, with Sora and Inter retained for navigation, controls, and supporting editorial UI.
 - `Geist` is the body and interface face for navigation, controls, descriptions, and operational content.
 - `Geist Mono` is for times, prices, compact labels, metadata, and other system-like notation.
 - `Inter` is the primary interface face inside the Staff, Management, and Customer dashboards, with `Sora` reserved for dashboard display headings.
@@ -132,7 +131,7 @@ All customer-facing and operational prices use the Philippine peso symbol (`₱`
 
 ### Layout and material
 
-The public composition remains a paced editorial read: compact navigation, a photography-led hero, service menu, craftsmanship collage, branch details, a barber café/contact section, and a decisive CTA/footer close. Charcoal surfaces, flat red actions, and a restrained 4/8/10px radius scale support the Barracks wordmark and photography. Mobile authentication prioritizes the form above promotional content.
+The public composition remains a paced editorial read: compact navigation, a photography-led hero, service cards, a dark barber roster, branch details, an about/contact section, and a decisive CTA/footer close. Cream and paper surfaces contrast with the dark sections while Barracks photography and the display face carry the brand.
 
 The internal workspace uses a persistent sidebar, a compact sticky topbar, metric rows, layered panels, tables, modals, and clear action zones. Shared controls use restrained radii, quiet borders, and monochrome selection states. The shared UI primitives live in `barracks-pwa/app/components/ui/`.
 

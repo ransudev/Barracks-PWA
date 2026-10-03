@@ -1,28 +1,6 @@
 /* ==========================================================================
    RESPONSIVENESS
    ========================================================================== */
-@media (min-width: 769px) and (max-width: 1200px) {
-  .public-site .public-nav {
-    padding: 0 24px;
-  }
-
-  .public-site .public-nav__links {
-    display: none;
-  }
-
-  .public-site .public-nav__actions {
-    margin-right: 0;
-  }
-
-  .public-site .public-nav__menu-toggle {
-    display: flex;
-  }
-}
-
-.public-site .public-nav > .logo-button {
-  flex-shrink: 0;
-}
-
 @media (max-width: 1024px) {
   .public-site .category-ribbon__inner {
     grid-template-columns: repeat(3, 1fr);
@@ -67,8 +45,8 @@
   }
 
   .public-site .hero-gogrin {
-    min-height: 620px;
-    padding: 124px 24px 48px;
+    min-height: 760px;
+    padding: 132px 24px 112px;
   }
 
   .public-site .hero-gogrin__bg img {
@@ -77,8 +55,8 @@
 
   .public-site .hero-gogrin__overlay {
     background:
-      linear-gradient(90deg, rgba(6, 8, 9, 0.55), rgba(6, 8, 9, 0.2)),
-      linear-gradient(180deg, rgba(6, 8, 9, 0.3) 0%, rgba(6, 8, 9, 0.3) 30%, rgba(6, 8, 9, 0.82) 75%, #111313 100%);
+      linear-gradient(90deg, rgba(6, 8, 9, 0.94) 0%, rgba(6, 8, 9, 0.6) 100%),
+      linear-gradient(180deg, rgba(6, 8, 9, 0.44) 0%, rgba(6, 8, 9, 0.15) 42%, rgba(6, 8, 9, 0.88) 100%);
   }
 
   .public-site .hero-gogrin__content {
@@ -94,32 +72,8 @@
   }
 
   .public-site .hero-kicker__label {
-    font-size: 12px;
-    letter-spacing: 0.02em;
-    text-transform: none;
-    color: #f2f0ea;
-  }
-
-  .public-site .hero-kicker {
-    margin-bottom: 24px;
-  }
-
-  .public-site .hero-kicker__rule {
-    display: none;
-  }
-
-  .public-site .hero-gogrin__brand {
-    width: min(100%, 260px);
-  }
-
-  .public-site .hero-gogrin h1.hero-gogrin__benefit {
-    max-width: 340px;
-    margin-top: 24px;
-    font-size: 30px;
-  }
-
-  .public-site .hero-gogrin__actions {
-    margin-top: 28px;
+    font-size: 10px;
+    letter-spacing: 0.13em;
   }
 
   .public-site .hero-footline {
@@ -347,7 +301,7 @@
   }
 
   .public-site .services-menu-row__action {
-    font-size: 12px;
+    font-size: 9px;
   }
 }
 
