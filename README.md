@@ -498,6 +498,7 @@ Never commit `.env.local` or real credentials. Obsolete variables from the forme
 
 - Next.js `16.3.1` provides the App Router and Route Handlers.
 - React `19.2.8` provides the client UI.
+- `lucide-react` provides ready-made SVG icons across navigation, controls, forms, and the public landing page. The shared `Icon` component maps existing icon names to Lucide components, preserving sizing, colors, and accessibility props without an external icon API.
 - TypeScript provides strict typing across app, server, and scripts.
 - `pg` provides the PostgreSQL pool and queries.
 - Zod provides request validation.
