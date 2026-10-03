@@ -606,6 +606,8 @@ Phase 4 verification and the complete file list are recorded in [PHASE4_REPORT.m
 
 ### Multi-branch attendance (Phase 5)
 
+Attendance filters align the Date, Barber, and Status controls with the Today and All dates buttons along their bottom edge. The date shortcuts stay together as the toolbar wraps, and share a row with larger touch targets on mobile.
+
 Migration `026_attendance_branches.sql` adds required attendance branch ownership, a restricted branch FK and a branch/date/barber index. All legacy attendance is backfilled to Main Branch, including records whose barber has since moved. Legacy records contain no branch-at-creation or barber-move history, so their original branch cannot always be reconstructed; Main Branch is the agreed historical fallback. Existing attendance values, timestamps and correction entries are preserved.
 
 New records snapshot the barber's current branch on the server and in an insert trigger. Client ownership is rejected, and staff creation requires access to that branch. Stored branch and barber ownership are immutable. There is deliberately no constraint tying historical attendance to the barber's current branch: a subsequent move leaves attendance and correction history under the original branch. Daily updates and management corrections authorize the stored branch and do not rewrite ownership. One record per barber per Manila calendar day, existing clock rules, append-only corrections and the barber-no-login design remain unchanged. A same-day move does not create a second attendance record in the destination branch.

@@ -470,6 +470,16 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .barber-attendance-controls p { margin: 0; color: var(--text-muted); font-size: 11px; }
 .barber-attendance-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .attendance-detail, .attendance-correction-form { display: grid; gap: 12px; }
+.attendance-workspace .operational-toolbar__inputs { align-items: flex-end; flex-wrap: wrap; }
+.attendance-workspace .operational-toolbar__inputs .input-wrap input,
+.attendance-workspace .operational-toolbar__inputs .field select,
+.attendance-date-actions .button { min-height: 42px; }
+.attendance-date-actions { display: flex; align-items: flex-end; gap: 9px; }
+@media (max-width: 760px) {
+  .attendance-date-actions .button { flex: 1 1 0; min-height: 44px; }
+  .attendance-workspace .operational-toolbar__inputs .input-wrap input,
+  .attendance-workspace .operational-toolbar__inputs .field select { min-height: 44px; }
+}
 .attendance-audit-entry { border-top: 1px solid var(--line); padding-top: 10px; }
 .attendance-audit-entry p { margin: 4px 0; }
 .commission-table { overflow-x: auto; padding: 0 22px 22px; }

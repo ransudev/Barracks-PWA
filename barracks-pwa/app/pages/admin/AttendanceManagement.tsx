@@ -105,15 +105,17 @@ function AttendanceBranch({ branchId }: { branchId: number }) {
 
   const historicalBarbers = new Map(barbers.map((barber) => [barber.id, `${barber.firstName} ${barber.lastName}`]));
   records.forEach((record) => historicalBarbers.set(record.barberId, record.barberName));
-  return <div className="operational-workspace">
+  return <div className="operational-workspace attendance-workspace">
     <PageHeader title="Barber attendance" description="Review daily records and correct attendance with a reason." action={<Button variant="secondary" icon="refresh" onClick={() => void load()} disabled={loading}>Refresh</Button>} />
     <Panel className="operational-panel">
       <FilterToolbar resultCount={records.length} filters={<>
         <TextField label="Date" type="date" value={date} onChange={(event) => setDate(event.target.value)} />
         <SelectField label="Barber" value={barberId} onChange={(event) => setBarberId(event.target.value)}><option value="">All barbers</option>{[...historicalBarbers].map(([id, name]) => <option key={id} value={id}>{name}</option>)}</SelectField>
         <SelectField label="Status" value={status} onChange={(event) => setStatus(event.target.value)}><option value="">All statuses</option><option value="present">Present</option><option value="late">Late</option><option value="absent">Absent</option></SelectField>
-        <Button variant="secondary" onClick={() => setDate(todayInManila())}>Today</Button>
-        <Button variant="secondary" onClick={() => setDate("")}>All dates</Button>
+        <div className="attendance-date-actions">
+          <Button variant="secondary" onClick={() => setDate(todayInManila())}>Today</Button>
+          <Button variant="secondary" onClick={() => setDate("")}>All dates</Button>
+        </div>
       </>} />
       {error && !selected && <p role="alert" className="operational-loading">{error}</p>}
       {loading ? <p role="status" className="operational-loading">Loading attendance…</p> : records.length === 0 ? <EmptyState icon="calendar" title="No attendance records" description="Change the filters or record today's attendance on the Barber Floor." /> :
