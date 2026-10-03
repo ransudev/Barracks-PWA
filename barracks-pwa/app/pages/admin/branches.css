@@ -12,8 +12,8 @@
 .branch-details dd { margin: 0; color: var(--text); font-size: 14px; line-height: 1.6; }
 .branch-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .branch-card__actions { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--line); }
-.branch-card__actions .btn { min-height: 40px; }
-.branch-card__actions .btn:last-child { margin-left: auto; }
+.branch-card__actions .button { min-height: 40px; }
+.branch-card__actions .button:last-child { margin-left: auto; }
 .branch-notice { padding: 24px; color: var(--text-soft); }
 .branch-notice[role="alert"] { color: var(--text); }
 .branch-members { list-style: none; padding: 0; margin: 0; display: grid; gap: 0; }
@@ -31,8 +31,8 @@
   .branches-list { gap: 16px; }
   .branches-list .branch-card { padding: 20px; }
   .branch-details { grid-template-columns: minmax(0, 1fr); gap: 16px; }
-  .branch-card__actions .btn { min-height: 44px; flex: 1 1 auto; }
-  .branch-card__actions .btn:last-child { margin-left: 0; }
+  .branch-card__actions .button { min-height: 44px; flex: 1 1 auto; }
+  .branch-card__actions .button:last-child { margin-left: 0; }
   .branch-members .branch-actions { width: 100%; }
-  .branch-members .btn { min-height: 44px; }
+  .branch-members .button { min-height: 44px; }
 }
