@@ -20,8 +20,8 @@
 .rankList small, .rankLabel small { display: block; color: var(--text-muted); font-size: 11px; margin-top: 6px; font-weight: 400; }
 .barTrack { height: 8px; background: var(--surface-raised-2); border-radius: 3px; position: relative; }
 .barTrack > span { display: block; height: 100%; border-radius: 3px; }
-.positiveBar, .positiveColumn { background: var(--green); }
-.negativeBar, .negativeColumn { background: var(--red); }
+.positiveBar { background: var(--green); }
+.negativeBar { background: var(--red); }
 .diverging > span { position: absolute; }
 .diverging::after { content: ""; position: absolute; inset: -3px auto -3px 50%; width: 1px; background: var(--text-muted); }
 .details { margin-top: 22px; border-top: 1px solid var(--line); }
@@ -37,15 +37,19 @@
 .table tbody th { font-weight: 600; }
 .table small { display: block; margin-top: 5px; color: var(--text-muted); font-weight: 400; }
 .chartControls { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; margin: 18px 0 24px; }
-.scale, .axis { display: flex; justify-content: space-between; gap: 12px; color: var(--text-muted); font-size: 11px; }
-.scale { margin-bottom: 12px; }
-.columns { display: flex; gap: 4px; height: 220px; border-bottom: 1px solid var(--line-strong); position: relative; }
-.column { display: block; flex: 1; min-width: 0; border: 0; padding: 0; background: transparent; position: relative; cursor: pointer; border-radius: 3px 3px 0 0; }
-.column > span { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 3px 3px 0 0; pointer-events: none; }
-.column:hover, .column[aria-pressed="true"] { background: var(--surface-hover); }
-.column:hover > span, .column[aria-pressed="true"] > span { outline: 1px solid var(--text); }
-.signedColumns::after { content: ""; position: absolute; top: 50%; width: 100%; height: 1px; background: var(--line-strong); pointer-events: none; }
-.axis { margin-top: 12px; }
+.chartFrame { display: grid; grid-template-columns: 78px minmax(0, 1fr); gap: 10px; }
+.yAxis { position: relative; height: 240px; color: var(--text-muted); font-size: 11px; }
+.yAxis > span { position: absolute; right: 0; transform: translateY(-50%); }
+.linePlot { position: relative; height: 240px; }
+.lineSvg { display: block; width: 100%; height: 100%; overflow: visible; }
+.gridLine { stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.zeroLine { stroke: var(--text-muted); stroke-width: 1; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
+.trendLine { fill: none; stroke: var(--green); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
+.chartPoint { position: absolute; display: grid; place-items: center; width: 24px; height: 24px; transform: translate(-50%, -50%); padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: pointer; }
+.chartPoint > span { width: 8px; height: 8px; background: var(--green); border: 2px solid var(--surface); border-radius: 50%; box-sizing: content-box; }
+.negativePoint > span { background: var(--red); }
+.chartPoint:hover > span, .chartPoint[aria-pressed="true"] > span { outline: 2px solid var(--text); outline-offset: 2px; }
+.lineAxis { display: flex; justify-content: space-between; color: var(--text-muted); font-size: 11px; margin: 8px 0 0 88px; padding: 0 2%; }
 .selection { display: flex; flex-wrap: wrap; gap: 10px 20px; padding: 16px; margin-top: 20px; background: var(--surface-raised-2); border: 1px solid var(--line); border-radius: 8px; font-size: 12px; }
 .selection strong { flex-basis: 100%; }
 .monthToolbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 20px; }
@@ -93,5 +97,7 @@
   .calendar { gap: 3px; }
   .calendarDay { padding: 5px; min-height: 68px; }
   .calendarDay > strong { font-size: 9px; }
-  .columns { gap: 2px; height: 180px; }
+  .chartFrame { grid-template-columns: 64px minmax(0, 1fr); gap: 6px; }
+  .yAxis, .linePlot { height: 200px; }
+  .lineAxis { margin-left: 70px; }
 }

@@ -26,12 +26,12 @@ function RevenueTable({ title, rows }: { title: string; rows: RevenueGroup[] }) 
 }
 
 function DailyActivity({ data, range }: { data: RevenueReport; range: ReportRange }) {
-  const [view, setView] = useState<"trend" | "calendar">("trend");
+  const [view, setView] = useState<"trend" | "calendar">("calendar");
   const [metric, setMetric] = useState<Metric>("grossSales");
   const [month, setMonth] = useState(`${range.to.slice(0, 7)}-01`);
   const [selected, setSelected] = useState<RevenueGroup | null>(null);
   const daily = useMemo(() => new Map(data.dailySales.map((row) => [row.label, row])), [data.dailySales]);
-  // Long periods use equal-sized date buckets, keeping the chart bounded to 60 columns.
+  // Long periods use equal-sized date buckets, keeping the chart bounded to 60 points.
   const days = Math.round((Date.parse(`${range.to}T00:00:00Z`) - Date.parse(`${range.from}T00:00:00Z`)) / 86400000) + 1;
   const bucketSize = Math.max(1, Math.ceil(days / 60));
   const buckets = useMemo(() => {
@@ -43,8 +43,11 @@ function DailyActivity({ data, range }: { data: RevenueReport; range: ReportRang
     }
     return result;
   }, [data.dailySales, range.from, days, bucketSize]);
-  const maximum = Math.max(1, ...buckets.map((row) => Math.abs(row[metric])));
-  const negative = buckets.some((row) => row[metric] < 0);
+  const minimum = Math.min(0, ...buckets.map((row) => row[metric]));
+  const chartMaximum = Math.max(0, ...buckets.map((row) => row[metric])) || (minimum === 0 ? 1 : 0);
+  const extent = chartMaximum - minimum;
+  const pointY = (value: number) => 8 + (chartMaximum - value) / extent * 84;
+  const points = buckets.map((row, index) => ({ row, x: buckets.length === 1 ? 50 : 2 + index / (buckets.length - 1) * 96, y: pointY(row[metric]) }));
   const monthStart = new Date(`${month}T00:00:00Z`);
   const monthDays = new Date(Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + 1, 0)).getUTCDate();
   const offset = (monthStart.getUTCDay() + 6) % 7;
@@ -58,18 +61,25 @@ function DailyActivity({ data, range }: { data: RevenueReport; range: ReportRang
   return <Panel className={styles.visualPanel}>
     <SectionHeading title="Daily activity" description="Spot busy days, quiet periods, and financial reversals." />
     <div className={styles.chartControls}>
-      <div className={styles.tabs} role="group" aria-label="Daily activity view">{(["trend", "calendar"] as const).map((value) => <Button key={value} type="button" size="sm" variant={view === value ? "primary" : "ghost"} aria-pressed={view === value} onClick={() => { setView(value); setSelected(null); }}>{value === "trend" ? "Trend" : "Calendar"}</Button>)}</div>
+      <div className={styles.tabs} role="group" aria-label="Daily activity view">{(["calendar", "trend"] as const).map((value) => <Button key={value} type="button" size="sm" variant={view === value ? "primary" : "ghost"} aria-pressed={view === value} onClick={() => { setView(value); setSelected(null); }}>{value === "trend" ? "Line chart" : "Calendar"}</Button>)}</div>
       <div className={styles.tabs} role="group" aria-label="Daily activity measure">{metrics.map((item) => <Button key={item.key} type="button" size="sm" variant={metric === item.key ? "secondary" : "ghost"} aria-pressed={metric === item.key} onClick={() => setMetric(item.key)}>{item.label}</Button>)}</div>
     </div>
     {!data.dailySales.length ? <EmptyState title="No sales or reversals in this period" description="Choose another period to explore daily activity." /> : view === "trend" ? <>
-      <div className={styles.scale}><span>{metricValue(maximum === 1 && !buckets.some((row) => row[metric]) ? 0 : maximum, metric)}</span><span>{negative ? "Positive above / negative below zero" : "Zero baseline"}</span></div>
-      <div className={`${styles.columns} ${negative ? styles.signedColumns : ""}`} role="group" aria-label={`${metrics.find((item) => item.key === metric)?.label} by ${bucketSize === 1 ? "day" : `${bucketSize}-day period`}`}>
-        {buckets.map((row) => <button type="button" key={row.label} className={styles.column} aria-pressed={selected?.label === (row.end === row.label ? row.label : `${row.label} – ${row.end}`)} aria-label={`${row.label}${row.end !== row.label ? ` to ${row.end}` : ""}: ${metricValue(row[metric], metric)}`} title={`${displayDate(row.label)}${row.end !== row.label ? ` – ${displayDate(row.end)}` : ""}: ${metricValue(row[metric], metric)}`} onClick={() => setSelected({ ...row, label: row.end === row.label ? row.label : `${row.label} – ${row.end}` })}>
-          <span className={row[metric] < 0 ? styles.negativeColumn : styles.positiveColumn} style={{ height: `${Math.abs(row[metric]) / maximum * (negative ? 50 : 100)}%`, ...(negative ? { bottom: row[metric] < 0 ? `${50 - Math.abs(row[metric]) / maximum * 50}%` : "50%" } : {}) }} />
-        </button>)}
+      <div className={styles.chartFrame}>
+        <div className={styles.yAxis} aria-hidden="true">
+          {[chartMaximum, (chartMaximum + minimum) / 2, minimum].map((value, index) => <span key={index} style={{ top: `${8 + index * 42}%` }}>{metricValue(value, metric)}</span>)}
+        </div>
+        <div className={styles.linePlot} role="group" aria-label={`${metrics.find((item) => item.key === metric)?.label} line chart by ${bucketSize === 1 ? "day" : `${bucketSize}-day period`} hint: select a point for exact figures`}>
+          <svg viewBox="0 0 1000 240" preserveAspectRatio="none" className={styles.lineSvg} aria-hidden="true">
+            {[8, 50, 92].map((y) => <line key={y} x1="20" x2="980" y1={y * 2.4} y2={y * 2.4} className={styles.gridLine} />)}
+            <line x1="20" x2="980" y1={pointY(0) * 2.4} y2={pointY(0) * 2.4} className={styles.zeroLine} />
+            <polyline points={points.map(({ x, y }) => `${x * 10},${y * 2.4}`).join(" ")} className={styles.trendLine} vectorEffect="non-scaling-stroke" />
+          </svg>
+          {points.map(({ row, x, y }) => <button type="button" key={row.label} className={`${styles.chartPoint} ${row[metric] < 0 ? styles.negativePoint : ""}`} style={{ left: `${x}%`, top: `${y}%` }} aria-pressed={selected?.label === (row.end === row.label ? row.label : `${row.label} – ${row.end}`)} aria-label={`${row.label}${row.end !== row.label ? ` to ${row.end}` : ""}: ${metricValue(row[metric], metric)}`} title={`${displayDate(row.label)}${row.end !== row.label ? ` – ${displayDate(row.end)}` : ""}: ${metricValue(row[metric], metric)}`} onClick={() => setSelected({ ...row, label: row.end === row.label ? row.label : `${row.label} – ${row.end}` })}><span aria-hidden="true" /></button>)}
+        </div>
       </div>
-      <div className={styles.axis}><span>{displayDate(range.from)}</span><span>{displayDate(range.to)}</span></div>
-      <p className={styles.note}>{bucketSize === 1 ? "Each column represents one day." : `Each column totals up to ${bucketSize} days.`} Select a column for exact figures. Red bars show negative net revenue.</p>
+      <div className={styles.lineAxis}><span>{displayDate(range.from)}</span><span>{displayDate(range.to)}</span></div>
+      <p className={styles.note}>{bucketSize === 1 ? "Each point represents one day." : `Each point totals up to ${bucketSize} days.`} Select a point for exact figures. Red points below zero show negative net revenue.</p>
     </> : <>
       <div className={styles.monthToolbar}><Button type="button" size="sm" variant="ghost" aria-label="Previous month" disabled={month.slice(0, 7) <= range.from.slice(0, 7)} onClick={() => moveMonth(-1)}>Previous</Button><strong>{displayDate(month, { month: "long", year: "numeric" })}</strong><Button type="button" size="sm" variant="ghost" aria-label="Next month" disabled={month.slice(0, 7) >= range.to.slice(0, 7)} onClick={() => moveMonth(1)}>Next</Button></div>
       <div className={styles.calendar} role="group" aria-label="Daily sales calendar">
