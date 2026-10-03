@@ -170,15 +170,15 @@ export function LoginPage({ go, onLogin }: LoginPageProps) {
 
           <div className="login-aside__footer">
             <div className="login-aside__footer-row">
-              <span>OPERATING HOURS</span>
+              <span>Operating hours</span>
               <strong>{landingHours.label}</strong>
             </div>
             <div className="login-aside__footer-row">
-              <span>SHOP HOTLINE</span>
+              <span>Shop hotline</span>
               <strong>{landingContact.phone}</strong>
             </div>
             <div className="login-aside__footer-row">
-              <span>COMMUNITY</span>
+              <span>Community</span>
               <strong>{landingContact.hashtag}</strong>
             </div>
           </div>
@@ -267,7 +267,7 @@ export function LoginPage({ go, onLogin }: LoginPageProps) {
                 className="login-submit"
                 disabled={submitting}
               >
-                {submitting ? "Signing in…" : "Continue to workspace"}
+                {submitting ? "Signing in…" : "Sign in"}
               </Button>
             </form>
           ) : (

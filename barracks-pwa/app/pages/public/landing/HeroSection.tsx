@@ -33,8 +33,10 @@ export function HeroSection({ go }: { go: (view: ViewId) => void }) {
           height={444}
           priority
           loading="eager"
-          sizes="(max-width: 768px) 78vw, 560px"
+          sizes="(max-width: 768px) 260px, 400px"
         />
+
+        <h1 className="hero-gogrin__benefit">Your next cut, done right.</h1>
 
         <div className="hero-gogrin__actions">
           <button
