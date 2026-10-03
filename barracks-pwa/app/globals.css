@@ -1726,6 +1726,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .operational-workspace { min-width: 0; }
 .operational-workspace .page-header { margin-bottom: 22px; }
 .operational-workspace .page-header__actions { gap: 12px; }
+.operational-workspace:has(> .schedule-management) > .metrics-grid { margin-top: 18px; margin-bottom: 18px; }
 .queue-section-tabs { display: inline-flex; gap: 4px; margin: 0 0 20px; padding: 4px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-raised); }
 .queue-section-tabs button { padding: 8px 14px; border: 0; border-radius: 7px; background: transparent; color: var(--text-muted); cursor: pointer; font: inherit; }
 .queue-section-tabs button[aria-selected="true"] { background: var(--surface); color: var(--text); font-weight: 700; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
