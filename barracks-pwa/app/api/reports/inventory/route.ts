@@ -7,6 +7,10 @@ function dateOnly(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
+function manilaBoundary(date: Date): Date {
+  return new Date(`${dateOnly(date)}T00:00:00+08:00`);
+}
+
 function parseDate(raw: string | null): Date | null {
   if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
   const date = new Date(`${raw}T00:00:00.000Z`);
@@ -18,8 +22,8 @@ export async function GET(request: Request) {
   if (denied) return denied;
 
   const url = new URL(request.url);
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
+  const todayText = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const today = new Date(`${todayText}T00:00:00Z`);
   const defaultFrom = new Date(today);
   defaultFrom.setUTCDate(defaultFrom.getUTCDate() - 29);
 
@@ -59,7 +63,7 @@ export async function GET(request: Request) {
         LEFT JOIN inventory_items i ON i.id=ri.inventory_item_id
         GROUP BY s.id, s.company_name
         ORDER BY total_spend DESC, s.company_name ASC
-      `, [from, toExclusive]),
+      `, [manilaBoundary(from), manilaBoundary(toExclusive)]),
       pool.query(`
         SELECT m.id, m.movement_type, m.quantity, m.previous_stock, m.new_stock, m.unit_cost,
           m.reference, m.notes, m.created_at, i.name AS item_name, m.branch,
@@ -72,7 +76,7 @@ export async function GET(request: Request) {
         WHERE m.created_at >= $1 AND m.created_at < $2
         ORDER BY m.created_at DESC
         LIMIT 250
-      `, [from, toExclusive]),
+      `, [manilaBoundary(from), manilaBoundary(toExclusive)]),
       pool.query(`
         SELECT
           i.id AS item_id,
@@ -93,7 +97,7 @@ export async function GET(request: Request) {
         WHERE i.status='active'
         GROUP BY i.id,i.name,i.branch,i.quantity,i.minimum_stock
         ORDER BY current_activity DESC, i.name ASC
-      `, [from, toExclusive, previousFrom, previousTo]),
+      `, [manilaBoundary(from), manilaBoundary(toExclusive), manilaBoundary(previousFrom), manilaBoundary(previousTo)]),
     ]);
 
     const totals = valuation.rows[0] ?? { total_value: 0, active_items: 0, low_stock_items: 0 };
