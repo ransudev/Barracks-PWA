@@ -632,6 +632,8 @@ Phase 6 verification and the complete file list are recorded in [PHASE6_REPORT.m
 
 ### Multi-branch reports and dashboard aggregates (Phase 7)
 
+The Sales & revenue period filter aligns with the report content and keeps its date controls and Manila-time explanation inside a padded panel. On small screens the controls wrap and the Apply period button spans the panel width. Report-type buttons have separate spacing above the report heading.
+
 Management sales and inventory reports and both staff dashboards use the existing branch context. Administrator reports and the management dashboard default to **All branches (global)** and can select one branch. Managers and Front Desk select only assigned branches. Changing branches remounts the workspace, resets report periods/type and clears displayed data; superseded requests cannot populate the new workspace or show late error toasts. Front Desk retains its booking/queue/barber dashboard permissions and has no financial or inventory reporting access.
 
 `GET /api/reports/revenue`, `GET /api/reports/inventory`, and `GET /api/reports/dashboard` accept `branchId=<positive id>` or Administrator-only `branchId=all`. A missing selection aggregates the actor's accessible branches, including inactive ones; an unassigned Manager gets zero totals. The shared server resolver validates selections and rejects unauthorized branches/global requests with 403. All three services also enforce management roles and scope before querying aggregates.

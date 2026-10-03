@@ -133,6 +133,16 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .panel > .panel-toolbar--period.panel-toolbar--period--has-hint { padding-bottom: 0; }
 .panel > .panel-toolbar + .form-hint { margin: 10px 0 0; padding: 0 22px 22px; }
 .inventory-report-period-panel > .panel-toolbar--period { padding: 14px; }
+.management-report-tabs { flex-wrap: wrap; margin-bottom: 24px; }
+.revenue-report-period-panel { width: 100%; min-width: 0; padding: 20px; margin-bottom: 24px; }
+.revenue-report-period-panel > .panel-toolbar--period.panel-toolbar--period--has-hint { gap: 12px; padding: 0; }
+.revenue-report-period-panel > .panel-toolbar + .form-hint { max-width: 75ch; margin: 12px 0 0; padding: 0; color: var(--text-soft); font-size: 12px; line-height: 1.6; }
+.revenue-report-period-panel .field { min-width: 0; }
+@media (max-width: 600px) {
+  .revenue-report-period-panel { padding: 16px; }
+  .revenue-report-period-panel .field { flex: 1 1 140px; }
+  .revenue-report-period-panel .button { min-height: 44px; flex: 1 1 100%; }
+}
 .badge { align-items: center; display: inline-flex; width: fit-content; gap: 6px; border: 1px solid transparent; border-radius: 999px; padding: 4px 8px; font-size: 10px; font-weight: 750; line-height: 1; white-space: nowrap; }
 .badge--neutral { border-color: var(--line-strong); background: rgba(242, 240, 234, .05); color: var(--text-soft); }
 .badge--success { border-color: rgba(148, 161, 138, .35); background: rgba(148, 161, 138, .12); color: var(--green); }

@@ -65,13 +65,13 @@ export function RevenueReports({ onToast, branch }: { onToast: (message: string)
 
   return <>
     <PageHeader title="Sales & revenue" description="Paid service sales and financial reversals from persisted transactions." />
-    <Panel className="inventory-report-period-panel">
-      <form className="panel-toolbar panel-toolbar--period" onSubmit={applyRange}>
+    <Panel className="revenue-report-period-panel">
+      <form className="panel-toolbar panel-toolbar--period panel-toolbar--period--has-hint" onSubmit={applyRange}>
         <TextField label="From" type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
         <TextField label="To" type="date" value={to} onChange={(event) => setTo(event.target.value)} />
         <Button type="submit" disabled={loading}>{loading ? "Loading…" : "Apply period"}</Button>
       </form>
-      <p>Sales use the checkout date; refunds and voids use the action date. Older reversed records without an action date use their sale date. Dates are in Manila time.</p>
+      <p className="form-hint">Sales use the checkout date; refunds and voids use the action date. Older reversed records without an action date use their sale date. Dates are in Manila time.</p>
     </Panel>
     <div className="metrics-grid metrics-grid--four">
       <MetricCard label="Gross sales" value={loading || !data ? "—" : formatCurrency(data.summary.grossSales)} icon="creditCard" accent="blue" />

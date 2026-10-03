@@ -12,7 +12,7 @@ export function ManagementReports({ onToast, globalAllowed = false }: { onToast:
 function ManagementReportsContent({ onToast, branch }: { onToast: (message: string) => void; branch: string }) {
   const [section, setSection] = useState<"sales" | "inventory">("sales");
   return <>
-    <div className="panel-toolbar" aria-label="Report type">
+    <div className="panel-toolbar management-report-tabs" aria-label="Report type">
       <Button type="button" variant={section === "sales" ? "primary" : "secondary"} onClick={() => setSection("sales")}>Sales & revenue</Button>
       <Button type="button" variant={section === "inventory" ? "primary" : "secondary"} onClick={() => setSection("inventory")}>Inventory reports</Button>
     </div>
