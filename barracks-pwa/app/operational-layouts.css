@@ -1,11 +1,15 @@
 /* Task-specific layouts use the existing operational palette and controls. */
 .operational-toolbar__inputs { flex-wrap: wrap; }
 .operational-toolbar__meta { flex: 0 0 auto; }
-.attendance-workspace .operational-toolbar__inputs { align-items: flex-end; }
+.attendance-workspace .operational-toolbar__inputs,
+.restock-workspace .operational-toolbar__inputs { align-items: flex-end; }
 .attendance-workspace .operational-toolbar__search,
 .attendance-workspace .operational-toolbar .input-wrap input,
-.attendance-workspace .operational-toolbar .field select { height: 42px; }
-.attendance-workspace .operational-toolbar__meta { align-self: flex-end; min-height: 42px; }
+.attendance-workspace .operational-toolbar .field select,
+.restock-workspace .operational-toolbar__search,
+.restock-workspace .operational-toolbar .field select { height: 42px; }
+.attendance-workspace .operational-toolbar__meta,
+.restock-workspace .operational-toolbar__meta { align-self: flex-end; min-height: 42px; }
 .operational-workspace .modal-backdrop { z-index: 130; }
 .receipt-paper dl { grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); }
 .receipt-paper dd { overflow-wrap: anywhere; min-width: 0; }

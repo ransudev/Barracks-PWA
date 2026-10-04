@@ -603,3 +603,5 @@ Attendance toolbar search, week navigation, and filter controls share a 42px hei
 The attendance matrix displays seven dates at a time. Previous/next week controls and the Week containing date picker select a complete Monday–Sunday range, including weeks that cross month or year boundaries; the mobile list uses the same range.
 
 The daily transaction modal expands to 1200px on desktop and uses the available viewport height. Transaction rows wrap within the modal on mobile; receipt details close the daily modal before opening the existing receipt drawer.
+
+Restock search, status filter, and reset controls share a 42px height and bottom alignment. Search still matches supplier, branch, item, and request information; controls stack at mobile widths.
