@@ -467,6 +467,7 @@ function InventoryPageContent({ onToast: notify, admin = false, canDelete, branc
   const [restockSubmitting, setRestockSubmitting] = useState(false);
   const [restockError, setRestockError] = useState("");
 
+  const initialLinkHandled = useRef(false);
   const loadInventory = useCallback(async () => {
     if (!active.current) return;
     setLoading(true);
@@ -476,6 +477,11 @@ function InventoryPageContent({ onToast: notify, admin = false, canDelete, branc
       if (!active.current) return;
       if (!response.ok || !body?.success || !body.items) throw new Error(body?.message ?? "Unable to load inventory");
       setItems(body.items);
+      if (!initialLinkHandled.current) {
+        initialLinkHandled.current = true;
+        const linked = body.items.find((item) => String(item.id) === new URLSearchParams(window.location.search).get("item"));
+        if (linked) { setSearch(linked.name); }
+      }
       setDrawerItem((current) => current ? body.items?.find((item) => item.id === current.id) ?? current : current);
       setLoadError("");
     } catch (error) {

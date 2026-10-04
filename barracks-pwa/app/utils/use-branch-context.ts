@@ -27,7 +27,11 @@ function useLocalBranchContext(enabled: boolean): BranchContextValue {
         const response = await apiRequest("/api/branch-context", { cache: "no-store" });
         const body = await readApiBody<BranchContext & { message?: string }>(response);
         if (!response.ok || !body?.branches) throw new Error(body?.message ?? "Unable to load branches");
-        if (active) { setContext(body); setBranchId(resolveBranchSelection(body)?.id ?? 0); }
+        if (active) {
+          const linkedId = Number(new URLSearchParams(window.location.search).get("branchId"));
+          const linkedBranch = body.branches.find((branch) => branch.id === linkedId);
+          setContext(body); setBranchId(linkedBranch?.id ?? resolveBranchSelection(body)?.id ?? 0);
+        }
       } catch (error) { if (active) setBranchError(error instanceof Error ? error.message : "Unable to load branches"); }
       finally { if (active) setBranchLoading(false); }
     })();

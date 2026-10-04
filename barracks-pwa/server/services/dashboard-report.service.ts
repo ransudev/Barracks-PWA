@@ -18,7 +18,7 @@ export async function getDashboardReport(db: Pool, actor: BranchActor, rawBranch
         (EXISTS(SELECT 1 FROM bookings b WHERE b.customer_id=c.id AND b.branch_id=ANY($1::integer[])) OR
          EXISTS(SELECT 1 FROM queue_entries q WHERE q.customer_id=c.id AND q.branch_id=ANY($1::integer[])))) AS customers
     `, [branchIds]),
-    db.query(`SELECT i.id,i.name,i.category,i.quantity,i.minimum_stock AS "minimumStock",i.unit,s.company_name AS "supplierName"
+    db.query(`SELECT i.id,i.name,i.branch,i.branch_id AS "branchId",i.category,i.quantity,i.minimum_stock AS "minimumStock",i.unit,s.company_name AS "supplierName"
       FROM inventory_items i LEFT JOIN suppliers s ON s.id=i.supplier_id
       WHERE i.branch_id=ANY($1::integer[]) AND i.status='active' AND i.quantity<=i.minimum_stock
       ORDER BY i.name,i.id`, [branchIds]),
@@ -31,7 +31,7 @@ export async function getDashboardReport(db: Pool, actor: BranchActor, rawBranch
   return {
     inventoryValue: Number(row.inventory_value), lowStock: Number(row.low_stock), openRestocks: Number(row.open_restocks),
     todayBookings: Number(row.today_bookings), upcomingBookings: Number(row.upcoming_bookings), activeBarbers: Number(row.active_barbers), customers: Number(row.customers),
-    attentionItems: attention.rows as Array<{ id: number; name: string; category: string; quantity: number; minimumStock: number; unit: string; supplierName: string | null }>,
+    attentionItems: attention.rows as Array<{ id: number; name: string; branch: string; branchId: number; category: string; quantity: number; minimumStock: number; unit: string; supplierName: string | null }>,
     recentDeliveries: deliveries.rows as Array<{ id: number; supplier_name: string; reference: string | null; received_at: string }>,
   };
 }

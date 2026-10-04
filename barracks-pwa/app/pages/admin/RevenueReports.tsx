@@ -1,89 +1,130 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { apiRequest, readApiBody } from "@/app/lib/api";
+import { useMemo, useState } from "react";
+import { Button, EmptyState, MetricCard, Panel, SectionHeading } from "@/app/components/ui";
 import { formatCurrency } from "@/app/utils/format";
-import { Button, EmptyState, MetricCard, PageHeader, Panel, SectionHeading, TextField } from "@/app/components/ui";
 import type { RevenueGroup, RevenueReport } from "@/server/services/revenue-report.service";
+import { displayDate, shiftDate, type ReportRange } from "./report-utils";
+import { RankedBars, ReportDetails, ReportStatus } from "./ReportVisuals";
+import { useReport } from "./useReport";
+import styles from "./reports.module.css";
 
 type ReportBody = RevenueReport & { success: boolean; message?: string };
+type Metric = "grossSales" | "netRevenue" | "transactionCount";
+const metrics: { key: Metric; label: string }[] = [{ key: "grossSales", label: "Gross sales" }, { key: "netRevenue", label: "Net revenue" }, { key: "transactionCount", label: "Transactions" }];
+const emptyDay = (label: string): RevenueGroup => ({ label, grossSales: 0, netRevenue: 0, transactionCount: 0, reversedAmount: 0, refundedAmount: 0, voidedAmount: 0 });
+const metricValue = (value: number, metric: Metric) => metric === "transactionCount" ? value.toLocaleString() : formatCurrency(value);
 
-function defaultDates() {
-  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-  const start = new Date(`${today}T00:00:00Z`);
-  start.setUTCDate(start.getUTCDate() - 29);
-  return { from: start.toISOString().slice(0, 10), to: today };
+function RevenueTable({ title, rows }: { title: string; rows: RevenueGroup[] }) {
+  return <ReportDetails title={title}>
+    {rows.length ? <table className={styles.table}>
+      <caption>{title}</caption>
+      <thead><tr><th scope="col">Date / group</th><th scope="col">Transactions</th><th scope="col">Gross sales</th><th scope="col">Refunded</th><th scope="col">Voided</th><th scope="col">Net revenue</th></tr></thead>
+      <tbody>{rows.map((row) => <tr key={row.label}><th scope="row">{row.label}</th><td>{row.transactionCount}</td><td>{formatCurrency(row.grossSales)}</td><td>{formatCurrency(row.refundedAmount)}</td><td>{formatCurrency(row.voidedAmount)}</td><td>{formatCurrency(row.netRevenue)}</td></tr>)}</tbody>
+    </table> : <p className={styles.note}>No sales or reversals in this period.</p>}
+  </ReportDetails>;
 }
 
-function Breakdown({ title, description, rows }: { title: string; description: string; rows: RevenueGroup[] }) {
-  return <Panel>
-    <SectionHeading title={title} description={description} />
-    {rows.length ? <div className="staff-table staff-table--cols-5">
-      <div className="staff-table__head"><span>{title === "Daily sales" ? "Date" : "Group"}</span><span>Transactions</span><span>Gross sales</span><span>Refunded / voided</span><span>Net revenue</span></div>
-      {rows.map((row) => <div className="staff-table__row" key={row.label}>
-        <span><strong>{row.label}</strong></span><span>{row.transactionCount}</span>
-        <span>{formatCurrency(row.grossSales)}</span>
-        <span>{formatCurrency(row.reversedAmount)}<small>{formatCurrency(row.refundedAmount)} refunded · {formatCurrency(row.voidedAmount)} voided</small></span>
-        <span><strong>{formatCurrency(row.netRevenue)}</strong></span>
-      </div>)}
-    </div> : <EmptyState icon="creditCard" title="No sales or reversals in this period" description="Choose another date range or check out a completed visit." />}
+function DailyActivity({ data, range }: { data: RevenueReport; range: ReportRange }) {
+  const [view, setView] = useState<"trend" | "calendar">("calendar");
+  const [metric, setMetric] = useState<Metric>("grossSales");
+  const [month, setMonth] = useState(`${range.to.slice(0, 7)}-01`);
+  const [selected, setSelected] = useState<RevenueGroup | null>(null);
+  const daily = useMemo(() => new Map(data.dailySales.map((row) => [row.label, row])), [data.dailySales]);
+  // Long periods use equal-sized date buckets, keeping the chart bounded to 60 points.
+  const days = Math.round((Date.parse(`${range.to}T00:00:00Z`) - Date.parse(`${range.from}T00:00:00Z`)) / 86400000) + 1;
+  const bucketSize = Math.max(1, Math.ceil(days / 60));
+  const buckets = useMemo(() => {
+    const result = Array.from({ length: Math.ceil(days / bucketSize) }, (_, index) => ({ ...emptyDay(shiftDate(range.from, index * bucketSize)), end: shiftDate(range.from, Math.min(days - 1, (index + 1) * bucketSize - 1)) }));
+    for (const row of data.dailySales) {
+      const index = Math.floor((Date.parse(`${row.label}T00:00:00Z`) - Date.parse(`${range.from}T00:00:00Z`)) / 86400000 / bucketSize);
+      const bucket = result[index];
+      if (bucket) for (const field of ["grossSales", "netRevenue", "transactionCount", "reversedAmount", "refundedAmount", "voidedAmount"] as const) bucket[field] += row[field];
+    }
+    return result;
+  }, [data.dailySales, range.from, days, bucketSize]);
+  const minimum = Math.min(0, ...buckets.map((row) => row[metric]));
+  const chartMaximum = Math.max(0, ...buckets.map((row) => row[metric])) || (minimum === 0 ? 1 : 0);
+  const extent = chartMaximum - minimum;
+  const pointY = (value: number) => 8 + (chartMaximum - value) / extent * 84;
+  const points = buckets.map((row, index) => ({ row, x: buckets.length === 1 ? 50 : 2 + index / (buckets.length - 1) * 96, y: pointY(row[metric]) }));
+  const monthStart = new Date(`${month}T00:00:00Z`);
+  const monthDays = new Date(Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + 1, 0)).getUTCDate();
+  const offset = (monthStart.getUTCDay() + 6) % 7;
+  const calendarMax = Math.max(1, ...data.dailySales.map((row) => Math.abs(row[metric])));
+  const moveMonth = (offset: number) => {
+    const date = new Date(`${month}T00:00:00Z`);
+    date.setUTCMonth(date.getUTCMonth() + offset);
+    setMonth(date.toISOString().slice(0, 10));
+  };
+
+  return <Panel className={styles.visualPanel}>
+    <SectionHeading title="Daily activity" description="Spot busy days, quiet periods, and financial reversals." />
+    <div className={styles.chartControls}>
+      <div className={styles.tabs} role="group" aria-label="Daily activity view">{(["calendar", "trend"] as const).map((value) => <Button key={value} type="button" size="sm" variant={view === value ? "primary" : "ghost"} aria-pressed={view === value} onClick={() => { setView(value); setSelected(null); }}>{value === "trend" ? "Line chart" : "Calendar"}</Button>)}</div>
+      <div className={styles.tabs} role="group" aria-label="Daily activity measure">{metrics.map((item) => <Button key={item.key} type="button" size="sm" variant={metric === item.key ? "secondary" : "ghost"} aria-pressed={metric === item.key} onClick={() => setMetric(item.key)}>{item.label}</Button>)}</div>
+    </div>
+    {!data.dailySales.length ? <EmptyState title="No sales or reversals in this period" description="Choose another period to explore daily activity." /> : view === "trend" ? <>
+      <div className={styles.chartFrame}>
+        <div className={styles.yAxis} aria-hidden="true">
+          {[chartMaximum, (chartMaximum + minimum) / 2, minimum].map((value, index) => <span key={index} style={{ top: `${8 + index * 42}%` }}>{metricValue(value, metric)}</span>)}
+        </div>
+        <div className={styles.linePlot} role="group" aria-label={`${metrics.find((item) => item.key === metric)?.label} line chart by ${bucketSize === 1 ? "day" : `${bucketSize}-day period`} hint: select a point for exact figures`}>
+          <svg viewBox="0 0 1000 240" preserveAspectRatio="none" className={styles.lineSvg} aria-hidden="true">
+            {[8, 50, 92].map((y) => <line key={y} x1="20" x2="980" y1={y * 2.4} y2={y * 2.4} className={styles.gridLine} />)}
+            <line x1="20" x2="980" y1={pointY(0) * 2.4} y2={pointY(0) * 2.4} className={styles.zeroLine} />
+            <polyline points={points.map(({ x, y }) => `${x * 10},${y * 2.4}`).join(" ")} className={styles.trendLine} vectorEffect="non-scaling-stroke" />
+          </svg>
+          {points.map(({ row, x, y }) => <button type="button" key={row.label} className={`${styles.chartPoint} ${row[metric] < 0 ? styles.negativePoint : ""}`} style={{ left: `${x}%`, top: `${y}%` }} aria-pressed={selected?.label === (row.end === row.label ? row.label : `${row.label} – ${row.end}`)} aria-label={`${row.label}${row.end !== row.label ? ` to ${row.end}` : ""}: ${metricValue(row[metric], metric)}`} title={`${displayDate(row.label)}${row.end !== row.label ? ` – ${displayDate(row.end)}` : ""}: ${metricValue(row[metric], metric)}`} onClick={() => setSelected({ ...row, label: row.end === row.label ? row.label : `${row.label} – ${row.end}` })}><span aria-hidden="true" /></button>)}
+        </div>
+      </div>
+      <div className={styles.lineAxis}><span>{displayDate(range.from)}</span><span>{displayDate(range.to)}</span></div>
+      <p className={styles.note}>{bucketSize === 1 ? "Each point represents one day." : `Each point totals up to ${bucketSize} days.`} Select a point for exact figures. Red points below zero show negative net revenue.</p>
+    </> : <>
+      <div className={styles.monthToolbar}><Button type="button" size="sm" variant="ghost" aria-label="Previous month" disabled={month.slice(0, 7) <= range.from.slice(0, 7)} onClick={() => moveMonth(-1)}>Previous</Button><strong>{displayDate(month, { month: "long", year: "numeric" })}</strong><Button type="button" size="sm" variant="ghost" aria-label="Next month" disabled={month.slice(0, 7) >= range.to.slice(0, 7)} onClick={() => moveMonth(1)}>Next</Button></div>
+      <div className={styles.calendar} role="group" aria-label="Daily sales calendar">
+        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => <span className={styles.weekday} key={day}>{day}</span>)}
+        {Array.from({ length: offset }, (_, index) => <span key={`blank-${index}`} />)}
+        {Array.from({ length: monthDays }, (_, index) => {
+          const day = `${month.slice(0, 7)}-${String(index + 1).padStart(2, "0")}`;
+          const row = daily.get(day) ?? emptyDay(day);
+          const outside = day < range.from || day > range.to;
+          const level = row[metric] === 0 ? 0 : Math.max(1, Math.ceil(Math.abs(row[metric]) / calendarMax * 4));
+          return <button key={day} type="button" disabled={outside} className={`${styles.calendarDay} ${styles[`heat${level}`]} ${row[metric] < 0 ? styles.negativeDay : ""}`} aria-pressed={selected?.label === day} aria-label={`${displayDate(day, { dateStyle: "full" })}: ${metricValue(row[metric], metric)}${outside ? ", outside selected period" : ""}`} onClick={() => setSelected(row)}><span>{index + 1}</span><strong>{outside ? "—" : metricValue(row[metric], metric)}</strong></button>;
+        })}
+      </div>
+      <p className={styles.note}>Stronger shading means higher activity across the selected period. Red indicates negative net revenue. Select a date for details.</p>
+    </>}
+    {selected && <div className={styles.selection} role="status"><strong>{selected.label}</strong><span>Gross {formatCurrency(selected.grossSales)}</span><span>Net {formatCurrency(selected.netRevenue)}</span><span>{selected.transactionCount} transactions</span><span>Refunded {formatCurrency(selected.refundedAmount)} · Voided {formatCurrency(selected.voidedAmount)}</span></div>}
+    <RevenueTable title="Daily sales breakdown" rows={data.dailySales} />
   </Panel>;
 }
 
-export function RevenueReports({ onToast, branch }: { onToast: (message: string) => void; branch: string }) {
-  const defaults = useMemo(() => defaultDates(), []);
-  const [from, setFrom] = useState(defaults.from);
-  const [to, setTo] = useState(defaults.to);
-  const [range, setRange] = useState(defaults);
-  const [data, setData] = useState<ReportBody | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let active = true;
-    async function load() {
-      setLoading(true);
-      setData(null);
-      try {
-        const params = new URLSearchParams({ ...range, branchId: branch });
-        const response = await apiRequest(`/api/reports/revenue?${params}`, { cache: "no-store" });
-        const body = await readApiBody<ReportBody>(response);
-        if (!response.ok || !body?.success) throw new Error(body?.message ?? "Unable to load reports");
-        if (active) setData(body);
-      } catch (error) { if (active) onToast(error instanceof Error ? error.message : "Unable to load reports"); }
-      finally { if (active) setLoading(false); }
-    }
-    // The request clears and updates report state as the external API resolves.
-    void load();
-    return () => { active = false; };
-  }, [range, branch, onToast]);
-
-  function applyRange(event: FormEvent) {
-    event.preventDefault();
-    if (!from || !to || from > to) { onToast("Choose a valid report date range"); return; }
-    setRange({ from, to });
-  }
-
+export function RevenueReports({ range, onToast, branch }: { range: ReportRange; branch: string; onToast: (message: string) => void }) {
+  const { data, loading, error, retry } = useReport<ReportBody>("/api/reports/revenue", range, onToast, branch);
+  const busiest = data?.dailySales.reduce<RevenueGroup | null>((best, row) => !best || row.transactionCount > best.transactionCount ? row : best, null);
+  const topService = data?.byService[0];
   return <>
-    <PageHeader title="Sales & revenue" description="Paid service sales and financial reversals from persisted transactions." />
-    <Panel className="revenue-report-period-panel">
-      <form className="panel-toolbar panel-toolbar--period panel-toolbar--period--has-hint" onSubmit={applyRange}>
-        <TextField label="From" type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
-        <TextField label="To" type="date" value={to} onChange={(event) => setTo(event.target.value)} />
-        <Button type="submit" disabled={loading}>{loading ? "Loading…" : "Apply period"}</Button>
-      </form>
-      <p className="form-hint">Sales use the checkout date; refunds and voids use the action date. Older reversed records without an action date use their sale date. Dates are in Manila time.</p>
-    </Panel>
     <div className="metrics-grid metrics-grid--four">
-      <MetricCard label="Gross sales" value={loading || !data ? "—" : formatCurrency(data.summary.grossSales)} icon="creditCard" accent="blue" />
-      <MetricCard label="Refunded / voided" value={loading || !data ? "—" : formatCurrency(data.summary.reversedAmount)} icon="info" accent="amber" />
-      <MetricCard label="Net revenue" value={loading || !data ? "—" : formatCurrency(data.summary.netRevenue)} icon="check" accent="green" />
-      <MetricCard label="Transactions" value={loading || !data ? "—" : String(data.summary.transactionCount)} icon="info" accent="violet" />
+      <MetricCard label="Gross sales" value={data ? formatCurrency(data.summary.grossSales) : "—"} icon="creditCard" accent="blue" />
+      <MetricCard label="Refunded / voided" value={data ? formatCurrency(data.summary.reversedAmount) : "—"} icon="info" accent="amber" />
+      <MetricCard label="Net revenue" value={data ? formatCurrency(data.summary.netRevenue) : "—"} icon="check" accent="green" />
+      <MetricCard label="Transactions" value={data ? String(data.summary.transactionCount) : "—"} icon="info" accent="violet" />
     </div>
-    {!loading && data && <>
-      <Breakdown title="Daily sales" description="Daily checkout and reversal activity in Manila time." rows={data.dailySales} />
-      <Breakdown title="Revenue by service" description="Uses the service name saved on each transaction." rows={data.byService} />
-      <Breakdown title="Revenue by barber" description="Uses the barber name saved on each transaction." rows={data.byBarber} />
-      <Breakdown title="Revenue by payment method" description="Uses the payment method saved on each transaction." rows={data.byPaymentMethod} />
+    <ReportStatus loading={loading} error={error} retry={retry} />
+    {data && <>
+      <div className={styles.highlights}>
+        <div><small>Busiest day by checkouts</small><strong>{busiest && busiest.transactionCount > 0 ? displayDate(busiest.label) : "No checkouts"}</strong><span>{busiest && busiest.transactionCount > 0 ? `${busiest.transactionCount} transactions` : "in this period"}</span></div>
+        <div><small>Highest net revenue service</small><strong>{topService?.label ?? "No service activity"}</strong><span>{topService ? formatCurrency(topService.netRevenue) : "in this period"}</span></div>
+        <div><small>Average checkout value</small><strong>{data.summary.transactionCount ? formatCurrency(data.summary.grossSales / data.summary.transactionCount) : "—"}</strong><span>Gross sales ÷ transactions</span></div>
+      </div>
+      <DailyActivity data={data} range={range} />
+      <div className={styles.visualGrid}>
+        <RankedBars title="Revenue by service" description="Services ranked by net revenue." rows={data.byService.map((row) => ({ label: row.label, value: row.netRevenue, detail: `${row.transactionCount} transactions · Gross ${formatCurrency(row.grossSales)}` }))} format={formatCurrency}><RevenueTable title="Service breakdown" rows={data.byService} /></RankedBars>
+        <RankedBars title="Revenue by barber" description="Barbers ranked by net revenue from saved sales." rows={data.byBarber.map((row) => ({ label: row.label, value: row.netRevenue, detail: `${row.transactionCount} transactions · Gross ${formatCurrency(row.grossSales)}` }))} format={formatCurrency}><RevenueTable title="Barber breakdown" rows={data.byBarber} /></RankedBars>
+      </div>
+      <RankedBars title="Payment methods" description="Gross sales by payment method, before refunds and voids." rows={data.byPaymentMethod.map((row) => ({ label: row.label, value: row.grossSales, detail: `${row.transactionCount} transactions · ${data.summary.grossSales ? (row.grossSales / data.summary.grossSales * 100).toFixed(1) : "0"}% of gross sales` }))} format={formatCurrency}><RevenueTable title="Payment method breakdown" rows={data.byPaymentMethod} /></RankedBars>
+      <p className={styles.note}>Sales use the checkout date; refunds and voids use the action date. Older reversals without an action date use their sale date. Net revenue can be negative. Service and barber names reflect records saved at checkout.</p>
     </>}
   </>;
 }

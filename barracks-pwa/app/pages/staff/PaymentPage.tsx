@@ -4,7 +4,8 @@ import { useBranchContext } from "@/app/utils/use-branch-context";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiRequest, readApiBody } from "@/app/lib/api";
 import { formatCurrency } from "@/app/utils/format";
-import { Button, EmptyState, PageHeader, Panel, SectionHeading, SelectField, TextField } from "@/app/components/ui";
+import { Badge, Button, ConfirmDialog, EmptyState, Modal, PageHeader, Panel, SectionHeading, SelectField, TextField } from "@/app/components/ui";
+import { DetailDrawer, FreshnessBar, FilterToolbar } from "@/app/components/operations/OperationalPrimitives";
 import type { EligibleVisit, TransactionRecord } from "@/server/services/payment.service";
 import type { PaymentMethod } from "@/server/schemas/payment.schema";
 
@@ -16,14 +17,30 @@ const methods: { id: PaymentMethod; label: string }[] = [
 const visitKey = (visit: EligibleVisit) => `${visit.visitType}:${visit.visitRecordId}`;
 const methodLabel = (method: string) => methods.find((item) => item.id === method)?.label ?? method;
 const money = (amount: number) => formatCurrency(amount);
+const manilaDate = (value: string | Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(value));
+const dayLabel = (value: string) => new Date(`${value}T12:00:00Z`).toLocaleDateString("en-PH", { timeZone: "Asia/Manila", dateStyle: "full" });
 const historyUrl = (page: number, search: string, paymentMethod: string, dateFrom: string, dateTo: string) => {
-  const params = new URLSearchParams({ view: "history", page: String(page), pageSize: "20" });
+  const params = new URLSearchParams({ view: "history", page: String(page), pageSize: "100" });
   if (search.trim()) params.set("search", search.trim());
   if (paymentMethod) params.set("paymentMethod", paymentMethod);
   if (dateFrom) params.set("dateFrom", dateFrom);
   if (dateTo) params.set("dateTo", dateTo);
   return `/api/transactions?${params}`;
 };
+async function loadMonthHistory(search: string, paymentMethod: string, dateFrom: string, dateTo: string, branchId: number, isCurrent: () => boolean) {
+  const transactions: TransactionRecord[] = [];
+  let totalPages = 1;
+  for (let page = 1; page <= totalPages; page++) {
+    const response = await apiRequest(`${historyUrl(page, search, paymentMethod, dateFrom, dateTo)}&branchId=${branchId}`, { cache: "no-store" });
+    const body = await readApiBody<{ success: boolean; transactions?: TransactionRecord[]; totalPages?: number; message?: string }>(response);
+    if (!isCurrent()) return null;
+    if (!response.ok || !body?.success || !body.transactions) throw new Error(body?.message ?? "Unable to load transaction calendar");
+    totalPages = body.totalPages ?? 1;
+    if (totalPages > 10000) throw new Error("Too many transactions in this month. Narrow the search or payment method.");
+    transactions.push(...body.transactions);
+  }
+  return transactions;
+}
 
 function Receipt({ transaction, onClose }: { transaction: TransactionRecord; onClose: () => void }) {
   return <section className="receipt-view" aria-label="Receipt">
@@ -57,16 +74,24 @@ export function PaymentPage({ onToast, canCheckout = false, canManageFinancialAc
 }
 
 function PaymentBranch({ branchId, onToast, canCheckout, canManageFinancialActions }: { branchId: number; onToast: (message: string) => void; canCheckout: boolean; canManageFinancialActions: boolean }) {
+  const [visitSearch, setVisitSearch] = useState("");
+  const [updatedAt, setUpdatedAt] = useState<number | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<"refund" | "void" | "checkout" | null>(null);
+  const receiptVersion = useRef(0);
   const [visits, setVisits] = useState<EligibleVisit[]>([]);
   const [history, setHistory] = useState<TransactionRecord[]>([]);
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(0);
-  const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [methodFilter, setMethodFilter] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [month, setMonth] = useState(() => manilaDate(new Date()).slice(0, 7));
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [dayOpen, setDayOpen] = useState(false);
+  const dateFrom = `${month}-01`;
+  const daysInMonth = new Date(`${month}-01T12:00:00Z`);
+  daysInMonth.setUTCMonth(daysInMonth.getUTCMonth() + 1, 0);
+  const dateTo = daysInMonth.toISOString().slice(0, 10);
   const [receipt, setReceipt] = useState<TransactionRecord | null>(null);
   const [receiptError, setReceiptError] = useState("");
   const [receiptLoading, setReceiptLoading] = useState(false);
@@ -89,31 +114,29 @@ function PaymentBranch({ branchId, onToast, canCheckout, canManageFinancialActio
     const version = ++requestVersion.current;
     setLoading(true);
     try {
-      const [visitsResponse, historyResponse] = await Promise.all([
+      const [visitsResponse, monthHistory] = await Promise.all([
         canCheckout ? apiRequest(`/api/transactions?view=eligible&branchId=${branchId}`, { cache: "no-store" }) : Promise.resolve(null),
-        apiRequest(`${historyUrl(page, search, methodFilter, dateFrom, dateTo)}&branchId=${branchId}`, { cache: "no-store" }),
+        loadMonthHistory(search, methodFilter, dateFrom, dateTo, branchId, () => version === requestVersion.current),
       ]);
-      const [visitsBody, historyBody] = await Promise.all([
+      const [visitsBody] = await Promise.all([
         visitsResponse ? readApiBody<{ success: boolean; visits?: EligibleVisit[]; message?: string }>(visitsResponse) : Promise.resolve(null),
-        readApiBody<{ success: boolean; transactions?: TransactionRecord[]; total?: number; totalPages?: number; message?: string }>(historyResponse),
       ]);
       if ((canCheckout && (!visitsResponse?.ok || !visitsBody?.success || !visitsBody.visits)) ||
-          !historyResponse.ok || !historyBody?.success || !historyBody.transactions) {
-        throw new Error(visitsBody?.message ?? historyBody?.message ?? "Unable to load payments");
+          !monthHistory) {
+        if (version !== requestVersion.current) return;
+        throw new Error(visitsBody?.message ?? "Unable to load payments");
       }
       if (version !== requestVersion.current) return;
       setVisits(visitsBody?.visits ?? []);
-      setHistory(historyBody.transactions);
-      setTotal(historyBody.total ?? historyBody.transactions.length);
-      setTotalPages(historyBody.totalPages ?? (historyBody.transactions.length ? 1 : 0));
+      setHistory(monthHistory);
       setSelectedKey((current) => visitsBody?.visits?.some((visit) => visitKey(visit) === current) ? current : "");
-      setLoadError("");
+      setLoadError(""); setUpdatedAt(Date.now());
     } catch (error) {
       if (version === requestVersion.current) setLoadError(error instanceof Error ? error.message : "Unable to load payments");
     } finally {
       if (version === requestVersion.current) setLoading(false);
     }
-  }, [branchId, canCheckout, page, search, methodFilter, dateFrom, dateTo]);
+  }, [branchId, canCheckout, search, methodFilter, dateFrom, dateTo]);
 
   useEffect(() => {
     const versionRef = requestVersion;
@@ -123,6 +146,20 @@ function PaymentBranch({ branchId, onToast, canCheckout, canManageFinancialActio
   }, [load]);
 
   const selected = visits.find((visit) => visitKey(visit) === selectedKey);
+  const transactionsByDay = new Map<string, TransactionRecord[]>();
+  for (const transaction of history) {
+    const day = manilaDate(transaction.createdAt);
+    const entries = transactionsByDay.get(day) ?? [];
+    entries.push(transaction);
+    transactionsByDay.set(day, entries);
+  }
+  const dayHistory = selectedDay ? transactionsByDay.get(selectedDay) ?? [] : [];
+  const totalPages = Math.max(1, Math.ceil(dayHistory.length / 20));
+  const dayPage = Math.min(page, totalPages);
+  const monthStart = new Date(`${dateFrom}T12:00:00Z`);
+  const calendarOffset = (monthStart.getUTCDay() + 6) % 7;
+  const calendarDays = Array.from({ length: daysInMonth.getUTCDate() }, (_, index) => `${month}-${String(index + 1).padStart(2, "0")}`);
+  const moveMonth = (offset: number) => { const next = new Date(`${dateFrom}T12:00:00Z`); next.setUTCMonth(next.getUTCMonth() + offset); setMonth(next.toISOString().slice(0, 7)); setDayOpen(false); setPage(1); };
   const received = cashReceived.trim() === "" ? null : Number(cashReceived);
   const cashValid = received !== null && Number.isFinite(received) && received >= 0 &&
     /^\d+(?:\.\d{1,2})?$/.test(cashReceived) && received <= 9_999_999_999.99;
@@ -137,6 +174,9 @@ function PaymentBranch({ branchId, onToast, canCheckout, canManageFinancialActio
   }, [receipt]);
 
   async function openReceipt(reference: string, print = false) {
+    setDayOpen(false);
+    const version = ++receiptVersion.current;
+    setDetailOpen(true);
     setReceipt(null);
     setReceiptError("");
     setActionReason("");
@@ -147,11 +187,12 @@ function PaymentBranch({ branchId, onToast, canCheckout, canManageFinancialActio
       const response = await apiRequest(`/api/transactions?reference=${encodeURIComponent(reference)}&branchId=${branchId}`, { cache: "no-store" });
       const body = await readApiBody<{ success: boolean; transaction?: TransactionRecord; message?: string }>(response);
       if (!response.ok || !body?.success || !body.transaction) throw new Error(body?.message ?? "Unable to load receipt");
+      if (version !== receiptVersion.current) return;
       printWhenReady.current = print;
       setReceipt(body.transaction);
     } catch (error) {
-      setReceiptError(error instanceof Error ? error.message : "Unable to load receipt");
-    } finally { setReceiptLoading(false); }
+      if (version === receiptVersion.current) setReceiptError(error instanceof Error ? error.message : "Unable to load receipt");
+    } finally { if (version === receiptVersion.current) setReceiptLoading(false); }
   }
 
   async function applyAction(action: "refund" | "void") {
@@ -199,21 +240,19 @@ function PaymentBranch({ branchId, onToast, canCheckout, canManageFinancialActio
     }
   }
 
-  return <>
-    <PageHeader title={canCheckout ? "Payments" : "Transactions"} description={canCheckout ? "Check out completed visits." : "Review payment history and manage financial actions."} action={<Button type="button" variant="ghost" icon="refresh" disabled={loading || processing} onClick={() => void load()}>Refresh</Button>} />
-    {loadError && <p role="alert">{loadError}</p>}
-    <div className={`payment-grid${canCheckout ? "" : " payment-grid--history-only"}`}>
+  return <div className="operational-workspace">
+    <PageHeader title={canCheckout ? "Payments" : "Transactions"} description={canCheckout ? "Check out completed visits." : "Review payment history and manage financial actions."} />
+    <FreshnessBar updatedAt={updatedAt} loading={loading} error={loadError} onRefresh={() => void load()} />
+    {canCheckout && <div className="checkout-workspace">
+      <Panel className="eligible-visits-panel"><SectionHeading title="Completed unpaid visits" /><FilterToolbar search={visitSearch} onSearchChange={setVisitSearch} placeholder="Search customer, service or visit" resultCount={loading || loadError ? undefined : visits.filter((visit) => `${visit.customerName} ${visit.serviceName} ${visit.barberName} ${visit.visitRecordId}`.toLowerCase().includes(visitSearch.trim().toLowerCase())).length} onReset={() => setVisitSearch("")} />
+        {loading ? <p role="status" className="operational-loading">Loading eligible visits…</p> : loadError ? <p role="alert" className="operational-loading">Eligible visits unavailable. Refresh to retry.</p> : !visits.length ? <EmptyState title="No visits ready for payment" description="Completed unpaid bookings and walk-ins appear here." /> : <div className="eligible-visit-list">{visits.filter((visit) => `${visit.customerName} ${visit.serviceName} ${visit.barberName} ${visit.visitRecordId}`.toLowerCase().includes(visitSearch.trim().toLowerCase())).map((visit) => <button type="button" key={visitKey(visit)} aria-pressed={selectedKey === visitKey(visit)} disabled={processing} onClick={() => { setSelectedKey(visitKey(visit)); setCashReceived(""); setCompleted(null); setCheckoutError(""); }}><span><strong>{visit.customerName}</strong><small>{visit.serviceName} · {visit.barberName}</small><small>{visit.visitType === "booking" ? "Booking" : "Walk-in"} #{visit.visitRecordId}</small></span><strong>{money(visit.total)}</strong></button>)}{visits.length > 0 && !visits.some((visit) => `${visit.customerName} ${visit.serviceName} ${visit.barberName} ${visit.visitRecordId}`.toLowerCase().includes(visitSearch.trim().toLowerCase())) && <EmptyState title="No matching visits" description="Reset search to see eligible visits." />}</div>}
+      </Panel>
       {canCheckout && <Panel className="payment-form-panel">
         <SectionHeading title="Checkout" />
-        {loading && <p>Loading eligible visits…</p>}
-        {!loading && !visits.length && <EmptyState title="No visits ready for payment" description="Completed unpaid bookings and walk-ins will appear here." />}
-        {!!visits.length && <>
-          <SelectField label="Completed visit" value={selectedKey} disabled={processing} onChange={(event) => { setSelectedKey(event.target.value); setCompleted(null); setCheckoutError(""); }}>
-            <option value="">Select a visit</option>
-            {visits.map((visit) => <option key={visitKey(visit)} value={visitKey(visit)}>{visit.visitType === "booking" ? "Booking" : "Walk-in"} #{visit.visitRecordId} · {visit.customerName} · {visit.serviceName}</option>)}
-          </SelectField>
+        {!selected && <EmptyState title="Select a completed visit" description="Choose the customer and visit from the unpaid list to start checkout." />}
           {selected && <>
             <div className="payment-summary">
+              <span><small>Visit</small><strong>{selected.visitType === "booking" ? "Booking" : "Walk-in"} #{selected.visitRecordId}</strong></span>
               <span><small>Customer</small><strong>{selected.customerName}</strong></span>
               <span><small>Service</small><strong>{selected.serviceName}</strong></span>
               <span><small>Barber</small><strong>{selected.barberName}</strong></span>
@@ -230,41 +269,67 @@ function PaymentBranch({ branchId, onToast, canCheckout, canManageFinancialActio
               <p>Change: <strong>{change === null ? "—" : money(change)}</strong></p>
             </>}
             {checkoutError && <p role="alert">{checkoutError}</p>}
-            <Button type="button" size="lg" variant="success" icon="check" className="payment-submit" disabled={processing || (method === "cash" && !sufficient)} onClick={() => void checkout()}>{processing ? "Processing…" : "Complete payment"}</Button>
+            <Button type="button" size="lg" variant="success" icon="check" className="payment-submit" disabled={processing || loading || Boolean(loadError) || (method === "cash" && !sufficient)} onClick={() => setPendingAction("checkout")}>{processing ? "Processing…" : "Complete payment"}</Button>
           </>}
-        </>}
       </Panel>}
+    </div>}
       <Panel className="recent-transactions-panel">
-        <SectionHeading title="Transaction history" />
+        <SectionHeading title="Transaction calendar" description="Select a date to review its transactions. Dates use Manila time." />
         <form className="transaction-filters" onSubmit={(event) => { event.preventDefault(); setPage(1); setSearch(searchInput); }}>
           <TextField label="Reference or customer" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} />
           <Button type="submit">Search</Button>
           <SelectField label="Payment method" value={methodFilter} onChange={(event) => { setPage(1); setMethodFilter(event.target.value); }}><option value="">All methods</option>{methods.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</SelectField>
-          <TextField label="From date" type="date" value={dateFrom} onChange={(event) => { setPage(1); setDateFrom(event.target.value); }} />
-          <TextField label="To date" type="date" value={dateTo} onChange={(event) => { setPage(1); setDateTo(event.target.value); }} />
+          <TextField label="Month" type="month" value={month} onChange={(event) => { if (event.target.value) { setMonth(event.target.value); setDayOpen(false); setPage(1); } }} />
         </form>
-        {!loading && !history.length && <EmptyState title="No transactions found" description="Try another search or date range." />}
-        <div className="transaction-list">{history.map((transaction) => <div className="transaction-row" key={transaction.id}>
-          <span><strong>{transaction.customerName}</strong><small>{transaction.serviceName} · {transaction.barberName} · {methodLabel(transaction.paymentMethod)}</small><small>{transaction.reference}</small></span>
-          <span><strong>{money(transaction.total)}</strong><small>Status: {transaction.paymentStatus}</small><small>{new Date(transaction.createdAt).toLocaleString("en-PH", { timeZone: "Asia/Manila" })}</small><Button type="button" variant="ghost" onClick={() => void openReceipt(transaction.reference)}>View receipt</Button></span>
-        </div>)}</div>
-        <div className="transaction-pages"><span>{total} transactions · Page {page} of {Math.max(1, totalPages)}</span><Button type="button" variant="ghost" disabled={page <= 1 || loading} onClick={() => setPage(page - 1)}>Previous</Button><Button type="button" variant="ghost" disabled={page >= totalPages || loading} onClick={() => setPage(page + 1)}>Next</Button></div>
+        <div className="transaction-calendar-navigation">
+          <Button type="button" variant="secondary" onClick={() => moveMonth(-1)}>Previous month</Button>
+          <strong>{monthStart.toLocaleDateString("en-PH", { timeZone: "Asia/Manila", month: "long", year: "numeric" })}</strong>
+          <Button type="button" variant="secondary" onClick={() => moveMonth(1)}>Next month</Button>
+          <Button type="button" variant="ghost" onClick={() => { setSearchInput(""); setSearch(""); setMethodFilter(""); setMonth(manilaDate(new Date()).slice(0, 7)); setDayOpen(false); setPage(1); }}>Reset filters</Button>
+        </div>
+        {loading && <p role="status" className="operational-loading">Loading transaction calendar…</p>}
+        {!loading && loadError && <p role="alert" className="operational-loading">{loadError}</p>}
+        {!loading && !loadError && <>
+          <p className="task-note">{history.length} transactions this month{search || methodFilter ? " matching the active filters" : ""}.</p>
+          <div className="transaction-calendar" aria-label="Transaction dates">
+            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => <div key={day} className="transaction-calendar__weekday">{day}</div>)}
+            {Array.from({ length: calendarOffset }, (_, index) => <div key={`blank-${index}`} aria-hidden="true" className="transaction-calendar__blank" />)}
+            {calendarDays.map((day) => {
+              const count = transactionsByDay.get(day)?.length ?? 0;
+              return <button type="button" key={day} className="transaction-calendar__day" aria-current={day === manilaDate(new Date()) ? "date" : undefined} aria-label={`${dayLabel(day)}, ${count} ${count === 1 ? "transaction" : "transactions"}`} onClick={() => { setSelectedDay(day); setDayOpen(true); setPage(1); }}>
+                <span>{Number(day.slice(-2))}</span><strong>{count || "—"}</strong><small>{count === 1 ? "transaction" : "transactions"}</small>
+              </button>;
+            })}
+          </div>
+        </>}
       </Panel>
-    </div>
+    <div className="transaction-day-modal"><Modal open={dayOpen} title={selectedDay ? dayLabel(selectedDay) : "Daily transactions"} description={`${loading || loadError ? "Transaction count unavailable" : `${dayHistory.length} transactions`}${search || methodFilter ? " · Active filters apply" : ""} · Manila`} width="lg" onClose={() => setDayOpen(false)}>
+      {loading ? <p role="status" className="operational-loading">Loading transactions…</p> : loadError ? <p role="alert" className="operational-loading">{loadError}</p> : !dayHistory.length ? <EmptyState title="No transactions on this date" description={search || methodFilter ? "No transactions match the active filters. Reset them to see all transactions." : "Choose another date from the calendar."} /> : <>
+        <ul className="transaction-day-list">{dayHistory.slice((dayPage - 1) * 20, dayPage * 20).map((transaction) => <li key={transaction.id}>
+          <time dateTime={transaction.createdAt}>{new Date(transaction.createdAt).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", timeStyle: "short" })}</time>
+          <div className="transaction-day-list__identity"><strong>{transaction.customerName}</strong><span>{transaction.serviceName} · {transaction.barberName}</span><small>{transaction.reference}</small><span>{methodLabel(transaction.paymentMethod)} · <Badge tone={transaction.paymentStatus === "completed" ? "success" : "warning"}>{transaction.paymentStatus}</Badge></span></div>
+          <strong>{money(transaction.total)}</strong>
+          <Button type="button" size="sm" variant="secondary" onClick={() => void openReceipt(transaction.reference)}>View details</Button>
+        </li>)}</ul>
+        <div className="transaction-pages"><span>Page {dayPage} of {totalPages}</span><Button type="button" variant="ghost" disabled={dayPage <= 1} onClick={() => setPage(dayPage - 1)}>Previous</Button><Button type="button" variant="ghost" disabled={dayPage >= totalPages} onClick={() => setPage(dayPage + 1)}>Next</Button></div>
+      </>}
+    </Modal></div>
     {canCheckout && completed && <Panel><SectionHeading title="Payment completed" /><p>Reference: <strong>{completed.reference}</strong></p><p>{completed.customerName} · {completed.serviceName} · {completed.barberName}</p><p>Service price: {money(completed.subtotal)} · Total: {money(completed.total)} · {methodLabel(completed.paymentMethod)}</p>{completed.paymentMethod === "cash" && <p>Received: {money(completed.amountReceived ?? 0)} · Change: {money(completed.change ?? 0)}</p>}<Button type="button" onClick={() => void openReceipt(completed.reference, true)}>Print Receipt</Button></Panel>}
-    {receiptLoading && <p>Loading receipt…</p>}
-    {receiptError && <p role="alert">{receiptError}</p>}
-    {receipt && <><Receipt transaction={receipt} onClose={() => setReceipt(null)} />
-      {canManageFinancialActions && receipt.status === "completed" && <Panel className="financial-action-panel"><SectionHeading title="Refund or void transaction" />
+    <DetailDrawer open={detailOpen} title="Transaction details" subtitle={receipt?.reference} onClose={() => { if (actionProcessing) return; receiptVersion.current++; setDetailOpen(false); setReceipt(null); }}>
+      {receiptLoading && <p role="status">Loading transaction…</p>}{receiptError && <p role="alert">{receiptError}</p>}
+      {receipt && <><Receipt transaction={receipt} onClose={() => { if (actionProcessing) return; receiptVersion.current++; setDetailOpen(false); setReceipt(null); }} />
+      {canManageFinancialActions && receipt.status === "completed" && <section className="financial-action-panel"><SectionHeading title="Refund or void transaction" />
         <p>Full amount: {money(receipt.total)}. A reason is required and the original receipt is retained.</p>
-        <TextField label="Reason" value={actionReason} maxLength={500} onChange={(event) => setActionReason(event.target.value)} />
+        <TextField label="Reason" value={actionReason} disabled={actionProcessing} maxLength={500} onChange={(event) => setActionReason(event.target.value)} />
         {actionError && <p role="alert">{actionError}</p>}
-        <Button type="button" disabled={actionProcessing || !actionReason.trim()} onClick={() => void applyAction("refund")}>Refund full amount</Button>
-        <Button type="button" disabled={actionProcessing || !actionReason.trim()} onClick={() => void applyAction("void")}>Void transaction</Button>
-      </Panel>}
-      {canManageFinancialActions && <Panel className="financial-audit-panel"><SectionHeading title="Financial audit history" />
+        <Button type="button" disabled={actionProcessing || !actionReason.trim()} onClick={() => setPendingAction("refund")}>Refund full amount</Button>
+        <Button type="button" variant="danger" disabled={actionProcessing || !actionReason.trim()} onClick={() => setPendingAction("void")}>Void transaction</Button>
+      </section>}
+      {canManageFinancialActions && <section className="financial-audit-panel"><SectionHeading title="Financial audit history" />
         {!receipt.actions?.length && <p>No refund or void actions recorded.</p>}
         {receipt.actions?.map((action) => <p key={action.id}>{action.action} · {money(action.amount)} · {action.reason} · {action.staffName} · {new Date(action.createdAt).toLocaleString("en-PH", { timeZone: "Asia/Manila" })}</p>)}
-      </Panel>}</>}
-  </>;
+      </section>}</>}
+    </DetailDrawer>
+    <ConfirmDialog open={Boolean(pendingAction)} title={pendingAction === "checkout" ? "Complete this payment?" : pendingAction === "refund" ? "Refund this transaction?" : "Void this transaction?"} description={pendingAction === "checkout" && selected ? `${selected.customerName} · ${selected.visitType} #${selected.visitRecordId} · ${money(selected.total)} · ${methodLabel(method)}${method === "cash" ? ` · Received ${money(received ?? 0)} · Change ${money(change ?? 0)}` : ""}` : receipt ? `${receipt.reference} · ${money(receipt.total)} · ${actionReason}` : undefined} confirmLabel={pendingAction === "checkout" ? "Confirm payment" : "Confirm action"} danger={pendingAction !== "checkout"} busy={processing || actionProcessing} onClose={() => setPendingAction(null)} onConfirm={() => { const action = pendingAction; setPendingAction(null); if (action === "checkout") void checkout(); else if (action) void applyAction(action); }} />
+  </div>;
 }

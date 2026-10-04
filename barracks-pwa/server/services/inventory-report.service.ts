@@ -3,6 +3,7 @@ import type { BranchActor } from "@/server/auth/barber-branch-access";
 import { requireManagementReport, resolveReportBranches } from "@/server/auth/report-branch-access";
 
 function dateOnly(date: Date): string { return date.toISOString().slice(0, 10); }
+function manilaBoundary(date: Date): Date { return new Date(`${dateOnly(date)}T00:00:00+08:00`); }
 
 export async function getInventoryReport(db: Pool, actor: BranchActor, from: Date, to: Date, rawBranch: string | null = null) {
   requireManagementReport(actor);
@@ -33,7 +34,7 @@ export async function getInventoryReport(db: Pool, actor: BranchActor, from: Dat
       LEFT JOIN restock_request_items ri ON ri.restock_request_id=r.id
       GROUP BY s.id, s.company_name
       ORDER BY total_spend DESC, s.company_name ASC
-    `, [from, toExclusive, branchIds]),
+    `, [manilaBoundary(from), manilaBoundary(toExclusive), branchIds]),
     db.query(`
       SELECT m.id, m.movement_type, m.quantity, m.previous_stock, m.new_stock, m.unit_cost,
         m.reference, m.notes, m.created_at, i.name AS item_name, m.branch,
@@ -46,7 +47,7 @@ export async function getInventoryReport(db: Pool, actor: BranchActor, from: Dat
       WHERE m.created_at >= $1 AND m.created_at < $2 AND m.branch_id=ANY($3::integer[])
       ORDER BY m.created_at DESC
       LIMIT 250
-    `, [from, toExclusive, branchIds]),
+    `, [manilaBoundary(from), manilaBoundary(toExclusive), branchIds]),
     db.query(`
       WITH report_items AS (
         SELECT id AS item_id,branch_id FROM inventory_items
@@ -75,7 +76,7 @@ export async function getInventoryReport(db: Pool, actor: BranchActor, from: Dat
         AND m.created_at >= $3 AND m.created_at < $2
       GROUP BY i.id,scope.branch_id
       ORDER BY current_activity DESC, i.name ASC
-    `, [from, toExclusive, previousFrom, previousTo, branchIds]),
+    `, [manilaBoundary(from), manilaBoundary(toExclusive), manilaBoundary(previousFrom), manilaBoundary(previousTo), branchIds]),
   ]);
 
   const totals = valuation.rows[0] ?? { total_value: 0, active_items: 0, low_stock_items: 0 };

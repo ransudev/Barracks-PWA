@@ -9,10 +9,14 @@ export type UnavailabilityInput = z.infer<typeof unavailabilitySchema>;
 export type Unavailability = UnavailabilityInput & { id: number };
 
 
+export class ShopHoursConfigurationError extends Error { constructor() { super("Shop hours contain multiple schedules for the same weekday in this branch."); } }
+
 export async function listShopHours(db: Db, branchId: number): Promise<ShopHours[]> {
   const result = await db.query<{ day_of_week: number; open_time: string; close_time: string; is_closed: boolean }>(
     "SELECT day_of_week, open_time, close_time, is_closed FROM shop_operating_hours WHERE branch_id=$1 ORDER BY day_of_week", [branchId],
   );
+  const weekdays = new Set(result.rows.map((row) => row.day_of_week));
+  if (weekdays.size !== result.rows.length) throw new ShopHoursConfigurationError();
   return result.rows.map((row) => ({ dayOfWeek: row.day_of_week, openTime: row.open_time.slice(0, 5), closeTime: row.close_time.slice(0, 5), isClosed: row.is_closed }));
 }
 

@@ -20,8 +20,8 @@ export async function GET(request: Request) {
   if (user instanceof Response) return user;
 
   const url = new URL(request.url);
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
+  const todayText = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const today = new Date(`${todayText}T00:00:00Z`);
   const defaultFrom = new Date(today);
   defaultFrom.setUTCDate(defaultFrom.getUTCDate() - 29);
 

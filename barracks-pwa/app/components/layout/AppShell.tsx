@@ -127,11 +127,13 @@ function Sidebar({
         className="sidebar__nav"
         aria-label={`${isManagement ? "Management" : "Front Desk"} navigation`}
       >
-        <span className="sidebar__label">Navigate</span>
-        {navigation.map((item) => (
+        {[{ name: "Business", ids: ["staff-dashboard", "admin-dashboard", "queue", "bookings", "payments", "admin-reports", "admin-services"] }, { name: "People", ids: ["staff-management", "customers", "admin-customers", "barbers", "admin-barbers", "admin-attendance"] }, { name: "Stock", ids: ["admin-inventory", "admin-suppliers", "admin-restocks"] }].map((group) => <div className="sidebar__group" key={group.name}>
+        {navigation.some((item) => group.ids.includes(item.id)) && <span className="sidebar__label">{group.name}</span>}
+        {navigation.filter((item) => group.ids.includes(item.id)).map((item) => (
           <button
             className={`sidebar__link ${active === item.id ? "is-active" : ""}`}
             type="button"
+            aria-current={active === item.id ? "page" : undefined}
             aria-label={item.label}
             title={item.label}
             key={item.id}
@@ -140,7 +142,7 @@ function Sidebar({
             <Icon name={item.icon} size={18} />
             <span>{item.label}</span>
           </button>
-        ))}
+        ))}</div>)}
 
       </nav>
 
@@ -165,13 +167,14 @@ function Sidebar({
 
 function Topbar({
   area,
+  active,
   go,
   onToast,
   currentUser,
   onSignOut,
   mobileNavOpen,
   onToggleMobileNav,
-}: Omit<AppShellProps, "children" | "active"> & {
+}: Omit<AppShellProps, "children"> & {
   mobileNavOpen: boolean;
   onToggleMobileNav: () => void;
 }) {
@@ -239,7 +242,7 @@ function Topbar({
         <span>{isManagement ? "Management" : "Front Desk"}</span>
         <Icon name="chevronRight" size={13} />
         <strong>
-          {isManagement ? "Business overview" : "Operations"}
+          {(isManagement ? managementNavigation : frontDeskNavigation).find((item) => item.id === active)?.label ?? "Dashboard"}
         </strong>
       </div>
 
@@ -398,6 +401,7 @@ export function AppShell({
       <div className="app-main">
         <Topbar
           area={area}
+          active={active}
           go={go}
           onToast={onToast}
           currentUser={currentUser}

@@ -4,6 +4,7 @@ import { BarracksApp } from "@/app/components/BarracksApp";
 import "./globals.css";
 import "./pages/admin/branches.css";
 import "./theme.css";
+import "./operational-layouts.css";
 import "./pages/public/landing.css";
 import "./pages/auth/login.css";
 import "./pages/customer/booking.css";

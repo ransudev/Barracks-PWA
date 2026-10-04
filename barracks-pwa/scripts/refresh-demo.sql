@@ -1,7 +1,5 @@
 -- Additive showcase refresh for an already seeded demo database (migrations 001-021).
--- Run via the Supabase SQL editor or db:refresh-demo. Never resets business data.
-BEGIN;
-SET LOCAL search_path = public;
+-- Run via db:refresh-demo. For SQL editor use, wrap this and working-demo.sql in BEGIN/COMMIT.
 SET LOCAL lock_timeout = '5s';
 SELECT pg_advisory_xact_lock(20261003, 1);
 
@@ -14,6 +12,7 @@ DECLARE
   item_id INTEGER;
   request_id BIGINT;
   branch_sku TEXT;
+  target_branch_id INTEGER;
 BEGIN
   SELECT u.id INTO actor_id FROM users u JOIN roles r ON r.id=u.role_id
   WHERE r.name='administrator' AND u.deleted_at IS NULL AND NOT u.is_blocked
@@ -31,22 +30,40 @@ BEGIN
     ('bangkal','Barracks Bangkal HQ',18,'Shipped'),
     ('maa','Barracks Maa HQ',6,'Delivered')
   ) AS branches(key,name,stock,request_status) LOOP
+    target_branch_id := NULL;
+    IF to_regclass('branches') IS NOT NULL THEN
+      SELECT id INTO STRICT target_branch_id FROM branches WHERE name=branch_row.name AND status='active';
+    END IF;
     FOR source_row IN SELECT * FROM inventory_items WHERE sku IN ('NS-DIS-001','BRX-001') LOOP
       branch_sku := 'DEMO-' || upper(branch_row.key) || '-' || source_row.sku;
-      INSERT INTO inventory_items(name,category,quantity,minimum_stock,maximum_stock,unit_cost,unit,sku,status,supplier_id,image_url,branch)
-      VALUES(source_row.name,source_row.category,branch_row.stock,source_row.minimum_stock,source_row.maximum_stock,
-        source_row.unit_cost,source_row.unit,branch_sku,'active',source_row.supplier_id,source_row.image_url,branch_row.name)
-      ON CONFLICT DO NOTHING;
-      SELECT id INTO STRICT item_id FROM inventory_items WHERE lower(sku)=lower(branch_sku);
+      IF NOT EXISTS (SELECT 1 FROM inventory_items WHERE lower(sku)=lower(branch_sku) AND branch=branch_row.name) THEN
+        IF target_branch_id IS NOT NULL THEN
+          INSERT INTO inventory_items(name,category,quantity,minimum_stock,maximum_stock,unit_cost,unit,sku,status,supplier_id,image_url,branch,branch_id)
+          VALUES(source_row.name,source_row.category,branch_row.stock,source_row.minimum_stock,source_row.maximum_stock,
+            source_row.unit_cost,source_row.unit,branch_sku,'active',source_row.supplier_id,source_row.image_url,branch_row.name,target_branch_id);
+        ELSE
+          INSERT INTO inventory_items(name,category,quantity,minimum_stock,maximum_stock,unit_cost,unit,sku,status,supplier_id,image_url,branch)
+          VALUES(source_row.name,source_row.category,branch_row.stock,source_row.minimum_stock,source_row.maximum_stock,
+            source_row.unit_cost,source_row.unit,branch_sku,'active',source_row.supplier_id,source_row.image_url,branch_row.name);
+        END IF;
+      END IF;
+      SELECT id INTO STRICT item_id FROM inventory_items WHERE lower(sku)=lower(branch_sku) AND branch=branch_row.name;
 
       -- One request per supplier/branch, with a stable reference across reruns.
       SELECT id INTO request_id FROM restock_requests
       WHERE reference=branch_sku || '-RESTOCK' ORDER BY id LIMIT 1;
       IF request_id IS NULL THEN
-        INSERT INTO restock_requests(supplier_id,branch,status,reference,notes,requested_by)
-        VALUES(source_row.supplier_id,branch_row.name,branch_row.request_status,branch_sku || '-RESTOCK',
-          'Demo branch stock replenishment; receiving remains a staff action.',actor_id)
-        RETURNING id INTO request_id;
+        IF target_branch_id IS NOT NULL THEN
+          INSERT INTO restock_requests(supplier_id,branch,branch_id,status,reference,notes,requested_by)
+          VALUES(source_row.supplier_id,branch_row.name,target_branch_id,branch_row.request_status,branch_sku || '-RESTOCK',
+            'Demo branch stock replenishment; receiving remains a staff action.',actor_id)
+          RETURNING id INTO request_id;
+        ELSE
+          INSERT INTO restock_requests(supplier_id,branch,status,reference,notes,requested_by)
+          VALUES(source_row.supplier_id,branch_row.name,branch_row.request_status,branch_sku || '-RESTOCK',
+            'Demo branch stock replenishment; receiving remains a staff action.',actor_id)
+          RETURNING id INTO request_id;
+        END IF;
         INSERT INTO restock_request_items(restock_request_id,inventory_item_id,requested_quantity,unit_cost)
         VALUES(request_id,item_id,18,source_row.unit_cost);
       END IF;
@@ -89,4 +106,3 @@ BEGIN
       AND (q.status IN ('waiting','ready','in_progress') OR (q.joined_at AT TIME ZONE 'Asia/Manila')::date=today));
 END;
 $$;
-COMMIT;

@@ -7,6 +7,7 @@ import { apiRequest, readApiBody } from "@/app/lib/api";
 import type { ViewId } from "@/app/types/domain";
 import { createInitials, dateInputValue, formatCurrency } from "@/app/utils/format";
 import { Avatar, Badge, Button, EmptyState, MetricCard, PageHeader, Panel, SectionHeading } from "@/app/components/ui";
+import { FreshnessBar } from "@/app/components/operations/OperationalPrimitives";
 import { Icon } from "@/app/components/ui/icons";
 
 function displayName(barber: ApiBarberAvailability) {
@@ -44,6 +45,8 @@ export function StaffDashboard(props: DashboardProps) {
   return <ReportBranchScope>{(branch) => <StaffDashboardContent {...props} branch={branch} />}</ReportBranchScope>;
 }
 function StaffDashboardContent({ go, onToast, branch }: DashboardProps & { branch: string }) {
+  const [refreshVersion, setRefreshVersion] = useState(0);
+  const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [barbers, setBarbers] = useState<ApiBarberAvailability[]>([]);
   const [bookings, setBookings] = useState<ApiBooking[]>([]);
   const [queue, setQueue] = useState<ApiQueueEntry[]>([]);
@@ -57,6 +60,7 @@ function StaffDashboardContent({ go, onToast, branch }: DashboardProps & { branc
     let cancelled = false;
 
     async function load() {
+      setLoading(true);
       try {
         const [barberResponse, bookingResponse] = await Promise.all([
           apiRequest(`/api/barbers?branchId=${branch}`, { cache: "no-store" }),
@@ -69,6 +73,7 @@ function StaffDashboardContent({ go, onToast, branch }: DashboardProps & { branc
         if (cancelled) return;
         setBarbers(barberBody.barbers);
         setBookings(bookingBody.bookings ?? []);
+        setLoadError(""); setUpdatedAt(Date.now());
       } catch (error) {
         if (!cancelled) {
           const message = error instanceof Error ? error.message : "Unable to load dashboard";
@@ -81,6 +86,7 @@ function StaffDashboardContent({ go, onToast, branch }: DashboardProps & { branc
     }
 
     async function loadQueue() {
+      setQueueLoading(true);
       try {
         const response = await apiRequest(`/api/queue?view=active&branchId=${branch}`, { cache: "no-store" });
         const body = await readApiBody<{ success: boolean; queue?: ApiQueueEntry[]; message?: string }>(response);
@@ -96,7 +102,7 @@ function StaffDashboardContent({ go, onToast, branch }: DashboardProps & { branc
     return () => {
       cancelled = true;
     };
-  }, [onToast, branch]);
+  }, [onToast, branch, refreshVersion]);
 
   const today = dateString();
   const todayBookings = useMemo(
@@ -115,34 +121,17 @@ function StaffDashboardContent({ go, onToast, branch }: DashboardProps & { branc
   return (
     <div className="staff-dashboard">
       <PageHeader title="Dashboard" description="Overview of today’s Front Desk operations" action={<Button icon="scissors" onClick={() => go("barbers")}>View barber floor</Button>} />
+      <FreshnessBar updatedAt={updatedAt && queueAsOf ? Math.min(updatedAt, queueAsOf) : null} loading={loading || queueLoading} error={loadError || queueError} onRefresh={() => setRefreshVersion((value) => value + 1)} />
       <div className="metrics-grid metrics-grid--four">
         <MetricCard label="Customers in queue" value={queueLoading || queueError ? "—" : String(activeQueue.length)} change={queueError ? "Unable to load queue" : undefined} changeTone="warning" icon="queue" accent="blue" />
         <MetricCard label="Today’s bookings" value={loading || loadError ? "—" : String(todayBookings.length)} icon="calendar" accent="amber" />
-        <MetricCard label="Active barbers" value={loading || loadError ? "—" : String(activeBarbers)} icon="scissors" accent="green" />
+        <MetricCard label="Active roster" value={loading || loadError ? "—" : String(activeBarbers)} icon="scissors" accent="green" />
         <MetricCard label="Ready to serve" value={queueLoading || queueError ? "—" : String(activeQueue.filter((entry) => entry.status === "ready").length)} icon="check" accent="violet" />
-      </div>
-
-      <div className="quick-actions" aria-label="Dashboard quick actions">
-        <button type="button" onClick={() => go("customers")}>
-          <span className="quick-actions__icon quick-actions__icon--blue"><Icon name="userPlus" size={17} /></span>
-          <span><strong>Register customer</strong><small>Add a new customer account</small></span>
-          <Icon name="arrowRight" size={15} />
-        </button>
-        <button type="button" onClick={() => go("bookings")}>
-          <span className="quick-actions__icon quick-actions__icon--green"><Icon name="calendar" size={17} /></span>
-          <span><strong>New booking</strong><small>Reserve a time for a customer</small></span>
-          <Icon name="arrowRight" size={15} />
-        </button>
-        <button type="button" onClick={() => go("queue")}>
-          <span className="quick-actions__icon quick-actions__icon--red"><Icon name="queue" size={17} /></span>
-          <span><strong>Open queue</strong><small>Assign barbers and move visits forward</small></span>
-          <Icon name="arrowRight" size={15} />
-        </button>
       </div>
 
       <div className="dashboard-grid dashboard-grid--wide">
         <Panel className="queue-preview">
-          <SectionHeading title="Quick queue view" description="Walk-ins and checked-in appointments" action={<Button variant="ghost" size="sm" iconAfter="arrowRight" onClick={() => go("queue")}>View all</Button>} />
+          <SectionHeading title="Today’s queue" description="Walk-ins and checked-in appointments" action={<Button variant="ghost" size="sm" iconAfter="arrowRight" onClick={() => go("queue")}>View all</Button>} />
           {queueLoading ? <p role="status" className="staff-table__empty">Loading queue…</p>
             : queueError ? <p role="alert" className="staff-table__empty">{queueError}</p>
             : activeQueue.length ? <div className="queue-preview__list">{activeQueue.slice(0, 3).map((entry) => (
@@ -175,7 +164,25 @@ function StaffDashboardContent({ go, onToast, branch }: DashboardProps & { branc
         </Panel>
       </div>
 
-      <Panel className="barber-dashboard-panel">
+      <div className="quick-actions quick-actions--supporting" aria-label="Dashboard quick actions">
+        <button type="button" onClick={() => go("customers")}>
+          <span className="quick-actions__icon quick-actions__icon--blue"><Icon name="userPlus" size={17} /></span>
+          <span><strong>Register customer</strong><small>Add a new customer account</small></span>
+          <Icon name="arrowRight" size={15} />
+        </button>
+        <button type="button" onClick={() => go("bookings")}>
+          <span className="quick-actions__icon quick-actions__icon--green"><Icon name="calendar" size={17} /></span>
+          <span><strong>New booking</strong><small>Reserve a time for a customer</small></span>
+          <Icon name="arrowRight" size={15} />
+        </button>
+        <button type="button" onClick={() => go("queue")}>
+          <span className="quick-actions__icon quick-actions__icon--red"><Icon name="queue" size={17} /></span>
+          <span><strong>Open queue</strong><small>Assign barbers and move visits forward</small></span>
+          <Icon name="arrowRight" size={15} />
+        </button>
+      </div>
+
+      <details className="barber-dashboard-details"><summary>Barber roster overview</summary><Panel className="barber-dashboard-panel">
         <SectionHeading title="Live barber overview" />
         <div className="barber-status-grid">
           {loading ? (
@@ -194,7 +201,7 @@ function StaffDashboardContent({ go, onToast, branch }: DashboardProps & { branc
                   <strong>{name}</strong>
                   <div className="barber-status-card__stats">
                     <span><small>Status</small><strong>{statusLabel(barber.status)}</strong></span>
-                    <span><small>Ready assignments</small><strong>{queue.filter((entry) => entry.barberId === barber.id && entry.status === "ready").length}</strong></span>
+                    <span><small>Ready assignments</small><strong>{queueLoading || queueError ? "—" : queue.filter((entry) => entry.barberId === barber.id && entry.status === "ready").length}</strong></span>
                   </div>
                 </article>
               );
@@ -203,7 +210,7 @@ function StaffDashboardContent({ go, onToast, branch }: DashboardProps & { branc
             <EmptyState icon="scissors" title="No barber profiles" description="Barbers will appear here when the roster is set up." />
           )}
         </div>
-      </Panel>
+      </Panel></details>
     </div>
   );
 }

@@ -1,0 +1,191 @@
+/* Task-specific layouts use the existing operational palette and controls. */
+.operational-toolbar__inputs { flex-wrap: wrap; }
+.operational-toolbar__meta { flex: 0 0 auto; }
+.attendance-workspace .operational-toolbar__inputs,
+.restock-workspace .operational-toolbar__inputs { align-items: flex-end; }
+.attendance-workspace .operational-toolbar__search,
+.attendance-workspace .operational-toolbar .input-wrap input,
+.attendance-workspace .operational-toolbar .field select,
+.restock-workspace .operational-toolbar__search,
+.restock-workspace .operational-toolbar .field select { height: 42px; }
+.attendance-workspace .operational-toolbar__meta,
+.restock-workspace .operational-toolbar__meta { align-self: flex-end; min-height: 42px; }
+.operational-workspace .modal-backdrop { z-index: 130; }
+.receipt-paper dl { grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); }
+.receipt-paper dd { overflow-wrap: anywhere; min-width: 0; }
+@media print {
+  body:has(.receipt-view) .operational-drawer-layer,
+  body:has(.receipt-view) .operational-drawer,
+  body:has(.receipt-view) .operational-drawer__body {
+    position: static; height: auto; width: auto; overflow: visible; transform: none;
+  }
+  body:has(.receipt-view) .receipt-view { position: absolute; inset: 0 auto auto 0; }
+}
+.task-note { margin: 12px 20px; color: var(--text-soft); font-size: 13px; }
+.task-view-switch { display: flex; gap: 4px; flex-wrap: wrap; }
+.task-view-switch button { padding: 9px 14px; border-radius: 8px; background: var(--surface-raised); color: var(--text-soft); }
+.task-view-switch button[aria-pressed="true"] { background: var(--surface-hover); color: var(--text); outline: 1px solid var(--line-strong); }
+.day-schedule { overflow: auto; max-height: 760px; border-top: 1px solid var(--line); }
+.day-schedule__grid { display: grid; min-width: 100%; }
+.day-schedule__heading, .day-schedule__corner { position: sticky; top: 0; z-index: 4; padding: 16px 12px; background: var(--surface); border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); }
+.day-schedule__heading strong, .day-schedule__heading small { display: block; overflow-wrap: anywhere; }
+.day-schedule__heading small { margin-top: 5px; color: var(--text-soft); }
+.day-schedule__axis { position: sticky; left: 0; z-index: 3; background: var(--surface); }
+.day-schedule__axis span { position: absolute; left: 10px; color: var(--text-soft); font-size: 12px; font-variant-numeric: tabular-nums; }
+.day-schedule__column { position: relative; border-right: 1px solid var(--line); }
+.day-schedule__hour { position: absolute; width: 100%; border-top: 1px solid var(--line); pointer-events: none; }
+.day-schedule__constraint { position: absolute; width: 100%; background: color-mix(in srgb, var(--surface-hover) 70%, transparent); padding: 4px; overflow: hidden; color: var(--text-soft); font-size: 11px; }
+.day-schedule__constraint--away { background: color-mix(in srgb, var(--amber) 15%, var(--surface)); }
+.day-schedule__booking { position: absolute; z-index: 2; display: flex; flex-direction: column; gap: 3px; text-align: left; padding: 7px; background: var(--surface-raised); border: 1px solid var(--line-strong); border-radius: 6px; overflow: auto; color: var(--text); }
+.day-schedule__booking:hover { background: var(--surface-hover); }
+.day-schedule__booking strong { font-size: 13px; overflow-wrap: anywhere; }
+.day-schedule__booking small, .day-schedule__booking > span { font-size: 11px; }
+.booking-agenda { display: none; }
+.operational-freshness { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 12px 0 20px; color: var(--text-soft); font-size: 12px; }
+.operational-freshness p { flex-basis: 100%; margin: 0; color: var(--red); }
+.sidebar__group { display: grid; gap: 3px; }
+.sidebar__group + .sidebar__group { margin-top: 12px; }
+.sidebar.is-collapsed .sidebar__group .sidebar__label { display: none; }
+.staff-dashboard .quick-actions--supporting { order: 4; }
+.staff-dashboard { display: flex; flex-direction: column; }
+.barber-dashboard-details { margin-top: 20px; order: 5; }
+.barber-dashboard-details > summary { cursor: pointer; padding: 14px 0; color: var(--text-soft); }
+.weekly-timeline { display: grid; gap: 1px; margin: 20px 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.weekly-timeline > button { display: grid; grid-template-columns: 110px 140px 1fr; gap: 12px; align-items: center; padding: 12px; text-align: left; color: var(--text); background: var(--surface); }
+.weekly-timeline > button:hover, .weekly-timeline > button[aria-pressed="true"] { background: var(--surface-hover); }
+.weekly-timeline small { grid-column: 2 / -1; color: var(--text-soft); }
+.weekly-timeline__track { position: relative; height: 14px; background: var(--ink-soft); border-radius: 4px; }
+.weekly-timeline__track i, .weekly-timeline__track b { position: absolute; top: 0; height: 100%; border-radius: 3px; background: var(--green); }
+.weekly-timeline__track b { background: var(--amber); }
+.checkout-workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, .85fr); gap: 24px; margin-bottom: 28px; align-items: start; }
+.eligible-visits-panel, .payment-form-panel { min-width: 0; }
+.checkout-workspace .payment-form-panel { display: flex; flex-direction: column; gap: 16px; }
+.transaction-ledger td > strong, .transaction-ledger td > small { display: block; }
+.transaction-ledger td > small { margin-top: 5px; white-space: normal; color: var(--text-soft); }
+.duration-unavailable { padding: 16px; }
+.duration-unavailable button { display: block; padding: 12px; margin: 8px 0; background: var(--surface-hover); color: var(--text); text-align: left; }
+.eligible-visit-list { max-height: 620px; overflow: auto; }
+.eligible-visit-list > button { display: flex; justify-content: space-between; gap: 16px; width: 100%; background: transparent; color: var(--text); text-align: left; padding: 20px; border-top: 1px solid var(--line); }
+.eligible-visit-list > button[aria-pressed="true"], .eligible-visit-list > button:hover { background: var(--surface-hover); }
+.eligible-visit-list small { display: block; color: var(--text-soft); margin-top: 5px; }
+.eligible-visit-list > button > strong { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.transaction-ledger td { font-variant-numeric: tabular-nums; }
+.ledger-reference { max-width: 220px; overflow-wrap: anywhere; font-size: 11px; }
+.operational-drawer .receipt-view { margin: 0; }
+.operational-drawer .receipt-paper { width: 100%; }
+.operational-drawer :is(.financial-action-panel, .financial-audit-panel) { margin-top: 28px; }
+.overview-period { color: var(--text-soft); margin: 0 0 16px; }
+.management-activity-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 24px; margin-bottom: 24px; }
+.attention-row { display: flex; justify-content: space-between; gap: 14px; width: 100%; text-align: left; background: transparent; color: var(--text); border-bottom: 1px solid var(--line); padding: 16px 0; }
+.attention-row:hover { background: var(--surface-hover); }
+.attention-row small { display: block; margin-top: 6px; color: var(--text-soft); }
+.attention-row > span:last-child { color: var(--text-soft); font-size: 12px; }
+.sales-trend { display: flex; height: 180px; gap: 12px; align-items: end; margin: 20px 0; }
+.sales-trend > div { display: flex; flex: 1; align-items: center; flex-direction: column; justify-content: end; gap: 8px; height: 100%; font-size: 11px; color: var(--text-soft); }
+.sales-trend__bar { width: 65%; background: var(--green); border-radius: 3px 3px 0 0; }
+.overview-context { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+.overview-context span { display: block; color: var(--text-soft); font-size: 12px; }
+.overview-context strong { display: block; margin-top: 8px; font-size: 22px; }
+.overview-links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+.overview-secondary { margin-top: 24px; color: var(--text-soft); }
+.overview-secondary summary { cursor: pointer; }
+.management-activity-grid > .panel { min-width: 0; padding: 20px; }
+.management-activity-grid > .panel > .section-heading { padding: 0; }
+.management-activity-grid .task-note { margin: 16px 0 0; }
+.sales-summary { min-width: 480px; table-layout: auto; }
+.sales-summary td, .sales-summary th { height: auto; padding: 12px 7px; letter-spacing: 0; }
+.overview-context { padding: 20px 22px 0; }
+.overview-links { padding: 0 22px 22px; }
+.checkout-workspace .payment-form-panel > :not(.section-heading) { margin-left: 22px; margin-right: 22px; }
+.recent-transactions-panel > .button { margin: 0 22px 18px; }
+.transaction-ledger .operational-table { table-layout: auto; }
+.transaction-ledger td { white-space: normal; }
+.transaction-calendar-navigation { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 16px 22px; }
+.transaction-calendar { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); padding: 0 22px 22px; }
+.transaction-calendar__weekday { padding: 12px 4px; text-align: center; color: var(--text-soft); font-size: 12px; }
+.transaction-calendar__day, .transaction-calendar__blank { min-height: 110px; border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
+.transaction-calendar__day { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px; background: var(--surface); color: var(--text); text-align: left; }
+.transaction-calendar__day:nth-child(7n), .transaction-calendar__blank:nth-child(7n) { border-right: 1px solid var(--line); }
+.transaction-calendar__day:nth-last-child(-n+7) { border-bottom: 1px solid var(--line); }
+.transaction-calendar__day strong { font-size: 18px; font-variant-numeric: tabular-nums; }
+.transaction-calendar__day small { color: var(--text-soft); font-size: 11px; }
+.transaction-calendar__day:hover { background: var(--surface-hover); }
+.transaction-calendar__day[aria-current="date"] > span { color: var(--red); font-weight: 700; text-decoration: underline; text-underline-offset: 4px; }
+.transaction-day-list { list-style: none; margin: 0; padding: 0 22px; }
+.transaction-day-modal .modal--lg { width: min(1200px, 100%); max-height: calc(100dvh - 60px); }
+.transaction-day-list > li { display: grid; grid-template-columns: 65px minmax(0, 1fr) auto auto; align-items: center; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+.transaction-day-list time { color: var(--text-soft); font-variant-numeric: tabular-nums; }
+.transaction-day-list__identity { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.transaction-day-list__identity > span, .transaction-day-list__identity > small { color: var(--text-soft); overflow-wrap: anywhere; }
+@media (max-width: 760px) {
+  .transaction-calendar { padding: 0 12px 16px; }
+  .transaction-calendar-navigation { padding: 16px 12px; gap: 8px; }
+  .transaction-calendar__day, .transaction-calendar__blank { min-height: 82px; }
+  .transaction-calendar__day { padding: 8px 4px; align-items: center; gap: 6px; }
+  .transaction-calendar__day strong { font-size: 16px; }
+  .transaction-calendar__day small { display: none; }
+  .transaction-day-list { padding: 0 16px; }
+  .transaction-day-list > li { grid-template-columns: minmax(0, 1fr) auto; gap: 12px; }
+  .transaction-day-list__identity { grid-column: 1 / -1; grid-row: 2; }
+  .transaction-day-list > li > strong { grid-row: 1; grid-column: 2; }
+  .transaction-day-list > li > button { grid-column: 1 / -1; justify-self: start; }
+}
+.attendance-matrix-wrap { max-height: 600px; overflow: auto; }
+.attendance-matrix { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 560px; font-variant-numeric: tabular-nums; }
+.attendance-matrix th, .attendance-matrix td { border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); padding: 5px; text-align: center; }
+.attendance-matrix thead th { position: sticky; top: 0; z-index: 2; background: var(--surface); font-size: 12px; }
+.attendance-matrix th small { display: block; color: var(--text-soft); font-weight: 400; }
+.attendance-matrix tr > th:first-child { position: sticky; left: 0; min-width: 180px; max-width: 200px; text-align: left; background: var(--surface); z-index: 2; padding: 12px; }
+.attendance-matrix thead th:first-child { z-index: 3; }
+.attendance-cell { width: 40px; min-height: 42px; border-radius: 6px; background: var(--surface-raised); color: var(--text-soft); }
+.attendance-cell--P { color: var(--green); }
+.attendance-cell--L { color: var(--amber); }
+.attendance-cell--A { color: var(--red); font-weight: 700; }
+.attendance-cell:hover { background: var(--surface-hover); }
+.attendance-mobile-list { display: none; }
+.restock-list-tabs { padding: 16px 22px 0; }
+.restock-stages { display: flex; flex-wrap: wrap; gap: 4px; padding: 12px 22px 0; border-bottom: 1px solid var(--line); }
+.restock-stages button { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 16px; color: var(--text-soft); background: transparent; border-bottom: 2px solid transparent; font-size: 12px; }
+.restock-stages button[aria-pressed="true"] { color: var(--text); border-bottom-color: var(--red); background: var(--surface-hover); }
+.restock-stages button:hover { background: var(--surface-hover); }
+.restock-stages strong { font-variant-numeric: tabular-nums; }
+.restock-workspace .operational-toolbar__search { width: min(340px, 100%); }
+.restock-request-list { padding: 0 22px; }
+.restock-list-heading, .restock-request-row { display: grid; grid-template-columns: minmax(0, 1fr) 150px; align-items: center; gap: 20px; }
+.restock-list-heading { color: var(--text-muted); font-size: 10px; padding: 14px 0; }
+.restock-list-heading > div, .restock-request-row__detail { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.6fr) 100px; align-items: center; gap: 20px; }
+.restock-list-heading > div { padding: 0 8px; }
+.restock-list-heading > span { text-align: right; }
+.restock-request-row { border-top: 1px solid var(--line); padding: 12px 0; }
+.restock-request-row__detail { min-width: 0; background: transparent; color: var(--text); text-align: left; padding: 12px 8px; border-radius: 8px; font-size: 12px; }
+.restock-request-row__detail:hover { background: var(--surface-hover); }
+.restock-request-row__detail small { display: block; color: var(--text-soft); margin: 6px 0; overflow-wrap: anywhere; font-size: 10px; }
+.restock-request-row__detail > span { min-width: 0; overflow-wrap: anywhere; }
+.restock-request-items > span { display: block; margin: 6px 0; }
+.restock-request-items strong { white-space: nowrap; }
+.restock-request-status { justify-self: start; }
+.restock-request-row__action { text-align: right; }
+.restock-request-row__detail .restock-mobile-label { display: none; }
+@media (max-width: 1100px) {
+  .restock-list-heading { display: none; }
+  .restock-request-row__detail { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px 20px; }
+  .restock-request-row__detail .restock-mobile-label { display: block; }
+}
+@media (max-width: 760px) {
+  .restock-list-tabs { padding: 16px 12px 0; }
+  .restock-stages { padding: 12px 12px 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .restock-stages button { justify-content: space-between; padding: 0 8px; gap: 8px; }
+  .restock-request-list { padding: 0 12px; }
+  .restock-request-row { display: block; }
+  .restock-request-row__detail { width: 100%; grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+  .restock-request-identity { grid-column: 1; grid-row: 1; }
+  .restock-request-status { grid-column: 2; grid-row: 1; }
+  .restock-request-destination, .restock-request-items { grid-column: 1 / -1; }
+  .restock-request-row__action { margin: 4px 0 12px; text-align: left; padding: 0 8px; }
+  .restock-request-row__action .button { width: 100%; }
+}
+@media (max-width: 760px) { .attendance-week { display: none; } .attendance-mobile-list { display: block; } }
+@media (max-width: 1000px) { .management-activity-grid { grid-template-columns: 1fr; } .overview-context { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 900px) { .checkout-workspace { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .weekly-timeline > button { grid-template-columns: 95px 1fr; } .weekly-timeline__track { grid-column: 1 / -1; } .weekly-timeline small { grid-column: 1 / -1; } }
+@media (max-width: 760px) { .booking-calendar { display: none; } .booking-agenda { display: block; } .task-view-switch .desktop-day { display: none; } }
