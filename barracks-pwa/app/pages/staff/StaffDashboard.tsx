@@ -125,8 +125,8 @@ export function StaffDashboard({
       <FreshnessBar updatedAt={updatedAt && queueAsOf ? Math.min(updatedAt, queueAsOf) : null} loading={loading || queueLoading} error={loadError || queueError} onRefresh={() => setRefreshVersion((value) => value + 1)} />
       <div className="metrics-grid metrics-grid--four">
         <MetricCard label="Customers in queue" value={queueLoading || queueError ? "—" : String(activeQueue.length)} change={queueError ? "Unable to load queue" : undefined} changeTone="warning" icon="queue" accent="blue" />
-        <MetricCard label="Today’s bookings" value={loading ? "—" : String(todayBookings.length)} icon="calendar" accent="amber" />
-        <MetricCard label="Active roster" value={loading ? "—" : String(activeBarbers)} icon="scissors" accent="green" />
+        <MetricCard label="Today’s bookings" value={loading || loadError ? "—" : String(todayBookings.length)} icon="calendar" accent="amber" />
+        <MetricCard label="Active roster" value={loading || loadError ? "—" : String(activeBarbers)} icon="scissors" accent="green" />
         <MetricCard label="Ready to serve" value={queueLoading || queueError ? "—" : String(activeQueue.filter((entry) => entry.status === "ready").length)} icon="check" accent="violet" />
       </div>
 
