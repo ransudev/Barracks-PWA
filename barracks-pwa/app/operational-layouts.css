@@ -143,18 +143,47 @@
 .attendance-cell--A { color: var(--red); font-weight: 700; }
 .attendance-cell:hover { background: var(--surface-hover); }
 .attendance-mobile-list { display: none; }
-.restock-groups { display: grid; gap: 28px; padding: 20px; }
-.restock-group-heading h2 { font-size: 18px; margin: 0; }
-.restock-group-heading h2 span { color: var(--text-soft); margin-left: 8px; font-weight: 400; }
-.restock-group-heading p { color: var(--text-soft); margin: 6px 0 16px; }
-.restock-request-row { display: flex; align-items: center; gap: 20px; border-top: 1px solid var(--line); padding: 14px 0; }
-.restock-request-row__detail { display: flex; flex: 1; align-items: center; justify-content: space-between; gap: 20px; min-width: 0; background: transparent; color: var(--text); text-align: left; padding: 8px; border-radius: 8px; }
+.restock-list-tabs { padding: 16px 22px 0; }
+.restock-stages { display: flex; flex-wrap: wrap; gap: 4px; padding: 12px 22px 0; border-bottom: 1px solid var(--line); }
+.restock-stages button { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 16px; color: var(--text-soft); background: transparent; border-bottom: 2px solid transparent; font-size: 12px; }
+.restock-stages button[aria-pressed="true"] { color: var(--text); border-bottom-color: var(--red); background: var(--surface-hover); }
+.restock-stages button:hover { background: var(--surface-hover); }
+.restock-stages strong { font-variant-numeric: tabular-nums; }
+.restock-workspace .operational-toolbar__search { width: min(340px, 100%); }
+.restock-request-list { padding: 0 22px; }
+.restock-list-heading, .restock-request-row { display: grid; grid-template-columns: minmax(0, 1fr) 150px; align-items: center; gap: 20px; }
+.restock-list-heading { color: var(--text-muted); font-size: 10px; padding: 14px 0; }
+.restock-list-heading > div, .restock-request-row__detail { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.6fr) 100px; align-items: center; gap: 20px; }
+.restock-list-heading > div { padding: 0 8px; }
+.restock-list-heading > span { text-align: right; }
+.restock-request-row { border-top: 1px solid var(--line); padding: 12px 0; }
+.restock-request-row__detail { min-width: 0; background: transparent; color: var(--text); text-align: left; padding: 12px 8px; border-radius: 8px; font-size: 12px; }
 .restock-request-row__detail:hover { background: var(--surface-hover); }
-.restock-request-row__detail small { display: block; color: var(--text-soft); margin: 6px 0; overflow-wrap: anywhere; }
+.restock-request-row__detail small { display: block; color: var(--text-soft); margin: 6px 0; overflow-wrap: anywhere; font-size: 10px; }
 .restock-request-row__detail > span { min-width: 0; overflow-wrap: anywhere; }
-.restock-request-row__action { min-width: 155px; text-align: right; }
-.restock-request-row__action > span { color: var(--text-soft); font-size: 12px; }
-@media (max-width: 760px) { .restock-request-row { display: block; } .restock-request-row__action { margin-top: 12px; text-align: left; padding: 0 8px; } .restock-request-row__detail { width: 100%; align-items: start; } }
+.restock-request-items > span { display: block; margin: 6px 0; }
+.restock-request-items strong { white-space: nowrap; }
+.restock-request-status { justify-self: start; }
+.restock-request-row__action { text-align: right; }
+.restock-request-row__detail .restock-mobile-label { display: none; }
+@media (max-width: 1100px) {
+  .restock-list-heading { display: none; }
+  .restock-request-row__detail { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px 20px; }
+  .restock-request-row__detail .restock-mobile-label { display: block; }
+}
+@media (max-width: 760px) {
+  .restock-list-tabs { padding: 16px 12px 0; }
+  .restock-stages { padding: 12px 12px 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .restock-stages button { justify-content: space-between; padding: 0 8px; gap: 8px; }
+  .restock-request-list { padding: 0 12px; }
+  .restock-request-row { display: block; }
+  .restock-request-row__detail { width: 100%; grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+  .restock-request-identity { grid-column: 1; grid-row: 1; }
+  .restock-request-status { grid-column: 2; grid-row: 1; }
+  .restock-request-destination, .restock-request-items { grid-column: 1 / -1; }
+  .restock-request-row__action { margin: 4px 0 12px; text-align: left; padding: 0 8px; }
+  .restock-request-row__action .button { width: 100%; }
+}
 @media (max-width: 760px) { .attendance-week { display: none; } .attendance-mobile-list { display: block; } }
 @media (max-width: 1000px) { .management-activity-grid { grid-template-columns: 1fr; } .overview-context { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 900px) { .checkout-workspace { grid-template-columns: 1fr; } }
