@@ -37,6 +37,7 @@ export function FilterToolbar({
   placeholder,
   filters,
   resultCount,
+  onReset,
   children,
 }: {
   search?: string;
@@ -44,6 +45,7 @@ export function FilterToolbar({
   placeholder?: string;
   filters?: ReactNode;
   resultCount?: number;
+  onReset?: () => void;
   children?: ReactNode;
 }) {
   return (
@@ -52,12 +54,21 @@ export function FilterToolbar({
         {typeof search === "string" && onSearchChange && <SearchInput className="operational-toolbar__search" value={search} onChange={onSearchChange} placeholder={placeholder} />}
         {filters}
         {children}
+        {onReset && <Button type="button" variant="ghost" onClick={onReset}>Reset filters</Button>}
       </div>
       <div className="operational-toolbar__meta">
         {typeof resultCount === "number" && <span>{resultCount} {resultCount === 1 ? "record" : "records"}</span>}
       </div>
     </div>
   );
+}
+
+export function FreshnessBar({ updatedAt, loading, error, onRefresh }: { updatedAt: number | null; loading: boolean; error?: string; onRefresh: () => void }) {
+  return <div className="operational-freshness">
+    <span role="status">{loading ? "Updating…" : updatedAt ? <>Last updated <time dateTime={new Date(updatedAt).toISOString()}>{new Date(updatedAt).toLocaleString("en-PH", { timeZone: "Asia/Manila", hour: "numeric", minute: "2-digit", second: "2-digit", month: "short", day: "numeric" })}</time> · Manila</> : "No successful update yet"}</span>
+    <Button type="button" size="sm" variant="secondary" icon="refresh" disabled={loading} onClick={onRefresh}>Refresh</Button>
+    {error && <p role="alert">Refresh failed: {error}{updatedAt ? ". Displayed data is from the last successful update." : ""}</p>}
+  </div>;
 }
 
 export function RecordCard({
@@ -216,6 +227,8 @@ export function DetailDrawer({
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const focusableSelector = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
     const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      // A confirmation or edit modal above this drawer owns keyboard input.
+      if (document.querySelector(".modal-backdrop")) return;
       if (event.key === "Escape") {
         event.preventDefault();
         if (!openRef.current) return;

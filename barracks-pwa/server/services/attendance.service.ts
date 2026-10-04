@@ -42,7 +42,9 @@ export async function listAttendanceHistory(db: Pool, filters: z.infer<typeof at
     WHERE ($1::integer IS NULL OR a.barber_id = $1)
       AND ($2::date IS NULL OR a.attendance_date = $2)
       AND ($3::varchar IS NULL OR a.status = $3)
-    ORDER BY a.attendance_date DESC, b.first_name, b.last_name, a.id DESC`, [filters.barberId ?? null, filters.date ?? null, filters.status ?? null]);
+      AND ($4::date IS NULL OR a.attendance_date >= $4)
+      AND ($5::date IS NULL OR a.attendance_date <= $5)
+    ORDER BY a.attendance_date DESC, b.first_name, b.last_name, a.id DESC`, [filters.barberId ?? null, filters.date ?? null, filters.status ?? null, filters.dateFrom ?? null, filters.dateTo ?? null]);
   return result.rows.map(toAttendance);
 }
 

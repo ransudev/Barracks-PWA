@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiRequest, readApiBody } from "@/app/lib/api";
 import { formatCurrency } from "@/app/utils/format";
-import { Button, EmptyState, PageHeader, Panel, SectionHeading, SelectField, TextField } from "@/app/components/ui";
+import { Badge, Button, ConfirmDialog, EmptyState, PageHeader, Panel, SectionHeading, SelectField, TextField } from "@/app/components/ui";
+import { DetailDrawer, FreshnessBar, FilterToolbar, ResponsiveTable } from "@/app/components/operations/OperationalPrimitives";
 import type { EligibleVisit, TransactionRecord } from "@/server/services/payment.service";
 import type { PaymentMethod } from "@/server/schemas/payment.schema";
 
@@ -48,6 +49,11 @@ function Receipt({ transaction, onClose }: { transaction: TransactionRecord; onC
 }
 
 export function PaymentPage({ onToast, canCheckout = false, canManageFinancialActions = false }: { onToast: (message: string) => void; canCheckout?: boolean; canManageFinancialActions?: boolean }) {
+  const [visitSearch, setVisitSearch] = useState("");
+  const [updatedAt, setUpdatedAt] = useState<number | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<"refund" | "void" | "checkout" | null>(null);
+  const receiptVersion = useRef(0);
   const [visits, setVisits] = useState<EligibleVisit[]>([]);
   const [history, setHistory] = useState<TransactionRecord[]>([]);
   const [page, setPage] = useState(1);
@@ -98,7 +104,7 @@ export function PaymentPage({ onToast, canCheckout = false, canManageFinancialAc
       setTotal(historyBody.total ?? historyBody.transactions.length);
       setTotalPages(historyBody.totalPages ?? (historyBody.transactions.length ? 1 : 0));
       setSelectedKey((current) => visitsBody?.visits?.some((visit) => visitKey(visit) === current) ? current : "");
-      setLoadError("");
+      setLoadError(""); setUpdatedAt(Date.now());
     } catch (error) {
       if (version === requestVersion.current) setLoadError(error instanceof Error ? error.message : "Unable to load payments");
     } finally {
@@ -128,6 +134,8 @@ export function PaymentPage({ onToast, canCheckout = false, canManageFinancialAc
   }, [receipt]);
 
   async function openReceipt(reference: string, print = false) {
+    const version = ++receiptVersion.current;
+    setDetailOpen(true);
     setReceipt(null);
     setReceiptError("");
     setActionReason("");
@@ -138,11 +146,12 @@ export function PaymentPage({ onToast, canCheckout = false, canManageFinancialAc
       const response = await apiRequest(`/api/transactions?reference=${encodeURIComponent(reference)}`, { cache: "no-store" });
       const body = await readApiBody<{ success: boolean; transaction?: TransactionRecord; message?: string }>(response);
       if (!response.ok || !body?.success || !body.transaction) throw new Error(body?.message ?? "Unable to load receipt");
+      if (version !== receiptVersion.current) return;
       printWhenReady.current = print;
       setReceipt(body.transaction);
     } catch (error) {
-      setReceiptError(error instanceof Error ? error.message : "Unable to load receipt");
-    } finally { setReceiptLoading(false); }
+      if (version === receiptVersion.current) setReceiptError(error instanceof Error ? error.message : "Unable to load receipt");
+    } finally { if (version === receiptVersion.current) setReceiptLoading(false); }
   }
 
   async function applyAction(action: "refund" | "void") {
@@ -190,21 +199,19 @@ export function PaymentPage({ onToast, canCheckout = false, canManageFinancialAc
     }
   }
 
-  return <>
-    <PageHeader title={canCheckout ? "Payments" : "Transactions"} description={canCheckout ? "Check out completed visits." : "Review payment history and manage financial actions."} action={<Button type="button" variant="ghost" icon="refresh" disabled={loading || processing} onClick={() => void load()}>Refresh</Button>} />
-    {loadError && <p role="alert">{loadError}</p>}
-    <div className={`payment-grid${canCheckout ? "" : " payment-grid--history-only"}`}>
+  return <div className="operational-workspace">
+    <PageHeader title={canCheckout ? "Payments" : "Transactions"} description={canCheckout ? "Check out completed visits." : "Review payment history and manage financial actions."} />
+    <FreshnessBar updatedAt={updatedAt} loading={loading} error={loadError} onRefresh={() => void load()} />
+    {canCheckout && <div className="checkout-workspace">
+      <Panel className="eligible-visits-panel"><SectionHeading title="Completed unpaid visits" /><FilterToolbar search={visitSearch} onSearchChange={setVisitSearch} placeholder="Search customer, service or visit" resultCount={loading || loadError ? undefined : visits.filter((visit) => `${visit.customerName} ${visit.serviceName} ${visit.barberName} ${visit.visitRecordId}`.toLowerCase().includes(visitSearch.trim().toLowerCase())).length} onReset={() => setVisitSearch("")} />
+        {loading ? <p role="status" className="operational-loading">Loading eligible visits…</p> : loadError ? <p role="alert" className="operational-loading">Eligible visits unavailable. Refresh to retry.</p> : !visits.length ? <EmptyState title="No visits ready for payment" description="Completed unpaid bookings and walk-ins appear here." /> : <div className="eligible-visit-list">{visits.filter((visit) => `${visit.customerName} ${visit.serviceName} ${visit.barberName} ${visit.visitRecordId}`.toLowerCase().includes(visitSearch.trim().toLowerCase())).map((visit) => <button type="button" key={visitKey(visit)} aria-pressed={selectedKey === visitKey(visit)} disabled={processing} onClick={() => { setSelectedKey(visitKey(visit)); setCashReceived(""); setCompleted(null); setCheckoutError(""); }}><span><strong>{visit.customerName}</strong><small>{visit.serviceName} · {visit.barberName}</small><small>{visit.visitType === "booking" ? "Booking" : "Walk-in"} #{visit.visitRecordId}</small></span><strong>{money(visit.total)}</strong></button>)}{visits.length > 0 && !visits.some((visit) => `${visit.customerName} ${visit.serviceName} ${visit.barberName} ${visit.visitRecordId}`.toLowerCase().includes(visitSearch.trim().toLowerCase())) && <EmptyState title="No matching visits" description="Reset search to see eligible visits." />}</div>}
+      </Panel>
       {canCheckout && <Panel className="payment-form-panel">
         <SectionHeading title="Checkout" />
-        {loading && <p>Loading eligible visits…</p>}
-        {!loading && !visits.length && <EmptyState title="No visits ready for payment" description="Completed unpaid bookings and walk-ins will appear here." />}
-        {!!visits.length && <>
-          <SelectField label="Completed visit" value={selectedKey} disabled={processing} onChange={(event) => { setSelectedKey(event.target.value); setCompleted(null); setCheckoutError(""); }}>
-            <option value="">Select a visit</option>
-            {visits.map((visit) => <option key={visitKey(visit)} value={visitKey(visit)}>{visit.visitType === "booking" ? "Booking" : "Walk-in"} #{visit.visitRecordId} · {visit.customerName} · {visit.serviceName}</option>)}
-          </SelectField>
+        {!selected && <EmptyState title="Select a completed visit" description="Choose the customer and visit from the unpaid list to start checkout." />}
           {selected && <>
             <div className="payment-summary">
+              <span><small>Visit</small><strong>{selected.visitType === "booking" ? "Booking" : "Walk-in"} #{selected.visitRecordId}</strong></span>
               <span><small>Customer</small><strong>{selected.customerName}</strong></span>
               <span><small>Service</small><strong>{selected.serviceName}</strong></span>
               <span><small>Barber</small><strong>{selected.barberName}</strong></span>
@@ -221,10 +228,10 @@ export function PaymentPage({ onToast, canCheckout = false, canManageFinancialAc
               <p>Change: <strong>{change === null ? "—" : money(change)}</strong></p>
             </>}
             {checkoutError && <p role="alert">{checkoutError}</p>}
-            <Button type="button" size="lg" variant="success" icon="check" className="payment-submit" disabled={processing || (method === "cash" && !sufficient)} onClick={() => void checkout()}>{processing ? "Processing…" : "Complete payment"}</Button>
+            <Button type="button" size="lg" variant="success" icon="check" className="payment-submit" disabled={processing || loading || Boolean(loadError) || (method === "cash" && !sufficient)} onClick={() => setPendingAction("checkout")}>{processing ? "Processing…" : "Complete payment"}</Button>
           </>}
-        </>}
       </Panel>}
+    </div>}
       <Panel className="recent-transactions-panel">
         <SectionHeading title="Transaction history" />
         <form className="transaction-filters" onSubmit={(event) => { event.preventDefault(); setPage(1); setSearch(searchInput); }}>
@@ -234,28 +241,28 @@ export function PaymentPage({ onToast, canCheckout = false, canManageFinancialAc
           <TextField label="From date" type="date" value={dateFrom} onChange={(event) => { setPage(1); setDateFrom(event.target.value); }} />
           <TextField label="To date" type="date" value={dateTo} onChange={(event) => { setPage(1); setDateTo(event.target.value); }} />
         </form>
-        {!loading && !history.length && <EmptyState title="No transactions found" description="Try another search or date range." />}
-        <div className="transaction-list">{history.map((transaction) => <div className="transaction-row" key={transaction.id}>
-          <span><strong>{transaction.customerName}</strong><small>{transaction.serviceName} · {transaction.barberName} · {methodLabel(transaction.paymentMethod)}</small><small>{transaction.reference}</small></span>
-          <span><strong>{money(transaction.total)}</strong><small>Status: {transaction.paymentStatus}</small><small>{new Date(transaction.createdAt).toLocaleString("en-PH", { timeZone: "Asia/Manila" })}</small><Button type="button" variant="ghost" onClick={() => void openReceipt(transaction.reference)}>View receipt</Button></span>
-        </div>)}</div>
-        <div className="transaction-pages"><span>{total} transactions · Page {page} of {Math.max(1, totalPages)}</span><Button type="button" variant="ghost" disabled={page <= 1 || loading} onClick={() => setPage(page - 1)}>Previous</Button><Button type="button" variant="ghost" disabled={page >= totalPages || loading} onClick={() => setPage(page + 1)}>Next</Button></div>
+        <Button type="button" variant="ghost" onClick={() => { setSearchInput(""); setSearch(""); setMethodFilter(""); setDateFrom(""); setDateTo(""); setPage(1); }}>Reset filters</Button>
+        {loading && <p role="status" className="operational-loading">Loading ledger…</p>}
+        {!loading && !loadError && !history.length && <EmptyState title="No transactions found" description="Try another search or date range." />}
+        {!loading && !loadError && history.length > 0 && <ResponsiveTable className="transaction-ledger" headers={["Date · Manila", "Customer / service", "Reference", "Method", "Status", "Amount", "Details"]}>{history.map((transaction) => <tr key={transaction.id}><td>{new Date(transaction.createdAt).toLocaleString("en-PH", { timeZone: "Asia/Manila", dateStyle: "medium", timeStyle: "short" })}</td><td><strong>{transaction.customerName}</strong><small>{transaction.serviceName} · {transaction.barberName}</small></td><td className="ledger-reference">{transaction.reference}</td><td>{methodLabel(transaction.paymentMethod)}</td><td><Badge tone={transaction.paymentStatus === "completed" ? "success" : "warning"}>{transaction.paymentStatus}</Badge></td><td>{money(transaction.total)}</td><td><Button type="button" size="sm" variant="secondary" onClick={() => void openReceipt(transaction.reference)}>View details</Button></td></tr>)}</ResponsiveTable>}
+        <div className="transaction-pages"><span>{loading || loadError ? "Ledger count unavailable" : `${total} transactions · Page ${page} of ${Math.max(1, totalPages)}`}</span><Button type="button" variant="ghost" disabled={page <= 1 || loading} onClick={() => setPage(page - 1)}>Previous</Button><Button type="button" variant="ghost" disabled={page >= totalPages || loading} onClick={() => setPage(page + 1)}>Next</Button></div>
       </Panel>
-    </div>
     {canCheckout && completed && <Panel><SectionHeading title="Payment completed" /><p>Reference: <strong>{completed.reference}</strong></p><p>{completed.customerName} · {completed.serviceName} · {completed.barberName}</p><p>Service price: {money(completed.subtotal)} · Total: {money(completed.total)} · {methodLabel(completed.paymentMethod)}</p>{completed.paymentMethod === "cash" && <p>Received: {money(completed.amountReceived ?? 0)} · Change: {money(completed.change ?? 0)}</p>}<Button type="button" onClick={() => void openReceipt(completed.reference, true)}>Print Receipt</Button></Panel>}
-    {receiptLoading && <p>Loading receipt…</p>}
-    {receiptError && <p role="alert">{receiptError}</p>}
-    {receipt && <><Receipt transaction={receipt} onClose={() => setReceipt(null)} />
-      {canManageFinancialActions && receipt.status === "completed" && <Panel className="financial-action-panel"><SectionHeading title="Refund or void transaction" />
+    <DetailDrawer open={detailOpen} title="Transaction details" subtitle={receipt?.reference} onClose={() => { if (actionProcessing) return; receiptVersion.current++; setDetailOpen(false); setReceipt(null); }}>
+      {receiptLoading && <p role="status">Loading transaction…</p>}{receiptError && <p role="alert">{receiptError}</p>}
+      {receipt && <><Receipt transaction={receipt} onClose={() => { if (actionProcessing) return; receiptVersion.current++; setDetailOpen(false); setReceipt(null); }} />
+      {canManageFinancialActions && receipt.status === "completed" && <section className="financial-action-panel"><SectionHeading title="Refund or void transaction" />
         <p>Full amount: {money(receipt.total)}. A reason is required and the original receipt is retained.</p>
-        <TextField label="Reason" value={actionReason} maxLength={500} onChange={(event) => setActionReason(event.target.value)} />
+        <TextField label="Reason" value={actionReason} disabled={actionProcessing} maxLength={500} onChange={(event) => setActionReason(event.target.value)} />
         {actionError && <p role="alert">{actionError}</p>}
-        <Button type="button" disabled={actionProcessing || !actionReason.trim()} onClick={() => void applyAction("refund")}>Refund full amount</Button>
-        <Button type="button" disabled={actionProcessing || !actionReason.trim()} onClick={() => void applyAction("void")}>Void transaction</Button>
-      </Panel>}
-      {canManageFinancialActions && <Panel className="financial-audit-panel"><SectionHeading title="Financial audit history" />
+        <Button type="button" disabled={actionProcessing || !actionReason.trim()} onClick={() => setPendingAction("refund")}>Refund full amount</Button>
+        <Button type="button" variant="danger" disabled={actionProcessing || !actionReason.trim()} onClick={() => setPendingAction("void")}>Void transaction</Button>
+      </section>}
+      {canManageFinancialActions && <section className="financial-audit-panel"><SectionHeading title="Financial audit history" />
         {!receipt.actions?.length && <p>No refund or void actions recorded.</p>}
         {receipt.actions?.map((action) => <p key={action.id}>{action.action} · {money(action.amount)} · {action.reason} · {action.staffName} · {new Date(action.createdAt).toLocaleString("en-PH", { timeZone: "Asia/Manila" })}</p>)}
-      </Panel>}</>}
-  </>;
+      </section>}</>}
+    </DetailDrawer>
+    <ConfirmDialog open={Boolean(pendingAction)} title={pendingAction === "checkout" ? "Complete this payment?" : pendingAction === "refund" ? "Refund this transaction?" : "Void this transaction?"} description={pendingAction === "checkout" && selected ? `${selected.customerName} · ${selected.visitType} #${selected.visitRecordId} · ${money(selected.total)} · ${methodLabel(method)}${method === "cash" ? ` · Received ${money(received ?? 0)} · Change ${money(change ?? 0)}` : ""}` : receipt ? `${receipt.reference} · ${money(receipt.total)} · ${actionReason}` : undefined} confirmLabel={pendingAction === "checkout" ? "Confirm payment" : "Confirm action"} danger={pendingAction !== "checkout"} busy={processing || actionProcessing} onClose={() => setPendingAction(null)} onConfirm={() => { const action = pendingAction; setPendingAction(null); if (action === "checkout") void checkout(); else if (action) void applyAction(action); }} />
+  </div>;
 }

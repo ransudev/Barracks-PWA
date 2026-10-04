@@ -10,6 +10,8 @@ export const attendanceActionSchema = z.discriminatedUnion("action", [
 export const attendanceHistorySchema = z.object({
   barberId: z.coerce.number().int().positive().optional(),
   date: z.iso.date().optional(),
+  dateFrom: z.iso.date().optional(),
+  dateTo: z.iso.date().optional(),
   status: attendanceStatus.optional(),
 }).strict();
 

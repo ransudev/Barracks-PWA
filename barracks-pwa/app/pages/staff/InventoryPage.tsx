@@ -455,6 +455,7 @@ export function InventoryPage({ onToast, admin = false, canDelete }: { onToast: 
   const [restockSubmitting, setRestockSubmitting] = useState(false);
   const [restockError, setRestockError] = useState("");
 
+  const initialLinkHandled = useRef(false);
   const loadInventory = useCallback(async () => {
     setLoading(true);
     try {
@@ -462,6 +463,11 @@ export function InventoryPage({ onToast, admin = false, canDelete }: { onToast: 
       const body = await readApiBody<{ success: boolean; items?: ApiInventoryItem[]; message?: string }>(response);
       if (!response.ok || !body?.success || !body.items) throw new Error(body?.message ?? "Unable to load inventory");
       setItems(body.items);
+      if (!initialLinkHandled.current) {
+        initialLinkHandled.current = true;
+        const linked = body.items.find((item) => String(item.id) === new URLSearchParams(window.location.search).get("item"));
+        if (linked) { setSearch(linked.name); setBranchFilter(linked.branch); }
+      }
       setDrawerItem((current) => current ? body.items?.find((item) => item.id === current.id) ?? current : current);
       setLoadError("");
     } catch (error) {
