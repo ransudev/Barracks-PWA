@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiRequest, readApiBody } from "@/app/lib/api";
 import { formatCurrency } from "@/app/utils/format";
-import { Badge, Button, ConfirmDialog, EmptyState, PageHeader, Panel, SectionHeading, SelectField, TextField } from "@/app/components/ui";
-import { DetailDrawer, FreshnessBar, FilterToolbar, ResponsiveTable } from "@/app/components/operations/OperationalPrimitives";
+import { Badge, Button, ConfirmDialog, EmptyState, Modal, PageHeader, Panel, SectionHeading, SelectField, TextField } from "@/app/components/ui";
+import { DetailDrawer, FreshnessBar, FilterToolbar } from "@/app/components/operations/OperationalPrimitives";
 import type { EligibleVisit, TransactionRecord } from "@/server/services/payment.service";
 import type { PaymentMethod } from "@/server/schemas/payment.schema";
 
@@ -16,14 +16,30 @@ const methods: { id: PaymentMethod; label: string }[] = [
 const visitKey = (visit: EligibleVisit) => `${visit.visitType}:${visit.visitRecordId}`;
 const methodLabel = (method: string) => methods.find((item) => item.id === method)?.label ?? method;
 const money = (amount: number) => formatCurrency(amount);
+const manilaDate = (value: string | Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(value));
+const dayLabel = (value: string) => new Date(`${value}T12:00:00Z`).toLocaleDateString("en-PH", { timeZone: "Asia/Manila", dateStyle: "full" });
 const historyUrl = (page: number, search: string, paymentMethod: string, dateFrom: string, dateTo: string) => {
-  const params = new URLSearchParams({ view: "history", page: String(page), pageSize: "20" });
+  const params = new URLSearchParams({ view: "history", page: String(page), pageSize: "100" });
   if (search.trim()) params.set("search", search.trim());
   if (paymentMethod) params.set("paymentMethod", paymentMethod);
   if (dateFrom) params.set("dateFrom", dateFrom);
   if (dateTo) params.set("dateTo", dateTo);
   return `/api/transactions?${params}`;
 };
+async function loadMonthHistory(search: string, paymentMethod: string, dateFrom: string, dateTo: string, isCurrent: () => boolean) {
+  const transactions: TransactionRecord[] = [];
+  let totalPages = 1;
+  for (let page = 1; page <= totalPages; page++) {
+    const response = await apiRequest(historyUrl(page, search, paymentMethod, dateFrom, dateTo), { cache: "no-store" });
+    const body = await readApiBody<{ success: boolean; transactions?: TransactionRecord[]; totalPages?: number; message?: string }>(response);
+    if (!isCurrent()) return null;
+    if (!response.ok || !body?.success || !body.transactions) throw new Error(body?.message ?? "Unable to load transaction calendar");
+    totalPages = body.totalPages ?? 1;
+    if (totalPages > 10000) throw new Error("Too many transactions in this month. Narrow the search or payment method.");
+    transactions.push(...body.transactions);
+  }
+  return transactions;
+}
 
 function Receipt({ transaction, onClose }: { transaction: TransactionRecord; onClose: () => void }) {
   return <section className="receipt-view" aria-label="Receipt">
@@ -57,13 +73,16 @@ export function PaymentPage({ onToast, canCheckout = false, canManageFinancialAc
   const [visits, setVisits] = useState<EligibleVisit[]>([]);
   const [history, setHistory] = useState<TransactionRecord[]>([]);
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(0);
-  const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [methodFilter, setMethodFilter] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [month, setMonth] = useState(() => manilaDate(new Date()).slice(0, 7));
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [dayOpen, setDayOpen] = useState(false);
+  const dateFrom = `${month}-01`;
+  const daysInMonth = new Date(`${month}-01T12:00:00Z`);
+  daysInMonth.setUTCMonth(daysInMonth.getUTCMonth() + 1, 0);
+  const dateTo = daysInMonth.toISOString().slice(0, 10);
   const [receipt, setReceipt] = useState<TransactionRecord | null>(null);
   const [receiptError, setReceiptError] = useState("");
   const [receiptLoading, setReceiptLoading] = useState(false);
@@ -86,23 +105,21 @@ export function PaymentPage({ onToast, canCheckout = false, canManageFinancialAc
     const version = ++requestVersion.current;
     setLoading(true);
     try {
-      const [visitsResponse, historyResponse] = await Promise.all([
+      const [visitsResponse, monthHistory] = await Promise.all([
         canCheckout ? apiRequest("/api/transactions?view=eligible", { cache: "no-store" }) : Promise.resolve(null),
-        apiRequest(historyUrl(page, search, methodFilter, dateFrom, dateTo), { cache: "no-store" }),
+        loadMonthHistory(search, methodFilter, dateFrom, dateTo, () => version === requestVersion.current),
       ]);
-      const [visitsBody, historyBody] = await Promise.all([
+      const [visitsBody] = await Promise.all([
         visitsResponse ? readApiBody<{ success: boolean; visits?: EligibleVisit[]; message?: string }>(visitsResponse) : Promise.resolve(null),
-        readApiBody<{ success: boolean; transactions?: TransactionRecord[]; total?: number; totalPages?: number; message?: string }>(historyResponse),
       ]);
       if ((canCheckout && (!visitsResponse?.ok || !visitsBody?.success || !visitsBody.visits)) ||
-          !historyResponse.ok || !historyBody?.success || !historyBody.transactions) {
-        throw new Error(visitsBody?.message ?? historyBody?.message ?? "Unable to load payments");
+          !monthHistory) {
+        if (version !== requestVersion.current) return;
+        throw new Error(visitsBody?.message ?? "Unable to load payments");
       }
       if (version !== requestVersion.current) return;
       setVisits(visitsBody?.visits ?? []);
-      setHistory(historyBody.transactions);
-      setTotal(historyBody.total ?? historyBody.transactions.length);
-      setTotalPages(historyBody.totalPages ?? (historyBody.transactions.length ? 1 : 0));
+      setHistory(monthHistory);
       setSelectedKey((current) => visitsBody?.visits?.some((visit) => visitKey(visit) === current) ? current : "");
       setLoadError(""); setUpdatedAt(Date.now());
     } catch (error) {
@@ -110,7 +127,7 @@ export function PaymentPage({ onToast, canCheckout = false, canManageFinancialAc
     } finally {
       if (version === requestVersion.current) setLoading(false);
     }
-  }, [canCheckout, page, search, methodFilter, dateFrom, dateTo]);
+  }, [canCheckout, search, methodFilter, dateFrom, dateTo]);
 
   useEffect(() => {
     const versionRef = requestVersion;
@@ -120,6 +137,20 @@ export function PaymentPage({ onToast, canCheckout = false, canManageFinancialAc
   }, [load]);
 
   const selected = visits.find((visit) => visitKey(visit) === selectedKey);
+  const transactionsByDay = new Map<string, TransactionRecord[]>();
+  for (const transaction of history) {
+    const day = manilaDate(transaction.createdAt);
+    const entries = transactionsByDay.get(day) ?? [];
+    entries.push(transaction);
+    transactionsByDay.set(day, entries);
+  }
+  const dayHistory = selectedDay ? transactionsByDay.get(selectedDay) ?? [] : [];
+  const totalPages = Math.max(1, Math.ceil(dayHistory.length / 20));
+  const dayPage = Math.min(page, totalPages);
+  const monthStart = new Date(`${dateFrom}T12:00:00Z`);
+  const calendarOffset = (monthStart.getUTCDay() + 6) % 7;
+  const calendarDays = Array.from({ length: daysInMonth.getUTCDate() }, (_, index) => `${month}-${String(index + 1).padStart(2, "0")}`);
+  const moveMonth = (offset: number) => { const next = new Date(`${dateFrom}T12:00:00Z`); next.setUTCMonth(next.getUTCMonth() + offset); setMonth(next.toISOString().slice(0, 7)); setDayOpen(false); setPage(1); };
   const received = cashReceived.trim() === "" ? null : Number(cashReceived);
   const cashValid = received !== null && Number.isFinite(received) && received >= 0 &&
     /^\d+(?:\.\d{1,2})?$/.test(cashReceived) && received <= 9_999_999_999.99;
@@ -134,6 +165,7 @@ export function PaymentPage({ onToast, canCheckout = false, canManageFinancialAc
   }, [receipt]);
 
   async function openReceipt(reference: string, print = false) {
+    setDayOpen(false);
     const version = ++receiptVersion.current;
     setDetailOpen(true);
     setReceipt(null);
@@ -233,20 +265,46 @@ export function PaymentPage({ onToast, canCheckout = false, canManageFinancialAc
       </Panel>}
     </div>}
       <Panel className="recent-transactions-panel">
-        <SectionHeading title="Transaction history" />
+        <SectionHeading title="Transaction calendar" description="Select a date to review its transactions. Dates use Manila time." />
         <form className="transaction-filters" onSubmit={(event) => { event.preventDefault(); setPage(1); setSearch(searchInput); }}>
           <TextField label="Reference or customer" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} />
           <Button type="submit">Search</Button>
           <SelectField label="Payment method" value={methodFilter} onChange={(event) => { setPage(1); setMethodFilter(event.target.value); }}><option value="">All methods</option>{methods.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</SelectField>
-          <TextField label="From date" type="date" value={dateFrom} onChange={(event) => { setPage(1); setDateFrom(event.target.value); }} />
-          <TextField label="To date" type="date" value={dateTo} onChange={(event) => { setPage(1); setDateTo(event.target.value); }} />
+          <TextField label="Month" type="month" value={month} onChange={(event) => { if (event.target.value) { setMonth(event.target.value); setDayOpen(false); setPage(1); } }} />
         </form>
-        <Button type="button" variant="ghost" onClick={() => { setSearchInput(""); setSearch(""); setMethodFilter(""); setDateFrom(""); setDateTo(""); setPage(1); }}>Reset filters</Button>
-        {loading && <p role="status" className="operational-loading">Loading ledger…</p>}
-        {!loading && !loadError && !history.length && <EmptyState title="No transactions found" description="Try another search or date range." />}
-        {!loading && !loadError && history.length > 0 && <ResponsiveTable className="transaction-ledger" headers={["Date · Manila", "Customer / service", "Reference", "Method", "Status", "Amount", "Details"]}>{history.map((transaction) => <tr key={transaction.id}><td>{new Date(transaction.createdAt).toLocaleString("en-PH", { timeZone: "Asia/Manila", dateStyle: "medium", timeStyle: "short" })}</td><td><strong>{transaction.customerName}</strong><small>{transaction.serviceName} · {transaction.barberName}</small></td><td className="ledger-reference">{transaction.reference}</td><td>{methodLabel(transaction.paymentMethod)}</td><td><Badge tone={transaction.paymentStatus === "completed" ? "success" : "warning"}>{transaction.paymentStatus}</Badge></td><td>{money(transaction.total)}</td><td><Button type="button" size="sm" variant="secondary" onClick={() => void openReceipt(transaction.reference)}>View details</Button></td></tr>)}</ResponsiveTable>}
-        <div className="transaction-pages"><span>{loading || loadError ? "Ledger count unavailable" : `${total} transactions · Page ${page} of ${Math.max(1, totalPages)}`}</span><Button type="button" variant="ghost" disabled={page <= 1 || loading} onClick={() => setPage(page - 1)}>Previous</Button><Button type="button" variant="ghost" disabled={page >= totalPages || loading} onClick={() => setPage(page + 1)}>Next</Button></div>
+        <div className="transaction-calendar-navigation">
+          <Button type="button" variant="secondary" onClick={() => moveMonth(-1)}>Previous month</Button>
+          <strong>{monthStart.toLocaleDateString("en-PH", { timeZone: "Asia/Manila", month: "long", year: "numeric" })}</strong>
+          <Button type="button" variant="secondary" onClick={() => moveMonth(1)}>Next month</Button>
+          <Button type="button" variant="ghost" onClick={() => { setSearchInput(""); setSearch(""); setMethodFilter(""); setMonth(manilaDate(new Date()).slice(0, 7)); setDayOpen(false); setPage(1); }}>Reset filters</Button>
+        </div>
+        {loading && <p role="status" className="operational-loading">Loading transaction calendar…</p>}
+        {!loading && loadError && <p role="alert" className="operational-loading">{loadError}</p>}
+        {!loading && !loadError && <>
+          <p className="task-note">{history.length} transactions this month{search || methodFilter ? " matching the active filters" : ""}.</p>
+          <div className="transaction-calendar" aria-label="Transaction dates">
+            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => <div key={day} className="transaction-calendar__weekday">{day}</div>)}
+            {Array.from({ length: calendarOffset }, (_, index) => <div key={`blank-${index}`} aria-hidden="true" className="transaction-calendar__blank" />)}
+            {calendarDays.map((day) => {
+              const count = transactionsByDay.get(day)?.length ?? 0;
+              return <button type="button" key={day} className="transaction-calendar__day" aria-current={day === manilaDate(new Date()) ? "date" : undefined} aria-label={`${dayLabel(day)}, ${count} ${count === 1 ? "transaction" : "transactions"}`} onClick={() => { setSelectedDay(day); setDayOpen(true); setPage(1); }}>
+                <span>{Number(day.slice(-2))}</span><strong>{count || "—"}</strong><small>{count === 1 ? "transaction" : "transactions"}</small>
+              </button>;
+            })}
+          </div>
+        </>}
       </Panel>
+    <div className="transaction-day-modal"><Modal open={dayOpen} title={selectedDay ? dayLabel(selectedDay) : "Daily transactions"} description={`${loading || loadError ? "Transaction count unavailable" : `${dayHistory.length} transactions`}${search || methodFilter ? " · Active filters apply" : ""} · Manila`} width="lg" onClose={() => setDayOpen(false)}>
+      {loading ? <p role="status" className="operational-loading">Loading transactions…</p> : loadError ? <p role="alert" className="operational-loading">{loadError}</p> : !dayHistory.length ? <EmptyState title="No transactions on this date" description={search || methodFilter ? "No transactions match the active filters. Reset them to see all transactions." : "Choose another date from the calendar."} /> : <>
+        <ul className="transaction-day-list">{dayHistory.slice((dayPage - 1) * 20, dayPage * 20).map((transaction) => <li key={transaction.id}>
+          <time dateTime={transaction.createdAt}>{new Date(transaction.createdAt).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", timeStyle: "short" })}</time>
+          <div className="transaction-day-list__identity"><strong>{transaction.customerName}</strong><span>{transaction.serviceName} · {transaction.barberName}</span><small>{transaction.reference}</small><span>{methodLabel(transaction.paymentMethod)} · <Badge tone={transaction.paymentStatus === "completed" ? "success" : "warning"}>{transaction.paymentStatus}</Badge></span></div>
+          <strong>{money(transaction.total)}</strong>
+          <Button type="button" size="sm" variant="secondary" onClick={() => void openReceipt(transaction.reference)}>View details</Button>
+        </li>)}</ul>
+        <div className="transaction-pages"><span>Page {dayPage} of {totalPages}</span><Button type="button" variant="ghost" disabled={dayPage <= 1} onClick={() => setPage(dayPage - 1)}>Previous</Button><Button type="button" variant="ghost" disabled={dayPage >= totalPages} onClick={() => setPage(dayPage + 1)}>Next</Button></div>
+      </>}
+    </Modal></div>
     {canCheckout && completed && <Panel><SectionHeading title="Payment completed" /><p>Reference: <strong>{completed.reference}</strong></p><p>{completed.customerName} · {completed.serviceName} · {completed.barberName}</p><p>Service price: {money(completed.subtotal)} · Total: {money(completed.total)} · {methodLabel(completed.paymentMethod)}</p>{completed.paymentMethod === "cash" && <p>Received: {money(completed.amountReceived ?? 0)} · Change: {money(completed.change ?? 0)}</p>}<Button type="button" onClick={() => void openReceipt(completed.reference, true)}>Print Receipt</Button></Panel>}
     <DetailDrawer open={detailOpen} title="Transaction details" subtitle={receipt?.reference} onClose={() => { if (actionProcessing) return; receiptVersion.current++; setDetailOpen(false); setReceipt(null); }}>
       {receiptLoading && <p role="status">Loading transaction…</p>}{receiptError && <p role="alert">{receiptError}</p>}
