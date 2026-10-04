@@ -8,16 +8,32 @@ export type UnavailabilityInput = z.infer<typeof unavailabilitySchema>;
 export type Unavailability = UnavailabilityInput & { id: number };
 type Db = Pool | PoolClient;
 
+export class ShopHoursConfigurationError extends Error {
+  constructor() {
+    super("Shop hours contain multiple schedules for the same weekday. Branch-specific shop hours are not supported by this version.");
+  }
+}
+
 export async function listShopHours(db: Db): Promise<ShopHours[]> {
   const result = await db.query<{ day_of_week: number; open_time: string; close_time: string; is_closed: boolean }>(
     "SELECT day_of_week, open_time, close_time, is_closed FROM shop_operating_hours ORDER BY day_of_week",
   );
+  const weekdays = new Set(result.rows.map((row) => row.day_of_week));
+  if (weekdays.size !== result.rows.length) throw new ShopHoursConfigurationError();
   return result.rows.map((row) => ({ dayOfWeek: row.day_of_week, openTime: row.open_time.slice(0, 5), closeTime: row.close_time.slice(0, 5), isClosed: row.is_closed }));
 }
 
 export async function saveShopHours(db: Pool, input: ShopHours): Promise<ShopHours[]> {
   hoursSchema.parse(input);
-  await db.query("UPDATE shop_operating_hours SET open_time=$2, close_time=$3, is_closed=$4, updated_at=NOW() WHERE day_of_week=$1", [input.dayOfWeek, input.openTime, input.closeTime, input.isClosed]);
+  const result = await db.query(`UPDATE shop_operating_hours SET open_time=$2, close_time=$3, is_closed=$4, updated_at=NOW()
+    WHERE day_of_week=$1 AND NOT EXISTS (
+      SELECT day_of_week FROM shop_operating_hours GROUP BY day_of_week HAVING COUNT(*) > 1
+    ) RETURNING day_of_week`, [input.dayOfWeek, input.openTime, input.closeTime, input.isClosed]);
+  if (!result.rowCount) {
+    // Validate before reporting a missing day; the guarded update never changes ambiguous schedules.
+    await listShopHours(db);
+    throw new Error("Shop hours are not configured for this weekday");
+  }
   return listShopHours(db);
 }
 
