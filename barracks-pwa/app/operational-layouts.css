@@ -1,6 +1,11 @@
 /* Task-specific layouts use the existing operational palette and controls. */
 .operational-toolbar__inputs { flex-wrap: wrap; }
 .operational-toolbar__meta { flex: 0 0 auto; }
+.attendance-workspace .operational-toolbar__inputs { align-items: flex-end; }
+.attendance-workspace .operational-toolbar__search,
+.attendance-workspace .operational-toolbar .input-wrap input,
+.attendance-workspace .operational-toolbar .field select { height: 42px; }
+.attendance-workspace .operational-toolbar__meta { align-self: flex-end; min-height: 42px; }
 .operational-workspace .modal-backdrop { z-index: 130; }
 .receipt-paper dl { grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); }
 .receipt-paper dd { overflow-wrap: anywhere; min-width: 0; }
@@ -92,7 +97,7 @@
 .transaction-ledger .operational-table { table-layout: auto; }
 .transaction-ledger td { white-space: normal; }
 .attendance-matrix-wrap { max-height: 600px; overflow: auto; }
-.attendance-matrix { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; font-variant-numeric: tabular-nums; }
+.attendance-matrix { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 560px; font-variant-numeric: tabular-nums; }
 .attendance-matrix th, .attendance-matrix td { border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); padding: 5px; text-align: center; }
 .attendance-matrix thead th { position: sticky; top: 0; z-index: 2; background: var(--surface); font-size: 12px; }
 .attendance-matrix th small { display: block; color: var(--text-soft); font-weight: 400; }
@@ -116,7 +121,7 @@
 .restock-request-row__action { min-width: 155px; text-align: right; }
 .restock-request-row__action > span { color: var(--text-soft); font-size: 12px; }
 @media (max-width: 760px) { .restock-request-row { display: block; } .restock-request-row__action { margin-top: 12px; text-align: left; padding: 0 8px; } .restock-request-row__detail { width: 100%; align-items: start; } }
-@media (max-width: 760px) { .attendance-month { display: none; } .attendance-mobile-list { display: block; } }
+@media (max-width: 760px) { .attendance-week { display: none; } .attendance-mobile-list { display: block; } }
 @media (max-width: 1000px) { .management-activity-grid { grid-template-columns: 1fr; } .overview-context { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 900px) { .checkout-workspace { grid-template-columns: 1fr; } }
 @media (max-width: 760px) { .weekly-timeline > button { grid-template-columns: 95px 1fr; } .weekly-timeline__track { grid-column: 1 / -1; } .weekly-timeline small { grid-column: 1 / -1; } }

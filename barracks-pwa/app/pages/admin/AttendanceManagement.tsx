@@ -13,10 +13,17 @@ const dateTimeInManila = (value: string | null) => value ? new Intl.DateTimeForm
 }).format(new Date(value)).replace(" ", "T") : "";
 const clockLabel = (value: string | null) => value ? new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "—";
 const toInstant = (value: string) => value ? new Date(`${value}:00+08:00`).toISOString() : null;
+const shiftDate = (value: string, days: number) => {
+  const next = new Date(`${value}T12:00:00Z`);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next.toISOString().slice(0, 10);
+};
+const startOfWeek = (value: string) => shiftDate(value, -((new Date(`${value}T12:00:00Z`).getUTCDay() + 6) % 7));
+const weekDateLabel = (value: string) => new Date(`${value}T12:00:00Z`).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric", timeZone: "Asia/Manila" });
 
 export function AttendanceManagement() {
-  const [view, setView] = useState("month");
-  const [month, setMonth] = useState(() => todayInManila().slice(0, 7));
+  const [view, setView] = useState("week");
+  const [week, setWeek] = useState(() => startOfWeek(todayInManila()));
   const [search, setSearch] = useState("");
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [selectedCell, setSelectedCell] = useState<{ name: string; date: string; status: string } | null>(null);
@@ -47,12 +54,12 @@ export function AttendanceManagement() {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (view === "month") {
-        params.set("dateFrom", `${month}-01`);
-        params.set("dateTo", `${month}-${String(new Date(Number(month.slice(0,4)), Number(month.slice(5)), 0).getDate()).padStart(2,"0")}`);
+      if (view === "week") {
+        params.set("dateFrom", week);
+        params.set("dateTo", shiftDate(week, 6));
       } else if (date) params.set("date", date);
       if (barberId) params.set("barberId", barberId);
-      if (status && view !== "month") params.set("status", status);
+      if (status && view !== "week") params.set("status", status);
       const [historyResponse, barbersResponse] = await Promise.all([
         apiRequest(`/api/attendance/history${params.size ? `?${params}` : ""}`, { cache: "no-store" }),
         apiRequest("/api/barbers", { cache: "no-store" }),
@@ -69,7 +76,7 @@ export function AttendanceManagement() {
       setError(""); setUpdatedAt(Date.now());
     } catch (cause) { if (version === loadVersion.current) setError(cause instanceof Error ? cause.message : "Unable to load attendance"); }
     finally { if (version === loadVersion.current) setLoading(false); }
-  }, [date, barberId, status, month, view]);
+  }, [date, barberId, status, week, view]);
 
   useEffect(() => { const frame = window.requestAnimationFrame(() => { void load(); }); return () => window.cancelAnimationFrame(frame); }, [load]);
 
@@ -85,7 +92,7 @@ export function AttendanceManagement() {
     return () => { active = false; };
   }, [barbers]);
 
-  const dates = Array.from({ length: new Date(Number(month.slice(0,4)), Number(month.slice(5)), 0).getDate() }, (_, index) => `${month}-${String(index + 1).padStart(2, "0")}`);
+  const dates = Array.from({ length: 7 }, (_, index) => shiftDate(week, index));
   const visibleBarbers = barbers.filter((barber) => (!barberId || String(barber.id) === barberId) && `${barber.firstName} ${barber.lastName}`.toLowerCase().includes(search.toLowerCase()) && (!status || records.some((record) => record.barberId === barber.id && record.status === status)));
   const cellStatus = (id: number, day: string) => {
     const record = records.find((item) => item.barberId === id && item.date === day);
@@ -99,8 +106,8 @@ export function AttendanceManagement() {
     if (shift && !shift.isWorking) return { label: "Scheduled off", symbol: "O" };
     return { label: "Unmarked", symbol: "U" };
   };
-  const dailyRecords = records.filter((record) => record.barberName.toLowerCase().includes(search.toLowerCase()) && (view !== "month" || visibleBarbers.some((barber) => barber.id === record.barberId)));
-  const moveMonth = (offset: number) => { const next = new Date(`${month}-01T12:00:00Z`); next.setUTCMonth(next.getUTCMonth() + offset); setMonth(next.toISOString().slice(0,7)); };
+  const dailyRecords = records.filter((record) => record.barberName.toLowerCase().includes(search.toLowerCase()) && (view !== "week" || visibleBarbers.some((barber) => barber.id === record.barberId)));
+  const moveWeek = (offset: number) => setWeek((current) => shiftDate(current, offset * 7));
 
   async function openRecord(record: ApiAttendance) {
     const version = ++historyVersion.current;
@@ -140,19 +147,19 @@ export function AttendanceManagement() {
     finally { setSaving(false); }
   }
 
-  return <div className="operational-workspace">
-    <PageHeader title="Barber attendance" description="Review recorded attendance patterns; inspect a day to see clocks and correction history." action={<div className="task-view-switch" role="group" aria-label="Attendance view"><button type="button" aria-pressed={view === "month"} onClick={() => setView("month")}>Month matrix</button><button type="button" aria-pressed={view === "daily"} onClick={() => setView("daily")}>Daily list</button></div>} />
+  return <div className="operational-workspace attendance-workspace">
+    <PageHeader title="Barber attendance" description="Review recorded attendance patterns; inspect a day to see clocks and correction history." action={<div className="task-view-switch" role="group" aria-label="Attendance view"><button type="button" aria-pressed={view === "week"} onClick={() => setView("week")}>Week matrix</button><button type="button" aria-pressed={view === "daily"} onClick={() => setView("daily")}>Daily list</button></div>} />
     <FreshnessBar updatedAt={updatedAt} loading={loading} error={!selected ? error : undefined} onRefresh={() => void load()} />
     <Panel className="operational-panel">
-      <FilterToolbar search={search} onSearchChange={setSearch} placeholder="Search barbers" resultCount={loading || error ? undefined : dailyRecords.length} onReset={() => { setSearch(""); setBarberId(""); setStatus(""); setDate(todayInManila()); setMonth(todayInManila().slice(0,7)); }} filters={<>
-        {view === "month" ? <><Button variant="secondary" onClick={() => moveMonth(-1)}>Previous month</Button><TextField label="Month" type="month" value={month} onChange={(event) => { if (event.target.value) setMonth(event.target.value); }} /><Button variant="secondary" onClick={() => moveMonth(1)}>Next month</Button></> : <TextField label="Date" type="date" value={date} onChange={(event) => setDate(event.target.value)} />}
+      <FilterToolbar search={search} onSearchChange={setSearch} placeholder="Search barbers" resultCount={loading || error ? undefined : dailyRecords.length} onReset={() => { setSearch(""); setBarberId(""); setStatus(""); setDate(todayInManila()); setWeek(startOfWeek(todayInManila())); }} filters={<>
+        {view === "week" ? <><Button variant="secondary" onClick={() => moveWeek(-1)}>Previous week</Button><TextField label="Week containing" type="date" value={week} onChange={(event) => { if (event.target.value) setWeek(startOfWeek(event.target.value)); }} /><Button variant="secondary" onClick={() => moveWeek(1)}>Next week</Button></> : <TextField label="Date" type="date" value={date} onChange={(event) => setDate(event.target.value)} />}
         <SelectField label="Barber" value={barberId} onChange={(event) => setBarberId(event.target.value)}><option value="">All barbers</option>{barbers.map((barber) => <option key={barber.id} value={barber.id}>{barber.firstName} {barber.lastName}</option>)}</SelectField>
-        <SelectField label={view === "month" ? "Barbers with status" : "Status"} value={status} onChange={(event) => setStatus(event.target.value)}><option value="">All statuses</option><option value="present">Present</option><option value="late">Late</option><option value="absent">Absent</option></SelectField>
+        <SelectField label={view === "week" ? "Barbers with status" : "Status"} value={status} onChange={(event) => setStatus(event.target.value)}><option value="">All statuses</option><option value="present">Present</option><option value="late">Late</option><option value="absent">Absent</option></SelectField>
         {view === "daily" && <><Button variant="secondary" onClick={() => setDate(todayInManila())}>Today</Button><Button variant="secondary" onClick={() => setDate("")}>All dates</Button></>}
       </>} />
-      {scheduleError && view === "month" && <p role="alert" className="task-note">{scheduleError}</p>}
-      {view === "month" && !loading && !error && <div className="attendance-month"><p className="task-note">P Present · L Late · A Recorded absent · U Unmarked · F Future · O Scheduled off · T Full-day time away. Missing attendance is not absence.</p><div className="attendance-matrix-wrap"><table className="attendance-matrix"><thead><tr><th scope="col">Barber</th>{dates.map((day) => <th scope="col" key={day}><span>{Number(day.slice(-2))}</span><small>{new Date(`${day}T12:00:00Z`).toLocaleDateString("en-PH", {weekday:"short", timeZone:"Asia/Manila"})}</small></th>)}</tr></thead><tbody>{visibleBarbers.map((barber) => <tr key={barber.id}><th scope="row">{barber.firstName} {barber.lastName}</th>{dates.map((day) => { const cell = cellStatus(barber.id, day); return <td key={day}><button type="button" className={`attendance-cell attendance-cell--${cell.symbol}`} aria-label={`${barber.firstName} ${barber.lastName}, ${day}, ${cell.label}`} title={`${day} · ${cell.label}`} onClick={() => { if (cell.record) void openRecord(cell.record); else { setSelected(null); setSelectedCell({name: `${barber.firstName} ${barber.lastName}`, date: day, status: cell.label}); } }}>{cell.symbol}</button></td>; })}</tr>)}</tbody></table></div>{!visibleBarbers.length && <EmptyState title="No matching barbers" description="Reset the filters to review the roster." />}</div>}
-      <div className={view === "month" ? "attendance-mobile-list" : ""}>
+      {scheduleError && view === "week" && <p role="alert" className="task-note">{scheduleError}</p>}
+      {view === "week" && !loading && !error && <div className="attendance-week"><p className="task-note">P Present · L Late · A Recorded absent · U Unmarked · F Future · O Scheduled off · T Full-day time away. Missing attendance is not absence.</p><p className="task-note">{weekDateLabel(week)} – {weekDateLabel(shiftDate(week, 6))} · Monday–Sunday</p><div className="attendance-matrix-wrap"><table className="attendance-matrix"><thead><tr><th scope="col">Barber</th>{dates.map((day) => <th scope="col" key={day}><span>{Number(day.slice(-2))}</span><small>{new Date(`${day}T12:00:00Z`).toLocaleDateString("en-PH", {weekday:"short", timeZone:"Asia/Manila"})}</small></th>)}</tr></thead><tbody>{visibleBarbers.map((barber) => <tr key={barber.id}><th scope="row">{barber.firstName} {barber.lastName}</th>{dates.map((day) => { const cell = cellStatus(barber.id, day); return <td key={day}><button type="button" className={`attendance-cell attendance-cell--${cell.symbol}`} aria-label={`${barber.firstName} ${barber.lastName}, ${day}, ${cell.label}`} title={`${day} · ${cell.label}`} onClick={() => { if (cell.record) void openRecord(cell.record); else { setSelected(null); setSelectedCell({name: `${barber.firstName} ${barber.lastName}`, date: day, status: cell.label}); } }}>{cell.symbol}</button></td>; })}</tr>)}</tbody></table></div>{!visibleBarbers.length && <EmptyState title="No matching barbers" description="Reset the filters to review the roster." />}</div>}
+      <div className={view === "week" ? "attendance-mobile-list" : ""}>
       {error && !selected && <p role="alert" className="operational-loading">{error}</p>}
       {loading ? <p role="status" className="operational-loading">Loading attendance…</p> : error ? null : dailyRecords.length === 0 ? <EmptyState icon="calendar" title="No attendance records" description="Change the filters or record today's attendance on the Barber Floor." /> :
         <ResponsiveTable headers={["Date", "Barber", "Attendance", "Clock In", "Clock Out", "Details"]}>
