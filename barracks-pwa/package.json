@@ -13,7 +13,8 @@
     "db:seed-admin": "tsx scripts/seed-admin.ts",
     "db:reset-admin": "tsx scripts/reset-admin-password.ts",
     "db:seed-demo": "tsx scripts/seed-demo.ts",
-    "db:refresh-demo": "tsx scripts/refresh-demo.ts"
+    "db:refresh-demo": "tsx scripts/refresh-demo.ts",
+    "db:seed-working-app": "tsx scripts/seed-working-app.ts"
   },
   "dependencies": {
     "lucide-react": "^1.51.0",

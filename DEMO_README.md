@@ -99,6 +99,12 @@ The second seeded supplier account is `demo.supplier.marco@barracks.app` with th
 
 ## Seeded showcase data
 
+The deployed Supabase working demo was expanded across Main, Bajada, Lanang, Bangkal, and Maa on October 10, 2026. To refresh the same fixtures after migration 028, run `node --env-file=.env.local --import tsx scripts/seed-working-app.ts` from `barracks-pwa/`. It preserves existing data and staff progress; it does not replace accounts or reset passwords.
+
+Each branch now has three demo barbers, the original product/supply catalog, recent paid sales, attendance, today's appointment/queue examples, and upcoming reservations. Payroll has three older Paid examples and one newer example each in Draft, Pending Approval, and Approved, plus current-period earnings. Sign in as the existing demo Manager, open **Payroll**, and select each branch to review settings, history, service breakdowns, approval events, and paid payslips. The demo calendar starts September 5, 2026 on the deployed first run. Unmarked historical services are not assigned invented rates. **DEMO ONLY** audit notes and `DEMO-ONLY-NO-FUNDS` payment references identify fictional disbursements; no funds were transferred.
+
+The bullets below describe the original baseline before this additive multi-branch expansion.
+
 - Four barbers with a working queue and an unavailable roster member.
 - Two active suppliers, each with a supplier portal account.
 - Twenty-six supplier-linked inventory items across Supplies, Products, and Equipment, including all 21 products shown on the public landing page and low-stock items.
