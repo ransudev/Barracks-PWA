@@ -7,6 +7,7 @@ import type { ApiUser } from "@/app/lib/api";
 import type { ViewId } from "@/app/types/domain";
 
 const BranchesManagement = dynamic(() => import("@/app/pages/admin/BranchesManagement").then((module) => module.BranchesManagement), { loading: ScreenLoading });
+const PayrollManagement = dynamic(() => import("@/app/pages/admin/PayrollManagement").then((module) => module.PayrollManagement), { loading: ScreenLoading });
 const AdminDashboard = dynamic(() => import("@/app/pages/admin/AdminDashboard").then((module) => module.AdminDashboard), { loading: ScreenLoading });
 const BarbersManagement = dynamic(() => import("@/app/pages/admin/BarbersManagement").then((module) => module.BarbersManagement), { loading: ScreenLoading });
 const AttendanceManagement = dynamic(() => import("@/app/pages/admin/AttendanceManagement").then((module) => module.AttendanceManagement), { loading: ScreenLoading });
@@ -32,6 +33,8 @@ type PageRouterProps = {
 
 export function PageRouter({ view, go, onToast, currentUser }: PageRouterProps) {
   switch (view) {
+    case "admin-payroll":
+      return <PayrollManagement currentUserRole={currentUser.role} onToast={onToast} />;
     case "admin-branches":
       return <BranchesManagement currentUserRole={currentUser.role} onToast={onToast} />;
     case "admin-dashboard":

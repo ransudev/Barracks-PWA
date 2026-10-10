@@ -20,6 +20,7 @@ export type ApiBarber = {
   lastName: string;
   status: "available" | "busy" | "unavailable";
   commissionRate: number | null;
+  earnedCommissionCentavos?: string;
   servicesDone: number;
   revenue: number;
   rating: number | null;

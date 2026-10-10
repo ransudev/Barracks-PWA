@@ -9,6 +9,7 @@ type BarberRow = {
   last_name: string;
   status: "available" | "busy" | "unavailable";
   commission_rate: number | string | null;
+  earned_commission_centavos: string;
   services_done: number | string;
   revenue: number | string;
   rating: number | string | null;
@@ -24,6 +25,7 @@ export type BarberRecord = {
   lastName: string;
   status: BarberRow["status"];
   commissionRate: number | null;
+  earnedCommissionCentavos: string;
   servicesDone: number;
   revenue: number;
   rating: number | null;
@@ -39,7 +41,9 @@ type BarberAvailabilityRow = Pick<BarberRow, "branch_id" | "id" | "first_name" |
 export type BarberDeleteResult = "deleted" | "not_found" | "referenced";
 
 const barberSelect = `
-  SELECT id, branch_id, first_name, last_name, status, commission_rate,
+  SELECT id, branch_id, first_name, last_name, status,
+    (SELECT commission_rate FROM barber_commission_rates r WHERE r.barber_id=barbers.id AND r.effective_at<=clock_timestamp() ORDER BY effective_at DESC LIMIT 1) AS commission_rate,
+    COALESCE((SELECT sum(e.amount_centavos)::text FROM barber_commission_entries e WHERE e.barber_id=barbers.id AND e.branch_id=barbers.branch_id),'0') AS earned_commission_centavos,
     (SELECT COUNT(*) FROM bookings b WHERE b.barber_id=barbers.id AND b.branch_id=barbers.branch_id AND b.status='completed')
       + (SELECT COUNT(*) FROM queue_entries q WHERE q.barber_id=barbers.id AND q.branch_id=barbers.branch_id AND q.status='completed' AND q.booking_id IS NULL) AS services_done,
     COALESCE((SELECT SUM(t.amount) FROM transactions t WHERE t.barber_id=barbers.id AND t.branch_id=barbers.branch_id
@@ -61,6 +65,7 @@ function toBarber(row: BarberRow): BarberRecord {
     lastName: row.last_name,
     status: row.status,
     commissionRate: row.commission_rate === null ? null : Number(row.commission_rate),
+    earnedCommissionCentavos: row.earned_commission_centavos,
     servicesDone: Number(row.services_done),
     revenue: Number(row.revenue),
     rating: row.rating === null ? null : Number(row.rating),
@@ -103,10 +108,11 @@ export async function findBarberById(db: Pool | PoolClient, id: number): Promise
 
 type BarberMutationInput = BarberInput | BarberStaffInput;
 
-export async function createBarber(db: Db, input: BarberMutationInput): Promise<BarberRecord> {
+export async function createBarber(db: Db, input: BarberMutationInput, actorId?: number): Promise<BarberRecord> {
   const commissionRate = "commissionRate" in input ? input.commissionRate : null;
   const rating = "rating" in input ? input.rating : null;
   return inTransaction(db, async (client) => {
+    if (commissionRate !== null && actorId) await client.query("SELECT set_config('barracks.payroll_actor',$1,true),set_config('barracks.payroll_reason','Initial commission configured at barber creation',true)", [String(actorId)]);
     const inserted = await client.query<{ id: number }>(
       `INSERT INTO barbers (first_name, last_name, status, commission_rate, rating, branch_id)
        VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
@@ -143,10 +149,8 @@ export async function updateBarber(
   const commissionRate = "commissionRate" in input ? input.commissionRate : undefined;
   const rating = "rating" in input ? input.rating : undefined;
 
-  if (commissionRate !== undefined) {
-    values.push(commissionRate);
-    updates.push(`commission_rate = $${values.length}`);
-  }
+  if (commissionRate !== undefined && commissionRate !== (await findBarberById(client,id))?.commissionRate)
+    throw new BarberMoveConflict("Set commission rates in Payroll settings with an effective time and audit reason");
   if (rating !== undefined) {
     values.push(rating);
     updates.push(`rating = $${values.length}`);

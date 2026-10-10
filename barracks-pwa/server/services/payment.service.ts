@@ -136,6 +136,11 @@ export async function applyFinancialAction(db: Pool, reference: string, input: F
     if (!await checkBranchAccess(client, { id: staffId, role: staff.rows[0].role }, Number(transaction.branch_id)))
       throw new PaymentServiceError("forbidden", "You do not have access to this transaction branch");
     if (transaction.status !== "completed") throw new PaymentServiceError("invalid_state", "Only a completed, unreversed transaction can be refunded or voided");
+    if (input.action === "void") {
+      const qualifying = await client.query(`SELECT 1 FROM payroll_service_snapshots s JOIN transactions t
+        ON t.visit_type=s.visit_type AND t.visit_record_id=s.visit_record_id WHERE t.id=$1`, [transaction.id]);
+      if (qualifying.rowCount) throw new PaymentServiceError("invalid_state", "Post-payment void policy is unconfirmed. Use the refund workflow, which retains earned commission.");
+    }
     if (Math.round(input.amount * 100) !== Math.round(Number(transaction.amount) * 100)) {
       throw new PaymentServiceError("invalid_state", "Action amount must equal the full paid amount");
     }

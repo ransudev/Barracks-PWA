@@ -20,6 +20,7 @@ export type ViewId =
   | "admin-customers"
   | "admin-barbers"
   | "admin-attendance"
+  | "admin-payroll"
   | "admin-suppliers"
   | "admin-restocks"
   | "admin-reports"
