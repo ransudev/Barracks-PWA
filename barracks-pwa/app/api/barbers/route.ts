@@ -4,8 +4,8 @@ import { resolveOperationalBranch } from "@/server/auth/barber-branch-access";
 import { branchApiError } from "@/server/services/branch-api";
 import { requireAdministrator, requireManagementUser, requireRolesUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
-import { barberCommissionSchema, barberSchema, barberStaffSchema, formatValidationErrors } from "@/server/schemas/sprint.schema";
-import { createBarber, listBarberAvailability, listBarbers, updateAllBarberCommissionRates } from "@/server/services/barber.service";
+import { barberSchema, barberStaffSchema, formatValidationErrors } from "@/server/schemas/sprint.schema";
+import { createBarber, listBarberAvailability, listBarbers } from "@/server/services/barber.service";
 
 export const runtime = "nodejs";
 
@@ -40,36 +40,15 @@ export async function POST(request: Request) {
   }
   try {
     await requireBranchAccess(pool, actor, parsed.data.branchId);
-    return Response.json({ success: true, barber: await createBarber(pool, parsed.data) }, { status: 201 });
+    return Response.json({ success: true, barber: await createBarber(pool, parsed.data, actor.id) }, { status: 201 });
   } catch (error) {
     return branchApiError(error);
   }
 }
 
-export async function PATCH(request: Request) {
+export async function PATCH() {
   const authorizationResponse = await requireAdministrator();
   if (authorizationResponse) return authorizationResponse;
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json({ success: false, message: "Invalid commission information" }, { status: 400 });
-  }
-
-  const parsed = barberCommissionSchema.safeParse(body);
-  if (!parsed.success) {
-    return Response.json(
-      { success: false, message: "Invalid commission information", errors: formatValidationErrors(parsed.error) },
-      { status: 400 },
-    );
-  }
-
-  try {
-    const barbers = await updateAllBarberCommissionRates(pool, parsed.data.commissionRate);
-    return Response.json({ success: true, barbers });
-  } catch (error) {
-    console.error("Unable to update commission rates", error);
-    return Response.json({ success: false, message: "Unable to update commission rates" }, { status: 500 });
-  }
+  return Response.json({ success: false, message: "Set individual rates in Payroll settings with an effective time and audit reason" }, { status: 409 });
 }

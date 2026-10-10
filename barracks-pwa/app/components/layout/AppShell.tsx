@@ -127,7 +127,7 @@ function Sidebar({
         className="sidebar__nav"
         aria-label={`${isManagement ? "Management" : "Front Desk"} navigation`}
       >
-        {[{ name: "Business", ids: ["staff-dashboard", "admin-dashboard", "queue", "bookings", "payments", "admin-reports", "admin-services"] }, { name: "People", ids: ["staff-management", "customers", "admin-customers", "barbers", "admin-barbers", "admin-attendance"] }, { name: "Stock", ids: ["admin-inventory", "admin-suppliers", "admin-restocks"] }].map((group) => <div className="sidebar__group" key={group.name}>
+        {[{ name: "Business", ids: ["staff-dashboard", "admin-dashboard", "queue", "bookings", "payments", "admin-reports", "admin-services"] }, { name: "People", ids: ["staff-management", "customers", "admin-customers", "barbers", "admin-barbers", "admin-attendance", "admin-payroll"] }, { name: "Stock", ids: ["admin-inventory", "admin-suppliers", "admin-restocks"] }].map((group) => <div className="sidebar__group" key={group.name}>
         {navigation.some((item) => group.ids.includes(item.id)) && <span className="sidebar__label">{group.name}</span>}
         {navigation.filter((item) => group.ids.includes(item.id)).map((item) => (
           <button

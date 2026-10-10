@@ -20,6 +20,7 @@ export const viewPaths: Record<ViewId, string> = {
   "admin-customers": "/admin/customers",
   "admin-barbers": "/admin/barbers",
   "admin-attendance": "/admin/attendance",
+  "admin-payroll": "/admin/payroll",
   "admin-suppliers": "/admin/suppliers",
   "admin-restocks": "/admin/restocks",
   "admin-reports": "/admin/reports",
