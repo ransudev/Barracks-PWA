@@ -56,7 +56,7 @@ test("report branch switches replace global data, reset filters and ignore a del
     await act(async () => { release(report("Stale Main sales", "100")); await pause(); });
     assert.doesNotMatch(container.textContent ?? "", /Stale Main sales|Global sales/);
     assert.match(container.textContent ?? "", /Second sales/);
-    await act(async () => { [...container.querySelectorAll("button")].find((button) => button.textContent === "Inventory reports")!.click(); await pause(); });
+    await act(async () => { [...container.querySelectorAll("button")].find((button) => button.textContent === "Inventory")!.click(); await pause(); });
     assert.ok(requests.some((path) => path.startsWith("/api/reports/inventory") && path.endsWith("branchId=2")));
     assert.deepEqual(toasts, []);
   } finally { await act(async () => root.unmount()); container.remove(); globalThis.fetch = previous; }

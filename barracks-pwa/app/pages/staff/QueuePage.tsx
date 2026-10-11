@@ -6,6 +6,7 @@ import type { ApiBarberAvailability, ApiCustomer, ApiQueueEntry } from "@/app/li
 import { apiRequest, readApiBody } from "@/app/lib/api";
 import type { Service } from "@/app/types/domain";
 import { createInitials } from "@/app/utils/format";
+import { barberAvailabilityLabel, isBarberAvailable } from "@/app/utils/barber-availability";
 import { Avatar, Badge, Button, ConfirmDialog, EmptyState, MetricCard, Modal, PageHeader, Panel, SelectField, TextField } from "@/app/components/ui";
 import { DetailDrawer, DrawerSection, FilterToolbar, RecordCard, ResponsiveTable, ViewToggle, type OperationalViewMode } from "@/app/components/operations/OperationalPrimitives";
 
@@ -108,7 +109,21 @@ function QueuePageContent({ onToast, canOperate = true, branchId }: { branchId: 
     `${entry.customerName} ${entry.serviceName} ${entry.barberName ?? ""}`.toLowerCase().includes(search.trim().toLowerCase())), [queue, completed, queueTab, search, statusFilter]);
   const active = queue;
   const averageWait = active.length ? Math.round(active.reduce((sum, entry) => sum + waitMinutes(entry), 0) / active.length) : 0;
-  const availableBarbers = barbers.filter((barber) => barber.status !== "unavailable");
+  const availableBarbers = barbers.filter(isBarberAvailable);
+  const selectedBarber = barbers.find((barber) => barber.id === selected?.barberId);
+  const selectedBarberAvailable = Boolean(selectedBarber && isBarberAvailable(selectedBarber));
+
+  async function refreshAvailability() {
+    setBarbers([]);
+    setNextEntry(null);
+    setNextMessage("");
+    try {
+      const response = await apiRequest(`/api/barbers?branchId=${branchId}`, { cache: "no-store" });
+      const body = await readApiBody<{ success: boolean; barbers?: ApiBarberAvailability[]; message?: string }>(response);
+      if (!response.ok || !body?.success || !body.barbers) throw new Error(body?.message ?? "Unable to refresh barber availability");
+      setBarbers(body.barbers);
+    } catch (cause) { onToast(cause instanceof Error ? cause.message : "Unable to refresh barber availability"); }
+  }
 
   function openAddDialog() {
     setDraft({
@@ -175,6 +190,7 @@ function QueuePageContent({ onToast, canOperate = true, branchId }: { branchId: 
       setSelected(["removed", "completed"].includes(body.entry.status) ? null : body.entry);
       setPendingRemove(null);
       onToast("Queue updated");
+      await refreshAvailability();
     } catch (cause) { onToast(cause instanceof Error ? cause.message : "Unable to update queue"); }
     finally { setBusy(false); }
   }
@@ -225,7 +241,8 @@ function QueuePageContent({ onToast, canOperate = true, branchId }: { branchId: 
     {canOperate && <Panel className="queue-next-panel"><div className="inventory-catalog-head"><div><span className="inventory-kicker">Front desk</span><h2>Next Customer</h2><p>Choose an available barber, then review the suggested customer.</p></div></div>
       <div className="queue-next__body"><div className="queue-next__controls">
         <SelectField label="Barber" value={nextBarberId} disabled={nextBusy} onChange={(event) => { setNextBarberId(event.target.value); setNextEntry(null); setNextMessage(""); }}><option value="">Select barber</option>{availableBarbers.map((barber) => <option key={barber.id} value={barber.id}>{barber.firstName} {barber.lastName}</option>)}</SelectField>
-        <Button type="button" size="sm" disabled={!nextBarberId || nextBusy || loading} onClick={() => void suggestNext()}>{nextBusy ? "Checking…" : "Next Customer"}</Button>
+        <Button type="button" size="sm" disabled={!availableBarbers.some((barber) => String(barber.id) === nextBarberId) || nextBusy || loading} onClick={() => void suggestNext()}>{nextBusy ? "Checking…" : "Next Customer"}</Button>
+        <Button type="button" size="sm" variant="secondary" disabled={busy || nextBusy || loading} onClick={() => void refreshAvailability()}>Refresh availability</Button>
       </div>
       {nextMessage && <p className="queue-next__message" role="status">{nextMessage}</p>}
       {nextEntry && <div className="queue-next__suggestion" role="region" aria-label="Suggested next customer">
@@ -257,10 +274,10 @@ function QueuePageContent({ onToast, canOperate = true, branchId }: { branchId: 
     </form></Modal>
     <DetailDrawer open={Boolean(selected)} title={selected?.customerName ?? "Queue entry"} subtitle={selected ? `${selected.serviceName} · Queue #${selected.id}` : undefined} eyebrow="Live queue" onClose={() => setSelected(null)}>
       {selected && <><DrawerSection><div className="operational-drawer__identity"><Avatar initials={createInitials(selected.customerName)} tone="slate" size="lg" /><div><strong>{selected.serviceName}</strong><span>{selected.bookingId !== null ? `Booking #${selected.bookingId}` : "Walk-in"}</span><span className="queue-visit-type"><Badge tone={selected.visitType === "appointment" ? "info" : "neutral"}>{visitLabel(selected)}</Badge>{scheduledTime(selected) && <span>• {scheduledTime(selected)}</span>}</span></div><Badge tone={tone(selected.status)}>{statusLabel(selected.status)}</Badge></div></DrawerSection>
-        <DrawerSection eyebrow="Assignment" title="Floor handoff"><div className="operational-drawer__rows"><div className="operational-drawer__row"><span>Assigned barber</span>{canOperate && selected.bookingId === null && ["waiting", "ready"].includes(selected.status) ? <select className="table-select" value={selected.barberId ?? ""} disabled={busy} onChange={(event) => void change(selected, { barberId: event.target.value ? Number(event.target.value) : null })}><option value="">Unassigned</option>{availableBarbers.map((barber) => <option key={barber.id} value={barber.id}>{barber.firstName} {barber.lastName}</option>)}</select> : <strong>{selected.barberName ?? "Unassigned"}</strong>}</div>{selected.visitType === "appointment" && <><div className="operational-drawer__row"><span>Scheduled</span><strong>{selected.scheduledDate} {scheduledTime(selected)}</strong></div><div className="operational-drawer__row"><span>Booking status</span><strong>{selected.bookingStatus?.replaceAll("_", " ") ?? "—"}</strong></div></>}</div></DrawerSection>
+        <DrawerSection eyebrow="Assignment" title="Floor handoff"><div className="operational-drawer__rows"><div className="operational-drawer__row"><span>Assigned barber</span>{canOperate && selected.bookingId === null && ["waiting", "ready"].includes(selected.status) ? <select className="table-select" value={selected.barberId ?? ""} disabled={busy} onChange={(event) => void change(selected, { barberId: event.target.value ? Number(event.target.value) : null })}><option value="">Unassigned</option>{selectedBarber && !selectedBarberAvailable && <option value={selectedBarber.id} disabled>{selectedBarber.firstName} {selectedBarber.lastName} · {barberAvailabilityLabel(selectedBarber)}</option>}{availableBarbers.map((barber) => <option key={barber.id} value={barber.id}>{barber.firstName} {barber.lastName}</option>)}</select> : <strong>{selected.barberName ?? "Unassigned"}</strong>}</div>{selected.visitType === "appointment" && <><div className="operational-drawer__row"><span>Scheduled</span><strong>{selected.scheduledDate} {scheduledTime(selected)}</strong></div><div className="operational-drawer__row"><span>Booking status</span><strong>{selected.bookingStatus?.replaceAll("_", " ") ?? "—"}</strong></div></>}</div></DrawerSection>
         {selected.visitType === "appointment" && <DrawerSection><p>Manage appointment service from Bookings.</p></DrawerSection>}
         {canOperate && selected.visitType === "walk_in" && !["completed", "removed"].includes(selected.status) && <DrawerSection eyebrow="Queue actions" title="Move customer forward"><div className="operational-drawer__actions">
-          {selected.status === "ready" && <Button disabled={busy} onClick={() => void change(selected, { status: "in_progress" })}>Start Service</Button>}
+          {selected.status === "ready" && <><Button disabled={busy || !selectedBarberAvailable} onClick={() => void change(selected, { status: "in_progress" })}>Start Service</Button>{!selectedBarberAvailable && <p role="status">{selectedBarber ? barberAvailabilityLabel(selectedBarber) : "Refresh barber availability before starting."} Service timing is checked again when you start.</p>}</>}
           {selected.status === "in_progress" && <Button disabled={busy} onClick={() => void change(selected, { status: "completed" })}>Complete</Button>}
           {selected.bookingId === null && ["waiting", "ready"].includes(selected.status) && <Button variant="danger" disabled={busy} onClick={() => setPendingRemove(selected)}>Remove</Button>}
         </div></DrawerSection>}

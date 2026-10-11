@@ -87,8 +87,10 @@ test("pre-action reversed transactions are counted once using their transaction 
   } finally { await cleanup(); }
 });
 
-test("persisted report uses sale snapshots and action dates across Manila midnight", { skip: !databaseConfigured }, async () => {
-  const { db, cleanup } = await createDisposableSchema();
+test("persisted report retains legacy sale snapshots and action dates across Manila midnight", { skip: !databaseConfigured }, async () => {
+  // Legacy void actions predate payroll activation. New earned/snapshotted
+  // sales cannot be voided under the current pending policy.
+  const { db, cleanup } = await createDisposableSchema(27);
   try {
     const customer = Number((await db.query<{ id: number }>("INSERT INTO customers(first_name,last_name) VALUES('Report','Customer') RETURNING id")).rows[0].id);
     const barber = Number((await db.query<{ id: number }>("INSERT INTO barbers(first_name,last_name) VALUES('Current','Barber') RETURNING id")).rows[0].id);
@@ -129,6 +131,7 @@ test("persisted report uses sale snapshots and action dates across Manila midnig
       } catch (error) { await client.query("ROLLBACK"); throw error; }
       finally { client.release(); }
     }
+    await applyMigrations(db);
     const report = await getRevenueReport(db, range, admin);
     assert.deepEqual(report.summary, { grossSales: 250, refundedAmount: 300, voidedAmount: 50,
       reversedAmount: 350, netRevenue: -100, transactionCount: 2 });
@@ -141,7 +144,9 @@ test("persisted report uses sale snapshots and action dates across Manila midnig
 });
 
 test("branch reports isolate ownership, aggregate once, and reject unauthorized scopes", { skip: !databaseConfigured }, async () => {
-  const { db, cleanup } = await createDisposableSchema();
+  // Exercise retained legacy void/refund evidence, then upgrade and prove
+  // current branch reports still attribute that history to its source branch.
+  const { db, cleanup } = await createDisposableSchema(27);
   apiDb = db;
   try {
     const main = Number((await db.query("SELECT id FROM branches WHERE code='MAIN'")).rows[0].id);
@@ -203,6 +208,7 @@ test("branch reports isolate ownership, aggregate once, and reject unauthorized 
       assert.equal(index === 0 ? own.voidedAmount : own.refundedAmount, amount);
       assert.equal((await report(admin, String(other))).summary.netRevenue, index === 0 ? 300 : 0);
     }
+    await applyMigrations(db);
     const global = (await report(admin, "all")).summary;
     assert.deepEqual([global.grossSales, global.reversedAmount, global.netRevenue, global.transactionCount], [400, 400, 0, 2]);
     const from = new Date("2026-09-02T00:00:00Z"), to = new Date("2026-09-03T00:00:00Z");

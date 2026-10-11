@@ -35,22 +35,26 @@ for (const role of ["manager", "administrator"] as const) {
     try {
       await act(async () => { root.render(<PageRouter view="admin-attendance" go={() => undefined} onToast={() => undefined} currentUser={{ ...user, role }} />); });
       await act(async () => { await new Promise((resolve) => setTimeout(resolve, 30)); });
-      assert.match(container.textContent ?? "", /Barber attendance/);
-      assert.match(container.textContent ?? "", /Bea Barber/);
+      assert.match(dom.window.document.body.textContent ?? "", /Barber attendance/);
+      assert.match(dom.window.document.body.textContent ?? "", /Bea Barber/);
+      assert.ok(requests.some((request) => request.includes("/api/attendance/history?branchId=1&dateFrom=")));
+      await act(async () => { [...container.querySelectorAll("button")].find((button) => button.textContent === "Daily list")!.click(); });
+      await act(async () => new Promise((resolve) => setTimeout(resolve, 30)));
       assert.ok(requests.some((request) => request.includes("/api/attendance/history?branchId=1&date=")));
       await act(async () => {
         (Array.from(container.querySelectorAll("button")).find((button) => button.textContent?.includes("View record")) as HTMLButtonElement).click();
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        await new Promise((resolve) => setTimeout(resolve, 30));
       });
-      assert.match(container.textContent ?? "", /Reviewed shift/);
-      assert.match(container.textContent ?? "", /Correction reason/);
+      assert.match(dom.window.document.body.textContent ?? "", /Reviewed shift/);
+      assert.match(dom.window.document.body.textContent ?? "", /Correction reason/);
       assert.ok(requests.includes("GET /api/attendance/5/corrections"));
       if (role === "manager") {
         const select = container.querySelector("select")!;
         await act(async () => { select.value = "2"; select.dispatchEvent(new dom.window.Event("change", { bubbles: true })); });
         await act(async () => { await new Promise((resolve) => setTimeout(resolve, 30)); });
+        await act(async () => new Promise((resolve) => setTimeout(resolve, 270)));
         assert.match(container.querySelector("table")?.textContent ?? "", /Second Barber/);
-        assert.doesNotMatch(container.textContent ?? "", /Bea Barber|Reviewed shift/);
+        assert.doesNotMatch(dom.window.document.body.textContent ?? "", /Bea Barber|Reviewed shift/);
         assert.ok(requests.some((path) => path.includes("/api/attendance/history?branchId=2")));
         assert.ok(requests.includes("GET /api/barbers?branchId=2"));
       }

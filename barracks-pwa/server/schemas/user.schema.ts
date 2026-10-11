@@ -16,6 +16,7 @@ export const createUserSchema = z
 
 export const createStaffUserSchema = createUserSchema.extend({
   role: staffRoleSchema,
+  branchIds: z.array(z.number().int().positive()).max(100).refine(ids => new Set(ids).size === ids.length, "Branches must be unique").default([]),
 });
 
 export const updateStaffUserSchema = z

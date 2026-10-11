@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     const branchResponse = visitBranchError(error);
     if (branchResponse) return branchResponse;
     if (error instanceof QueueServiceError)
-      return Response.json({ success: false, message: error.message }, { status: error.kind === "not_found" ? 404 : 409 });
+      return Response.json({ success: false, message: error.message, reason: "reason" in error ? error.reason : undefined, interval: "interval" in error ? error.interval : undefined }, { status: error.kind === "not_found" ? 404 : 409 });
     console.error("Unable to find next customer", error);
     return Response.json({ success: false, message: "Unable to find next customer" }, { status: 500 });
   }
@@ -43,12 +43,12 @@ export async function POST(request: Request) {
     const branchId = await visitBranch(pool, actor, request);
     const pair = (await pool.query("SELECT q.id FROM queue_entries q JOIN barbers b ON b.id=$2 WHERE q.id=$1 AND q.branch_id=$3 AND b.branch_id=$3", [parsed.data.entryId, parsed.data.barberId, branchId])).rows[0];
     if (!pair) return Response.json({ success: false, message: "Choose a customer and barber in this branch" }, { status: 403 });
-    return Response.json({ success: true, entry: await confirmNextCustomerAssignment(pool, parsed.data.barberId, parsed.data.entryId, branchId) });
+    return Response.json({ success: true, entry: await confirmNextCustomerAssignment(pool, parsed.data.barberId, parsed.data.entryId, branchId, actor) });
   } catch (error) {
     const branchResponse = visitBranchError(error);
     if (branchResponse) return branchResponse;
     if (error instanceof QueueServiceError)
-      return Response.json({ success: false, message: error.message }, { status: error.kind === "not_found" ? 404 : 409 });
+      return Response.json({ success: false, message: error.message, reason: "reason" in error ? error.reason : undefined, interval: "interval" in error ? error.interval : undefined }, { status: error.kind === "not_found" ? 404 : 409 });
     console.error("Unable to confirm next customer", error);
     return Response.json({ success: false, message: "Unable to confirm next customer" }, { status: 500 });
   }

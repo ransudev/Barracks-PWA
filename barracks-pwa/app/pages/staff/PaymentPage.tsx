@@ -89,9 +89,9 @@ function PaymentBranch({ branchId, onToast, canCheckout, canManageFinancialActio
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [dayOpen, setDayOpen] = useState(false);
   const dateFrom = `${month}-01`;
-  const daysInMonth = new Date(`${month}-01T12:00:00Z`);
-  daysInMonth.setUTCMonth(daysInMonth.getUTCMonth() + 1, 0);
-  const dateTo = daysInMonth.toISOString().slice(0, 10);
+  const [monthYear, monthNumber] = month.split("-").map(Number);
+  const monthDayCount = new Date(Date.UTC(monthYear, monthNumber, 0)).getUTCDate();
+  const dateTo = `${month}-${String(monthDayCount).padStart(2, "0")}`;
   const [receipt, setReceipt] = useState<TransactionRecord | null>(null);
   const [receiptError, setReceiptError] = useState("");
   const [receiptLoading, setReceiptLoading] = useState(false);
@@ -158,7 +158,7 @@ function PaymentBranch({ branchId, onToast, canCheckout, canManageFinancialActio
   const dayPage = Math.min(page, totalPages);
   const monthStart = new Date(`${dateFrom}T12:00:00Z`);
   const calendarOffset = (monthStart.getUTCDay() + 6) % 7;
-  const calendarDays = Array.from({ length: daysInMonth.getUTCDate() }, (_, index) => `${month}-${String(index + 1).padStart(2, "0")}`);
+  const calendarDays = Array.from({ length: monthDayCount }, (_, index) => `${month}-${String(index + 1).padStart(2, "0")}`);
   const moveMonth = (offset: number) => { const next = new Date(`${dateFrom}T12:00:00Z`); next.setUTCMonth(next.getUTCMonth() + offset); setMonth(next.toISOString().slice(0, 7)); setDayOpen(false); setPage(1); };
   const received = cashReceived.trim() === "" ? null : Number(cashReceived);
   const cashValid = received !== null && Number.isFinite(received) && received >= 0 &&

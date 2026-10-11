@@ -71,6 +71,9 @@ export async function actOnTodayAttendance(db: Pool, barberId: number, actorId: 
       throw new BranchError("Today's attendance belongs to a different branch", 403);
     if (action.action === "clock_out" && (!record?.clock_in || record.clock_out))
       throw new AttendanceConflict("Clock-out requires an open clock-in");
+    if (action.action === "clock_out" && (await client.query(
+      "SELECT id FROM queue_entries WHERE barber_id=$1 AND status='in_progress' LIMIT 1", [barberId])).rowCount)
+      throw new AttendanceConflict("Complete the active service before clocking this barber out");
     if (action.action === "clock_in" && record?.clock_in)
       throw new AttendanceConflict("Barber is already clocked in");
     if (action.action === "mark" && action.status === "absent" && (record?.clock_in || record?.clock_out))
@@ -101,6 +104,10 @@ export async function correctAttendance(db: Pool, id: number, actorId: number, i
   try {
     await client.query("BEGIN");
     const actor = await attendanceActor(client, actorId, ["administrator", "manager"]);
+    const target = (await client.query<{ barber_id: number }>("SELECT barber_id FROM barber_attendance WHERE id=$1", [id])).rows[0];
+    if (!target) { await client.query("ROLLBACK"); return null; }
+    // Starts/attendance actions acquire barber before attendance; use that same order.
+    await client.query("SELECT id FROM barbers WHERE id=$1 FOR UPDATE", [target.barber_id]);
     const current = await client.query<AttendanceRow>(`${select} WHERE a.id = $1 FOR UPDATE OF a`, [id]);
     if (!current.rows[0]) { await client.query("ROLLBACK"); return null; }
     await requireBranchAccess(client, actor, Number(current.rows[0].branch_id));

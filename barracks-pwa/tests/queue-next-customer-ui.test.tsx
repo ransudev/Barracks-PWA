@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { JSDOM } from "jsdom";
-import type { ApiQueueEntry } from "@/app/lib/api";
+import type { ApiOperationalAvailability, ApiQueueEntry } from "@/app/lib/api";
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", { pretendToBeVisual: true });
 (globalThis as unknown as { document: Document }).document = dom.window.document;
@@ -16,7 +16,7 @@ const waiting: ApiQueueEntry = { id: 7, bookingId: null, visitType: "walk_in", s
   serviceName: "Basic Cut", barberId: null, barberName: null, status: "waiting", joinedAt: "2026-09-27T02:00:00Z",
   startedAt: null, completedAt: null, createdAt: "2026-09-27T02:00:00Z", updatedAt: "2026-09-27T02:00:00Z" };
 
-async function renderQueue(candidate: ApiQueueEntry | null, holdQueuePost = false, completed: ApiQueueEntry[] = []) {
+async function renderQueue(candidate: ApiQueueEntry | null, holdQueuePost = false, completed: ApiQueueEntry[] = [], operationalAvailability?: ApiOperationalAvailability) {
   const previousFetch = globalThis.fetch;
   const requests: string[] = [];
   const branchRequests: string[] = [];
@@ -33,7 +33,7 @@ async function renderQueue(candidate: ApiQueueEntry | null, holdQueuePost = fals
     if (path === "/api/queue?view=completed-today") return Response.json({ success: true, queue: completed });
     if (path === "/api/customers") return Response.json({ success: true, customers: [{ id: 3, userId: 8, firstName: "Next", lastName: "Customer", email: "next@test.local", phone: "", preferredBarberId: null, preferredBarberName: null, loyaltyPoints: 0, createdAt: "2026-09-27T02:00:00Z", updatedAt: "2026-09-27T02:00:00Z" }] });
     if (path === "/api/services") return Response.json({ success: true, services: [{ id: "cut", name: "Basic Cut", active: true, durationMinutes: 45 }] });
-    if (path === "/api/barbers") return Response.json({ success: true, barbers: [{ id: 1, firstName: "Test", lastName: "Barber", status: "available" }] });
+    if (path === "/api/barbers") return Response.json({ success: true, barbers: [{ id: 1, firstName: "Test", lastName: "Barber", status: "available", operationalAvailability }] });
     if (path === "/api/queue/next?barberId=1") return Response.json({ success: true, entry: candidate, message: candidate ? null : "No eligible customer is waiting for this barber." });
     if (path === "/api/queue/next" && init?.method === "POST") return Response.json({ success: true, entry: { ...waiting, status: "ready", barberId: 1, barberName: "Test Barber" } });
     if (path === "/api/queue" && init?.method === "POST") {
@@ -60,6 +60,23 @@ async function renderQueue(candidate: ApiQueueEntry | null, holdQueuePost = fals
     throw error;
   }
 }
+
+test("Queue shows the authoritative clock-out reason and prevents a manual service start", async () => {
+  const view = await renderQueue({ ...waiting, status: "ready", barberId: 1, barberName: "Test Barber" }, false, [],
+    { available: false, reason: "clocked_out", activeQueueEntryId: null, attendanceState: "clocked_out" });
+  try {
+    const option = view.container.querySelector('.queue-next__controls option[value="1"]');
+    assert.equal(option, null, "clocked-out barber is excluded from suggested assignments");
+    await act(async () => { (view.container.querySelector(".operational-card__main") as HTMLButtonElement).click(); });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 30)); });
+    const start = Array.from(view.container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent === "Start Service");
+    assert.ok(start);
+    assert.equal(start.disabled, true);
+    assert.match(view.container.querySelector(".operational-drawer")?.textContent ?? "", /Clocked out/);
+    await act(async () => start.click());
+    assert.equal(view.requests.some((request) => request.startsWith("PATCH")), false);
+  } finally { await view.cleanup(); }
+});
 
 test("completed-today entries show service details without active actions", async () => {
   const finished: ApiQueueEntry = { ...waiting, id: 9, customerName: "Finished Customer", status: "completed",

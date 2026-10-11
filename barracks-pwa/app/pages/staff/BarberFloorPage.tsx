@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { apiRequest, readApiBody, type ApiAttendance, type ApiBarberAvailability, type ApiQueueEntry } from "@/app/lib/api";
 import { Avatar, Badge, Button, EmptyState, MetricCard, PageHeader, Panel, SelectField } from "@/app/components/ui";
 import { createInitials } from "@/app/utils/format";
+import { barberAvailabilityLabel, isBarberAvailable } from "@/app/utils/barber-availability";
 
 function barberName(barber: ApiBarberAvailability): string {
   return `${barber.firstName} ${barber.lastName}`.trim();
@@ -72,7 +73,7 @@ export function BarberFloorPage() {
       });
       const body = await readApiBody<{ success: boolean; barber?: ApiBarberAvailability; message?: string }>(response);
       if (!response.ok || !body?.success || !body.barber) throw new Error(body?.message ?? "Unable to update barber status");
-      setBarbers((current) => current.map((item) => item.id === barber.id ? body.barber! : item));
+      await load();
     } catch (cause) {
       setStatusError(cause instanceof Error ? cause.message : "Unable to update barber status");
     } finally {
@@ -87,22 +88,22 @@ export function BarberFloorPage() {
       const response = await apiRequest(`/api/attendance/today/${barberId}?branchId=${branchId}`, { method: "POST", body: JSON.stringify(action) });
       const body = await readApiBody<{ success: boolean; attendance?: ApiAttendance; message?: string }>(response);
       if (!response.ok || !body?.success || !body.attendance) throw new Error(body?.message ?? "Unable to update attendance");
-      setAttendance((current) => [...current.filter((item) => item.barberId !== barberId), body.attendance!]);
+      await load();
     } catch (cause) {
       setStatusError(cause instanceof Error ? cause.message : "Unable to update attendance");
     } finally { setAttendanceSavingId(null); }
   }
 
   const serving = queue.filter((entry) => entry.status === "in_progress" && barbers.some((barber) => barber.id === entry.barberId));
-  const available = barbers.filter((barber) => barber.status === "available" && !serving.some((entry) => entry.barberId === barber.id));
+  const available = barbers.filter((barber) => isBarberAvailable(barber) && !serving.some((entry) => entry.barberId === barber.id));
 
   return <div className="operational-workspace">
-    <SelectField label="Branch" value={branchId} disabled={savingId !== null || attendanceSavingId !== null} onChange={(event) => { setBarbers([]); setBranchId(Number(event.target.value)); }}>{branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</SelectField>{branchError && <p role="alert">{branchError}</p>}<PageHeader title="Barber Floor" description="See operational status, assignments, and today's attendance." action={<Button icon="refresh" variant="secondary" disabled={loading} onClick={() => void load()}>Refresh</Button>} />
+    <SelectField label="Branch" value={branchId} disabled={savingId !== null || attendanceSavingId !== null} onChange={(event) => { invalidateLoad(); setBarbers([]); setQueue([]); setAttendance([]); setLoading(true); setError(""); setStatusError(""); setBranchId(Number(event.target.value)); }}>{branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</SelectField>{branchError && <p role="alert">{branchError}</p>}<PageHeader title="Barber Floor" description="See operational status, assignments, and today's attendance." action={<Button icon="refresh" variant="secondary" disabled={loading} onClick={() => void load()}>Refresh</Button>} />
     <div className="metrics-grid metrics-grid--four">
-      <MetricCard label="Barbers" value={loading ? "—" : String(barbers.length)} icon="scissors" accent="blue" />
-      <MetricCard label="Available" value={loading ? "—" : String(available.length)} icon="check" accent="green" />
-      <MetricCard label="In service" value={loading ? "—" : String(serving.length)} icon="queue" accent="amber" />
-      <MetricCard label="Unavailable" value={loading ? "—" : String(barbers.filter((barber) => barber.status === "unavailable").length)} icon="info" accent="violet" />
+      <MetricCard label="Barbers" value={loading || error ? "—" : String(barbers.length)} icon="scissors" accent="blue" />
+      <MetricCard label="Available" value={loading || error ? "—" : String(available.length)} icon="check" accent="green" />
+      <MetricCard label="In service" value={loading || error ? "—" : String(serving.length)} icon="queue" accent="amber" />
+      <MetricCard label="Unavailable" value={loading || error ? "—" : String(barbers.filter((barber) => !isBarberAvailable(barber) && !serving.some((entry) => entry.barberId === barber.id)).length)} icon="info" accent="violet" />
     </div>
     <Panel className="operational-panel">
       <div className="inventory-catalog-head"><div><span className="inventory-kicker">Live floor</span><h2>Barber availability</h2><p>Check who is serving and who has a customer ready.</p></div></div>
@@ -115,8 +116,8 @@ export function BarberFloorPage() {
           const currentService = serving.find((entry) => entry.barberId === barber.id);
           const readyCount = queue.filter((entry) => entry.barberId === barber.id && entry.status === "ready").length;
           const today = attendance.find((entry) => entry.barberId === barber.id);
-          const status = currentService ? "In service" : barber.status === "available" ? "Available" : barber.status === "busy" ? "Busy" : "Unavailable";
-          const tone = currentService || barber.status === "busy" ? "warning" : barber.status === "available" ? "success" : "neutral";
+          const status = currentService ? "In service" : barberAvailabilityLabel(barber);
+          const tone = currentService ? "warning" : isBarberAvailable(barber) ? "success" : "neutral";
           return <article className="barber-status-card" key={barber.id}>
             <div className="barber-status-card__head"><Avatar initials={createInitials(name)} tone="slate" size="md" /><Badge tone={tone}>{status}</Badge></div>
             <strong>{name}</strong>
@@ -139,7 +140,8 @@ export function BarberFloorPage() {
                   <Button key={attendanceStatus} size="sm" variant="secondary" disabled={attendanceSavingId === barber.id || today?.status === attendanceStatus || (attendanceStatus === "absent" && Boolean(today?.clockIn))}
                     onClick={() => void changeAttendance(barber.id, { action: "mark", status: attendanceStatus })}>Mark {attendanceStatus}</Button>)}
                 <Button size="sm" variant="secondary" disabled={attendanceSavingId === barber.id || Boolean(today?.clockIn)} onClick={() => void changeAttendance(barber.id, { action: "clock_in" })}>Clock In</Button>
-                <Button size="sm" variant="secondary" disabled={attendanceSavingId === barber.id || !today?.clockIn || Boolean(today.clockOut)} onClick={() => void changeAttendance(barber.id, { action: "clock_out" })}>Clock Out</Button>
+                <Button size="sm" variant="secondary" disabled={attendanceSavingId === barber.id || !today?.clockIn || Boolean(today.clockOut) || Boolean(currentService)} onClick={() => void changeAttendance(barber.id, { action: "clock_out" })}>Clock Out</Button>
+                {currentService && today?.clockIn && !today.clockOut && <p>Complete the active service before clocking out.</p>}
               </div>
             </div>
           </article>;

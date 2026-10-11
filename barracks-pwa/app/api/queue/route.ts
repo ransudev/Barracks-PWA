@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   catch (error) {
     const branchResponse = visitBranchError(error);
     if (branchResponse) return branchResponse;
-    if (error instanceof QueueServiceError) return Response.json({ success: false, message: error.message }, { status: error.kind === "conflict" ? 409 : error.kind === "not_found" ? 404 : 400 });
+    if (error instanceof QueueServiceError) return Response.json({ success: false, message: error.message, reason: "reason" in error ? error.reason : undefined, interval: "interval" in error ? error.interval : undefined }, { status: error.kind === "conflict" ? 409 : error.kind === "not_found" ? 404 : 400 });
     console.error("Unable to add walk-in", error);
     return Response.json({ success: false, message: "Unable to add walk-in" }, { status: 500 });
   }

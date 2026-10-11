@@ -28,7 +28,10 @@ test("barber and hours APIs enforce assigned branches, roles and IDs; Administra
     for (const role of ["manager", "front_desk"] as const) {
       const id = Number((await db.query("INSERT INTO users(first_name,last_name,email,password_hash,role_id) VALUES('Staff','Test',$1,'test',(SELECT id FROM roles WHERE name=$2)) RETURNING id", [`${role}@test.local`, role])).rows[0].id);
       await db.query("INSERT INTO user_branches(user_id,branch_id,is_primary) VALUES($1,$2,true)", [id, main]); actor = { id, role };
-      assert.deepEqual((await (await collection.GET(request())).json()).barbers.map((barber: { id: number }) => barber.id).sort(), [...mainBarberIds].sort());
+      const scoped = (await (await collection.GET(request())).json()).barbers;
+      assert.deepEqual(scoped.map((barber: { id: number }) => barber.id).sort(), [...mainBarberIds].sort());
+      assert.equal(typeof scoped[0].operationalAvailability.available, "boolean");
+      assert.ok("reason" in scoped[0].operationalAvailability);
       assert.equal((await collection.GET(request({}, `?branchId=${second}`))).status, 403);
       assert.equal((await item.GET(request(), foreign)).status, 403);
       assert.equal((await status.PATCH(request({ status: "busy" }), foreign)).status, 403);

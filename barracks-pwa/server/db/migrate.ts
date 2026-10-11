@@ -11,6 +11,9 @@ export async function applyMigrations(db: Pool, through = Number.POSITIVE_INFINI
     .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   const client = await db.connect();
   try {
+    // Global default privileges and extension catalog changes are shared even
+    // across schemas. Serialize separate migration runners on this database.
+    await client.query("SELECT pg_advisory_lock(918274)");
     await client.query(`CREATE TABLE IF NOT EXISTS schema_migrations (
       name TEXT PRIMARY KEY,
       applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -30,6 +33,7 @@ export async function applyMigrations(db: Pool, through = Number.POSITIVE_INFINI
       }
     }
   } finally {
+    await client.query("SELECT pg_advisory_unlock(918274)").catch(() => undefined);
     client.release();
   }
 }

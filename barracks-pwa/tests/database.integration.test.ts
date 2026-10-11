@@ -59,20 +59,20 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
       lastName: "Lifecycle",
       email,
       role: "front_desk",
-    });
+    }, createdAdmin.user.id);
     assert.equal(updated.kind, "updated");
 
-    const verified = await users.updateUserLifecycle(pool, userId, { action: "verify" });
+    const verified = await users.updateUserLifecycle(pool, userId, { action: "verify" }, createdAdmin.user.id);
     assert.equal(verified.kind, "updated");
     if (verified.kind !== "updated") return;
     assert.equal(verified.user.isVerified, true);
 
     const session = await sessions.createSession(pool, userId);
-    const blocked = await users.updateUserLifecycle(pool, userId, { action: "block" });
+    const blocked = await users.updateUserLifecycle(pool, userId, { action: "block" }, createdAdmin.user.id);
     assert.equal(blocked.kind, "updated");
     assert.equal(await sessions.findUserBySessionToken(pool, session.token), null);
 
-    const unblocked = await users.updateUserLifecycle(pool, userId, { action: "unblock" });
+    const unblocked = await users.updateUserLifecycle(pool, userId, { action: "unblock" }, createdAdmin.user.id);
     assert.equal(unblocked.kind, "updated");
     if (unblocked.kind !== "updated") return;
     assert.equal(unblocked.user.isBlocked, false);
@@ -168,7 +168,6 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
       firstName: createdBarber.firstName,
       lastName: createdBarber.lastName,
       status: "busy",
-      commissionRate: 40,
       rating: 4.7,
     });
     assert.equal(changedBarber?.status, "busy");
@@ -180,7 +179,7 @@ test("PostgreSQL account, inventory, and barber lifecycle persists safely", { sk
       status: "available",
     });
     assert.equal(rosterEdit?.rating, 4.7);
-    assert.equal(rosterEdit?.commissionRate, 40);
+    assert.equal(rosterEdit?.commissionRate, 35, "roster edits preserve the effective payroll rate");
 
     const createdCustomer = await customers.createCustomer(pool, {
       firstName: "Codex",

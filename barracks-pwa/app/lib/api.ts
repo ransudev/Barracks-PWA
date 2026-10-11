@@ -9,6 +9,8 @@ export type ApiUser = {
   isVerified: boolean;
   isBlocked: boolean;
   isActive: boolean;
+  branchIds?: number[];
+  canManageAccount?: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -19,6 +21,7 @@ export type ApiBarber = {
   firstName: string;
   lastName: string;
   status: "available" | "busy" | "unavailable";
+  operationalAvailability?: ApiOperationalAvailability;
   commissionRate: number | null;
   earnedCommissionCentavos?: string;
   servicesDone: number;
@@ -29,7 +32,14 @@ export type ApiBarber = {
   updatedAt: string;
 };
 
-export type ApiBarberAvailability = Pick<ApiBarber, "id" | "firstName" | "lastName" | "status">;
+export type ApiOperationalAvailability = {
+  available: boolean;
+  reason: "absent" | "clocked_out" | "barber_not_found" | "invalid_branch" | "duration_unknown" | "reservation_collision" | "unavailable" | "serving_customer" | "off_shift" | "break" | "temporary_unavailability" | null;
+  activeQueueEntryId: number | null;
+  interval?: { startsAt: string; endsAt: string };
+  attendanceState?: "unmarked" | "present" | "late" | "absent" | "clocked_out";
+};
+export type ApiBarberAvailability = Pick<ApiBarber, "id" | "firstName" | "lastName" | "status" | "operationalAvailability">;
 
 export type ApiAttendance = {
   branchId: number;

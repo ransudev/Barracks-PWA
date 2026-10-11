@@ -4,6 +4,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { JSDOM } from "jsdom";
 import { StaffDashboard } from "@/app/pages/staff/StaffDashboard";
+import type { ApiBarberAvailability } from "@/app/lib/api";
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>");
 (globalThis as unknown as { document: Document }).document = dom.window.document;
@@ -15,13 +16,13 @@ const entry = (id: number, status: string) => ({ id, bookingId: id === 1 ? 100 :
   barberName: "Test Barber", status, joinedAt: "2026-09-25T00:00:00Z", startedAt: null,
   completedAt: null, createdAt: "2026-09-25T00:00:00Z", updatedAt: "2026-09-25T00:00:00Z" });
 
-async function renderDashboard(queueResponse: Response) {
+async function renderDashboard(queueResponse: Response, barbers: ApiBarberAvailability[] = []) {
   const previousFetch = globalThis.fetch;
   globalThis.fetch = async (input) => {
     const path = String(input);
     if (path === "/api/branch-context") return Response.json({ branches: [{ id: 1, name: "Main Branch", status: "active" }], primaryBranch: { id: 1 } });
     if (path === "/api/queue?view=active&branchId=1") return queueResponse;
-    if (path === "/api/barbers?branchId=1") return Response.json({ success: true, barbers: [] });
+    if (path === "/api/barbers?branchId=1") return Response.json({ success: true, barbers });
     if (path === "/api/bookings?branchId=1") return Response.json({ success: true, bookings: [] });
     if (path === "/api/inventory") return Response.json({ success: true, items: [] });
     throw new Error(`Unexpected request: ${path}`);
@@ -49,6 +50,17 @@ test("staff dashboard counts active persisted queue entries and previews them", 
     assert.match(view.container.textContent ?? "", /View barber floor/);
     assert.equal(view.container.querySelectorAll(".queue-preview__row").length, 2);
     assert.match(view.container.textContent ?? "", /Queue Customer 1/);
+  } finally { await view.cleanup(); }
+});
+
+test("staff dashboard availability count and labels follow server eligibility", async () => {
+  const view = await renderDashboard(Response.json({ success: true, queue: [] }), [
+    { id: 1, firstName: "Absent", lastName: "Barber", status: "available", operationalAvailability: { available: false, reason: "absent", activeQueueEntryId: null } },
+    { id: 2, firstName: "Eligible", lastName: "Barber", status: "available", operationalAvailability: { available: true, reason: null, activeQueueEntryId: null, attendanceState: "unmarked" } },
+  ]);
+  try {
+    assert.match(view.container.querySelector(".metrics-grid")?.textContent ?? "", /Available barbers\s*1/);
+    assert.match(view.container.querySelector(".barber-dashboard-details")?.textContent ?? "", /Absent today/);
   } finally { await view.cleanup(); }
 });
 
