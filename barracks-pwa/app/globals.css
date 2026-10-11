@@ -1837,6 +1837,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .inventory-drawer-scrim, .operational-drawer-scrim { transition: none; }
 }
 .operational-workspace > .schedule-management { margin-top: 22px; overflow: hidden; }
+.schedule-management > .tabs { margin: 16px 23px 0; max-width: calc(100% - 46px); }
 .schedule-management__timezone { flex: 0 0 auto; border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; background: var(--surface-raised); color: var(--text-muted); font-family: var(--font-geist-mono), monospace; font-size: 10px; }
 .schedule-management__error { margin: 16px 23px 0; }
 .schedule-management__section { padding: 22px 23px 24px; }
@@ -1883,6 +1884,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .schedule-management__absence-form .button { justify-self: start; }
 }
 @media (max-width: 640px) {
+  .schedule-management > .tabs { margin-inline: 18px; max-width: calc(100% - 36px); }
   .schedule-management__section { padding: 20px 18px; }
   .schedule-management__section-head { align-items: stretch; flex-direction: column; }
   .schedule-management__barber-select { width: 100%; }
