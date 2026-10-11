@@ -2,28 +2,73 @@
 .payroll-workspace > *, #payroll-payslip { min-width: 0; }
 .payroll-workspace > .panel { padding: 24px; }
 .payroll-toolbar, .payroll-toolbar nav, .payroll-section-head, .payroll-detail-actions, .payroll-pagination { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
-.payroll-toolbar { justify-content: space-between; }
+.payroll-workspace > .page-header { margin-bottom: 0; }
+.payroll-toolbar { justify-content: space-between; align-items: flex-end; gap: 20px; }
 .payroll-toolbar > label { min-width: 220px; }
+.payroll-tabs { padding: 4px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-raised); }
+.payroll-toolbar .payroll-tabs { gap: 4px; }
+.payroll-tabs .button--secondary { background: transparent; border-color: transparent; }
+.payroll-tabs .button--secondary:hover { background: var(--surface-hover); }
 .payroll-section-head { justify-content: space-between; margin-bottom: 20px; }
+.payroll-section-head > div { min-width: 0; flex: 1 1 280px; }
+.payroll-section-head h2 { margin-bottom: 6px; }
+.payroll-section-head p { margin: 0; }
 .payroll-workspace h2 { font-size: 18px; margin: 0 0 12px; }
 .payroll-workspace h3 { font-size: 15px; margin: 24px 0 12px; }
 .payroll-workspace p { color: var(--text-soft); line-height: 1.6; overflow-wrap: anywhere; }
+.payroll-workspace > .panel > p { margin: 8px 0 20px; }
 .payroll-metrics, .payroll-totals { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; margin: 20px 0; }
 .payroll-metrics > div, .payroll-totals > div { border-top: 1px solid var(--line); padding-top: 12px; }
 .payroll-workspace dt { color: var(--text-muted); font-size: 12px; }
 .payroll-workspace dd { margin: 8px 0 0; font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .payroll-metrics dd { font-size: 24px; }
-.payroll-filters { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; margin-bottom: 20px; }
-.payroll-workspace .operational-table td { font-variant-numeric: tabular-nums; white-space: normal; overflow-wrap: anywhere; height: auto; line-height: 1.6; }
+.payroll-filters { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; padding: 20px 0; margin-bottom: 8px; border-top: 1px solid var(--line); align-items: end; }
+.payroll-workspace .operational-table-wrap { max-width: 100%; padding: 0 0 8px; scrollbar-color: var(--line-strong) var(--surface); }
+.payroll-workspace .operational-table { table-layout: auto; font-size: 13px; }
+.payroll-workspace .operational-table th { padding: 12px 16px; height: auto; font-size: 10px; line-height: 1.5; }
+.payroll-workspace .operational-table td { padding: 16px; font-variant-numeric: tabular-nums; white-space: normal; overflow-wrap: break-word; height: auto; line-height: 1.6; vertical-align: top; overflow: visible; }
+.payroll-workspace .operational-table th:first-child, .payroll-workspace .operational-table td:first-child { padding-left: 0; }
+.payroll-workspace .operational-table th:last-child, .payroll-workspace .operational-table td:last-child { padding-right: 0; }
+.payroll-workspace .operational-table tbody tr { cursor: default; }
+.payroll-records-table .operational-table { min-width: 960px; }
+.payroll-records-table th:first-child, .payroll-records-table td:first-child { min-width: 240px; }
+.payroll-records-table th:nth-child(n+2):nth-child(-n+5), .payroll-records-table td:nth-child(n+2):nth-child(-n+5),
+.payroll-earnings-table th:nth-child(n+2), .payroll-earnings-table td:nth-child(n+2),
+.payroll-services-table th:nth-child(n+3), .payroll-services-table td:nth-child(n+3),
+.payroll-unresolved-table th:nth-child(3), .payroll-unresolved-table td:nth-child(3) { text-align: right; white-space: nowrap; }
+.payroll-records-table td:nth-child(6), .payroll-records-table td:last-child { white-space: nowrap; }
+.payroll-services-table td:first-child, .payroll-unresolved-table td:first-child { min-width: 220px; }
+.payroll-earnings-table .operational-table, .payroll-rates-table .operational-table { min-width: 520px; }
+.payroll-workspace .operational-table .button { min-height: 40px; }
 .payroll-workspace td small, .payroll-workspace li small { display: block; margin-top: 6px; color: var(--text-muted); }
 .payroll-pagination { justify-content: flex-end; margin-top: 20px; font-size: 12px; }
 .payroll-rate-history { border-top: 1px solid var(--line); padding: 16px 0; }
 .payroll-rate-history summary { cursor: pointer; }
+.payroll-rate-history summary { line-height: 1.6; padding: 4px 0; }
+.payroll-rate-history summary:focus-visible { outline: 2px solid var(--text); outline-offset: 4px; }
+.payroll-audit { padding-left: 20px; line-height: 1.6; }
 .payroll-rate-history li, .payroll-audit li { margin: 16px 0; }
-.payroll-notice { padding: 12px; border: 1px solid var(--line); }
+.payroll-notice { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-raised); }
 .payroll-footnote { border-top: 1px solid var(--line); padding-top: 16px; font-size: 12px; }
-@media (min-width: 1100px) { .payroll-metrics, .payroll-filters { grid-template-columns: repeat(4,minmax(0,1fr)); } }
-@media (max-width: 480px) { .payroll-workspace > .panel { padding: 16px; } .payroll-filters, .payroll-totals { grid-template-columns: 1fr; } .payroll-toolbar > label { width: 100%; min-width: 0; } .payroll-toolbar nav { width: 100%; } .payroll-toolbar .button { flex: 1; } }
+@media (min-width: 1200px) { .payroll-metrics, .payroll-filters { grid-template-columns: repeat(4,minmax(0,1fr)); } }
+@media (max-width: 760px) {
+  .payroll-toolbar { align-items: stretch; flex-direction: column; }
+  .payroll-toolbar > label { min-width: 0; }
+  .payroll-tabs { width: 100%; }
+  .payroll-tabs .button { flex: 1 1 auto; min-height: 44px; white-space: normal; padding: 8px 12px; }
+  .payroll-section-head { align-items: stretch; }
+  .payroll-section-head > .button { width: 100%; min-height: 44px; white-space: normal; }
+  .payroll-detail-actions .button { flex: 1 1 180px; min-height: 44px; white-space: normal; }
+  .payroll-pagination { justify-content: space-between; }
+}
+@media (max-width: 480px) {
+  .payroll-workspace > .panel { padding: 16px; }
+  .payroll-filters, .payroll-totals { grid-template-columns: 1fr; }
+  .payroll-metrics { gap: 20px 12px; }
+  .payroll-metrics dd { font-size: 20px; }
+  .payroll-pagination { gap: 8px; }
+  .payroll-pagination .button { min-height: 44px; }
+}
 @media print {
   body:has(#payroll-payslip) * { visibility: hidden; }
   body:has(#payroll-payslip) #payroll-payslip, body:has(#payroll-payslip) #payroll-payslip * { visibility: visible; }

@@ -10,7 +10,7 @@ test("financial action requests require a reason and valid full-cent amount", ()
   assert.equal(financialActionSchema.safeParse({ action: "void", amount: 300, reason: " " }).success, false);
 });
 
-test("refund and void preserve sales, capture audit history, and reject duplicate or unauthorized actions", { skip: !databaseConfigured }, async () => {
+test("refund preserves sales and audit history while post-payment void remains denied", { skip: !databaseConfigured }, async () => {
   const { db, cleanup } = await createDisposableSchema();
   const { createTransaction, applyFinancialAction, findTransactionByReference, listTransactionHistory, PaymentServiceError } = await import("@/server/services/payment.service");
   try {
@@ -51,15 +51,20 @@ test("refund and void preserve sales, capture audit history, and reject duplicat
       (error: unknown) => error instanceof PaymentServiceError && error.kind === "invalid_state");
     await assert.rejects(applyFinancialAction(db, refunded.reference, { action: "void", amount: 300, reason: "Again" }, ids.manager),
       (error: unknown) => error instanceof PaymentServiceError && error.kind === "invalid_state");
-    const voided = await pay("11:00");
-    const afterVoid = await applyFinancialAction(db, voided.reference, { action: "void", amount: 300, reason: "Duplicate charge" }, ids.administrator);
-    assert.equal(afterVoid.status, "voided");
-    assert.equal(afterVoid.actions?.[0].action, "void");
-    await assert.rejects(applyFinancialAction(db, voided.reference, { action: "void", amount: 300, reason: "Again" }, ids.administrator));
+    const retained = await pay("11:00");
+    await assert.rejects(applyFinancialAction(db, retained.reference, { action: "void", amount: 300, reason: "Duplicate charge" }, ids.administrator),
+      (error: unknown) => error instanceof PaymentServiceError && error.kind === "invalid_state" && /Post-payment void policy is unconfirmed/.test(error.message));
+    const unchanged = await findTransactionByReference(db, retained.reference);
+    assert.equal(unchanged?.status, "completed");
+    assert.equal(unchanged?.paymentStatus, "completed");
+    assert.equal(unchanged?.amountReceived, 500);
+    assert.equal(unchanged?.change, 200);
+    assert.equal(unchanged?.actions, undefined);
+    assert.equal(Number((await db.query("SELECT count(*) FROM transaction_financial_actions WHERE transaction_id=$1", [retained.id])).rows[0].count), 0);
     assert.equal((await findTransactionByReference(db, refunded.reference))?.status, "refunded");
     const history = await listTransactionHistory(db, { page: 1, pageSize: 20, search: "" });
-    assert.deepEqual(new Set(history.transactions.map((row) => row.status)), new Set(["refunded", "voided"]));
-    assert.equal(Number((await db.query("SELECT count(*) FROM transaction_financial_actions")).rows[0].count), 2);
+    assert.deepEqual(new Set(history.transactions.map((row) => row.status)), new Set(["refunded", "completed"]));
+    assert.equal(Number((await db.query("SELECT count(*) FROM transaction_financial_actions")).rows[0].count), 1);
     await assert.rejects(db.query("UPDATE transactions SET amount=1 WHERE id=$1", [refunded.id]), { constraint: "finalized_financial_record_immutable" });
     await assert.rejects(db.query("UPDATE transaction_payments SET amount_received=501 WHERE transaction_id=$1", [refunded.id]), { constraint: "finalized_financial_record_immutable" });
     await assert.rejects(db.query("DELETE FROM transactions WHERE id=$1", [refunded.id]), { constraint: "finalized_financial_record_immutable" });
@@ -93,7 +98,7 @@ test("concurrent refunds serialize and a failed status write rolls back the audi
       RAISE EXCEPTION 'forced failure'; END; $$`);
     await db.query(`CREATE TRIGGER fail_tender_action BEFORE UPDATE ON transaction_payments
       FOR EACH ROW EXECUTE FUNCTION fail_tender_action()`);
-    await assert.rejects(applyFinancialAction(db, second.reference, { action: "void", amount: 300, reason: "Rollback" }, staff), /forced failure/);
+    await assert.rejects(applyFinancialAction(db, second.reference, { action: "refund", amount: 300, reason: "Rollback" }, staff), /forced failure/);
     assert.equal((await findTransactionByReference(db, second.reference))?.status, "completed");
     assert.equal(Number((await db.query("SELECT count(*) FROM transaction_financial_actions WHERE transaction_id=$1", [second.id])).rows[0].count), 0);
   } finally { await cleanup(); }

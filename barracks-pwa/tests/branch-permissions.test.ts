@@ -10,7 +10,7 @@ mock.module("@/server/db/pool", { namedExports: { pool: {
   query: async (sql: string) => { databaseCalls++; return { rows: sql.includes("FROM branches") || sql.includes("RETURNING") ? [branch] : [], rowCount: 1 }; },
   connect: async () => {
     databaseCalls++;
-    return { query: async () => ({ rows: [{ role: "customer", deleted_at: null }], rowCount: 1 }), release() {} };
+    return { query: async (sql: string) => ({ rows: [{ role: sql.includes("u.is_verified") ? role : "customer", deleted_at: null }], rowCount: 1 }), release() {} };
   },
 } } });
 const collection = await import("@/app/api/branches/route");

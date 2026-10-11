@@ -40,10 +40,15 @@ export async function listAssignments(db: Db, branchId: number): Promise<BranchA
 
 // Every membership mutation locks the same user row before touching assignments.
 // This serializes primary changes across branches, including concurrent requests.
-export async function mutateAssignment(db: Pool, branchId: number, userId: number, action: "assign" | "remove" | "primary", isPrimary = false): Promise<void> {
+export async function mutateAssignment(db: Pool, branchId: number, userId: number, action: "assign" | "remove" | "primary", isPrimary = false, actorId?: number): Promise<void> {
   const client = await db.connect();
   try {
     await client.query("BEGIN");
+    if (actorId !== undefined) {
+      await client.query("SELECT id FROM users WHERE id=ANY($1::int[]) ORDER BY id FOR UPDATE",[[actorId,userId]]);
+      const actor=(await client.query<{role:string}>("SELECT r.name AS role FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=$1 AND u.deleted_at IS NULL AND u.is_verified AND NOT u.is_blocked",[actorId])).rows[0];
+      if(actor?.role!=="administrator") throw new BranchError("Administrator access is required",403);
+    }
     const user = (await client.query<{ role: string; deleted_at: Date | null }>(`SELECT r.name AS role,u.deleted_at FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=$1 FOR UPDATE OF u`, [userId])).rows[0];
     if (!user || user.deleted_at !== null) throw new BranchError("Staff account not found", 404);
     if (user.role !== "manager" && user.role !== "front_desk") throw new BranchError("Only Managers and Front Desk can be assigned", 400);

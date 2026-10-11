@@ -1,4 +1,4 @@
-import { requireAdministrator } from "@/server/auth/require-role";
+import { requireRolesUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { branchIdSchema, branchPrimarySchema } from "@/server/schemas/branch.schema";
 import { mutateAssignment } from "@/server/services/branch.service";
@@ -7,7 +7,7 @@ import { branchApiError, branchNotFound, readBranchInput } from "@/server/servic
 export const runtime = "nodejs";
 type Context = { params: Promise<{ id: string; userId: string }> };
 async function mutate(request: Request, context: Context, action: "remove" | "primary") {
-  const denied = await requireAdministrator(); if (denied) return denied;
+  const actor = await requireRolesUser(["administrator"]); if (actor instanceof Response) return actor;
   const params = await context.params;
   const id = branchIdSchema.safeParse(params.id), userId = branchIdSchema.safeParse(params.userId);
   if (!id.success || !userId.success) return branchNotFound();
@@ -15,7 +15,7 @@ async function mutate(request: Request, context: Context, action: "remove" | "pr
     const input = await readBranchInput(request, branchPrimarySchema); if (input instanceof Response) return input;
   }
   try {
-    await mutateAssignment(pool, id.data, userId.data, action);
+    await mutateAssignment(pool, id.data, userId.data, action, false, actor.id);
     return Response.json({ success: true });
   } catch (error) { return branchApiError(error); }
 }

@@ -8,7 +8,7 @@ import {
 } from "@/app/constants/roles";
 import type { PublicUser } from "@/server/services/user.service";
 import {
-  findUserById,
+  findStaffUserById,
   softDeleteUser,
   updateStaffUser,
   updateUserLifecycle,
@@ -31,8 +31,8 @@ function parseUserId(rawId: string): number | Response {
   return Number(rawId);
 }
 
-async function findTarget(id: number): Promise<PublicUser | Response> {
-  const target = await findUserById(pool, id);
+async function findTarget(id: number, actorId: number): Promise<PublicUser | Response> {
+  const target = await findStaffUserById(pool, actorId, id);
   if (!target) {
     return Response.json({ success: false, message: "User not found" }, { status: 404 });
   }
@@ -50,7 +50,7 @@ export async function GET(
   if (id instanceof Response) return id;
 
   try {
-    const target = await findTarget(id);
+    const target = await findTarget(id, manager.id);
     if (target instanceof Response) return target;
     if (!canViewStaffUser(manager.role, target.role)) {
       return Response.json(
@@ -76,7 +76,7 @@ export async function DELETE(
   if (id instanceof Response) return id;
 
   try {
-    const target = await findTarget(id);
+    const target = await findTarget(id, manager.id);
     if (target instanceof Response) return target;
     if (!canDeactivateStaffUser(manager.role, target.role, manager.id, target.id)) {
       return Response.json(
@@ -85,7 +85,8 @@ export async function DELETE(
       );
     }
 
-    const result = await softDeleteUser(pool, id);
+    const result = await softDeleteUser(pool, id, manager.id);
+    if (result.kind === "forbidden") return Response.json({success:false,message:"You do not have authority to change this staff account"},{status:403});
     if (result.kind === "not_found") {
       return Response.json({ success: false, message: "User not found" }, { status: 404 });
     }
@@ -142,7 +143,7 @@ export async function PUT(
   }
 
   try {
-    const target = await findTarget(id);
+    const target = await findTarget(id, manager.id);
     if (target instanceof Response) return target;
     if (!canUpdateStaffUser(manager.role, target.role, manager.id, target.id, parsed.data.role)) {
       return Response.json(
@@ -151,7 +152,8 @@ export async function PUT(
       );
     }
 
-    const result = await updateStaffUser(pool, id, parsed.data);
+    const result = await updateStaffUser(pool, id, parsed.data, manager.id);
+    if (result.kind === "forbidden") return Response.json({success:false,message:"You do not have authority to change this staff account"},{status:403});
     if (result.kind === "not_found") {
       return Response.json({ success: false, message: "User not found" }, { status: 404 });
     }
@@ -211,7 +213,7 @@ export async function PATCH(
   }
 
   try {
-    const target = await findTarget(id);
+    const target = await findTarget(id, manager.id);
     if (target instanceof Response) return target;
     if (!canChangeStaffLifecycle(manager.role, target.role, manager.id, target.id)) {
       return Response.json(
@@ -220,7 +222,8 @@ export async function PATCH(
       );
     }
 
-    const result = await updateUserLifecycle(pool, id, parsed.data);
+    const result = await updateUserLifecycle(pool, id, parsed.data, manager.id);
+    if (result.kind === "forbidden") return Response.json({success:false,message:"You do not have authority to change this staff account"},{status:403});
     if (result.kind === "not_found") {
       return Response.json({ success: false, message: "User not found" }, { status: 404 });
     }

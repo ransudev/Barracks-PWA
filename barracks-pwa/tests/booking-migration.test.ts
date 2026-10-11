@@ -1,8 +1,11 @@
+import { readdir } from "node:fs/promises";
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { Pool } from "pg";
 import { applyMigrations } from "@/server/db/migrate";
 import { createDisposableSchema, databaseConfigured } from "./helpers/database";
+
+const migrationCount = (await readdir(new URL("../server/db/migrations/", import.meta.url))).filter((file) => /^\d+_.+\.sql$/.test(file)).length;
 
 async function legacyPair(db: Pool, sameBarber: boolean): Promise<number[]> {
   const barbers: number[] = [];
@@ -31,7 +34,7 @@ async function legacyPair(db: Pool, sameBarber: boolean): Promise<number[]> {
 test("fresh disposable schema applies every migration", { skip: !databaseConfigured }, async () => {
   const { db, cleanup } = await createDisposableSchema();
   try {
-    assert.equal(Number((await db.query("SELECT count(*) AS count FROM schema_migrations")).rows[0].count), 28);
+    assert.equal(Number((await db.query("SELECT count(*) AS count FROM schema_migrations")).rows[0].count), migrationCount);
   } finally { await cleanup(); }
 });
 
@@ -44,7 +47,7 @@ test("non-overlapping legacy records migrate and remain intact", { skip: !databa
     const main = Number((await db.query("SELECT id FROM branches WHERE code='MAIN'")).rows[0].id);
     assert.equal((await db.query("SELECT count(*) FROM bookings WHERE branch_id<>$1", [main])).rows[0].count, "0");
     assert.equal((await db.query("SELECT count(*) FROM queue_entries WHERE branch_id<>$1", [main])).rows[0].count, "0");
-    assert.equal(Number((await db.query("SELECT count(*) AS count FROM schema_migrations")).rows[0].count), 28);
+    assert.equal(Number((await db.query("SELECT count(*) AS count FROM schema_migrations")).rows[0].count), migrationCount);
     assert.equal(Number((await db.query("SELECT count(*) AS count FROM bookings WHERE id=ANY($1::bigint[])", [ids])).rows[0].count), 2);
   } finally { await cleanup(); }
 });
@@ -81,7 +84,7 @@ test("queue lifecycle migration requires review of inconsistent legacy states", 
     assert.equal((await db.query<{ status: string }>("SELECT status FROM queue_entries WHERE id=$1", [entry])).rows[0].status, "ready");
     await db.query("UPDATE queue_entries SET status='waiting' WHERE id=$1", [entry]);
     await applyMigrations(db);
-    assert.equal(Number((await db.query("SELECT count(*) AS count FROM schema_migrations")).rows[0].count), 28);
+    assert.equal(Number((await db.query("SELECT count(*) AS count FROM schema_migrations")).rows[0].count), migrationCount);
   } finally { await cleanup(); }
 });
 
@@ -98,7 +101,7 @@ for (const sameBarber of [true, false]) {
       // A reviewer moves the second appointment to the first appointment's end.
       await db.query("UPDATE bookings SET booking_time='10:45', end_time='11:30' WHERE id=$1", [ids[1]]);
       await applyMigrations(db);
-      assert.equal(Number((await db.query("SELECT count(*) AS count FROM schema_migrations")).rows[0].count), 28);
+      assert.equal(Number((await db.query("SELECT count(*) AS count FROM schema_migrations")).rows[0].count), migrationCount);
       assert.equal(Number((await db.query("SELECT count(*) AS count FROM bookings WHERE id=ANY($1::bigint[]) AND status='confirmed'", [ids])).rows[0].count), 2);
     } finally { await cleanup(); }
   });
@@ -114,6 +117,8 @@ test("Phase 3 backfills legacy queue history without changing snapshots or times
     const after = (await db.query("SELECT * FROM queue_entries WHERE id=$1", [entry])).rows[0];
     const main = Number((await db.query("SELECT id FROM branches WHERE code='MAIN'")).rows[0].id);
     assert.equal(after.branch_id, main);
+    assert.equal(after.service_duration_minutes_snapshot, null);
+    delete after.service_duration_minutes_snapshot;
     delete after.branch_id;
     assert.deepEqual(after, before);
   } finally { await cleanup(); }

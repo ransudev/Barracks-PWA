@@ -1,6 +1,7 @@
 import type { Pool, PoolClient } from "pg";
 import { createHash } from "node:crypto";
-import { canStartServiceNow } from "@/server/services/booking-availability.service";
+import type { BranchActor } from "@/server/auth/barber-branch-access";
+import { lockOperationalActor, requireTransactionBranch } from "@/server/auth/transaction-branch-access";
 import { BarberOperationalAvailabilityError, getBarberOperationalAvailability, requireBarberOperationalAvailability } from "@/server/services/barber-operational-availability.service";
 import { initialQueueStatus, QueueLifecycleError, transitionQueue, type QueueState, type QueueStatus } from "@/server/services/queue-lifecycle";
 
@@ -18,7 +19,7 @@ export type { QueueStatus } from "@/server/services/queue-lifecycle";
 type QueueRow = {
   branch_id: number;
   id: number; booking_id: number | null; customer_id: number; customer_name: string;
-  service_id: string; service_name: string; barber_id: number | null; barber_name: string | null;
+  service_id: string; service_name: string; service_duration_minutes_snapshot: number | null; barber_id: number | null; barber_name: string | null;
   scheduled_date: string | null; scheduled_time: string | null; booking_status: string | null;
   status: QueueStatus; joined_at: Date | string; started_at: Date | string | null;
   completed_at: Date | string | null; created_at: Date | string; updated_at: Date | string;
@@ -40,7 +41,9 @@ export type QueueRecord = {
   completedAt: string | null; createdAt: string; updatedAt: string;
 };
 export class QueueServiceError extends Error {
-  constructor(public readonly kind: "invalid" | "not_found" | "conflict", message: string) { super(message); }
+  constructor(public readonly kind: "invalid" | "not_found" | "conflict", message: string,
+    public reason?: import("./barber-operational-availability.service").OperationalReason,
+    public interval?: import("./barber-operational-availability.service").OperationalInterval) { super(message); }
 }
 async function withQueueTransaction<T>(db: Pool, action: (client: PoolClient) => Promise<T>): Promise<T> {
   const client = await db.connect();
@@ -51,7 +54,7 @@ async function withQueueTransaction<T>(db: Pool, action: (client: PoolClient) =>
     return result;
   } catch (error) {
     await client.query("ROLLBACK").catch(() => undefined);
-    if (error instanceof BarberOperationalAvailabilityError) throw new QueueServiceError("conflict", error.message);
+    if (error instanceof BarberOperationalAvailabilityError) throw new QueueServiceError("conflict", error.message, error.reason, error.interval);
     if (error instanceof QueueLifecycleError) throw new QueueServiceError("conflict", error.message);
     if (isActiveBarberConflict(error)) throw new QueueServiceError("conflict", "Barber is currently serving another customer.");
     throw error;
@@ -113,10 +116,10 @@ async function selectNextCustomer(db: Db, barberId: number, branchId?: number): 
      ORDER BY CASE WHEN q.booking_id IS NOT NULL THEN 0 WHEN q.status='ready' THEN 1 ELSE 2 END, q.joined_at, q.id`,
     [barberId, branchId ?? null],
   );
-  const now = new Date();
   for (const row of result.rows) {
     const entry = toQueue(row);
-    if (entry.bookingId === null && !await canStartServiceNow(db, { serviceId: entry.serviceId, barberId }, now)) continue;
+    if (!(await getBarberOperationalAvailability(db, barberId, { durationMinutes: row.service_duration_minutes_snapshot,
+      branchId: entry.branchId, excludeBookingId: entry.bookingId ?? undefined })).available) continue;
     transitionQueue(
       { status: entry.status, barberId: entry.barberId, startedAt: entry.startedAt, completedAt: entry.completedAt },
       entry.status === "ready" ? { status: "in_progress" } : { barberId },
@@ -131,14 +134,17 @@ export async function getNextCustomer(db: Pool, barberId: number, branchId?: num
     return await selectNextCustomer(db, barberId, branchId);
   } catch (error) {
     if (error instanceof BarberOperationalAvailabilityError)
-      throw new QueueServiceError(error.message === "Barber not found." ? "not_found" : "conflict", error.message);
+      throw new QueueServiceError(error.message === "Barber not found." ? "not_found" : "conflict", error.message, error.reason, error.interval);
     if (error instanceof QueueLifecycleError) throw new QueueServiceError("conflict", error.message);
     throw error;
   }
 }
-export async function confirmNextCustomerAssignment(db: Pool, barberId: number, entryId: number, branchId?: number): Promise<QueueRecord> {
+export async function confirmNextCustomerAssignment(db: Pool, barberId: number, entryId: number, branchId?: number, actor?: BranchActor): Promise<QueueRecord> {
   return withQueueTransaction(db, async (client) => {
+    const authorizedActor = await lockOperationalActor(client, actor);
     const current = await lockQueueEntry(client, entryId);
+    const visit = (await findQueueEntry(client, entryId))!;
+    await requireTransactionBranch(client, authorizedActor, visit.branchId);
     if (current.booking_id !== null || current.status !== "waiting" || current.barber_id !== null)
       throw new QueueServiceError("conflict", "This suggestion changed. Find the next customer again.");
     transitionQueue(queueState(current), { barberId });
@@ -255,26 +261,39 @@ export async function assignQueueBarber(db: Pool, id: number, barberId: number |
     return (await findQueueEntry(client, id))!;
   });
 }
-export async function updateWalkInStatus(db: Pool, id: number, status: QueueStatus): Promise<QueueRecord> {
+export async function updateWalkInStatus(db: Pool, id: number, status: QueueStatus, actor?: BranchActor): Promise<QueueRecord> {
   return withQueueTransaction(db, async (client) => {
+    const authorizedActor = await lockOperationalActor(client, actor);
     const current = await lockQueueEntry(client, id);
+    const entry = (await findQueueEntry(client, id))!;
+    await requireTransactionBranch(client, authorizedActor, entry.branchId);
     transitionQueue(queueState(current), { status });
     if (current.booking_id !== null) throw new QueueServiceError("conflict", "Manage appointment status from Bookings.");
-    if (status === "in_progress") await requireBarber(client, current.barber_id!);
+    let serviceStartedAt: string | undefined;
+    if (status === "in_progress") {
+      await requireBarber(client, current.barber_id!);
+      const visit = (await client.query<{ branch_id: number; service_duration_minutes_snapshot: number | null }>(
+        "SELECT branch_id,service_duration_minutes_snapshot FROM queue_entries WHERE id=$1", [id])).rows[0];
+      const eligibility = await getBarberOperationalAvailability(client, current.barber_id!, {
+        branchId: Number(visit.branch_id), durationMinutes: visit.service_duration_minutes_snapshot,
+      });
+      requireBarberOperationalAvailability(eligibility);
+      serviceStartedAt = eligibility.interval?.startsAt;
+    }
     const result = await client.query<{ id: number }>(
       `UPDATE queue_entries SET status=$2::varchar,
-         started_at=CASE WHEN $2::varchar='in_progress' THEN COALESCE(started_at,NOW()) ELSE started_at END,
-         completed_at=CASE WHEN $2::varchar='completed' THEN COALESCE(completed_at,GREATEST(NOW(),started_at)) ELSE completed_at END,
+         started_at=CASE WHEN $2::varchar='in_progress' THEN COALESCE(started_at,$4::timestamptz,clock_timestamp()) ELSE started_at END,
+         completed_at=CASE WHEN $2::varchar='completed' THEN COALESCE(completed_at,GREATEST(clock_timestamp(),started_at)) ELSE completed_at END,
          updated_at=NOW()
        WHERE id=$1 AND booking_id IS NULL AND status=$3 RETURNING id`,
-      [id, status, current.status],
+      [id, status, current.status, serviceStartedAt ?? null],
     );
     if (!result.rows[0]) throw new QueueServiceError("conflict", "Queue status changed or a barber must be assigned first");
     return (await findQueueEntry(client, id))!;
   });
 }
 
-export async function syncAppointmentQueue(client: PoolClient, bookingId: number, status: "checked_in" | "in_progress" | "completed" | "cancelled"): Promise<void> {
+export async function syncAppointmentQueue(client: PoolClient, bookingId: number, status: "checked_in" | "in_progress" | "completed" | "cancelled", serviceStartedAt?: string): Promise<void> {
   if (status === "checked_in") {
     const inserted = await client.query(
       `INSERT INTO queue_entries(booking_id,customer_id,service_id,service_name_snapshot,service_price_snapshot,barber_id,status,branch_id)
@@ -292,10 +311,10 @@ export async function syncAppointmentQueue(client: PoolClient, bookingId: number
   transitionQueue(queueState(current.rows[0]), { status: queueStatus });
   const result = await client.query(
     `UPDATE queue_entries SET status=$2::varchar,
-       started_at=CASE WHEN $2::varchar='in_progress' THEN COALESCE(started_at,NOW()) ELSE started_at END,
-       completed_at=CASE WHEN $2::varchar='completed' THEN COALESCE(completed_at,GREATEST(NOW(),started_at)) ELSE completed_at END, updated_at=NOW()
+       started_at=CASE WHEN $2::varchar='in_progress' THEN COALESCE(started_at,$4::timestamptz,clock_timestamp()) ELSE started_at END,
+       completed_at=CASE WHEN $2::varchar='completed' THEN COALESCE(completed_at,GREATEST(clock_timestamp(),started_at)) ELSE completed_at END, updated_at=NOW()
      WHERE booking_id=$1 AND status=$3 RETURNING id`,
-    [bookingId, queueStatus, current.rows[0].status],
+    [bookingId, queueStatus, current.rows[0].status, serviceStartedAt ?? null],
   );
   if (!result.rowCount) throw new QueueServiceError("conflict", "Appointment queue entry is missing or out of sync");
 }

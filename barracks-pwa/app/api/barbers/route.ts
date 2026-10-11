@@ -6,6 +6,7 @@ import { requireAdministrator, requireManagementUser, requireRolesUser } from "@
 import { pool } from "@/server/db/pool";
 import { barberSchema, barberStaffSchema, formatValidationErrors } from "@/server/schemas/sprint.schema";
 import { createBarber, listBarberAvailability, listBarbers } from "@/server/services/barber.service";
+import { getBarberOperationalAvailability } from "@/server/services/barber-operational-availability.service";
 
 export const runtime = "nodejs";
 
@@ -21,7 +22,10 @@ export async function GET(request: Request) {
     const barbers = authorizationResult.role === "customer" || authorizationResult.role === "front_desk"
       ? await listBarberAvailability(pool, branchIds)
       : await listBarbers(pool, branchIds);
-    return Response.json({ success: true, barbers });
+    const operationalBarbers = actor.role === "customer" ? barbers : await Promise.all(barbers.map(async (barber) => ({
+      ...barber, operationalAvailability: await getBarberOperationalAvailability(pool, barber.id),
+    })));
+    return Response.json({ success: true, barbers: operationalBarbers });
   } catch (error) {
     return branchApiError(error);
   }

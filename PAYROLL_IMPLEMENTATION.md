@@ -1,6 +1,15 @@
 # Payroll implementation evidence
 
-Scope: local implementation of `payrollspec.md` on `feature/barber-payroll`, 2026-10-10. This is not a deployment or a record of real payroll disbursement.
+Scope: implementation of `payrollspec.md` on `feature/barber-payroll`, 2026-10-10. The original evidence below describes local implementation; the deployment follow-up records the subsequently authorized Supabase activation. No real payroll disbursement was recorded.
+
+## Supabase activation follow-up — October 10, 2026
+
+- Applied the repository's unchanged `028_barber_payroll.sql` to `barracksbarbers` (`gngepbytysjztnrsbotn`) through Supabase's migration API, recording `028_barber_payroll.sql` in the application's `schema_migrations` within the same migration.
+- Before/after counts matched: 12 users, 9 barbers, 173 bookings, 144 transactions, and 144 tenders. Activation created 9 initial rate history rows and 144 historical completion snapshots with unresolved rates. No historical percentage was inferred, no branch calendar configured, and no live payroll record or payout created.
+- All 11 new tables have RLS enabled and deny SELECT to Supabase `anon` and `authenticated`. Security advisors reported intentional no-policy informational notices, mutable function search-path warnings including payroll functions, and missing RLS on 28 older public tables. These findings were reported, not silently changed during activation.
+- Direct live `readPayroll` calls passed for the existing Administrator and assigned Manager in all five active branches. Front Desk received HTTP-status 403 service errors in all five. These were service/database checks, not deployed browser login checks.
+- Reran the combined command below against disposable schemas: **21 passed, 0 failed, 0 skipped**, in 280.646 seconds. It covers payroll lifecycle/security plus payment, queue, and migration regressions.
+- Next setup decisions remain explicit: choose each branch's first period start date and obtain Manager evidence for historical missing rates.
 
 ## Requirements and evidence
 

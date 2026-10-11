@@ -5,6 +5,7 @@ import type { ApiBarber } from "@/app/lib/api";
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", { pretendToBeVisual: true });
 Object.assign(globalThis, { document: dom.window.document, window: dom.window, HTMLElement: dom.window.HTMLElement, IS_REACT_ACT_ENVIRONMENT: true });
+Object.assign(globalThis, { self: dom.window });
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { BarbersManagement } = await import("@/app/pages/admin/BarbersManagement");

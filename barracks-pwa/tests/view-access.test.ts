@@ -9,7 +9,7 @@ test("every route has a view-access group and Management navigation matches its 
   assert.deepEqual(Object.keys(viewAccessGroups).sort(), Object.keys(viewPaths).sort());
   assert.deepEqual(frontDeskNavigation.map((item) => item.id), ["staff-dashboard", "queue", "bookings", "payments", "customers", "barbers"]);
   assert.equal(frontDeskNavigation.find((item) => item.id === "barbers")?.label, "Barber Floor");
-  assert.deepEqual(managementNavigation.map((item) => item.id), ["admin-dashboard", "admin-branches", "staff-management", "admin-customers", "admin-barbers", "admin-attendance", "admin-suppliers", "admin-restocks", "admin-reports", "payments", "admin-inventory", "admin-services"]);
+  assert.deepEqual(managementNavigation.map((item) => item.id), ["admin-dashboard", "admin-branches", "staff-management", "admin-customers", "admin-barbers", "admin-attendance", "admin-payroll", "admin-suppliers", "admin-restocks", "admin-reports", "payments", "admin-inventory", "admin-services"]);
   assert.equal(managementNavigation.find((item) => item.id === "payments")?.label, "Transactions");
 });
 

@@ -9,17 +9,10 @@ import { createInitials, dateInputValue, formatCurrency } from "@/app/utils/form
 import { Avatar, Badge, Button, EmptyState, MetricCard, PageHeader, Panel, SectionHeading } from "@/app/components/ui";
 import { FreshnessBar } from "@/app/components/operations/OperationalPrimitives";
 import { Icon } from "@/app/components/ui/icons";
+import { barberAvailabilityLabel, isBarberAvailable } from "@/app/utils/barber-availability";
 
 function displayName(barber: ApiBarberAvailability) {
   return `${barber.firstName} ${barber.lastName}`.trim();
-}
-
-function statusLabel(status: ApiBarberAvailability["status"]) {
-  return status === "available" ? "Available" : status === "busy" ? "Busy" : "Unavailable";
-}
-
-function statusTone(status: ApiBarberAvailability["status"]): "success" | "warning" | "neutral" {
-  return status === "available" ? "success" : status === "busy" ? "warning" : "neutral";
 }
 
 function dateString(date = new Date()) {
@@ -42,7 +35,7 @@ function formatTime(time: string) {
 
 type DashboardProps = { go: (view: ViewId) => void; onToast: (message: string) => void };
 export function StaffDashboard(props: DashboardProps) {
-  return <ReportBranchScope>{(branch) => <StaffDashboardContent {...props} branch={branch} />}</ReportBranchScope>;
+  return <ReportBranchScope>{(branch) => <StaffDashboardContent key={branch} {...props} branch={branch} />}</ReportBranchScope>;
 }
 function StaffDashboardContent({ go, onToast, branch }: DashboardProps & { branch: string }) {
   const [refreshVersion, setRefreshVersion] = useState(0);
@@ -115,7 +108,7 @@ function StaffDashboardContent({ go, onToast, branch }: DashboardProps & { branc
       .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)),
     [bookings, today],
   );
-  const activeBarbers = barbers.filter((barber) => barber.status !== "unavailable").length;
+  const activeBarbers = barbers.filter(isBarberAvailable).length;
   const activeQueue = queue.filter((entry) => ["waiting", "ready", "in_progress"].includes(entry.status));
 
   return (
@@ -125,7 +118,7 @@ function StaffDashboardContent({ go, onToast, branch }: DashboardProps & { branc
       <div className="metrics-grid metrics-grid--four">
         <MetricCard label="Customers in queue" value={queueLoading || queueError ? "—" : String(activeQueue.length)} change={queueError ? "Unable to load queue" : undefined} changeTone="warning" icon="queue" accent="blue" />
         <MetricCard label="Today’s bookings" value={loading || loadError ? "—" : String(todayBookings.length)} icon="calendar" accent="amber" />
-        <MetricCard label="Active roster" value={loading || loadError ? "—" : String(activeBarbers)} icon="scissors" accent="green" />
+        <MetricCard label="Available barbers" value={loading || loadError ? "—" : String(activeBarbers)} icon="scissors" accent="green" />
         <MetricCard label="Ready to serve" value={queueLoading || queueError ? "—" : String(activeQueue.filter((entry) => entry.status === "ready").length)} icon="check" accent="violet" />
       </div>
 
@@ -196,11 +189,11 @@ function StaffDashboardContent({ go, onToast, branch }: DashboardProps & { branc
                 <article className="barber-status-card" key={barber.id}>
                   <div className="barber-status-card__head">
                     <Avatar initials={createInitials(name)} tone="slate" size="md" />
-                    <Badge tone={statusTone(barber.status)}>{statusLabel(barber.status)}</Badge>
+                    <Badge tone={isBarberAvailable(barber) ? "success" : barber.operationalAvailability?.reason === "serving_customer" ? "warning" : "neutral"}>{barberAvailabilityLabel(barber)}</Badge>
                   </div>
                   <strong>{name}</strong>
                   <div className="barber-status-card__stats">
-                    <span><small>Status</small><strong>{statusLabel(barber.status)}</strong></span>
+                    <span><small>Status</small><strong>{barberAvailabilityLabel(barber)}</strong></span>
                     <span><small>Ready assignments</small><strong>{queueLoading || queueError ? "—" : queue.filter((entry) => entry.barberId === barber.id && entry.status === "ready").length}</strong></span>
                   </div>
                 </article>

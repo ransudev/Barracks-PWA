@@ -4,12 +4,13 @@ import type { Pool } from "pg";
 import { getBarberOperationalAvailability, requireBarberOperationalAvailability } from "@/server/services/barber-operational-availability.service";
 import { createDisposableSchema, databaseConfigured } from "./helpers/database";
 
-function fakeDb(input: { status?: string; active?: boolean; breakNow?: boolean; working?: boolean; absent?: boolean }): Pool {
+function fakeDb(input: { status?: string; active?: boolean; breakNow?: boolean; working?: boolean; absent?: boolean; attendance?: string; clockedOut?: boolean }): Pool {
   const instant = new Date("2026-10-05T02:00:00Z"); // Monday 10:00 Manila
   return { query: async (sql: string) => {
     if (sql.includes("SELECT status, branch_id FROM barbers")) return { rows: [{ branch_id: 1, status: input.status ?? "available" }] };
     if (sql.includes("FROM queue_entries")) return { rows: input.active ? [{ id: 42 }] : [] };
     if (sql.includes("WITH clock AS")) return { rows: [{ instant, local_time: "10:00:00", weekday: 1 }] };
+    if (sql.includes("FROM barber_attendance")) return { rows: input.attendance || input.clockedOut ? [{ status: input.attendance ?? "present", clock_out: input.clockedOut ? instant : null }] : [] };
     if (sql.includes("FROM shop_operating_hours")) return { rows: [{ day_of_week: 1, open_time: "09:00:00", close_time: "19:30:00", is_closed: false }] };
     if (sql.includes("FROM barber_schedules")) return { rows: [{ id: 1, day_of_week: 1, is_working: input.working !== false, start_time: "09:00:00", end_time: "19:30:00" }] };
     if (sql.includes("FROM barber_schedule_breaks")) return { rows: input.breakNow ? [{ barber_schedule_id: 1, start_time: "09:30:00", end_time: "10:30:00" }] : [] };
@@ -27,6 +28,7 @@ test("operational rule reports manual, active, break, shift and absence blocks",
     [{ status: "unavailable" }, "unavailable"], [{ active: true }, "serving_customer"],
     [{ breakNow: true }, "break"], [{ working: false }, "off_shift"],
     [{ absent: true }, "temporary_unavailability"],
+    [{ attendance: "absent" }, "absent"], [{ clockedOut: true }, "clocked_out"],
   ] as const) {
     const result = await getBarberOperationalAvailability(fakeDb(input), 1);
     assert.equal(result.reason, reason);

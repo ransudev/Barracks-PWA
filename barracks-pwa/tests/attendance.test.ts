@@ -149,12 +149,14 @@ test("legacy attendance backfill uses Main Branch and preserves records and corr
     const main = Number((await db.query("SELECT id FROM branches WHERE code='MAIN'")).rows[0].id);
     const second = Number((await db.query("INSERT INTO branches(name,code) VALUES('Moved before backfill','OLD') RETURNING id")).rows[0].id);
     const actor = Number((await db.query("INSERT INTO users(first_name,last_name,email,password_hash,role_id) VALUES('Legacy','Manager','legacy-attendance@test.local','test',(SELECT id FROM roles WHERE name='manager')) RETURNING id")).rows[0].id);
-    const barber = await createBarber(db, { branchId: main, firstName: "Legacy", lastName: "Attendance", status: "available" });
+    // Build the fixture with the schema available at migration 025, rather
+    // than calling today's service projection (which includes payroll 028).
+    const barber = (await db.query<{ id: number }>("INSERT INTO barbers(branch_id,first_name,last_name,status) VALUES($1,'Legacy','Attendance','available') RETURNING id", [main])).rows[0];
     const id = Number((await db.query("INSERT INTO barber_attendance(barber_id,attendance_date,status,recorded_by,updated_by) VALUES($1,'2026-09-20','present',$2,$2) RETURNING id", [barber.id, actor])).rows[0].id);
     await db.query("INSERT INTO barber_attendance_corrections(attendance_id,previous_values,new_values,reason,corrected_by) VALUES($1,'{}','{}','Legacy note',$2)", [id, actor]);
     const before = (await db.query("SELECT * FROM barber_attendance WHERE id=$1", [id])).rows[0];
     const audits = (await db.query("SELECT * FROM barber_attendance_corrections WHERE attendance_id=$1", [id])).rows;
-    await updateBarber(db, barber.id, { branchId: second, firstName: "Legacy", lastName: "Attendance", status: "available" });
+    await db.query("UPDATE barbers SET branch_id=$2 WHERE id=$1", [barber.id, second]);
     await applyMigrations(db);
     const after = (await db.query("SELECT * FROM barber_attendance WHERE id=$1", [id])).rows[0];
     assert.equal(after.branch_id, main);

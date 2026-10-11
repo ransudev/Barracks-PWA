@@ -1,4 +1,6 @@
 import { resolveCustomerBranch } from "@/server/auth/visit-branch-access";
+import type { BranchActor } from "@/server/auth/barber-branch-access";
+import { lockOperationalActor, requireTransactionBranch } from "@/server/auth/transaction-branch-access";
 import type { Pool, PoolClient } from "pg";
 import { findServiceById } from "@/server/services/service.service";
 import { findAvailableBarbers, isBookingSlotAvailable } from "@/server/services/booking-availability.service";
@@ -59,6 +61,8 @@ export class BookingServiceError extends Error {
   constructor(
     public readonly kind: "not_found" | "unavailable" | "conflict" | "past" | "not_updatable" | "not_deletable" | "forbidden",
     message: string,
+    public reason?: import("./barber-operational-availability.service").OperationalReason,
+    public interval?: import("./barber-operational-availability.service").OperationalInterval,
   ) {
     super(message);
     this.name = "BookingServiceError";
@@ -253,14 +257,16 @@ export async function updateBooking(
   db: Pool,
   id: number,
   input: BookingUpdateInput,
-  scope?: { customerId?: number },
+  scope?: { customerId?: number; actor?: BranchActor },
 ): Promise<BookingRecord | null> {
   const client = await db.connect();
   try {
     await client.query("BEGIN");
+    const authorizedActor = await lockOperationalActor(client, scope?.actor);
     await client.query("SELECT id FROM bookings WHERE id=$1 FOR UPDATE", [id]);
     const existing = await findBookingById(client, id);
     if (!existing) { await client.query("ROLLBACK"); return null; }
+    await requireTransactionBranch(client, authorizedActor, existing.branchId);
     if (scope?.customerId && existing.customerId !== scope.customerId) {
       throw new BookingServiceError("forbidden", "You can only manage your own bookings");
     }
@@ -277,13 +283,18 @@ export async function updateBooking(
     if (input.status === "no_show" && !mayMarkNoShow(existing.date, existing.time)) {
       throw new BookingServiceError("not_updatable", `No-show is available ${BOOKING_GRACE_MINUTES} minutes after the appointment starts`);
     }
+    let serviceStartedAt: string | undefined;
     if (input.status === "in_progress") {
       // Lock the linked queue row, then the barber, before checking availability.
       // The unique index is the final guard if another writer bypasses this path.
       const entry = await client.query("SELECT id FROM queue_entries WHERE booking_id=$1 FOR UPDATE", [id]);
       if (!entry.rowCount) throw new BookingServiceError("conflict", "Appointment queue entry is missing or out of sync");
       await client.query("SELECT id FROM barbers WHERE id=$1 FOR UPDATE", [existing.barberId]);
-      requireBarberOperationalAvailability(await getBarberOperationalAvailability(client, existing.barberId));
+      const eligibility = await getBarberOperationalAvailability(client, existing.barberId, {
+        branchId: existing.branchId, durationMinutes: existing.durationMinutes, excludeBookingId: existing.id,
+      });
+      requireBarberOperationalAvailability(eligibility);
+      serviceStartedAt = eligibility.interval?.startsAt;
     }
     const customerScope = scope?.customerId ? " AND customer_id = $4" : "";
     const values = scope?.customerId ? [input.status, id, expected[input.status], scope.customerId] : [input.status, id, expected[input.status]];
@@ -294,7 +305,7 @@ export async function updateBooking(
     );
     if (!result.rows[0]) throw new BookingServiceError("not_updatable", "Booking changed while you were updating it. Reload and try again");
     if (["checked_in", "in_progress", "completed"].includes(input.status) || (input.status === "cancelled" && existing.status === "checked_in")) {
-      await syncAppointmentQueue(client, id, input.status as "checked_in" | "in_progress" | "completed" | "cancelled");
+      await syncAppointmentQueue(client, id, input.status as "checked_in" | "in_progress" | "completed" | "cancelled", serviceStartedAt);
     }
     const booking = await findBookingById(client, id);
     await client.query("COMMIT");
@@ -302,7 +313,7 @@ export async function updateBooking(
   } catch (error) {
     await client.query("ROLLBACK");
     if (error instanceof QueueServiceError || error instanceof BarberOperationalAvailabilityError)
-      throw new BookingServiceError("conflict", error.message);
+      throw new BookingServiceError("conflict", error.message, error.reason, error.interval);
     if (isActiveBarberConflict(error)) throw new BookingServiceError("conflict", "Barber is currently serving another customer.");
     throw error;
   } finally { client.release(); }

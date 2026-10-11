@@ -5,7 +5,7 @@ import {
   createStaffUserSchema,
   formatValidationErrors,
 } from "@/server/schemas/user.schema";
-import { createUser, listUsers } from "@/server/services/user.service";
+import { createStaffUser, listStaffUsers, listStaffBranches } from "@/server/services/user.service";
 
 export const runtime = "nodejs";
 
@@ -49,8 +49,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await createUser(pool, parsed.data);
+    const result = await createStaffUser(pool, manager.id, parsed.data);
 
+    if (result.kind === "forbidden") return Response.json({success:false,message:"Choose explicit branches within your staff authority"},{status:403});
     if (result.kind === "duplicate") {
       return Response.json(
         {
@@ -96,9 +97,9 @@ export async function GET() {
   if (manager instanceof Response) return manager;
 
   try {
-    const users = await listUsers(pool);
+    const users = await listStaffUsers(pool, manager.id);
     const visibleUsers = users.filter((user) => canViewStaffUser(manager.role, user.role));
-    return Response.json({ success: true, users: visibleUsers });
+    return Response.json({ success: true, users: visibleUsers, branches: await listStaffBranches(pool, manager.id) });
   } catch (error) {
     console.error("Unable to list users", error);
     return Response.json(

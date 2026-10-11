@@ -81,7 +81,7 @@ export async function PATCH(
       pool,
       id,
       parsed.data,
-      authorization.customerId ? { customerId: authorization.customerId } : undefined,
+      authorization.customerId ? { customerId: authorization.customerId } : { actor },
     );
     if (!booking) return Response.json({ success: false, message: "Booking not found" }, { status: 404 });
     return Response.json({ success: true, booking });
@@ -89,8 +89,8 @@ export async function PATCH(
     const branchResponse = visitBranchError(error);
     if (branchResponse) return branchResponse;
     if (error instanceof BookingServiceError) {
-      if (error.kind === "forbidden") return Response.json({ success: false, message: error.message }, { status: 403 });
-      if (error.kind === "not_updatable" || error.kind === "conflict") return Response.json({ success: false, message: error.message }, { status: 409 });
+      if (error.kind === "forbidden") return Response.json({ success: false, message: error.message, reason: "reason" in error ? error.reason : undefined, interval: "interval" in error ? error.interval : undefined }, { status: 403 });
+      if (error.kind === "not_updatable" || error.kind === "conflict") return Response.json({ success: false, message: error.message, reason: "reason" in error ? error.reason : undefined, interval: "interval" in error ? error.interval : undefined }, { status: 409 });
     }
     console.error("Unable to update booking", error);
     return Response.json({ success: false, message: "Unable to update booking" }, { status: 500 });
@@ -152,9 +152,9 @@ export async function PUT(
     const branchResponse = visitBranchError(error);
     if (branchResponse) return branchResponse;
     if (error instanceof BookingServiceError) {
-      if (error.kind === "forbidden") return Response.json({ success: false, message: error.message }, { status: 403 });
+      if (error.kind === "forbidden") return Response.json({ success: false, message: error.message, reason: "reason" in error ? error.reason : undefined, interval: "interval" in error ? error.interval : undefined }, { status: 403 });
       const status = error.kind === "conflict" || error.kind === "unavailable" || error.kind === "not_updatable" ? 409 : 400;
-      return Response.json({ success: false, message: error.message }, { status });
+      return Response.json({ success: false, message: error.message, reason: "reason" in error ? error.reason : undefined, interval: "interval" in error ? error.interval : undefined }, { status });
     }
     console.error("Unable to edit booking", error);
     return Response.json({ success: false, message: "Unable to update booking" }, { status: 500 });
@@ -183,7 +183,7 @@ export async function DELETE(
     const branchResponse = visitBranchError(error);
     if (branchResponse) return branchResponse;
     if (error instanceof BookingServiceError && error.kind === "not_deletable") {
-      return Response.json({ success: false, message: error.message }, { status: 409 });
+      return Response.json({ success: false, message: error.message, reason: "reason" in error ? error.reason : undefined, interval: "interval" in error ? error.interval : undefined }, { status: 409 });
     }
     console.error("Unable to delete booking", error);
     return Response.json({ success: false, message: "Unable to delete booking" }, { status: 500 });

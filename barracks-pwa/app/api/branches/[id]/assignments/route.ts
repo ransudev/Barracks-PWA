@@ -1,4 +1,4 @@
-import { requireAdministrator } from "@/server/auth/require-role";
+import { requireAdministrator, requireRolesUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { branchAssignmentSchema, branchIdSchema } from "@/server/schemas/branch.schema";
 import { findBranch, listAssignments, mutateAssignment } from "@/server/services/branch.service";
@@ -15,11 +15,11 @@ export async function GET(_request: Request, { params }: Context) {
   } catch (error) { return branchApiError(error); }
 }
 export async function POST(request: Request, { params }: Context) {
-  const denied = await requireAdministrator(); if (denied) return denied;
+  const actor = await requireRolesUser(["administrator"]); if (actor instanceof Response) return actor;
   const id = branchIdSchema.safeParse((await params).id); if (!id.success) return branchNotFound();
   const input = await readBranchInput(request, branchAssignmentSchema); if (input instanceof Response) return input;
   try {
-    await mutateAssignment(pool, id.data, input.userId, "assign", input.isPrimary);
+    await mutateAssignment(pool, id.data, input.userId, "assign", input.isPrimary, actor.id);
     return Response.json({ success: true }, { status: 201 });
   } catch (error) { return branchApiError(error); }
 }

@@ -13,13 +13,13 @@ const { createRoot } = await import("react-dom/client");
 const { StaffManagement } = await import("@/app/pages/admin/StaffManagement");
 
 function account(id: number, role: ApiRole): ApiUser {
-  return { id, firstName: role, lastName: "User", email: `${role}@example.test`, role, isVerified: true, isBlocked: false, isActive: true, createdAt: "2026-09-29T00:00:00Z", updatedAt: "2026-09-29T00:00:00Z" };
+  return { canManageAccount:true, branchIds:[1], id, firstName: role, lastName: "User", email: `${role}@example.test`, role, isVerified: true, isBlocked: false, isActive: true, createdAt: "2026-09-29T00:00:00Z", updatedAt: "2026-09-29T00:00:00Z" };
 }
 
-async function renderStaff(role: ApiRole) {
+async function renderStaff(role: ApiRole, shared = false) {
   const previousFetch = globalThis.fetch;
   globalThis.fetch = async (input) => {
-    if (String(input) === "/api/users") return Response.json({ success: true, users: [account(1, "administrator"), account(2, "manager"), account(3, "front_desk")] });
+    if (String(input) === "/api/users") return Response.json({ success: true, branches:[{id:1,name:"Main"}], users: [account(1, "administrator"), account(2, "manager"), {...account(3, "front_desk"),canManageAccount:!shared}] });
     throw new Error(`Unexpected request ${input}`);
   };
   const container = dom.window.document.createElement("div");
@@ -53,5 +53,24 @@ test("Administrator Staff page retains Manager and Front Desk account actions", 
     await act(async () => { Array.from(page.container.querySelectorAll("button")).find((button) => button.textContent === "Create account")!.click(); });
     const roleSelect = Array.from(page.container.querySelectorAll("select")).find((select) => select.labels?.[0]?.textContent?.includes("Role"))!;
     assert.deepEqual(Array.from(roleSelect.options).map((option) => option.textContent), ["Administrator", "Manager", "Front Desk"]);
+  } finally { await page.cleanup(); }
+});
+
+
+test("Manager sees shared account details with no global actions", async () => {
+  const page = await renderStaff("manager",true);
+  try {
+    await act(async()=>{ (page.container.querySelector('[aria-label="Open front_desk User"]') as HTMLElement).click(); });
+    await act(async()=>{await new Promise(resolve=>setTimeout(resolve,40));});
+    assert.match(dom.window.document.body.textContent ?? "", /requires Administrator management/);
+    const actions=Array.from(dom.window.document.body.querySelectorAll("button")).map(button=>button.textContent);
+    assert.equal(actions.includes("Edit account"),false);
+    assert.equal(actions.includes("Block account"),false);
+    assert.equal(actions.includes("Deactivate"),false);
+    await act(async()=>{ Array.from(dom.window.document.body.querySelectorAll("button")).find(button=>button.textContent==="Create account")!.click(); });
+    const submit=dom.window.document.body.querySelector('button[type="submit"]') as HTMLButtonElement;
+    assert.equal(submit.disabled,true);
+    await act(async()=>{(dom.window.document.body.querySelector('input[type="checkbox"]') as HTMLInputElement).click();});
+    assert.equal(submit.disabled,false);
   } finally { await page.cleanup(); }
 });
