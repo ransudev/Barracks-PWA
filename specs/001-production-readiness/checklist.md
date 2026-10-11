@@ -39,7 +39,7 @@ Local P0 criteria passed (E01–E06); P1 and hosted release criteria remain pend
 
 ## Hosted release gates
 
-- [ ] Named hosted actions were explicitly authorized before execution.
+- [x] Named hosted actions were explicitly authorized before execution: migrations 029–030. Evidence: [E07](hosted-migration-evidence.md).
 - [ ] Exact release commit, migration names, environment, and verification time are recorded.
 - [ ] Anonymous and Supabase-authenticated Data API denial is verified on the actual release environment without exposing row data.
 - [ ] Authorized backend workflows still pass on that environment.
@@ -58,4 +58,4 @@ Record exactly one release verdict with evidence:
 
 Local P0 completion has its own milestone and must not be reported as READY while hosted security or required operational acceptance is pending.
 
-Selected release verdict: **NOT READY**. Local P0 is complete. Required P1, live API denial/backend verification, complete authenticated staging acceptance, deployment identity and isolated restore proof remain pending. No hosted changes, push or merge were performed.
+Selected release verdict: **NOT READY**. Local P0 is complete. Required P1, live API denial/backend verification, complete authenticated staging acceptance, deployment identity and isolated restore proof remain pending. Since local acceptance, merge/push and hosted migrations 029–030 were authorized and completed; E07 records the remaining release limits.

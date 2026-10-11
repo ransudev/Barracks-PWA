@@ -62,3 +62,7 @@ An execution error rolls the migration and ledger entry back together. Resolve u
 ## Migration 030 preflight and compatibility
 
 030 adds immutable queue duration snapshots and ordered barber-row locking for reservation writes. New visits snapshot catalog duration; appointment visits use booking snapshots. Historical walk-ins without recoverable durations remain NULL and cannot start until resolved through an explicit evidence-supported policy. Do not fill them with guessed current catalog durations. Before rollout, count unresolved nonterminal walk-ins and review active-service duration coverage; schedule operational handling and verify affected UI conflict behavior in staging. Existing booking duration snapshots are copied without changing financial, price or payroll snapshots. Reservation writes reject overlap with another active service; the current appointment excludes its own reservation when starting. Verify inserts, updates, deletes, reassignment and concurrency after applying. Recover through a reviewed forward fix while retaining containment and immutable snapshots.
+
+## Execution update — 2026-10-12
+
+Owner authorized the named 029–030 rollout after merge/push. Both are applied on barracksbarbers; [E07](hosted-migration-evidence.md) records preservation and denial checks plus remaining runtime/restore gaps. Earlier no-hosted-changes statements describe the original preparation date.
