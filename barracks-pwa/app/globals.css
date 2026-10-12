@@ -1952,3 +1952,16 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .customer-booking-card--history > .badge { grid-column: 2; grid-row: 1; }
   .customer-booking-card--history > span:nth-of-type(2) { justify-self: end; }
 }
+
+/* Customer directory table */
+.customers-table .operational-table th:nth-child(1) { width: 24%; }
+.customers-table .operational-table th:nth-child(2) { width: 28%; }
+.customers-table .operational-table th:nth-child(3) { width: 18%; }
+.customers-table .operational-table th:nth-child(4) { width: 11%; }
+.customers-table .operational-table th:nth-child(5) { width: 11%; }
+.customers-table .operational-table th:nth-child(6) { width: 8%; }
+.operational-table .table-stack { display: block; min-width: 0; }
+.operational-table .table-stack > span, .operational-table .table-stack > small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.operational-table .table-stack > span { color: var(--text-soft); }
+.operational-table .table-stack > small { margin-top: 3px; color: var(--text-muted); font-size: 10px; }
+.customers-table .row-actions { justify-content: flex-end; }
