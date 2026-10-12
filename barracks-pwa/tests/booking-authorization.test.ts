@@ -6,7 +6,7 @@ import { createBarber } from "@/server/services/barber.service";
 import { createDisposableSchema, databaseConfigured } from "./helpers/database";
 
 test("customer cancellation is owner-scoped and limited to confirmed bookings", { skip: !databaseConfigured }, async () => {
-  const { db, cleanup } = await createDisposableSchema();
+  const { db, cleanup } = await createDisposableSchema(Infinity, "2026-10-12T02:00:00Z");
   try {
     const barber = await createBarber(db, { branchId: Number((await db.query("SELECT id FROM branches WHERE code='MAIN'")).rows[0].id), firstName: "Policy", lastName: "Barber", status: "available" });
     const customers: number[] = [];
@@ -64,7 +64,7 @@ const customerBranches = await import("@/app/api/customer-branches/route");
 const staffContext = await import("@/app/api/branch-context/route");
 
 test("customer branch selection scopes bookings and availability while preserving original appointments", { skip: !databaseConfigured }, async () => {
-  const { db, cleanup } = await createDisposableSchema();
+  const { db, cleanup } = await createDisposableSchema(Infinity, "2026-10-12T02:00:00Z");
   customerBranchDb = db;
   const request = (path: string, body?: unknown) => new Request(`http://localhost/api/${path}`, body ? { method: "POST", body: JSON.stringify(body) } : undefined);
   try {

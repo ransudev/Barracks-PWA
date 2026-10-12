@@ -1,4 +1,5 @@
 import type { Pool, PoolClient } from "pg";
+import { bookingIntervalStartSql, bookingIntervalEndSql } from "./booking-interval";
 import { findServiceById } from "@/server/services/service.service";
 import { findBarberById, listBarberAvailability } from "@/server/services/barber.service";
 import { listBarberSchedules, listBarberUnavailability, listShopHours, type ShopHours, type WeeklySchedule } from "@/server/services/schedule.service";
@@ -69,17 +70,19 @@ async function availabilityForBarber(db: Pool, input: { barberId: number; date: 
 async function loadBarberIntervals(db: Db, barberId: number, date: string, weekday: number, options: AvailabilityOptions) {
   const schedules = await listBarberSchedules(db, barberId);
   const absence = await listBarberUnavailability(db, barberId, `${date}T00:00:00+08:00`, new Date(Date.parse(`${date}T00:00:00+08:00`) + 86_400_000).toISOString());
-  const bookings = await db.query<{ booking_time: string; end_time: string | null; service_duration_minutes: number | null }>(
-      `SELECT booking_time, end_time, service_duration_minutes FROM bookings WHERE barber_id=$1 AND booking_date=$2
-       AND status IN ('confirmed','checked_in','in_progress') AND ($3::bigint IS NULL OR id<>$3)`,
+  const bookings = await db.query<{ start_minute: string; end_minute: string }>(
+      `SELECT EXTRACT(EPOCH FROM ((${bookingIntervalStartSql}) - $2::date::timestamp))/60 AS start_minute,
+         EXTRACT(EPOCH FROM ((${bookingIntervalEndSql}) - $2::date::timestamp))/60 AS end_minute
+       FROM bookings WHERE barber_id=$1
+       AND status IN ('confirmed','checked_in','in_progress') AND ($3::bigint IS NULL OR id<>$3)
+       AND (${bookingIntervalStartSql}) < $2::date::timestamp + INTERVAL '1 day'
+       AND (${bookingIntervalEndSql}) > $2::date::timestamp`,
       [barberId, date, options.excludeBookingId ?? null]);
   const schedule = schedules.find((item) => item.dayOfWeek === weekday);
   const midnight = Date.parse(`${date}T00:00:00+08:00`);
   const blocks: BlockedInterval[] = absence.map((item) => ({ start: (Date.parse(item.startsAt) - midnight) / 60_000, end: (Date.parse(item.endsAt) - midnight) / 60_000 }));
   for (const row of bookings.rows) {
-    const start = minuteOfDay(row.booking_time);
-    // Legacy bookings without a known duration conservatively block the day.
-    blocks.push({ start: row.end_time || row.service_duration_minutes ? start : 0, end: row.end_time ? minuteOfDay(row.end_time) : row.service_duration_minutes ? start + row.service_duration_minutes : 1440 });
+    blocks.push({ start: Number(row.start_minute), end: Number(row.end_minute) });
   }
   return { schedule, blocks };
 }

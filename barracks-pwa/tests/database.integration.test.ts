@@ -4,7 +4,7 @@ import test from "node:test";
 import { createDisposableSchema, databaseConfigured } from "./helpers/database";
 
 test("PostgreSQL account, inventory, and barber lifecycle persists safely", { skip: !databaseConfigured }, async () => {
-  const { db: pool, cleanup } = await createDisposableSchema();
+  const { db: pool, cleanup } = await createDisposableSchema(Infinity, "2026-10-12T02:00:00Z");
   const [users, sessions, inventory, inventoryMovements, alerts, barbers, customers, bookings, services] = await Promise.all([
     import("@/server/services/user.service"),
     import("@/server/services/session.service"),

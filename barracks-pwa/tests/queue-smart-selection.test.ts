@@ -3,7 +3,7 @@ import test from "node:test";
 import { createDisposableSchema, databaseConfigured } from "./helpers/database";
 
 test("Next Customer skips conflicts, keeps appointment priority, and rechecks assignments", { skip: !databaseConfigured }, async () => {
-  const { db, cleanup } = await createDisposableSchema();
+  const { db, cleanup } = await createDisposableSchema(Infinity, "2026-10-12T02:00:00Z");
   const queue = await import("@/server/services/queue.service");
   const { updateBooking } = await import("@/server/services/booking.service");
   try {

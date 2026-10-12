@@ -42,7 +42,7 @@ test("lifecycle state rejects missing barber or timestamps and reversed time", (
 });
 
 test("walk-in and appointment service paths preserve lifecycle and timestamps", { skip: !databaseConfigured }, async () => {
-  const { db, cleanup } = await createDisposableSchema();
+  const { db, cleanup } = await createDisposableSchema(Infinity, "2026-10-12T02:00:00Z");
   const queue = await import("@/server/services/queue.service");
   const { updateBooking } = await import("@/server/services/booking.service");
   try {

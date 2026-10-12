@@ -60,7 +60,7 @@ function fakeDatabase(status: string, booking = false): Pool {
     if (sql.includes("FROM barber_schedules")) return { rows: [{ id: 1, day_of_week: 1, is_working: true, start_time: "09:00:00", end_time: "19:30:00" }] };
     if (sql.includes("FROM barber_schedule_breaks")) return { rows: [] };
     if (sql.includes("FROM barber_unavailability")) return { rows: [] };
-    if (sql.includes("FROM bookings")) return { rows: booking ? [{ booking_time: "10:00:00", end_time: "10:45:00", service_duration_minutes: 45 }] : [] };
+    if (sql.includes("FROM bookings")) return { rows: booking ? [{ start_minute: "600", end_minute: "645" }] : [] };
     throw new Error(`Unexpected query: ${sql}`);
   } } as unknown as Pool;
 }

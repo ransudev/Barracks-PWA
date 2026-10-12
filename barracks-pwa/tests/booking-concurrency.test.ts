@@ -4,7 +4,7 @@ import test from "node:test";
 import { createDisposableSchema, databaseConfigured } from "./helpers/database";
 
 test("PostgreSQL rejects overlapping barber and customer bookings under concurrent writes", { skip: !databaseConfigured }, async () => {
-  const { db: pool, cleanup } = await createDisposableSchema();
+  const { db: pool, cleanup } = await createDisposableSchema(Infinity, "2026-10-12T02:00:00Z");
   const { createBooking, updateBooking, BookingServiceError } = await import("@/server/services/booking.service");
   const { mayMarkNoShow } = await import("@/app/constants/booking");
   const queue = await import("@/server/services/queue.service");

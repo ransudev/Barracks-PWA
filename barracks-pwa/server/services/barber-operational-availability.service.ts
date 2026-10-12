@@ -1,4 +1,5 @@
 import type { Pool, PoolClient } from "pg";
+import { bookingIntervalStartSql, bookingIntervalEndSql } from "./booking-interval";
 import { listBarberSchedules, listBarberUnavailability, listShopHours, ShopHoursConfigurationError, type ShopHours, type WeeklySchedule } from "@/server/services/schedule.service";
 
 type Db = Pool | PoolClient;
@@ -48,20 +49,13 @@ export async function getBarberOperationalAvailability(db: Db, barberId: number,
   if (!availability.available) return availability;
   const deny = (reason: OperationalReason) => ({ ...blocked(reason), interval });
   if (visit) {
-    const minute = timeInMinutes;
-    const startMinute = minute(localTime);
-    const endMinute = startMinute + duration;
-    const bookings = await db.query<{ booking_time: string; end_time: string | null; service_duration_minutes: number | null }>(
-      `SELECT booking_time, end_time, service_duration_minutes FROM bookings
-       WHERE barber_id=$1 AND booking_date=($2::timestamptz AT TIME ZONE 'Asia/Manila')::date
-       AND status IN ('confirmed','checked_in','in_progress') AND ($3::bigint IS NULL OR id<>$3)`,
-      [barberId, instant, visit.excludeBookingId ?? null]);
-    if (bookings.rows.some((row) => {
-      if (!row.end_time && !row.service_duration_minutes) return true;
-      const start = minute(row.booking_time);
-      const finish = row.end_time ? minute(row.end_time) : start + row.service_duration_minutes!;
-      return startMinute < finish && endMinute > start;
-    })) return deny("reservation_collision");
+    const bookings = await db.query(
+      `SELECT id FROM bookings WHERE barber_id=$1
+       AND status IN ('confirmed','checked_in','in_progress') AND ($3::bigint IS NULL OR id<>$3)
+       AND (${bookingIntervalStartSql}) AT TIME ZONE 'Asia/Manila' < $4::timestamptz
+       AND (${bookingIntervalEndSql}) AT TIME ZONE 'Asia/Manila' > $2::timestamptz LIMIT 1`,
+      [barberId, instant, visit.excludeBookingId ?? null, end]);
+    if (bookings.rows.length) return deny("reservation_collision");
   }
   return availability;
 }

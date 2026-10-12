@@ -6,7 +6,7 @@ import { createDisposableSchema, databaseConfigured } from "./helpers/database";
 
 function intervalDb(block: "booking" | "break" | "shift" | "away" | "none"): Pool {
   const instant = new Date("2026-10-05T02:45:00Z"); // 10:45 Manila
-  return { query: async (sql: string) => {
+  return { query: async (sql: string, params: unknown[] = []) => {
     if (sql.includes("SELECT status, branch_id FROM barbers")) return { rows: [{ branch_id: 1, status: "available" }] };
     if (sql.includes("FROM queue_entries")) return { rows: [] };
     if (sql.includes("WITH clock AS")) return { rows: [{ instant, local_time: "10:45:00", weekday: 1 }] };
@@ -15,7 +15,7 @@ function intervalDb(block: "booking" | "break" | "shift" | "away" | "none"): Poo
     if (sql.includes("FROM barber_schedules")) return { rows: [{ id: 1, day_of_week: 1, is_working: true, start_time: "09:00", end_time: block === "shift" ? "11:00" : "19:00" }] };
     if (sql.includes("FROM barber_schedule_breaks")) return { rows: block === "break" ? [{ barber_schedule_id: 1, start_time: "11:00", end_time: "11:30" }] : [] };
     if (sql.includes("FROM barber_unavailability")) return { rows: block === "away" ? [{ id: 1, starts_at: new Date("2026-10-05T03:00:00Z"), ends_at: new Date("2026-10-05T03:30:00Z"), reason: "Time away" }] : [] };
-    if (sql.includes("FROM bookings")) return { rows: block === "booking" ? [{ booking_time: "11:00:00", end_time: "11:30:00", service_duration_minutes: 30 }] : [] };
+    if (sql.includes("FROM bookings")) return { rows: block === "booking" && new Date(params[3] as Date).getTime() > Date.parse("2026-10-05T03:00:00Z") ? [{ id: 1 }] : [] };
     throw new Error(`Unexpected query ${sql}`);
   } } as unknown as Pool;
 }
@@ -30,7 +30,7 @@ test("10:45 service intervals respect appointments, breaks, shift end and time a
 });
 
 test("manual and suggested starts use immutable visit duration after catalog changes", { skip: !databaseConfigured }, async () => {
-  const { db, cleanup } = await createDisposableSchema();
+  const { db, cleanup } = await createDisposableSchema(Infinity, "2026-10-12T02:00:00Z");
   const queue = await import("@/server/services/queue.service");
   try {
     await db.query("UPDATE shop_operating_hours SET open_time='00:00',close_time='23:59',is_closed=false");
@@ -54,7 +54,7 @@ test("manual and suggested starts use immutable visit duration after catalog cha
 });
 
 test("today attendance blocks starts, preserves future booking slots, and rejects active clock-out", { skip: !databaseConfigured }, async () => {
-  const { db, cleanup } = await createDisposableSchema();
+  const { db, cleanup } = await createDisposableSchema(Infinity, "2026-10-12T02:00:00Z");
   const queue = await import("@/server/services/queue.service");
   const attendance = await import("@/server/services/attendance.service");
   const { getBookingAvailability } = await import("@/server/services/booking-availability.service");

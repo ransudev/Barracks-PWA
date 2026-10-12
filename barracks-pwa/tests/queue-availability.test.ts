@@ -38,7 +38,7 @@ test("operational rule reports manual, active, break, shift and absence blocks",
 });
 
 test("queue assignments, appointment lifecycle and simultaneous starts share one barber guard", { skip: !databaseConfigured }, async () => {
-  const { db, cleanup } = await createDisposableSchema();
+  const { db, cleanup } = await createDisposableSchema(Infinity, "2026-10-12T02:00:00Z");
   const queue = await import("@/server/services/queue.service");
   const { updateBooking } = await import("@/server/services/booking.service");
   try {

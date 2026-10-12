@@ -199,7 +199,8 @@ test("history sends search, method and month filters and paginates a selected da
   try {
     page.setHistory(Array.from({ length: 25 }, (_, index) => ({ ...paid, id: index + 1, reference: `TX-${index + 1}` })));
     await act(async () => { [...dom.window.document.querySelectorAll("button")].find((button) => button.textContent === "Refresh")!.click(); });
-    const search = dom.window.document.querySelector('.transaction-filters input[type="text"]') as HTMLInputElement;
+    const search = dom.window.document.querySelector('.transaction-filters input[aria-label="Reference or customer"]') as HTMLInputElement;
+    assert.ok(search instanceof dom.window.HTMLInputElement, "history search is rendered and accessible by its label");
     await act(async () => setInputValue(search, "Ava"));
     await act(async () => { dom.window.document.querySelector(".transaction-filters")!.dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true })); });
     const method = dom.window.document.querySelector('.transaction-filters select') as HTMLSelectElement;

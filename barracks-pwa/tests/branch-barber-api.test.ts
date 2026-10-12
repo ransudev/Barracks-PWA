@@ -16,7 +16,7 @@ const hours = await import("@/app/api/shop-hours/route");
 const request = (body: unknown = {}, query = "") => new Request(`http://localhost/api/barbers${query}`, { method: "POST", body: JSON.stringify(body) });
 
 test("barber and hours APIs enforce assigned branches, roles and IDs; Administrator remains global", { skip: !databaseConfigured }, async () => {
-  const fixture = await createDisposableSchema(); db = fixture.db;
+  const fixture = await createDisposableSchema(Infinity, "2026-10-12T02:00:00Z"); db = fixture.db;
   try {
     const main = Number((await db.query("SELECT id FROM branches WHERE code='MAIN'")).rows[0].id);
     const second = Number((await db.query("INSERT INTO branches(name,code) VALUES('Second','SECOND') RETURNING id")).rows[0].id);
@@ -78,7 +78,7 @@ const queueServices = await import("@/server/services/queue.service");
 const availability = await import("@/server/services/booking-availability.service");
 
 test("Phase 3 visits persist branch ownership, isolate staff access and inherit appointment branches", { skip: !databaseConfigured }, async () => {
-  const fixture = await createDisposableSchema(); db = fixture.db;
+  const fixture = await createDisposableSchema(Infinity, "2026-10-12T02:00:00Z"); db = fixture.db;
   try {
     const main = Number((await db.query("SELECT id FROM branches WHERE code='MAIN'")).rows[0].id);
     const second = Number((await db.query("INSERT INTO branches(name,code) VALUES('Visit branch','VISIT') RETURNING id")).rows[0].id);
@@ -132,7 +132,7 @@ const paymentApi = await import("@/app/api/transactions/route");
 const payment = await import("@/server/services/payment.service");
 
 test("Phase 4 payments inherit visit branches and enforce transaction access and database integrity", { skip: !databaseConfigured }, async () => {
-  const fixture = await createDisposableSchema(); db = fixture.db;
+  const fixture = await createDisposableSchema(Infinity, "2026-10-12T02:00:00Z"); db = fixture.db;
   try {
     const main = Number((await db.query("SELECT id FROM branches WHERE code='MAIN'")).rows[0].id);
     const second = Number((await db.query("INSERT INTO branches(name,code) VALUES('Payment branch','PAY') RETURNING id")).rows[0].id);
