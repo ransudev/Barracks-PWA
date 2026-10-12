@@ -141,6 +141,8 @@ export const customerProfileSchema = z
 
 export const customerSelfProfileSchema = customerProfileSchema.omit({ loyaltyPoints: true }).strict();
 export const customerStaffProfileSchema = customerSelfProfileSchema;
+export const walkinCustomerProfileSchema = customerProfileSchema.omit({ email: true }).strict();
+export const walkinCustomerStaffProfileSchema = walkinCustomerProfileSchema.omit({ loyaltyPoints: true }).strict();
 
 export type BarberInput = z.infer<typeof barberSchema>;
 export type BarberStaffInput = z.infer<typeof barberStaffSchema>;
@@ -151,3 +153,4 @@ export type BookingEditInput = z.infer<typeof bookingEditSchema>;
 export type CustomerBookingEditInput = z.infer<typeof customerBookingEditSchema>;
 export type CustomerSignupInput = z.infer<typeof customerSignupSchema>;
 export type CustomerProfileInput = z.infer<typeof customerProfileSchema>;
+export type WalkinCustomerProfileInput = z.infer<typeof walkinCustomerProfileSchema>;

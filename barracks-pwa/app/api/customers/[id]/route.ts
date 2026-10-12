@@ -4,6 +4,8 @@ import { pool } from "@/server/db/pool";
 import {
   customerProfileSchema,
   customerStaffProfileSchema,
+  walkinCustomerProfileSchema,
+  walkinCustomerStaffProfileSchema,
   formatValidationErrors,
 } from "@/server/schemas/sprint.schema";
 import { deleteCustomer, findCustomerById, updateCustomer } from "@/server/services/customer.service";
@@ -45,15 +47,19 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   if (!isManagementRole(authorizationResult.role) && typeof body === "object" && body !== null && "loyaltyPoints" in body) {
     return Response.json({ success: false, message: "Management access is required to change loyalty points" }, { status: 403 });
   }
-  const parsed = (isManagementRole(authorizationResult.role) ? customerProfileSchema : customerStaffProfileSchema).safeParse(body);
-  if (!parsed.success) {
-    return Response.json(
-      { success: false, message: "Invalid customer information", errors: formatValidationErrors(parsed.error) },
-      { status: 400 },
-    );
-  }
-
   try {
+    const current = await findCustomerById(pool, id);
+    if (!current) return Response.json({ success: false, message: "Customer not found" }, { status: 404 });
+    const profileSchema = current.userId === null ? walkinCustomerProfileSchema : customerProfileSchema;
+    const staffProfileSchema = current.userId === null ? walkinCustomerStaffProfileSchema : customerStaffProfileSchema;
+    const parsed = (isManagementRole(authorizationResult.role) ? profileSchema : staffProfileSchema).safeParse(body);
+    if (!parsed.success) {
+      return Response.json(
+        { success: false, message: "Invalid customer information", errors: formatValidationErrors(parsed.error) },
+        { status: 400 },
+      );
+    }
+
     const customer = await updateCustomer(pool, id, parsed.data);
     if (!customer) return Response.json({ success: false, message: "Customer not found" }, { status: 404 });
     return Response.json({ success: true, customer });

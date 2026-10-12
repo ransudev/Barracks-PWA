@@ -3,6 +3,7 @@ import { hashPassword } from "@/server/services/password.service";
 import type {
   CustomerProfileInput,
   CustomerSignupInput,
+  WalkinCustomerProfileInput,
 } from "@/server/schemas/sprint.schema";
 
 type CustomerRow = {
@@ -175,20 +176,21 @@ export async function createCustomer(
 export async function updateCustomer(
   db: Pool,
   id: number,
-  input: CustomerProfileInput,
-): Promise<RegisteredCustomerRecord | null> {
+  input: CustomerProfileInput | WalkinCustomerProfileInput,
+): Promise<CustomerRecord | null> {
   const client = await db.connect();
 
   try {
     await client.query("BEGIN");
-    const target = await client.query<{ user_id: number }>(
+    const target = await client.query<{ user_id: number | null }>(
       `
         SELECT c.user_id
         FROM customers c
-        INNER JOIN users u ON u.id = c.user_id
-        INNER JOIN roles r ON r.id = u.role_id AND r.name = 'customer' AND u.deleted_at IS NULL
-        WHERE c.id = $1
+        LEFT JOIN users u ON u.id = c.user_id
+        LEFT JOIN roles r ON r.id = u.role_id
+        WHERE c.id = $1 AND (c.user_id IS NULL OR (r.name = 'customer' AND u.deleted_at IS NULL))
         LIMIT 1
+        FOR UPDATE OF c
       `,
       [id],
     );
@@ -198,14 +200,23 @@ export async function updateCustomer(
       return null;
     }
 
-    await client.query(
-      `
-        UPDATE users
-        SET first_name = $1, last_name = $2, email = $3, updated_at = NOW()
-        WHERE id = $4
-      `,
-      [input.firstName, input.lastName, input.email, target.rows[0].user_id],
-    );
+    if (target.rows[0].user_id === null) {
+      if ("email" in input) throw new Error("Walk-in records do not have a login email");
+      await client.query(
+        `UPDATE customers SET first_name = $1, last_name = $2 WHERE id = $3`,
+        [input.firstName, input.lastName, id],
+      );
+    } else {
+      if (!("email" in input)) throw new Error("Email is required for registered customers");
+      await client.query(
+        `
+          UPDATE users
+          SET first_name = $1, last_name = $2, email = $3, updated_at = NOW()
+          WHERE id = $4
+        `,
+        [input.firstName, input.lastName, input.email, target.rows[0].user_id],
+      );
+    }
     await client.query(
       `
         UPDATE customers
@@ -217,7 +228,7 @@ export async function updateCustomer(
     );
 
     await client.query("COMMIT");
-    return findCustomerByUserId(db, target.rows[0].user_id);
+    return findCustomerById(db, id);
   } catch (error) {
     await client.query("ROLLBACK").catch(() => undefined);
     if (isUniqueViolation(error)) throw new Error("A user with this email already exists");
