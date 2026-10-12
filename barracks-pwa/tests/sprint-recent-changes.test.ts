@@ -36,7 +36,7 @@ test("walk-in edits persist without creating accounts and preserve loyalty on co
   assert.equal(walkinCustomerProfileSchema.safeParse({...input,email:"unexpected@example.com"}).success,false);
   const saved=await updateCustomer(db,id,input);
   assert.equal(saved?.firstName,"After");assert.equal(saved?.phone,input.phone);assert.equal(saved?.userId,null);assert.equal(saved?.email,"");assert.equal(saved?.loyaltyPoints,65);
-  const {loyaltyPoints,...contact}=input;
+  const contact={firstName:input.firstName,lastName:input.lastName,phone:input.phone,preferredBarberId:input.preferredBarberId};
   assert.equal(walkinCustomerStaffProfileSchema.safeParse(contact).success,true);
   assert.equal((await updateCustomer(db,id,{...contact,lastName:"Updated"}))?.loyaltyPoints,65);
   assert.equal((await db.query("SELECT count(*) FROM users")).rows[0].count,before);

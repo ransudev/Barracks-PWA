@@ -11,6 +11,7 @@ function controlledClockQueries<T extends object>(target: T): T {
   return new Proxy(target, {
     get(object, key) {
       const value = Reflect.get(object, key);
+      if (typeof value !== "function") return value;
       if (key === "query") return (...args: unknown[]) => {
         // SQL keywords cannot be shadowed by schema functions. Route them to
         // the same clock too, including defaults parsed during migrations.
@@ -22,7 +23,7 @@ function controlledClockQueries<T extends object>(target: T): T {
         return Reflect.apply(value, object, args);
       };
       if (key === "connect") return async () => controlledClockQueries(await Reflect.apply(value, object, []));
-      return typeof value === "function" ? value.bind(object) : value;
+      return value.bind(object);
     },
   });
 }
