@@ -1,70 +1,91 @@
-# User-story test coverage — October 13, 2026
+# User-story verification — October 13, 2026
 
-[Stories and acceptance criteria](README.md) describe 31 stories across five account roles plus shared behavior. This report separates existing automated assertions from complete story acceptance. **No story is declared fully accepted across every browser and hosted criterion by this report.**
+This run tested all 31 documented stories across Administrator, Manager, Front Desk, Customer, Supplier and shared account behavior. Story outcomes below aggregate the 93 acceptance bullets in the [criterion-level matrix](criterion-matrix.md). A story is PASS only when every criterion is PASS. The aggregate remains conservative where automated coverage passed but full workflow evidence is missing.
 
-## Current execution
+## Source and environment
 
-- Source tested: `6b65d8e4470303dbf590ceff3dc75f8f0b256b67`, current `origin/main` when this work began. Documentation-only branch: `codex/account-user-stories`, reusing the isolated booking-fix worktree.
-- Command: `npm test`, from `barracks-pwa`. Existing Node configuration includes the CSS loader, tsx, module mocks and serial test-file concurrency.
-- Explicit environment: `DATABASE_URL=postgresql://postgres@127.0.0.1:55434/barracks_sprint_demo_disposable`, `DATABASE_SSL=false`, empty `POSTGRES_URL`. The existing helper rejects hosted/non-disposable targets and creates/drops isolated test schemas.
-- Result: **166 tests, 166 passed, zero failures, cancellations, skips or TODOs**, about 65 seconds. Log: `C:/Users/Lance/AppData/Local/Temp/barracks-user-stories-20261013/tests.log` outside Git.
-- Existing Node module-mock experimental/deprecation warnings remain. No test assertions were changed, no new application behavior was introduced, and no production fixture or hosted database was used.
-- Diff whitespace and local Markdown link targets were checked. TypeScript, lint and build were not repeated for this documentation-only change; the source candidate already passed those checks in the [booking eligibility evidence](../001-production-readiness/booking-customer-eligibility-20261013.md).
+- Repository/worktree: `C:\Users\Lance\Documents\Barracks-booking-eligibility-20261013`.
+- Branch: `codex/account-user-stories`.
+- Starting source: `59a9c04a3ed0a523188310e36bc56242cab01170` (the user-story documentation commit). `origin/main` was fetched before testing and resolved to `6b65d8e4470303dbf590ceff3dc75f8f0b256b67`. Application code was unchanged from the starting source during this run; one account-workflow integration test was added in the working tree and included in the final suite.
+- Database: disposable PostgreSQL database `barracks_sprint_demo_disposable` on `127.0.0.1:55434`; `DATABASE_SSL=false`; `POSTGRES_URL` empty. A read-only connection check confirmed database name, loopback server address and port. Test helpers create/drop isolated schemas and reject hosted/non-disposable targets. No hosted Supabase URL, hosted database, migration or data was used.
+- Browser: local app at `http://localhost:3011` using synthetic local accounts only. Test data was created in the disposable database; no live customer, employee or payment records were used.
+- Browser evidence was captured in the in-app browser during this run. The browser tool did not provide a supported way to export the images as workspace files, so there are no screenshot files to link. Screenshots remain available in the run's inline tool output; this limitation is recorded rather than claiming saved artifacts.
+- Automated logs are outside Git: `C:\Users\Lance\AppData\Local\Temp\barracks-user-stories-20261013-tests-final.log` (full suite), `C:\Users\Lance\AppData\Local\Temp\barracks-user-stories-20261013-suite.log` (pre-addition baseline).
 
-## Traceability
+## Automated results
 
-All named test files below are under [`barracks-pwa/tests`](../../barracks-pwa/tests). “Support” means those tests ran successfully and assert relevant behavior, not that every acceptance criterion in a story is covered. The remaining checks column prevents a green suite from hiding untested story steps.
+All commands ran from `barracks-pwa`. Commands using the database were run with `DATABASE_URL=postgresql://postgres@127.0.0.1:55434/barracks_sprint_demo_disposable`, `DATABASE_SSL=false`, and `POSTGRES_URL=''` set in the PowerShell process environment.
 
-| Story | Executed automated support | Remaining checks for full story acceptance |
+| Check | Exact command | Result |
 | --- | --- | --- |
-| ACC-01 | `permission-routes.test.ts`, `view-access.test.ts`, `payroll-permissions.test.ts`: anonymous/role denials and direct page access | Actual credential/session creation, blocked/unverified/deleted login denials and authenticated reload for all five roles |
-| ACC-02 | Permission suite proves anonymous requests are rejected, but does not exercise logout | Session invalidation after logout, old-cookie replay and browser back/reload behavior |
-| ACC-03 | `branch-permissions.test.ts`, `branch-barber-api.test.ts`, `staff-branch-scope.test.ts`, branch/UI tests and owner-scoped booking/supplier tests | Authenticated end-to-end switching for each applicable module and role |
-| ADM-01 | `branches.integration.test.ts`, `branch-permissions.test.ts`, `branches-ui.test.tsx`: branch CRUD, primary membership and Administrator gates | Real Administrator browser create/edit/assignment and feedback |
-| ADM-02 | `staff-authorization-matrix.test.ts`, `staff-branch-scope.test.ts`, `staff-management-ui.test.tsx`, `database.integration.test.ts` | Real staff lifecycle form/session transitions and target rejection displays |
-| ADM-03 | `customer-deactivation.test.ts`, `sprint-recent-changes.test.ts`, `supplier-permission.test.ts`, `sprint2.integration.test.ts`, API role matrix | Supplier login-creation endpoint success/duplicate cases and complete directory workflows in a browser |
-| ADM-04 | `sprint-recent-changes.test.ts`, `barber-schedule.test.ts`, `barber-floor-ui.test.tsx`, `barber-manager-form.test.tsx`, role and payroll tests | Complete Administrator catalog/profile/schedule/rate forms and confirmations |
-| ADM-05 | `revenue-report.test.ts`, `reports-ui.test.tsx`, `payment-actions.test.ts`, `payment-ui.test.tsx`, `permission-routes.test.ts` | Real report/receipt/correction journeys; global Inventory report presentation; physical receipt printing |
-| ADM-06 | `payroll.test.ts`, `payroll-permissions.test.ts`: rates, periods, accrual, state/role rules, immutable snapshots and payment | Real payroll preparation and payment UI, invalid approval feedback and unresolved-rate presentation |
-| MGR-01 | `staff-branch-scope.test.ts`, `staff-management-ui.test.tsx`, `staff-authorization-matrix.test.ts` | Real Manager full/partial/shared membership flows and current-access changes |
-| MGR-02 | `attendance.test.ts`, `attendance-ui.test.tsx`, `barber-manager-form.test.tsx`, `branch-barber-api.test.ts`, `permission-routes.test.ts` | Browser schedule and history-correction forms, reason/error presentation |
-| MGR-03 | `supplier-permission.test.ts`, `supplier-permission-ui.test.tsx`, `sprint-recent-changes.test.ts`, `validation.test.ts`, API role tests | Browser customer loyalty updates, supplier editing and service archival/restoration |
-| MGR-04 | `sprint2.integration.test.ts`, `inventory-concurrency.integration.test.ts`, `inventory-branch-ui.test.tsx`, `app-shell-inventory-alerts.test.tsx` | Browser request → fulfillment → delivery → receiving with line quantities; reload reconciliation |
-| MGR-05 | `payment-actions.test.ts`, `revenue-report.test.ts`, `reports-ui.test.tsx`, `payment-ui.test.tsx`, role matrix | Authenticated Manager report/refund UI and receipt audit presentation |
-| MGR-06 | `payroll.test.ts`, `payroll-permissions.test.ts`: Manager-only approval/correction, missing rates, immutable finalization | Real review/return/approve/correct/adjust UI and reason/branch feedback |
-| FD-01 | `staff-dashboard-queue.test.tsx`, `service-interval.test.ts`, `queue-availability.test.ts` | Real dashboard refresh under empty, slow and failed APIs |
-| FD-02 | `booking-customer-eligibility.test.tsx`, `booking-customer-policy.test.ts`, `booking-availability.test.ts`, `booking-concurrency.test.ts` | Current authenticated browser stale-list refresh scenarios; hosted picker and valid booking on a deployed candidate |
-| FD-03 | `queue-lifecycle.test.ts`, `queue-availability.test.ts`, `booking-authorization.test.ts`, `service-start-races.test.ts` | Browser check-in/start/complete/cancel/no-show with real supported time and state |
-| FD-04 | `queue-quick-walkin.test.ts`, `booking-customer-policy.test.ts`, `sprint-recent-changes.test.ts` | Complete browser quick-walk-in/edit/serve flow and visible retry/error handling |
-| FD-05 | `queue-next-customer.test.ts`, `queue-next-customer-ui.test.tsx`, `queue-smart-selection.test.ts` | Real stale-suggestion review/confirm/start journey, including branch changes |
-| FD-06 | `payment-foundation.test.ts`, `payment-ui.test.tsx`, `branch-barber-api.test.ts`, `permission-routes.test.ts` | Real browser service completion → checkout → saved receipt; physical printing |
-| FD-07 | `sprint-recent-changes.test.ts`, `attendance.test.ts`, `attendance-ui.test.tsx`, `barber-floor-ui.test.tsx`, API/schema checks | Browser accountless save/reload and attendance action feedback; real-clock service/clock-out interaction |
-| CUS-01 | `validation.test.ts`, `database.integration.test.ts`: account/schema lifecycle support | Direct signup success/duplicate/privileged-field and resulting session tests; registration browser journey |
-| CUS-02 | `validation.test.ts`, `database.integration.test.ts`, view-access/role checks: profile validation and update support | Dedicated `/api/customers/me` owner-isolation and browser save/reload tests |
-| CUS-03 | `customer-booking-ui.test.tsx`, `booking-authorization.test.ts`, `booking-availability.test.ts`, `booking-concurrency.test.ts` | Real Customer booking, confirmation and session-owner spoofing journeys |
-| CUS-04 | `booking-authorization.test.ts`, `customer-deactivation.test.ts`: ownership, state, original branch and inactive-branch handling | Real history, reschedule and cancellation UI with another customer's IDs and inactive branch |
-| CUS-05 | No recovery acceptance test; open P1 story in readiness scope | Implement/approve recovery policy and complete secure recovery tests; do not treat current button as acceptance |
-| SUP-01 | `sprint2.integration.test.ts`, `permission-routes.test.ts`, `view-access.test.ts`: linked scope, inactive suppliers and role boundaries | Real Supplier login/portal populated data, unlinked/inactive feedback and cross-company browser checks |
-| SUP-02 | `sprint2.integration.test.ts`: supplier ownership and Accepted/Preparing/Shipped transitions, denial of supplier Delivered | Browser fulfillment transitions and saved-status reloads |
-| SUP-03 | `sprint2.integration.test.ts`: persisted request/movement history and snapshots | Portal delivery-history rendering and reload for the linked supplier |
-| SUP-04 | Source inspected: `app/api/supplier/account/route.ts`; no dedicated success/negative runtime assertions found | Current-password verification, invalid/same new password, hash preservation, successful change and subsequent login |
+| New account workflow integration test | `node --import ./tests/helpers/css-register.mjs --import tsx --experimental-test-module-mocks --test --test-concurrency=1 tests/account-workflows.integration.test.ts` | 1 passed, 0 failed, 0 skipped. Uses real handlers against the disposable database; mocks only the DB pool proxy and request cookie adapter. |
+| Full automated suite | `npm test` | **167 passed, 0 failed, 0 cancelled, 0 skipped, 0 TODO** (66.3 seconds). Includes the new account workflow test. |
+| TypeScript | `npx tsc --noEmit` | Passed. |
+| Lint | `npm run lint` | Exit 0, 0 errors, 1 warning in unchanged `app/pages/staff/InventoryPage.tsx:429:50` (`admin` assigned but never used). |
+| Default production build | `npm run build` | Passed; TypeScript and static generation completed (37/37). Built with the explicit local disposable database environment above. |
 
-Permission-route tests mock sessions and selected database interactions. They prove 401/403 gates and representative assertions; an allowed route reaching validation is not proof that its full write succeeded. Disposable-database tests prove persisted service behavior and concurrency, but do not include real browser sessions. JSDOM tests prove their component interactions, not hosted rendering.
+The test runner emitted its existing Node experimental module-mock and named-export deprecation warnings. No application code, permission, validation or assertion was weakened or changed.
 
-## Browser and hosted evidence
+## Story results by role
 
-No new browser or hosted test was run for this documentation task. Earlier evidence is useful context, not fresh acceptance for all these stories:
+Open the criterion matrix for the status and evidence of every acceptance bullet. These aggregate statuses do not imply hosted or production acceptance.
 
-- [Local booking eligibility verification](../001-production-readiness/booking-customer-eligibility-20261013.md) records Front Desk picker/registered-booking acceptance, local HTTP rejection of accountless appointments, and directory/Queue inspection on the same source candidate.
-- [Local sprint verification](../001-production-readiness/sprint-demo-20261013.md) records selected earlier Customer/Front Desk/Manager workflows and its exact source/environment.
-- The hosted report remains in the separate verified worktree at `C:/Users/Lance/Documents/Barracks-sprint-demo-20261013/specs/001-production-readiness/hosted-sprint-verification-20261013.md`. Its selected role/module reads do not prove complete hosted lifecycle/checkout/payroll acceptance or the newly pushed eligibility fix.
-- No deployment identity, hosted API/browser status or production data was changed or newly verified here. [Readiness gates](../001-production-readiness/checklist.md) remain separate and pending.
+| Role | Story | Result |
+| --- | --- | --- |
+| Shared | ACC-01 Sign in to the appropriate workspace | NOT TESTED |
+| Shared | ACC-02 Sign out and prevent continued access | NOT TESTED |
+| Shared | ACC-03 Work within the authorized branch or owner context | NOT TESTED |
+| Administrator | ADM-01 Manage branches and staff assignments | NOT TESTED |
+| Administrator | ADM-02 Administer staff accounts safely | NOT TESTED |
+| Administrator | ADM-03 Maintain customer and supplier records | NOT TESTED |
+| Administrator | ADM-04 Maintain the service catalog and barber settings | NOT TESTED |
+| Administrator | ADM-05 Review business performance and audited financial records | NOT TESTED |
+| Administrator | ADM-06 Prepare payroll without bypassing approval | NOT TESTED |
+| Manager | MGR-01 Manage Front Desk staff within my authority | NOT TESTED |
+| Manager | MGR-02 Maintain barber schedules and correct attendance | NOT TESTED |
+| Manager | MGR-03 Maintain customers, suppliers and service offerings | NOT TESTED |
+| Manager | MGR-04 Manage stock and receive deliveries | PASS |
+| Manager | MGR-05 Review sales and make accountable financial corrections | NOT TESTED |
+| Manager | MGR-06 Review and approve payroll | NOT TESTED |
+| Front Desk | FD-01 Review today's workload | NOT TESTED |
+| Front Desk | FD-02 Create a valid registered-customer appointment | NOT TESTED |
+| Front Desk | FD-03 Check in and serve appointments | NOT TESTED |
+| Front Desk | FD-04 Add and serve accountless walk-ins | PASS |
+| Front Desk | FD-05 Review and confirm the next customer | NOT TESTED |
+| Front Desk | FD-06 Take payment and reopen a receipt | NOT TESTED |
+| Front Desk | FD-07 Maintain customers and today's barber attendance | NOT TESTED |
+| Customer | CUS-01 Register for a customer account | NOT TESTED |
+| Customer | CUS-02 Maintain my profile | PASS |
+| Customer | CUS-03 Book at my chosen active branch | BLOCKED |
+| Customer | CUS-04 Review, reschedule or cancel my appointments | NOT TESTED |
+| Customer | CUS-05 Recover access when I cannot sign in | NOT IMPLEMENTED |
+| Supplier | SUP-01 See my linked supplier business | NOT TESTED |
+| Supplier | SUP-02 Review and fulfill my restock requests | PASS |
+| Supplier | SUP-03 Review delivery history | NOT TESTED |
+| Supplier | SUP-04 Change my password securely | PASS |
 
-## Follow-up acceptance order
+There were no story-level FAIL results: no acceptance bug was fully reproduced. Several criteria have NOT TESTED results because related tests or a partial UI path do not satisfy the full criterion. The only environment-blocked story was Customer booking: the local disposable branch/barber fixture exposed no selectable slot for the synthetic date, so no booking was submitted. This is a fixture limitation, not a reproduced product defect.
 
-1. Add direct account/session/signup/profile/password regressions for the explicit coverage gaps above using disposable identities and no retained plaintext credentials.
-2. Run authenticated local browser journeys for Administrator, Manager, Front Desk, Customer and Supplier with both allowed and denied actions. Record each story's exact criteria, persisted result and screenshot rather than checking off an entire role from its dashboard.
-3. For financial/stock/payroll flows, reconcile saved snapshots, transaction/tender/stock movements and final state after reload; do not infer completion from a toast.
-4. With separate authorization, verify the deployed commit and execute permitted hosted acceptance during supported hours. Keep missing historic durations/rates unresolved and retain broader restore/accessibility/recovery gates.
+## Local browser and persisted-data evidence
 
-This task creates the stories and runs/maps the current automated suite. It does not silently implement open stories, change role policy or label the complete product release-ready.
+- **Administrator:** Signed in to the local admin workspace; blocked the synthetic Front Desk account, reloaded and observed Blocked; login was denied with the account-blocked message; unblocked the account. Used the supplier directory to create a linked Supplier login; the UI showed connected portal access.
+- **Manager:** Changed the synthetic registered customer's loyalty points from 0 to 5; Customer reload showed the saved balance. For restock, advanced the request to Delivered and received 4 of 5 units at ₱27 each. After reload, the request showed Received and Inventory showed quantity 6 and unit cost ₱27. A read-only database query confirmed starting quantity 2, ending quantity 6, one RECEIVE movement with the request reference, and delivered quantity 4. Automated integration coverage exercised invalid/duplicate receiving and concurrency; no real stock was touched.
+- **Front Desk:** Added an accountless walk-in to Queue, reloaded and saw it Waiting. Edited the profile name; it remained marked as having no login account and retained 0 loyalty points. Read-only database reconciliation showed `user_id = null` and Queue #3 `waiting` in branch 1.
+- **Customer:** Signed in, updated own profile name, saved and reloaded; the new name persisted while loyalty remained 5. Direct navigation to the admin workspace returned to the Customer workspace. The booking form had an active service and barber but no available slot for the test date/barber; the attempt stopped before submission.
+- **Supplier:** Signed in to the linked portal and saw its company, linked item, request and line details. Advanced the request Pending → Accepted → Preparing → Shipped; reload retained Shipped. Direct navigation to the admin workspace returned to the Supplier workspace. Supplier delivery-history rendering after shop receipt and historical live-name snapshot behavior were not verified in the browser.
+
+Synthetic identities were generated for this run and their passwords were not saved in Git or evidence. The post-journey read-only database check confirmed the synthetic accounts were verified, unblocked and undeleted, with password hashes (not plaintext) stored. Barbers and accountless walk-ins were treated as business records, not login roles.
+
+The new database-backed API integration test also exercised valid/invalid login, blocked/unverified/deleted login denial, logout cookie invalidation and protected API denial; Customer signup, duplicate email and privileged-field rejection; self-profile ownership and loyalty protection; Supplier account linkage and duplicate rejection; and Supplier password validation, hash preservation, successful change and subsequent login. The matrix identifies the exact criteria supported by those assertions.
+
+## Gaps and reproduced issues
+
+- Customer recovery remains **NOT IMPLEMENTED** and open P1. A Forgot password control alone is not acceptance. The recovery policy, expiration, replay prevention and non-disclosure checks have not been implemented or verified.
+- Customer successful booking remains BLOCKED by the local fixture's lack of a selectable slot. Add an eligible local schedule/fixture in a later test run, without changing production hours or attendance, and repeat a valid booking confirmation and persisted-ownership journey.
+- Checkout, saved receipt reload, duplicate-payment prevention and refund audit/original-transaction preservation were not exercised as authenticated browser journeys in this run. Related automated coverage passed but does not complete those stories.
+- Payroll browser approval, immutable snapshot reload and unresolved historical-rate handling were not exercised end-to-end. Related automated tests passed; no historical rates or records were altered.
+- Supplier delivery history after receipt, snapshot preservation after live supplier/item rename, and cross-company browser ownership denial remain unverified.
+- Hosted, deployment, production-readiness, restore, mobile/accessibility and recovery evidence are not part of this local run. No hosted state was queried or mutated.
+- **Reproduced product bugs:** none. No expected/actual product mismatch was fully reproduced. Customer booking had no eligible slot in the local fixture and was stopped as BLOCKED rather than reported as a defect.
+
+The [criterion-level matrix](criterion-matrix.md) is the linked 93-row result set. Existing automated coverage files are named alongside the gaps in the repository's test suite; a passing test count is not treated as full story acceptance.
