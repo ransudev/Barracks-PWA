@@ -277,3 +277,7 @@
 @media (max-width: 760px) { .booking-calendar { display: none; } .booking-agenda { display: block; } .bookings-toolbar .task-view-switch { display: none; } .bookings-toolbar { padding: 14px 18px 4px; } .bookings-toolbar__date .field { flex: 1; width: auto; } .bookings-toolbar__label { flex-basis: 100%; margin: 4px 0 0; } }
 .transaction-day-summary { margin-top: 16px; }
 .page-header__actions .operational-freshness { margin: 0; color: var(--text-muted); }
+a.button { text-decoration: none; }
+.restock-list-tabs .tabs { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-raised); }
+.restock-list-tabs .tabs > button { min-height: 30px; padding: 0 12px; border: 0; border-radius: 6px; background: transparent; box-shadow: none; color: var(--text-muted); font-size: 12px; font-weight: 650; }
+.restock-list-tabs .tabs > button.is-active { background: var(--surface-hover); color: var(--text); }

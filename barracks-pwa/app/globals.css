@@ -1972,3 +1972,5 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .field.branch-switcher { width: 100%; }
   .branch-switcher .select-wrap { flex: 1; width: auto; }
 }
+.page-header__actions > .operational-freshness { order: -2; }
+.page-header__actions > .branch-switcher { order: -1; }

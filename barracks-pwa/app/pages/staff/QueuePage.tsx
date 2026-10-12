@@ -1,7 +1,8 @@
 "use client";
 import { useBranchContext } from "@/app/utils/use-branch-context";
+import { BranchSwitcher } from "@/app/components/BranchSwitcher";
 
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { ApiBarberAvailability, ApiCustomer, ApiQueueEntry } from "@/app/lib/api";
 import { apiRequest, readApiBody } from "@/app/lib/api";
 import type { Service } from "@/app/types/domain";
@@ -21,14 +22,13 @@ const scheduledTime = (entry: ApiQueueEntry) => {
 };
 
 export function QueuePage({ onToast, canOperate = true }: { onToast: (message: string) => void; canOperate?: boolean; }) {
-  const { branches, branchId, setBranchId, branchError } = useBranchContext();
-  return <><SelectField label="Branch" value={branchId || ""} onChange={(event) => setBranchId(Number(event.target.value))}>
-    {branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
-  </SelectField>{branchError && <p role="alert">{branchError}</p>}
-  {branchId > 0 && <QueuePageContent key={branchId} branchId={branchId} onToast={onToast} canOperate={canOperate}  />}</>;
+  const { branches, branchId, setBranchId, branchError, branchLoading } = useBranchContext();
+  const branchControl = <BranchSwitcher branches={branches} value={branchId} loading={branchLoading} onChange={setBranchId} />;
+  if (branchId > 0) return <QueuePageContent key={branchId} branchId={branchId} onToast={onToast} canOperate={canOperate} branchControl={branchControl} />;
+  return <div className="operational-workspace">{branchControl}{branchError ? <p role="alert">{branchError}</p> : !branchLoading && <p className="operational-loading">No branch assigned.</p>}</div>;
 }
 
-function QueuePageContent({ onToast, canOperate = true, branchId }: { branchId: number; onToast: (message: string) => void; canOperate?: boolean }) {
+function QueuePageContent({ onToast, canOperate = true, branchId, branchControl }: { branchControl: ReactNode; branchId: number; onToast: (message: string) => void; canOperate?: boolean }) {
   const [queue, setQueue] = useState<ApiQueueEntry[]>([]);
   const [completed, setCompleted] = useState<ApiQueueEntry[]>([]);
   const [queueTab, setQueueTab] = useState<"active" | "completed-today">("active");
@@ -231,7 +231,7 @@ function QueuePageContent({ onToast, canOperate = true, branchId }: { branchId: 
   const tone = (status: ApiQueueEntry["status"]) => status === "ready" || status === "completed" ? "success" : status === "in_progress" ? "info" : "neutral";
   const openEntry = (entry: ApiQueueEntry) => setSelected(entry);
   return <div className="operational-workspace">
-    <PageHeader title="Queue management" description={canOperate ? undefined : "Read-only access"} action={queueTab === "active" ? <><ViewToggle view={view} onChange={setView} label="Choose queue view" />{canOperate && <Button icon="plus" disabled={loading || !services.some((service) => service.active)} onClick={openAddDialog}>Add to queue</Button>}</> : undefined} />
+    <PageHeader title="Queue management" action={queueTab === "active" ? <><ViewToggle view={view} onChange={setView} label="Choose queue view" />{canOperate && <Button icon="plus" disabled={loading || !services.some((service) => service.active)} onClick={openAddDialog}>Add to queue</Button>}</> : undefined}>{branchControl}</PageHeader>
     <div role="tablist" aria-label="Queue sections" className="queue-section-tabs">
       <button type="button" role="tab" aria-selected={queueTab === "active"} onClick={() => { setQueueTab("active"); setSelected(null); }}>Active</button>
       <button type="button" role="tab" aria-selected={queueTab === "completed-today"} onClick={() => { setQueueTab("completed-today"); setSelected(null); }}>Completed Today</button>
