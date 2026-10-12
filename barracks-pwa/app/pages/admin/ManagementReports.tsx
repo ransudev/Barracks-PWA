@@ -36,12 +36,12 @@ function ManagementReportsContent({ onToast, branch, branchControl }: { onToast:
   return <div className={styles.dashboard}>
     <PageHeader title="Reports" action={branchControl} />
     <div className={styles.tabs} role="group" aria-label="Report type">
-      <Button type="button" aria-pressed={section === "sales"} variant={section === "sales" ? "primary" : "secondary"} onClick={() => setSection("sales")}>Sales & revenue</Button>
-      <Button type="button" aria-pressed={section === "inventory"} variant={section === "inventory" ? "primary" : "secondary"} onClick={() => setSection("inventory")}>Inventory</Button>
+      <Button type="button" aria-pressed={section === "sales"} variant="ghost" onClick={() => setSection("sales")}>Sales & revenue</Button>
+      <Button type="button" aria-pressed={section === "inventory"} variant="ghost" onClick={() => setSection("inventory")}>Inventory</Button>
     </div>
     <Panel className={styles.period}>
       <div className={styles.presets} role="group" aria-label="Report period presets">
-        {presets.map((value) => <Button key={value} size="sm" type="button" aria-pressed={preset === value} variant={preset === value ? "primary" : "ghost"} onClick={() => selectPreset(value)}>{value}</Button>)}
+        {presets.map((value) => <Button key={value} size="sm" type="button" aria-pressed={preset === value} variant="ghost" onClick={() => selectPreset(value)}>{value}</Button>)}
       </div>
       <form className={styles.dateForm} onSubmit={applyRange}>
         <TextField label="From" type="date" required value={draft.from} onChange={(event) => setDraft({ ...draft, from: event.target.value })} />

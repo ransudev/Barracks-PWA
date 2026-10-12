@@ -61,7 +61,7 @@ function DailyActivity({ data, range }: { data: RevenueReport; range: ReportRang
   return <Panel className={styles.visualPanel}>
     <SectionHeading title="Daily activity" />
     <div className={styles.chartControls}>
-      <div className={styles.tabs} role="group" aria-label="Daily activity view">{(["calendar", "trend"] as const).map((value) => <Button key={value} type="button" size="sm" variant={view === value ? "primary" : "ghost"} aria-pressed={view === value} onClick={() => { setView(value); setSelected(null); }}>{value === "trend" ? "Line chart" : "Calendar"}</Button>)}</div>
+      <div className={styles.tabs} role="group" aria-label="Daily activity view">{(["calendar", "trend"] as const).map((value) => <Button key={value} type="button" size="sm" variant="ghost" aria-pressed={view === value} onClick={() => { setView(value); setSelected(null); }}>{value === "trend" ? "Line chart" : "Calendar"}</Button>)}</div>
       <div className={styles.tabs} role="group" aria-label="Daily activity measure">{metrics.map((item) => <Button key={item.key} type="button" size="sm" variant={metric === item.key ? "secondary" : "ghost"} aria-pressed={metric === item.key} onClick={() => setMetric(item.key)}>{item.label}</Button>)}</div>
     </div>
     {!data.dailySales.length ? <EmptyState title="No sales or reversals in this period" description="Choose another period to explore daily activity." /> : view === "trend" ? <>
