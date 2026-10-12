@@ -100,6 +100,7 @@ export type Service = {
   durationMinutes: number | null;
   price: number;
   active: boolean;
+  hasHistory?: boolean;
   createdAt?: string;
   updatedAt?: string;
 };

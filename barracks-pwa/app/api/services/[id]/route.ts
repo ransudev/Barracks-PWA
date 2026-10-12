@@ -2,10 +2,24 @@ import { requireRolesUser, requireManagement } from "@/server/auth/require-role"
 import { pool } from "@/server/db/pool";
 import { serviceIdSchema, serviceUpdateSchema } from "@/server/schemas/service.schema";
 import { formatValidationErrors } from "@/server/schemas/user.schema";
-import { findServiceById, updateService } from "@/server/services/service.service";
+import { deleteService, findServiceById, updateService } from "@/server/services/service.service";
 
 export const runtime = "nodejs";
 type Context = { params: Promise<{ id: string }> };
+export async function DELETE(_request: Request, { params }: Context) {
+  const denied = await requireManagement(); if (denied) return denied;
+  const id = serviceIdSchema.safeParse((await params).id);
+  if (!id.success) return Response.json({ success: false, message: "Service not found" }, { status: 404 });
+  try {
+    const result = await deleteService(pool, id.data);
+    if (result === "not_found") return Response.json({ success: false, message: "Service not found" }, { status: 404 });
+    if (result === "has_history") return Response.json({ success: false, code: "SERVICE_HAS_HISTORY", message: "This service has bookings, queue visits, or transactions. Archive it to preserve its history." }, { status: 409 });
+    return Response.json({ success: true, message: "Service deleted" });
+  } catch (error) {
+    console.error("Unable to delete service", error);
+    return Response.json({ success: false, message: "Unable to delete service" }, { status: 500 });
+  }
+}
 export async function GET(_request: Request, { params }: Context) {
   const actor = await requireRolesUser(["customer", "front_desk", "manager", "administrator"]);
   if (actor instanceof Response) return actor;
