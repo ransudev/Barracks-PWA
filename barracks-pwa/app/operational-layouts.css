@@ -22,24 +22,50 @@
   body:has(.receipt-view) .receipt-view { position: absolute; inset: 0 auto auto 0; }
 }
 .task-note { margin: 12px 20px; color: var(--text-soft); font-size: 13px; }
-.task-view-switch { display: flex; gap: 4px; flex-wrap: wrap; }
-.task-view-switch button { padding: 9px 14px; border-radius: 8px; background: var(--surface-raised); color: var(--text-soft); }
-.task-view-switch button[aria-pressed="true"] { background: var(--surface-hover); color: var(--text); outline: 1px solid var(--line-strong); }
-.day-schedule { overflow: auto; max-height: 760px; border-top: 1px solid var(--line); }
+/* Bookings toolbar + day schedule */
+.bookings-toolbar { align-items: center; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding: 16px 22px 4px; }
+.bookings-toolbar__date { align-items: center; display: flex; flex-wrap: wrap; gap: 6px; }
+.bookings-toolbar__date .field { width: 150px; }
+.bookings-toolbar__label { margin-left: 8px; color: var(--text); font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
+.task-view-switch { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-raised); }
+.task-view-switch button { min-height: 30px; padding: 0 12px; border-radius: 6px; background: transparent; color: var(--text-muted); font-size: 12px; font-weight: 650; }
+.task-view-switch button[aria-pressed="true"] { background: var(--surface-hover); color: var(--text); outline: 0; }
+.day-schedule__meta { align-items: center; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px 16px; padding: 4px 22px 12px; color: var(--text-muted); font-size: 12px; }
+.day-schedule__legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 0; padding: 0; list-style: none; }
+.day-schedule__legend li { align-items: center; display: inline-flex; gap: 6px; }
+.day-schedule__legend li::before { width: 10px; height: 10px; border-radius: 2px; background: var(--status-color); content: ""; }
+:is(.day-schedule__legend li, .day-schedule__booking).is-confirmed { --status-color: var(--blue); }
+:is(.day-schedule__legend li, .day-schedule__booking).is-checked_in { --status-color: var(--amber); }
+:is(.day-schedule__legend li, .day-schedule__booking).is-in_progress { --status-color: var(--violet); }
+:is(.day-schedule__legend li, .day-schedule__booking).is-completed { --status-color: var(--green); }
+:is(.day-schedule__legend li, .day-schedule__booking):is(.is-cancelled, .is-no_show) { --status-color: var(--red); }
+.day-schedule { overflow: auto; max-height: min(680px, 70vh); margin: 0 22px 22px; border: 1px solid var(--line); border-radius: 8px; }
 .day-schedule__grid { display: grid; min-width: 100%; }
-.day-schedule__heading, .day-schedule__corner { position: sticky; top: 0; z-index: 4; padding: 16px 12px; background: var(--surface); border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); }
-.day-schedule__heading strong, .day-schedule__heading small { display: block; overflow-wrap: anywhere; }
-.day-schedule__heading small { margin-top: 5px; color: var(--text-soft); }
-.day-schedule__axis { position: sticky; left: 0; z-index: 3; background: var(--surface); }
-.day-schedule__axis span { position: absolute; left: 10px; color: var(--text-soft); font-size: 12px; font-variant-numeric: tabular-nums; }
+.day-schedule__heading, .day-schedule__corner { position: sticky; top: 0; z-index: 5; padding: 10px 12px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--surface-raised); }
+.day-schedule__corner { left: 0; z-index: 6; padding: 0; }
+.day-schedule__heading:last-child { border-right: 0; }
+.day-schedule__heading strong, .day-schedule__heading small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.day-schedule__heading strong { color: var(--text); font-size: 13px; }
+.day-schedule__heading small { margin-top: 3px; color: var(--text-muted); font-size: 11px; }
+.day-schedule__axis { position: sticky; left: 0; z-index: 4; border-right: 1px solid var(--line); background: var(--surface); }
+.day-schedule__axis span { position: absolute; right: 8px; transform: translateY(-50%); color: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.day-schedule__axis span:first-child { transform: translateY(2px); }
 .day-schedule__column { position: relative; border-right: 1px solid var(--line); }
-.day-schedule__hour { position: absolute; width: 100%; border-top: 1px solid var(--line); pointer-events: none; }
-.day-schedule__constraint { position: absolute; width: 100%; background: color-mix(in srgb, var(--surface-hover) 70%, transparent); padding: 4px; overflow: hidden; color: var(--text-soft); font-size: 11px; }
-.day-schedule__constraint--away { background: color-mix(in srgb, var(--amber) 15%, var(--surface)); }
-.day-schedule__booking { position: absolute; z-index: 2; display: flex; flex-direction: column; gap: 3px; text-align: left; padding: 7px; background: var(--surface-raised); border: 1px solid var(--line-strong); border-radius: 6px; overflow: auto; color: var(--text); }
-.day-schedule__booking:hover { background: var(--surface-hover); }
-.day-schedule__booking strong { font-size: 13px; overflow-wrap: anywhere; }
-.day-schedule__booking small, .day-schedule__booking > span { font-size: 11px; }
+.day-schedule__column:last-child { border-right: 0; }
+.day-schedule__hour, .day-schedule__half { position: absolute; width: 100%; border-top: 1px solid var(--line); pointer-events: none; }
+.day-schedule__half { border-top-style: dashed; opacity: .45; }
+.day-schedule__hour:first-child { border-top: 0; }
+.day-schedule__constraint { position: absolute; width: 100%; overflow: hidden; padding: 6px 8px; background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--surface-hover) 55%, transparent) 0 6px, transparent 6px 12px); color: var(--text-muted); font-size: 11px; pointer-events: none; }
+.day-schedule__constraint--away { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--amber) 14%, transparent) 0 6px, transparent 6px 12px); color: var(--amber); }
+.day-schedule__booking { --status-color: var(--blue); position: absolute; z-index: 2; display: flex; overflow: hidden; flex-direction: column; gap: 2px; padding: 5px 8px 5px 10px; border: 1px solid color-mix(in srgb, var(--status-color) 35%, var(--line)); border-left: 3px solid var(--status-color); border-radius: 6px; background: color-mix(in srgb, var(--status-color) 13%, var(--surface-raised)); color: var(--text); text-align: left; transition: background .15s ease; }
+.day-schedule__booking:hover { background: color-mix(in srgb, var(--status-color) 22%, var(--surface-raised)); }
+.day-schedule__booking > span { color: var(--text-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+.day-schedule__booking strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.day-schedule__booking small { overflow: hidden; color: var(--text-soft); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.day-schedule__booking:is(.is-cancelled, .is-no_show) { opacity: .6; }
+.day-schedule__booking:is(.is-cancelled, .is-no_show) strong { text-decoration: line-through; }
+.day-schedule__now { position: absolute; z-index: 3; left: 0; right: 0; border-top: 2px solid var(--red); pointer-events: none; }
+.booking-calendar { padding-top: 4px; }
 .booking-agenda { display: none; }
 .operational-freshness { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 12px 0 20px; color: var(--text-soft); font-size: 12px; }
 .operational-freshness p { flex-basis: 100%; margin: 0; color: var(--red); }
@@ -241,6 +267,6 @@
   .customer-dashboard__grid .panel-scroll-body { max-height: min(32rem, 70vh); }
 }
 @media (max-width: 760px) { .weekly-timeline > button { grid-template-columns: 95px 1fr; } .weekly-timeline__track { grid-column: 1 / -1; } .weekly-timeline small { grid-column: 1 / -1; } }
-@media (max-width: 760px) { .booking-calendar { display: none; } .booking-agenda { display: block; } .task-view-switch .desktop-day { display: none; } }
+@media (max-width: 760px) { .booking-calendar { display: none; } .booking-agenda { display: block; } .bookings-toolbar .task-view-switch { display: none; } .bookings-toolbar { padding: 14px 18px 4px; } .bookings-toolbar__date .field { flex: 1; width: auto; } .bookings-toolbar__label { flex-basis: 100%; margin: 4px 0 0; } }
 .transaction-day-summary { margin-top: 16px; }
 .page-header__actions .operational-freshness { margin: 0; color: var(--text-muted); }
