@@ -52,10 +52,12 @@ export function InventoryReports({ range, onToast, branch }: { range: ReportRang
     {data && <>
       <p className={styles.note}>Stock value, active items, and stock status are current. Usage, supplier spending, and movements cover the selected period.</p>
       <div className={styles.visualGrid}>
-        <Panel className={styles.visualPanel}>
+        <Panel className={`${styles.visualPanel} ${styles.matchedPanel}`}>
           <SectionHeading title="Stock needs attention" description="Active items at or below their minimum stock today." />
+          <div className={styles.scrollBody} role="region" aria-label="Stock needs attention" tabIndex={0}>
           {lowStock.length ? <ul className={styles.stockList}>{lowStock.slice(0, 6).map((row) => <li key={`${row.itemId}:${row.branchId}`}><div><strong>{row.itemName}</strong><small>{row.branch}</small></div><div><Badge tone="warning">{row.currentQuantity} left</Badge><small>Minimum {row.minimumStock}</small></div></li>)}</ul> : <EmptyState icon="check" title="No items below minimum" description="All active items are above their stock thresholds." />}
           {lowStock.length > 6 && <p className={styles.note}>{lowStock.length - 6} more low-stock items in the full breakdown below.</p>}
+          </div>
         </Panel>
         <RankedBars title="Supplier spending" description="Cost of received deliveries in the selected period." rows={suppliers.filter((supplier) => supplier.totalSpend !== null && supplier.totalSpend > 0).map((supplier) => ({ id: supplier.supplierId, label: supplier.supplierName, value: supplier.totalSpend ?? 0, detail: `${supplier.receivedDeliveries} received deliveries` }))} format={formatCurrency}>
           <ReportDetails title="Supplier spending breakdown">

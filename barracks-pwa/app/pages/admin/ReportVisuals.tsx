@@ -16,12 +16,11 @@ export function ReportDetails({ title, children }: { title: string; children: Re
 
 export type BarRow = { id?: string | number; label: string; value: number; detail?: string };
 
-export function RankedBars({ title, description, rows, format, children }: { title: string; description: string; rows: BarRow[]; format: (value: number) => string; children?: ReactNode }) {
+export function RankedBars({ title, description, rows, format, children, matchSibling = false }: { title: string; description: string; rows: BarRow[]; format: (value: number) => string; children?: ReactNode; matchSibling?: boolean }) {
   const ranked = [...rows].sort((a, b) => b.value - a.value);
   const max = Math.max(1, ...rows.map((row) => Math.abs(row.value)));
   const hasNegative = rows.some((row) => row.value < 0);
-  return <Panel className={styles.visualPanel}>
-    <SectionHeading title={title} description={description} />
+  const content = <>
     {ranked.length ? <ol className={styles.rankList}>
       {ranked.slice(0, 7).map((row) => <li key={row.id ?? row.label}>
         <div className={styles.rankLabel}><strong>{row.label}</strong><strong>{format(row.value)}</strong></div>
@@ -33,5 +32,9 @@ export function RankedBars({ title, description, rows, format, children }: { tit
     </ol> : <EmptyState title="No activity in this period" description="Try another date range to see this breakdown." />}
     {ranked.length > 7 && <p className={styles.note}>Showing the top 7 of {ranked.length}. All groups are in the breakdown.</p>}
     {children}
+  </>;
+  return <Panel className={`${styles.visualPanel} ${matchSibling ? styles.matchedPanel : ""}`}>
+    <SectionHeading title={title} description={description} />
+    {matchSibling ? <div className={styles.scrollBody} role="region" aria-label={`${title} details`} tabIndex={0}>{content}</div> : content}
   </Panel>;
 }

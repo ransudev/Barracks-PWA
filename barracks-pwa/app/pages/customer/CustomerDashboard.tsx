@@ -305,11 +305,12 @@ export function CustomerDashboard({
                   </div>
                 </Panel>
 
-                <Panel className="customer-bookings-panel">
+                <Panel className="customer-bookings-panel matched-height-panel">
                   <SectionHeading
                     title="Upcoming appointments"
                     action={<button className="link-button" type="button" onClick={() => go("customer-booking")}>Book another</button>}
                   />
+                  <div className="panel-scroll-body" role="region" aria-label="Upcoming appointments" tabIndex={0}>
                   {upcoming.length ? (
                     <div className="customer-booking-list">
                       {upcoming.map((booking) => (
@@ -334,6 +335,7 @@ export function CustomerDashboard({
                       description="Choose a service and time to reserve your next chair."
                     />
                   )}
+                  </div>
                 </Panel>
               </div>
 
