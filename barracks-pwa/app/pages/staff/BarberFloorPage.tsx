@@ -1,6 +1,7 @@
 "use client";
 
 import { useBranchContext } from "@/app/utils/use-branch-context";
+import { BranchSwitcher } from "@/app/components/BranchSwitcher";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiRequest, readApiBody, type ApiAttendance, type ApiBarberAvailability, type ApiQueueEntry } from "@/app/lib/api";
 import { Avatar, Badge, Button, EmptyState, MetricCard, PageHeader, Panel, SelectField } from "@/app/components/ui";
@@ -98,7 +99,7 @@ export function BarberFloorPage() {
   const available = barbers.filter((barber) => isBarberAvailable(barber) && !serving.some((entry) => entry.barberId === barber.id));
 
   return <div className="operational-workspace">
-    <SelectField label="Branch" value={branchId} disabled={savingId !== null || attendanceSavingId !== null} onChange={(event) => { invalidateLoad(); setBarbers([]); setQueue([]); setAttendance([]); setLoading(true); setError(""); setStatusError(""); setBranchId(Number(event.target.value)); }}>{branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</SelectField>{branchError && <p role="alert">{branchError}</p>}<PageHeader title="Barber Floor" action={<Button icon="refresh" variant="secondary" disabled={loading} onClick={() => void load()}>Refresh</Button>} />
+    {branchError && <p role="alert">{branchError}</p>}<PageHeader title="Barber Floor" action={<><BranchSwitcher branches={branches} value={branchId} disabled={savingId !== null || attendanceSavingId !== null} onChange={(id) => { invalidateLoad(); setBarbers([]); setQueue([]); setAttendance([]); setLoading(true); setError(""); setStatusError(""); setBranchId(id); }} /><Button icon="refresh" variant="secondary" disabled={loading} onClick={() => void load()}>Refresh</Button></>} />
     <div className="metrics-grid metrics-grid--four">
       <MetricCard label="Barbers" value={loading || error ? "—" : String(barbers.length)} icon="scissors" accent="blue" />
       <MetricCard label="Available" value={loading || error ? "—" : String(available.length)} icon="check" accent="green" />

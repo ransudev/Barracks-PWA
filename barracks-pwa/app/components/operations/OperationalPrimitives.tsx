@@ -65,7 +65,7 @@ export function FilterToolbar({
 
 export function FreshnessBar({ updatedAt, loading, error, onRefresh }: { updatedAt: number | null; loading: boolean; error?: string; onRefresh: () => void }) {
   return <div className="operational-freshness">
-    <span role="status">{loading ? "Updating…" : updatedAt ? <>Last updated <time dateTime={new Date(updatedAt).toISOString()}>{new Date(updatedAt).toLocaleString("en-PH", { timeZone: "Asia/Manila", hour: "numeric", minute: "2-digit", second: "2-digit", month: "short", day: "numeric" })}</time> · Manila</> : "No successful update yet"}</span>
+    <span role="status">{loading ? "Updating…" : updatedAt ? <>Updated <time dateTime={new Date(updatedAt).toISOString()}>{new Date(updatedAt).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "numeric", minute: "2-digit" })}</time></> : "Not updated yet"}</span>
     <Button type="button" size="sm" variant="secondary" icon="refresh" disabled={loading} onClick={onRefresh}>Refresh</Button>
     {error && <p role="alert">Refresh failed: {error}{updatedAt ? ". Displayed data is from the last successful update." : ""}</p>}
   </div>;

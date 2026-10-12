@@ -1,5 +1,6 @@
 "use client";
 import { useBranchContext } from "@/app/utils/use-branch-context";
+import { BranchSwitcher } from "@/app/components/BranchSwitcher";
 
 /* Inventory photos are user-supplied data URLs, which next/image cannot resize
    or cache, so plain img tags are the right fit for this screen. */
@@ -14,6 +15,7 @@ import {
   type ChangeEvent,
   type FormEvent,
   type KeyboardEvent,
+  type ReactNode,
 } from "react";
 import type { ApiInventoryItem, ApiSupplier } from "@/app/lib/api";
 import { apiRequest, readApiBody } from "@/app/lib/api";
@@ -417,15 +419,14 @@ function InventoryDrawer({
 }
 
 export function InventoryPage(props: { onToast: (message: string) => void; admin?: boolean; canDelete: boolean }) {
-  const { branches, branchId, setBranchId, branchError } = useBranchContext();
+  const { branches, branchId, setBranchId, branchError, branchLoading } = useBranchContext();
+  const branchControl = <BranchSwitcher branches={branches} value={branchId} loading={branchLoading} onChange={setBranchId} />;
   const branchName = branches.find((branch) => branch.id === branchId)?.name ?? "";
-  return <><SelectField label="Branch" value={branchId || ""} onChange={(event) => setBranchId(Number(event.target.value))}>
-    {branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
-  </SelectField>{branchError && <p role="alert">{branchError}</p>}
-  {branchId > 0 && <InventoryPageContent key={branchId} {...props} branchId={branchId} branchName={branchName} />}</>;
+  if (branchId > 0) return <InventoryPageContent key={branchId} {...props} branchId={branchId} branchName={branchName} branchControl={branchControl} />;
+  return <div className="operational-workspace">{branchControl}{branchError ? <p role="alert">{branchError}</p> : !branchLoading && <p className="operational-loading">No branch assigned.</p>}</div>;
 }
 
-function InventoryPageContent({ onToast: notify, admin = false, canDelete, branchId, branchName }: { onToast: (message: string) => void; admin?: boolean; canDelete: boolean; branchId: number; branchName: string }) {
+function InventoryPageContent({ onToast: notify, admin = false, canDelete, branchId, branchName, branchControl }: { branchControl: ReactNode; onToast: (message: string) => void; admin?: boolean; canDelete: boolean; branchId: number; branchName: string }) {
   const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   const onToast = useCallback((message: string) => { if (active.current) notify(message); }, [notify]);
@@ -643,7 +644,7 @@ function InventoryPageContent({ onToast: notify, admin = false, canDelete, branc
 
   return (
     <div className="inventory-workspace">
-      <PageHeader title="Inventory Management" action={<><OperationalViewToggle view={viewMode} onChange={setViewMode} label="Choose inventory view" /><Button icon="plus" onClick={openCreate}>Add item</Button></>} />
+      <PageHeader title="Inventory Management" action={<><OperationalViewToggle view={viewMode} onChange={setViewMode} label="Choose inventory view" /><Button icon="plus" onClick={openCreate}>Add item</Button></>}>{branchControl}</PageHeader>
       <div className="metrics-grid metrics-grid--four inventory-metrics"><MetricCard label="Catalog items" value={String(items.length)} icon="box" accent="blue" /><MetricCard label="Active items" value={String(activeItems.length)} icon="checkCircle" accent="green" /><MetricCard label="Needs attention" value={String(lowStock.length + outOfStock.length)} icon="info" accent="amber" /><MetricCard label="Inventory value" value={formatCurrency(inventoryValue)} icon="wallet" accent="violet" /></div>
       <Panel className="inventory-catalog-panel">
         <div className="inventory-catalog-head"><div><h2>{viewMode === "cards" ? "Everyday inventory" : "Detailed inventory list"}</h2></div><div className="inventory-catalog-count"><strong>{sortedFiltered.length}</strong><span>of {items.length} items</span></div></div>

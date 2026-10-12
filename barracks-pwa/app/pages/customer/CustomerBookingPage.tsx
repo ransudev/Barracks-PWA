@@ -2,8 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { BookingForm, type BookingFormValue } from "@/app/components/bookings/BookingForm";
-import { Button, EmptyState, SelectField } from "@/app/components/ui";
-import { Icon } from "@/app/components/ui/icons";
+import { Button, EmptyState, Panel, SectionHeading, SelectField } from "@/app/components/ui";
 import type { ApiBarberAvailability, ApiBooking, ApiUser } from "@/app/lib/api";
 import { apiRequest, readApiBody } from "@/app/lib/api";
 import type { Service, ViewId } from "@/app/types/domain";
@@ -51,14 +50,19 @@ export function CustomerBookingPage(props: CustomerBookingProps) {
   }
   const branch = branches.find((item) => item.id === branchId);
   if (branch) return <CustomerBookingWorkspace key={`${props.user.id}:${branch.id}`} {...props} branch={branch} branches={branches} selectBranch={selectBranch} />;
-  return <div className="customer-page customer-booking-view">
+  return <div className="customer-page customer-page--dashboard customer-booking-view">
     <CustomerTopbar go={props.go} active="customer-booking" onSignOut={props.onSignOut} user={props.user} />
     <main className="customer-content">
-      {loading ? <p>Loading branches…</p> : <SelectField label="Booking branch" value="" onChange={(event) => selectBranch(Number(event.target.value))}>
-        <option value="">Choose an active branch</option>
-        {branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-      </SelectField>}
-      {!loading && !branches.length && <p>No active branches are available for booking.</p>}
+      <div className="customer-dashboard__heading booking-heading">
+        <h1>Book an appointment</h1>
+        {!loading && branches.length > 0 && <SelectField className="booking-branch-field" label="Booking branch" value="" onChange={(event) => selectBranch(Number(event.target.value))}>
+          <option value="">Choose a branch</option>
+          {branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+        </SelectField>}
+      </div>
+      <Panel className="booking-form-card">
+        {loading ? <p className="booking-loading">Loading branches…</p> : branches.length ? <p className="booking-loading">Choose a branch to see services and available times.</p> : <EmptyState icon="calendar" title="No branches available" description="Online booking is unavailable right now." />}
+      </Panel>
     </main>
   </div>;
 }
@@ -146,48 +150,38 @@ function CustomerBookingWorkspace({ go, onToast, onSignOut, user, branch, branch
     }
   }
 
+  const dayHours = value.date ? hours.find((day) => day.dayOfWeek === new Date(`${value.date}T00:00:00Z`).getUTCDay()) : undefined;
+  const barberName = selectedBarber ? `${selectedBarber.firstName} ${selectedBarber.lastName}` : "Any available";
+
   return (
-    <div className="customer-page customer-booking-view">
+    <div className="customer-page customer-page--dashboard customer-booking-view">
       <CustomerTopbar go={go} active="customer-booking" onSignOut={onSignOut} user={user} />
       <main className="customer-content">
-        <div className="booking-hero-header">
-          <div className="booking-hero-header__left">
-            <h1>
-              BOOK YOUR <span className="accent-crimson">CHAIR.</span>
-            </h1>
-          </div>
-          <button
-            type="button"
-            className="booking-back-btn"
-            onClick={() => go("customer-dashboard")}
-          >
-            <Icon name="chevronLeft" size={14} />
-            <span>Back to Dashboard</span>
-          </button>
+        <div className="customer-dashboard__heading booking-heading">
+          <h1>{confirmation ? "Appointment confirmed" : "Book an appointment"}</h1>
+          {!confirmation && <SelectField className="booking-branch-field" label="Booking branch" value={branch.id} disabled={submitting} onChange={(event) => selectBranch(Number(event.target.value))}>
+            {branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </SelectField>}
         </div>
 
         <div className="booking-workspace-grid">
-          {/* Main Form Column */}
-          <div className="booking-form-card">
-            {!confirmation && <SelectField label="Booking branch" value={branch.id} disabled={submitting} onChange={(event) => selectBranch(Number(event.target.value))}>
-              {branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </SelectField>}
+          <Panel className="booking-form-card">
             {confirmation ? (
-              <div className="booking-form-review" role="status">
-                <h2>Appointment confirmed</h2>
-                <p>Booking #{confirmation.id} · {confirmation.status}</p>
-                <p>{confirmation.customerName} · {confirmation.serviceName}</p>
-                <p>Branch: {confirmation.branchName ?? branch.name}</p>
-                <p>Assigned barber: {confirmation.barberName}</p>
-                <p>{confirmation.date} · {confirmation.time}–{confirmation.endTime}</p>
-                <p>{confirmation.durationMinutes} minutes · ₱{confirmation.price}</p>
-                <p>Notes: {confirmation.notes || "None"}</p>
-                <div className="modal-actions"><Button onClick={() => go("customer-dashboard")}>View My Appointments</Button><Button variant="secondary" onClick={() => go("customer-dashboard")}>Back to Dashboard</Button></div>
+              <div className="booking-confirmation" role="status">
+                <dl className="booking-facts">
+                  <div><dt>Booking</dt><dd>#{confirmation.id}</dd></div>
+                  <div><dt>Service</dt><dd>{confirmation.serviceName}</dd></div>
+                  <div><dt>Barber</dt><dd>{confirmation.barberName}</dd></div>
+                  <div><dt>Date</dt><dd>{confirmation.date}</dd></div>
+                  <div><dt>Time</dt><dd>{confirmation.time}–{confirmation.endTime}</dd></div>
+                  <div><dt>Branch</dt><dd>{confirmation.branchName ?? branch.name}</dd></div>
+                  {confirmation.notes && <div><dt>Notes</dt><dd>{confirmation.notes}</dd></div>}
+                  <div className="booking-facts__total"><dt>Total</dt><dd>₱{confirmation.price.toLocaleString()}</dd></div>
+                </dl>
+                <div className="modal-actions"><Button onClick={() => go("customer-dashboard")}>View my appointments</Button></div>
               </div>
             ) : loading ? (
-              <div className="booking-loading">
-                Loading available barbers…
-              </div>
+              <div className="booking-loading">Loading available barbers…</div>
             ) : barbers.length ? (
               <BookingForm
                 branchId={branch.id}
@@ -206,98 +200,23 @@ function CustomerBookingWorkspace({ go, onToast, onSignOut, user, branch, branch
               <EmptyState
                 icon="scissors"
                 title="No barbers available"
-                description="There are no barbers available at this branch. Choose another branch or check back shortly."
-                action={<Button onClick={() => go("customer-dashboard")}>Back to Dashboard</Button>}
+                description="Choose another branch or check back shortly."
               />
             )}
-          </div>
+          </Panel>
 
-          {/* Right Summary Sidebar */}
-          <aside className="booking-summary-sidebar">
-            <div className="booking-summary-card">
-              <div className="booking-summary-card__header">
-                <Icon name="calendar" size={16} className="booking-summary-card__icon" />
-                <h3>RESERVATION SUMMARY</h3>
-              </div>
-
-              <div className="booking-summary-list">
-                <div className="booking-summary-item">
-                  <span>Selected Service</span>
-                  <strong>{selectedService?.name ?? "No service selected"}</strong>
-                  <span className="booking-summary-item__meta">
-                    Duration: {selectedService?.durationMinutes ? `${selectedService.durationMinutes} mins` : "—"}
-                  </span>
-                </div>
-
-                <div className="booking-summary-item">
-                  <span>Service Fee</span>
-                  <strong className="highlight-price">
-                    ₱{selectedService?.price.toLocaleString() ?? "0"}
-                  </strong>
-                </div>
-
-                <div className="booking-summary-item">
-                  <span>Preferred Barber</span>
-                  <strong>
-                    {selectedBarber
-                      ? `${selectedBarber.firstName} ${selectedBarber.lastName}`
-                      : "Any Available Master Barber"}
-                  </strong>
-                  <span className="booking-summary-item__certification">
-                    <Icon name="star" size={11} />
-                    TESDA NC II Certified
-                  </span>
-                </div>
-
-                <div className="booking-summary-item">
-                  <span>Date &amp; Time</span>
-                  <strong>
-                    {value.date ? value.date : "Select date"} · {value.time ? value.time : "Select time"}
-                  </strong>
-                </div>
-
-                <div className="booking-summary-item">
-                  <span>Location</span>
-                  <strong className="booking-summary-item__location">{confirmation?.branchName ?? branch.name}</strong>
-                  <span>{branch.address}</span>
-                  {value.date && hours.filter((day) => day.dayOfWeek === new Date(`${value.date}T00:00:00Z`).getUTCDay()).map((day) => <span key={day.dayOfWeek}>{day.isClosed ? "Closed on this date" : `Open ${day.openTime}–${day.closeTime} · Asia/Manila`}</span>)}
-                </div>
-              </div>
-            </div>
-
-            {/* Barber Café Perks */}
-            <div className="booking-perks-card">
-              <div className="booking-perk-item">
-                <div className="booking-perk-item__icon">
-                  <Icon name="coffee" size={13} />
-                </div>
-                <div className="booking-perk-item__text">
-                  <strong>Barber Café Experience</strong>
-                  <span>Complimentary iced brew or specialty coffee while you relax.</span>
-                </div>
-              </div>
-
-              <div className="booking-perk-item">
-                <div className="booking-perk-item__icon">
-                  <Icon name="clock" size={13} />
-                </div>
-                <div className="booking-perk-item__text">
-                  <strong>10-Minute Grace Period</strong>
-                  <span>We keep your chair reserved 10 minutes past your scheduled start.</span>
-                </div>
-              </div>
-
-              <div className="booking-perk-item">
-                <div className="booking-perk-item__icon">
-                  <Icon name="phone" size={13} />
-                </div>
-                <div className="booking-perk-item__text">
-                  <strong>Questions or Rescheduling?</strong>
-                  <span>Hotline: (+63) 956 542 6212</span>
-                </div>
-              </div>
-            </div>
-          </aside>
+          {!confirmation && <Panel className="booking-summary-card">
+            <SectionHeading title="Summary" />
+            <dl className="booking-facts">
+              <div><dt>Service</dt><dd>{selectedService?.name ?? "—"}</dd></div>
+              <div><dt>Duration</dt><dd>{selectedService?.durationMinutes ? `${selectedService.durationMinutes} min` : "—"}</dd></div>
+              <div><dt>Barber</dt><dd>{barberName}</dd></div>
+              <div><dt>Date</dt><dd>{value.date || "—"}</dd></div>
+              <div><dt>Time</dt><dd>{value.time || "—"}</dd></div>
+              <div><dt>Branch</dt><dd>{branch.name}{branch.address && <small>{branch.address}</small>}{dayHours && <small>{dayHours.isClosed ? "Closed on this date" : `Open ${dayHours.openTime}–${dayHours.closeTime}`}</small>}</dd></div>
+              <div className="booking-facts__total"><dt>Total</dt><dd>₱{selectedService?.price.toLocaleString() ?? "0"}</dd></div>
+            </dl>
+          </Panel>}
         </div>
       </main>
     </div>

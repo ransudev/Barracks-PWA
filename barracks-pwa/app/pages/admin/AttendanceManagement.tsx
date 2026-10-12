@@ -1,9 +1,10 @@
 "use client";
 import { useBranchContext } from "@/app/utils/use-branch-context";
 
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { apiRequest, readApiBody, type ApiAttendance, type ApiAttendanceCorrection, type ApiBarberAvailability } from "@/app/lib/api";
-import { Badge, Button, EmptyState, PageHeader, Panel, SelectField, TextField } from "@/app/components/ui";
+import { Badge, Button, EmptyState, IconButton, PageHeader, Panel, SelectField, TextField } from "@/app/components/ui";
+import { BranchSwitcher } from "@/app/components/BranchSwitcher";
 import { DetailDrawer, FreshnessBar, FilterToolbar, ResponsiveTable } from "@/app/components/operations/OperationalPrimitives";
 
 import type { WeeklySchedule, Unavailability } from "@/server/services/schedule.service";
@@ -22,15 +23,19 @@ const shiftDate = (value: string, days: number) => {
 const startOfWeek = (value: string) => shiftDate(value, -((new Date(`${value}T12:00:00Z`).getUTCDay() + 6) % 7));
 const weekDateLabel = (value: string) => new Date(`${value}T12:00:00Z`).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric", timeZone: "Asia/Manila" });
 
+const cellText: Record<string, string> = { P: "Present", L: "Late", A: "Absent", U: "—", F: "", O: "Off", T: "Away" };
+
 export function AttendanceManagement() {
-  const { branches, branchId, setBranchId, branchError } = useBranchContext();
-  return <><SelectField label="Branch" value={branchId || ""} onChange={(event) => setBranchId(Number(event.target.value))}>
-    {branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
-  </SelectField>{branchError && <p role="alert">{branchError}</p>}
-  {branchId > 0 && <AttendanceBranch key={branchId} branchId={branchId} />}</>;
+  const { branches, branchId, setBranchId, branchError, branchLoading } = useBranchContext();
+  const branchControl = <BranchSwitcher branches={branches} value={branchId} loading={branchLoading} onChange={setBranchId} />;
+  if (branchId > 0) return <AttendanceBranch key={branchId} branchId={branchId} branchControl={branchControl} />;
+  return <div className="operational-workspace attendance-workspace">
+    <PageHeader title="Barber attendance" action={branchControl} />
+    {branchError ? <p role="alert">{branchError}</p> : !branchLoading && <Panel><EmptyState icon="calendar" title="No branch assigned" /></Panel>}
+  </div>;
 }
 
-function AttendanceBranch({ branchId }: { branchId: number }) {
+function AttendanceBranch({ branchId, branchControl }: { branchId: number; branchControl: ReactNode }) {
   const [view, setView] = useState("week");
   const [week, setWeek] = useState(() => startOfWeek(todayInManila()));
   const [search, setSearch] = useState("");
@@ -163,20 +168,24 @@ function AttendanceBranch({ branchId }: { branchId: number }) {
   }
 
   return <div className="operational-workspace attendance-workspace">
-    <PageHeader title="Barber attendance" action={<div className="task-view-switch" role="group" aria-label="Attendance view"><button type="button" aria-pressed={view === "week"} onClick={() => setView("week")}>Week matrix</button><button type="button" aria-pressed={view === "daily"} onClick={() => setView("daily")}>Daily list</button></div>} />
-    <FreshnessBar updatedAt={updatedAt} loading={loading} error={!selected ? error : undefined} onRefresh={() => void load()} />
+    <PageHeader title="Barber attendance" action={<><FreshnessBar updatedAt={updatedAt} loading={loading} error={!selected ? error : undefined} onRefresh={() => void load()} />{branchControl}</>} />
     <Panel className="operational-panel">
+      <div className="bookings-toolbar">
+        <div className="bookings-toolbar__date">
+          {view === "week" ? <><IconButton label="Previous week" icon="chevronLeft" onClick={() => moveWeek(-1)} /><TextField type="date" aria-label="Week containing" value={week} onChange={(event) => { if (event.target.value) setWeek(startOfWeek(event.target.value)); }} /><IconButton label="Next week" icon="chevronRight" onClick={() => moveWeek(1)} />{week !== startOfWeek(todayInManila()) && <Button size="sm" variant="ghost" onClick={() => setWeek(startOfWeek(todayInManila()))}>This week</Button>}<strong className="bookings-toolbar__label">{weekDateLabel(week)} – {weekDateLabel(shiftDate(week, 6))}</strong></>
+            : <><TextField type="date" aria-label="Date" value={date} onChange={(event) => setDate(event.target.value)} /><Button size="sm" variant="ghost" onClick={() => setDate(todayInManila())}>Today</Button><Button size="sm" variant="ghost" onClick={() => setDate("")}>All dates</Button></>}
+        </div>
+        <div className="task-view-switch" role="group" aria-label="Attendance view"><button type="button" aria-pressed={view === "week"} onClick={() => setView("week")}>Week matrix</button><button type="button" aria-pressed={view === "daily"} onClick={() => setView("daily")}>Daily list</button></div>
+      </div>
       <FilterToolbar search={search} onSearchChange={setSearch} placeholder="Search barbers" resultCount={loading || error ? undefined : dailyRecords.length} onReset={() => { setSearch(""); setBarberId(""); setStatus(""); setDate(todayInManila()); setWeek(startOfWeek(todayInManila())); }} filters={<>
-        {view === "week" ? <><Button variant="secondary" onClick={() => moveWeek(-1)}>Previous week</Button><TextField label="Week containing" type="date" value={week} onChange={(event) => { if (event.target.value) setWeek(startOfWeek(event.target.value)); }} /><Button variant="secondary" onClick={() => moveWeek(1)}>Next week</Button></> : <TextField label="Date" type="date" value={date} onChange={(event) => setDate(event.target.value)} />}
-        <SelectField label="Barber" value={barberId} onChange={(event) => setBarberId(event.target.value)}><option value="">All barbers</option>{historyBarbers.map((barber) => <option key={barber.id} value={barber.id}>{barber.firstName} {barber.lastName}</option>)}</SelectField>
-        <SelectField label={view === "week" ? "Barbers with status" : "Status"} value={status} onChange={(event) => setStatus(event.target.value)}><option value="">All statuses</option><option value="present">Present</option><option value="late">Late</option><option value="absent">Absent</option></SelectField>
-        {view === "daily" && <><Button variant="secondary" onClick={() => setDate(todayInManila())}>Today</Button><Button variant="secondary" onClick={() => setDate("")}>All dates</Button></>}
+        <SelectField aria-label="Barber" value={barberId} onChange={(event) => setBarberId(event.target.value)}><option value="">All barbers</option>{historyBarbers.map((barber) => <option key={barber.id} value={barber.id}>{barber.firstName} {barber.lastName}</option>)}</SelectField>
+        <SelectField aria-label={view === "week" ? "Barbers with status" : "Status"} value={status} onChange={(event) => setStatus(event.target.value)}><option value="">All statuses</option><option value="present">Present</option><option value="late">Late</option><option value="absent">Absent</option></SelectField>
       </>} />
       {scheduleError && view === "week" && <p role="alert" className="task-note">{scheduleError}</p>}
-      {view === "week" && !loading && !error && <div className="attendance-week"><p className="task-note">P Present · L Late · A Recorded absent · U Unmarked · F Future · O Scheduled off · T Full-day time away. Missing attendance is not absence.</p><p className="task-note">{weekDateLabel(week)} – {weekDateLabel(shiftDate(week, 6))} · Monday–Sunday</p><div className="attendance-matrix-wrap"><table className="attendance-matrix"><thead><tr><th scope="col">Barber</th>{dates.map((day) => <th scope="col" key={day}><span>{Number(day.slice(-2))}</span><small>{new Date(`${day}T12:00:00Z`).toLocaleDateString("en-PH", {weekday:"short", timeZone:"Asia/Manila"})}</small></th>)}</tr></thead><tbody>{visibleBarbers.map((barber) => <tr key={barber.id}><th scope="row">{barber.firstName} {barber.lastName}</th>{dates.map((day) => { const cell = cellStatus(barber.id, day); return <td key={day}><button type="button" className={`attendance-cell attendance-cell--${cell.symbol}`} aria-label={`${barber.firstName} ${barber.lastName}, ${day}, ${cell.label}`} title={`${day} · ${cell.label}`} onClick={() => { if (cell.record) void openRecord(cell.record); else { setSelected(null); setSelectedCell({name: `${barber.firstName} ${barber.lastName}`, date: day, status: cell.label}); } }}>{cell.symbol}</button></td>; })}</tr>)}</tbody></table></div>{!visibleBarbers.length && <EmptyState title="No matching barbers" description="Reset the filters to review the roster." />}</div>}
+      {view === "week" && !loading && !error && <div className="attendance-week"><div className="attendance-matrix-wrap"><table className="attendance-matrix"><thead><tr><th scope="col">Barber</th>{dates.map((day) => <th scope="col" key={day} className={day === todayInManila() ? "is-today" : undefined}><span>{Number(day.slice(-2))}</span><small>{new Date(`${day}T12:00:00Z`).toLocaleDateString("en-PH", {weekday:"short", timeZone:"Asia/Manila"})}</small></th>)}</tr></thead><tbody>{visibleBarbers.map((barber) => <tr key={barber.id}><th scope="row">{barber.firstName} {barber.lastName}</th>{dates.map((day) => { const cell = cellStatus(barber.id, day); return <td key={day} className={day === todayInManila() ? "is-today" : undefined}><button type="button" className={`attendance-cell attendance-cell--${cell.symbol}`} aria-label={`${barber.firstName} ${barber.lastName}, ${day}, ${cell.label}`} title={`${day} · ${cell.label}`} onClick={() => { if (cell.record) void openRecord(cell.record); else { setSelected(null); setSelectedCell({name: `${barber.firstName} ${barber.lastName}`, date: day, status: cell.label}); } }}>{cellText[cell.symbol]}</button></td>; })}</tr>)}</tbody></table></div>{!visibleBarbers.length && <EmptyState title="No matching barbers" description="Reset the filters to review the roster." />}</div>}
       <div className={view === "week" ? "attendance-mobile-list" : ""}>
       {error && !selected && <p role="alert" className="operational-loading">{error}</p>}
-      {loading ? <p role="status" className="operational-loading">Loading attendance…</p> : error ? null : dailyRecords.length === 0 ? <EmptyState icon="calendar" title="No attendance records" description="Change the filters or record today's attendance on the Barber Floor." /> :
+      {loading ? <p role="status" className="operational-loading">Loading attendance…</p> : error ? null : dailyRecords.length === 0 ? <EmptyState icon="calendar" title="No attendance records" /> :
         <ResponsiveTable headers={["Date", "Barber", "Attendance", "Clock In", "Clock Out", "Details"]}>
           {dailyRecords.map((record) => <tr key={record.id}><td>{record.date}</td><td>{record.barberName}</td><td><Badge tone={record.status === "present" ? "success" : record.status === "late" ? "warning" : "danger"}>{record.status}</Badge></td><td>{clockLabel(record.clockIn)}</td><td>{clockLabel(record.clockOut)}</td><td><Button size="sm" variant="secondary" onClick={() => void openRecord(record)}>View record</Button></td></tr>)}
         </ResponsiveTable>}

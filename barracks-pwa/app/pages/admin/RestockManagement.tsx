@@ -1,7 +1,8 @@
 "use client";
 import { useBranchContext } from "@/app/utils/use-branch-context";
+import { BranchSwitcher } from "@/app/components/BranchSwitcher";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { ApiInventoryItem, ApiSupplier } from "@/app/lib/api";
 import { apiRequest, readApiBody } from "@/app/lib/api";
 import { Badge, Button, ConfirmDialog, EmptyState, Modal, PageHeader, Panel, SelectField, Tabs, TextField } from "@/app/components/ui";
@@ -21,15 +22,14 @@ const stages = [
 ];
 
 export function RestockManagement({ onToast }: { onToast: (message: string) => void }) {
-  const { branches, branchId, setBranchId, branchError } = useBranchContext();
+  const { branches, branchId, setBranchId, branchError, branchLoading } = useBranchContext();
+  const branchControl = <BranchSwitcher branches={branches} value={branchId} loading={branchLoading} onChange={setBranchId} />;
   const branchName = branches.find((branch) => branch.id === branchId)?.name ?? "";
-  return <><SelectField label="Branch" value={branchId || ""} onChange={(event) => setBranchId(Number(event.target.value))}>
-    {branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
-  </SelectField>{branchError && <p role="alert">{branchError}</p>}
-  {branchId > 0 && <RestockContent key={branchId} branchId={branchId} branchName={branchName} onToast={onToast} />}</>;
+  if (branchId > 0) return <RestockContent key={branchId} branchId={branchId} branchName={branchName} onToast={onToast} branchControl={branchControl} />;
+  return <div className="operational-workspace">{branchControl}{branchError ? <p role="alert">{branchError}</p> : !branchLoading && <p className="operational-loading">No branch assigned.</p>}</div>;
 }
 
-function RestockContent({ onToast: notify, branchId, branchName }: { onToast: (message: string) => void; branchId: number; branchName: string }) {
+function RestockContent({ onToast: notify, branchId, branchName, branchControl }: { branchControl: ReactNode; onToast: (message: string) => void; branchId: number; branchName: string }) {
   const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   const onToast = useCallback((message: string) => { if (active.current) notify(message); }, [notify]);
@@ -63,8 +63,7 @@ function RestockContent({ onToast: notify, branchId, branchName }: { onToast: (m
     </button>
     <div className="restock-request-row__action">{restock.status === "Delivered" ? <Button size="sm" disabled={loading || Boolean(loadError)} onClick={() => openReceive(restock)}>Receive delivery</Button> : restock.status === "Shipped" ? <Button size="sm" variant="secondary" disabled={loading || Boolean(loadError) || markingDelivered !== null} onClick={() => setPendingDelivery(restock)}>Confirm arrival</Button> : <Button size="sm" variant="secondary" onClick={() => setSelected(restock)}>View request</Button>}</div>
   </article>;
-  return <div className="operational-workspace restock-workspace"><PageHeader title="Restock requests" action={<Button icon="plus" disabled={loading || Boolean(loadError)} onClick={openCreate}>New request</Button>} />
-    <FreshnessBar updatedAt={updatedAt} loading={loading} error={loadError} onRefresh={() => void load()} />
+  return <div className="operational-workspace restock-workspace"><PageHeader title="Restock requests" action={<Button icon="plus" disabled={loading || Boolean(loadError)} onClick={openCreate}>New request</Button>}><FreshnessBar updatedAt={updatedAt} loading={loading} error={loadError} onRefresh={() => void load()} />{branchControl}</PageHeader>
     <Panel className="operational-panel restock-list-panel">
     <div className="restock-list-tabs"><Tabs active={tab} onChange={(value) => { setTab(value); setStatusFilter("all"); setStage("all"); }} items={[{id:"active", label:"Active requests"}, {id:"history", label:"Completed / cancelled"}]} /></div>
     {tab === "active" && <div className="restock-stages" role="group" aria-label="Filter by request stage">{stages.map((item) => <button type="button" key={item.id} aria-pressed={stage === item.id} onClick={() => setStage(item.id)}><span>{item.label}</span><strong>{loading || loadError ? "—" : visible.filter((request) => item.statuses.includes(request.status)).length}</strong></button>)}</div>}
