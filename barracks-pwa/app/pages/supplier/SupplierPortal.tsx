@@ -326,7 +326,7 @@ export function SupplierPortal({ user, onSignOut, onToast }: { user: ApiUser; on
       <div className="supplier-portal__content">
         <PageHeader
           title="Supplier dashboard"
-          description="Overview of linked stock, restock requests, and delivery history."
+         
           action={(
             <Badge tone={pending.length ? "warning" : "success"}>
               {pending.length ? `${pending.length} open request${pending.length === 1 ? "" : "s"}` : "All requests clear"}
@@ -338,7 +338,7 @@ export function SupplierPortal({ user, onSignOut, onToast }: { user: ApiUser; on
           <Panel className="supplier-profile-card">
             <SectionHeading
               title="Supplier profile"
-              description="Open the record to update your business details."
+             
             />
             {loading ? (
               <div className="supplier-portal__loading">Loading supplier details…</div>
@@ -387,7 +387,7 @@ export function SupplierPortal({ user, onSignOut, onToast }: { user: ApiUser; on
             <Panel className="supplier-items-panel">
               <SectionHeading
                 title="Supplied items"
-                description="Inventory currently linked to your account."
+               
               />
               {profile?.suppliedItems.length ? (
                 <div className="supplier-item-list" role="list">
@@ -422,7 +422,7 @@ export function SupplierPortal({ user, onSignOut, onToast }: { user: ApiUser; on
             <Panel className="supplier-requests-panel">
               <SectionHeading
                 title="Restock requests"
-                description="Requests waiting for your next update."
+               
               />
               {restocks.length ? (
                 <>
@@ -442,7 +442,7 @@ export function SupplierPortal({ user, onSignOut, onToast }: { user: ApiUser; on
             <Panel className="supplier-deliveries-panel">
               <SectionHeading
                 title="Delivery history"
-                description="Recently received supplier deliveries."
+               
               />
               {profile?.recentDeliveries.length ? (
                 <>
@@ -464,7 +464,7 @@ export function SupplierPortal({ user, onSignOut, onToast }: { user: ApiUser; on
         <Panel className="supplier-account-panel">
           <SectionHeading
             title="Account security"
-            description="Update the password used for this supplier login."
+           
           />
           <form className="supplier-password-form" onSubmit={changePassword}>
             <div className="supplier-password-form__fields">

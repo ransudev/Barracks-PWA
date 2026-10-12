@@ -163,7 +163,7 @@ function AttendanceBranch({ branchId }: { branchId: number }) {
   }
 
   return <div className="operational-workspace attendance-workspace">
-    <PageHeader title="Barber attendance" description="Review recorded attendance patterns; inspect a day to see clocks and correction history." action={<div className="task-view-switch" role="group" aria-label="Attendance view"><button type="button" aria-pressed={view === "week"} onClick={() => setView("week")}>Week matrix</button><button type="button" aria-pressed={view === "daily"} onClick={() => setView("daily")}>Daily list</button></div>} />
+    <PageHeader title="Barber attendance" action={<div className="task-view-switch" role="group" aria-label="Attendance view"><button type="button" aria-pressed={view === "week"} onClick={() => setView("week")}>Week matrix</button><button type="button" aria-pressed={view === "daily"} onClick={() => setView("daily")}>Daily list</button></div>} />
     <FreshnessBar updatedAt={updatedAt} loading={loading} error={!selected ? error : undefined} onRefresh={() => void load()} />
     <Panel className="operational-panel">
       <FilterToolbar search={search} onSearchChange={setSearch} placeholder="Search barbers" resultCount={loading || error ? undefined : dailyRecords.length} onReset={() => { setSearch(""); setBarberId(""); setStatus(""); setDate(todayInManila()); setWeek(startOfWeek(todayInManila())); }} filters={<>

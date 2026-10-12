@@ -241,7 +241,7 @@ function PaymentBranch({ branchId, onToast, canCheckout, canManageFinancialActio
   }
 
   return <div className="operational-workspace">
-    <PageHeader title={canCheckout ? "Payments" : "Transactions"} description={canCheckout ? "Check out completed visits." : "Review payment history and manage financial actions."} />
+    <PageHeader title={canCheckout ? "Payments" : "Transactions"} />
     <FreshnessBar updatedAt={updatedAt} loading={loading} error={loadError} onRefresh={() => void load()} />
     {canCheckout && <div className="checkout-workspace">
       <Panel className="eligible-visits-panel matched-height-panel"><SectionHeading title="Completed unpaid visits" /><FilterToolbar search={visitSearch} onSearchChange={setVisitSearch} placeholder="Search customer, service or visit" resultCount={loading || loadError ? undefined : visits.filter((visit) => `${visit.customerName} ${visit.serviceName} ${visit.barberName} ${visit.visitRecordId}`.toLowerCase().includes(visitSearch.trim().toLowerCase())).length} onReset={() => setVisitSearch("")} />
@@ -276,7 +276,7 @@ function PaymentBranch({ branchId, onToast, canCheckout, canManageFinancialActio
       </Panel>}
     </div>}
       <Panel className="recent-transactions-panel">
-        <SectionHeading title="Transaction calendar" description="Select a date to review its transactions. Dates use Manila time." />
+        <SectionHeading title="Transaction calendar" description="Manila time" />
         <form className="transaction-filters" onSubmit={(event) => { event.preventDefault(); setPage(1); setSearch(searchInput); }}>
           <TextField label="Reference or customer" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} />
           <Button type="submit">Search</Button>

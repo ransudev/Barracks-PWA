@@ -98,7 +98,7 @@ export function BarberFloorPage() {
   const available = barbers.filter((barber) => isBarberAvailable(barber) && !serving.some((entry) => entry.barberId === barber.id));
 
   return <div className="operational-workspace">
-    <SelectField label="Branch" value={branchId} disabled={savingId !== null || attendanceSavingId !== null} onChange={(event) => { invalidateLoad(); setBarbers([]); setQueue([]); setAttendance([]); setLoading(true); setError(""); setStatusError(""); setBranchId(Number(event.target.value)); }}>{branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</SelectField>{branchError && <p role="alert">{branchError}</p>}<PageHeader title="Barber Floor" description="See operational status, assignments, and today's attendance." action={<Button icon="refresh" variant="secondary" disabled={loading} onClick={() => void load()}>Refresh</Button>} />
+    <SelectField label="Branch" value={branchId} disabled={savingId !== null || attendanceSavingId !== null} onChange={(event) => { invalidateLoad(); setBarbers([]); setQueue([]); setAttendance([]); setLoading(true); setError(""); setStatusError(""); setBranchId(Number(event.target.value)); }}>{branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</SelectField>{branchError && <p role="alert">{branchError}</p>}<PageHeader title="Barber Floor" action={<Button icon="refresh" variant="secondary" disabled={loading} onClick={() => void load()}>Refresh</Button>} />
     <div className="metrics-grid metrics-grid--four">
       <MetricCard label="Barbers" value={loading || error ? "—" : String(barbers.length)} icon="scissors" accent="blue" />
       <MetricCard label="Available" value={loading || error ? "—" : String(available.length)} icon="check" accent="green" />
@@ -106,7 +106,7 @@ export function BarberFloorPage() {
       <MetricCard label="Unavailable" value={loading || error ? "—" : String(barbers.filter((barber) => !isBarberAvailable(barber) && !serving.some((entry) => entry.barberId === barber.id)).length)} icon="info" accent="violet" />
     </div>
     <Panel className="operational-panel">
-      <div className="inventory-catalog-head"><div><span className="inventory-kicker">Live floor</span><h2>Barber availability</h2><p>Check who is serving and who has a customer ready.</p></div></div>
+      <div className="inventory-catalog-head"><div><h2>Barber availability</h2></div></div>
       {statusError && <p className="operational-loading" role="alert">{statusError}</p>}
       {loading ? <p className="operational-loading" role="status">Loading barber floor…</p>
         : error ? <p className="operational-loading" role="alert">{error}</p>

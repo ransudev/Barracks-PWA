@@ -39,7 +39,7 @@ function AdminDashboardContent({ go, onToast, currentUser, branch }: DashboardPr
   const days = sales ? Array.from({ length: 7 }, (_, index) => { const day = new Date(`${sales.range.from}T12:00:00Z`); day.setUTCDate(day.getUTCDate() + index); const date = day.toISOString().slice(0, 10); const record = sales.dailySales.find((item) => item.label === date); return { date, gross: record?.grossSales ?? 0, refund: record?.refundedAmount ?? 0, voided: record?.voidedAmount ?? 0, net: record?.netRevenue ?? 0 }; }) : [];
   const max = Math.max(1, ...days.map((day) => day.gross));
   return <div className="operational-workspace management-overview">
-    <PageHeader title={currentUser.role === "manager" ? "Manager dashboard" : "Admin dashboard"} description="Business activity and work that needs your attention." action={<Button variant="secondary" onClick={() => go("payments")}>Open transactions</Button>} />
+    <PageHeader title={currentUser.role === "manager" ? "Manager dashboard" : "Admin dashboard"} action={<Button variant="secondary" onClick={() => go("payments")}>Open transactions</Button>} />
     <FreshnessBar updatedAt={updatedAt} loading={loading} error={loadError} onRefresh={() => setRefreshVersion((value) => value + 1)} />
     <p className="overview-period">{dashboard?.scope ?? "All branches"} · {sales ? `${sales.range.from}–${sales.range.to}` : "Last 7 Manila calendar days, including today"} · PHP</p>
     <div className="metrics-grid metrics-grid--four">
@@ -49,12 +49,12 @@ function AdminDashboardContent({ go, onToast, currentUser, branch }: DashboardPr
       <MetricCard label="Paid visits · 7 days" value={unavailable || !sales ? "—" : String(sales.summary.transactionCount)} icon="check" accent="blue" />
     </div>
     <div className="management-activity-grid">
-      <Panel><SectionHeading title="Sales by day" description="Paid sales and reversals by event date in Manila." />
+      <Panel><SectionHeading title="Sales by day" />
         {loading ? <p role="status">Loading sales…</p> : loadError ? <p role="alert">Sales unavailable while the overview refresh failed.</p> : dashboard?.salesError || !sales ? <p role="alert">{dashboard?.salesError ?? "Sales aggregation unavailable"}</p> : !sales.summary.transactionCount && !sales.summary.reversedAmount ? <EmptyState title="No sales activity in this period" description="Paid visits and financial actions will appear here." /> : <>
           <div className="sales-trend" role="img" aria-label="Paid sales over seven days; exact sales, refund and void values are listed below">{days.map((day) => <div key={day.date}><span className="sales-trend__bar" style={{ height: `${day.gross / max * 140}px` }} /><span>{day.date.slice(5)}</span></div>)}</div>
           <div className="operational-table-wrap"><table className="operational-table sales-summary"><thead><tr><th scope="col">Date</th><th scope="col">Paid sales</th><th scope="col">Refunds</th><th scope="col">Voids</th><th scope="col">Net</th></tr></thead><tbody>{days.map((day) => <tr key={day.date}><th scope="row">{day.date}</th><td>{formatCurrency(day.gross)}</td><td>{formatCurrency(day.refund)}</td><td>{formatCurrency(day.voided)}</td><td>{formatCurrency(day.net)}</td></tr>)}</tbody></table></div>
         </>}
-        <p className="task-note">Net sales = paid sales − refunds − voids. Reversals use their action date; legacy reversals without an audit event use the original sale date.</p>
+        <p className="task-note">Net = paid sales − refunds − voids.</p>
       </Panel>
       <Panel className="management-attention-panel"><SectionHeading title="Needs attention" />
         <div className="management-attention-list" role="region" aria-label="Needs attention entries" tabIndex={0}>

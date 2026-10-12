@@ -16,7 +16,7 @@ export function ReportDetails({ title, children }: { title: string; children: Re
 
 export type BarRow = { id?: string | number; label: string; value: number; detail?: string };
 
-export function RankedBars({ title, description, rows, format, children, matchSibling = false }: { title: string; description: string; rows: BarRow[]; format: (value: number) => string; children?: ReactNode; matchSibling?: boolean }) {
+export function RankedBars({ title, description, rows, format, children, matchSibling = false }: { title: string; description?: string; rows: BarRow[]; format: (value: number) => string; children?: ReactNode; matchSibling?: boolean }) {
   const ranked = [...rows].sort((a, b) => b.value - a.value);
   const max = Math.max(1, ...rows.map((row) => Math.abs(row.value)));
   const hasNegative = rows.some((row) => row.value < 0);

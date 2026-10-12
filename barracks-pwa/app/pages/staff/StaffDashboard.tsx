@@ -113,7 +113,7 @@ function StaffDashboardContent({ go, onToast, branch }: DashboardProps & { branc
 
   return (
     <div className="staff-dashboard">
-      <PageHeader title="Dashboard" description="Overview of today’s Front Desk operations" action={<Button icon="scissors" onClick={() => go("barbers")}>View barber floor</Button>} />
+      <PageHeader title="Dashboard" action={<Button icon="scissors" onClick={() => go("barbers")}>View barber floor</Button>} />
       <FreshnessBar updatedAt={updatedAt && queueAsOf ? Math.min(updatedAt, queueAsOf) : null} loading={loading || queueLoading} error={loadError || queueError} onRefresh={() => setRefreshVersion((value) => value + 1)} />
       <div className="metrics-grid metrics-grid--four">
         <MetricCard label="Customers in queue" value={queueLoading || queueError ? "—" : String(activeQueue.length)} change={queueError ? "Unable to load queue" : undefined} changeTone="warning" icon="queue" accent="blue" />
@@ -124,7 +124,7 @@ function StaffDashboardContent({ go, onToast, branch }: DashboardProps & { branc
 
       <div className="dashboard-grid dashboard-grid--wide">
         <Panel className="queue-preview">
-          <SectionHeading title="Today’s queue" description="Walk-ins and checked-in appointments" action={<Button variant="ghost" size="sm" iconAfter="arrowRight" onClick={() => go("queue")}>View all</Button>} />
+          <SectionHeading title="Today’s queue" action={<Button variant="ghost" size="sm" iconAfter="arrowRight" onClick={() => go("queue")}>View all</Button>} />
           {queueLoading ? <p role="status" className="staff-table__empty">Loading queue…</p>
             : queueError ? <p role="alert" className="staff-table__empty">{queueError}</p>
             : activeQueue.length ? <div className="queue-preview__list">{activeQueue.slice(0, 3).map((entry) => (
