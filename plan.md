@@ -6,7 +6,7 @@ Status: Complete on `layout-redesign`; compatible isolated demo verification rec
 
 Improve how staff and management find appointments, check out completed visits, understand business activity, review attendance, and receive stock. Use layouts suited to those tasks while retaining a shared visual language and existing business rules.
 
-This plan is the scope for the next implementation phase. It supersedes `IMPLEMENTATION_PLAN.md` only for the screens and shared changes listed here; that earlier document remains historical context. Creating this plan does not begin implementation.
+This plan records the completed task-focused screen work. Creating this plan does not begin implementation.
 
 ## Start with /goal
 
