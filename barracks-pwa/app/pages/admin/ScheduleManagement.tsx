@@ -49,7 +49,6 @@ export function ScheduleManagement({ branchId, barbers, onToast }: { branchId: n
         <div>
 
           <h2>Barber schedules</h2>
-          <p>Review the week, then select a day to edit its shift and breaks.</p>
         </div>
         <span className="schedule-management__timezone">Asia/Manila</span>
       </div>
@@ -58,7 +57,7 @@ export function ScheduleManagement({ branchId, barbers, onToast }: { branchId: n
       <Tabs active={section} onChange={setSection} items={[{ id: "shifts", label: "Weekly shifts" }, { id: "hours", label: "Shop hours" }]} />
       {section === "hours" && <div className="schedule-management__section">
         <div className="schedule-management__section-head">
-          <div><h3>Shop operating hours</h3><p>Weekly opening window for the selected branch.</p></div>
+          <div><h3>Shop operating hours</h3></div>
         </div>
         {hoursLoading && <p role="status">Loading shop hours…</p>}{hoursError && <p role="alert" className="form-error">{hoursError}</p>}
         <div className="schedule-management__rows">

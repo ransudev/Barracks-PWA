@@ -57,14 +57,13 @@
 .weekly-timeline__track { position: relative; height: 14px; background: var(--ink-soft); border-radius: 4px; }
 .weekly-timeline__track i, .weekly-timeline__track b { position: absolute; top: 0; height: 100%; border-radius: 3px; background: var(--green); }
 .weekly-timeline__track b { background: var(--amber); }
-.checkout-workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, .85fr); gap: 24px; margin-bottom: 28px; align-items: start; }
+.checkout-workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, .85fr); gap: 24px; margin-bottom: 28px; align-items: stretch; }
 .eligible-visits-panel, .payment-form-panel { min-width: 0; }
 .checkout-workspace .payment-form-panel { display: flex; flex-direction: column; gap: 16px; }
 .transaction-ledger td > strong, .transaction-ledger td > small { display: block; }
 .transaction-ledger td > small { margin-top: 5px; white-space: normal; color: var(--text-soft); }
 .duration-unavailable { padding: 16px; }
 .duration-unavailable button { display: block; padding: 12px; margin: 8px 0; background: var(--surface-hover); color: var(--text); text-align: left; }
-.eligible-visit-list { max-height: 620px; overflow: auto; }
 .eligible-visit-list > button { display: flex; justify-content: space-between; gap: 16px; width: 100%; background: transparent; color: var(--text); text-align: left; padding: 20px; border-top: 1px solid var(--line); }
 .eligible-visit-list > button[aria-pressed="true"], .eligible-visit-list > button:hover { background: var(--surface-hover); }
 .eligible-visit-list small { display: block; color: var(--text-soft); margin-top: 5px; }
@@ -76,6 +75,11 @@
 .operational-drawer :is(.financial-action-panel, .financial-audit-panel) { margin-top: 28px; }
 .overview-period { color: var(--text-soft); margin: 0 0 16px; }
 .management-activity-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 24px; margin-bottom: 24px; }
+/* The neighboring panel sets the row height; list entries fill that space. */
+.management-attention-panel, .matched-height-panel { display: flex; flex-direction: column; min-height: 0; contain: size; }
+:is(.management-attention-panel, .matched-height-panel) > :is(.section-heading, .operational-toolbar) { flex-shrink: 0; }
+.management-attention-list, .panel-scroll-body { flex: 1; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; }
+:is(.management-attention-list, .panel-scroll-body):focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
 .attention-row { display: flex; justify-content: space-between; gap: 14px; width: 100%; text-align: left; background: transparent; color: var(--text); border-bottom: 1px solid var(--line); padding: 16px 0; }
 .attention-row:hover { background: var(--surface-hover); }
 .attention-row small { display: block; margin-top: 6px; color: var(--text-soft); }
@@ -185,7 +189,20 @@
   .restock-request-row__action .button { width: 100%; }
 }
 @media (max-width: 760px) { .attendance-week { display: none; } .attendance-mobile-list { display: block; } }
-@media (max-width: 1000px) { .management-activity-grid { grid-template-columns: 1fr; } .overview-context { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 900px) { .checkout-workspace { grid-template-columns: 1fr; } }
+@media (max-width: 1000px) {
+  .management-activity-grid { grid-template-columns: 1fr; }
+  .management-attention-panel { contain: none; }
+  .management-attention-list { max-height: min(32rem, 70vh); }
+  .overview-context { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 900px) {
+  .checkout-workspace { grid-template-columns: 1fr; }
+  .checkout-workspace .matched-height-panel { contain: none; }
+  .checkout-workspace .panel-scroll-body { max-height: min(32rem, 70vh); }
+}
+@media (max-width: 760px) {
+  .customer-dashboard__grid .matched-height-panel { contain: none; }
+  .customer-dashboard__grid .panel-scroll-body { max-height: min(32rem, 70vh); }
+}
 @media (max-width: 760px) { .weekly-timeline > button { grid-template-columns: 95px 1fr; } .weekly-timeline__track { grid-column: 1 / -1; } .weekly-timeline small { grid-column: 1 / -1; } }
 @media (max-width: 760px) { .booking-calendar { display: none; } .booking-agenda { display: block; } .task-view-switch .desktop-day { display: none; } }

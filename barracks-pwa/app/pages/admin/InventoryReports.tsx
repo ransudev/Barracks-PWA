@@ -50,12 +50,13 @@ export function InventoryReports({ range, onToast, branch }: { range: ReportRang
     </div>
     <ReportStatus loading={loading} error={error} retry={retry} />
     {data && <>
-      <p className={styles.note}>Stock value, active items, and stock status are current. Usage, supplier spending, and movements cover the selected period.</p>
       <div className={styles.visualGrid}>
-        <Panel className={styles.visualPanel}>
-          <SectionHeading title="Stock needs attention" description="Active items at or below their minimum stock today." />
+        <Panel className={`${styles.visualPanel} ${styles.matchedPanel}`}>
+          <SectionHeading title="Stock needs attention" />
+          <div className={styles.scrollBody} role="region" aria-label="Stock needs attention" tabIndex={0}>
           {lowStock.length ? <ul className={styles.stockList}>{lowStock.slice(0, 6).map((row) => <li key={`${row.itemId}:${row.branchId}`}><div><strong>{row.itemName}</strong><small>{row.branch}</small></div><div><Badge tone="warning">{row.currentQuantity} left</Badge><small>Minimum {row.minimumStock}</small></div></li>)}</ul> : <EmptyState icon="check" title="No items below minimum" description="All active items are above their stock thresholds." />}
           {lowStock.length > 6 && <p className={styles.note}>{lowStock.length - 6} more low-stock items in the full breakdown below.</p>}
+          </div>
         </Panel>
         <RankedBars title="Supplier spending" description="Cost of received deliveries in the selected period." rows={suppliers.filter((supplier) => supplier.totalSpend !== null && supplier.totalSpend > 0).map((supplier) => ({ id: supplier.supplierId, label: supplier.supplierName, value: supplier.totalSpend ?? 0, detail: `${supplier.receivedDeliveries} received deliveries` }))} format={formatCurrency}>
           <ReportDetails title="Supplier spending breakdown">
@@ -64,7 +65,7 @@ export function InventoryReports({ range, onToast, branch }: { range: ReportRang
         </RankedBars>
       </div>
       <Panel className={styles.visualPanel}>
-        <SectionHeading title="Where stock is going" description="Usage, sales, and waste composition for the 6 most active item records. Each bar represents that item's own outgoing quantity." />
+        <SectionHeading title="Where stock is going" description="Top 6 items by outgoing quantity. Each bar shows that item’s mix." />
         <div className={styles.legend}><span><i className={styles.usedSegment} />Used</span><span><i className={styles.soldSegment} />Sold</span><span><i className={styles.wasteSegment} />Wasted</span></div>
         {activeUsage.length ? <ul className={styles.usageList}>{activeUsage.slice(0, 6).map((row) => <li key={`${row.itemId}:${row.branchId}`}>
           <div className={styles.rankLabel}><strong>{row.itemName} <small>{row.branch}</small></strong><span>{row.currentActivity} outgoing</span></div>
@@ -77,7 +78,7 @@ export function InventoryReports({ range, onToast, branch }: { range: ReportRang
         </ReportDetails>
       </Panel>
       <Panel className={styles.visualPanel}>
-        <SectionHeading title="Stock movement history" description="Recorded inventory operations, newest first." />
+        <SectionHeading title="Stock movement history" />
         <ReportDetails title={`Recent movements (${movements.length})`}>
           {movements.length ? <><p className={styles.note}>Showing up to the latest 250 movements in the selected period.</p><table className={styles.table}><caption>Recent stock movements in Manila time</caption><thead><tr><th scope="col">Item / date</th><th scope="col">Movement</th><th scope="col">Stock change</th><th scope="col">Branch / supplier</th><th scope="col">Recorded by</th></tr></thead><tbody>{movements.map((movement) => <tr key={movement.id}><th scope="row">{movement.item_name}<small>{new Date(movement.created_at).toLocaleString("en-PH", { timeZone: "Asia/Manila" })}</small></th><td>{movement.movement_type} × {movement.quantity}</td><td>{movement.previous_stock} → {movement.new_stock}</td><td>{movement.branch}<small>{movement.supplier_name ?? "No supplier"}</small></td><td>{movement.created_by_name}</td></tr>)}</tbody></table></> : <p className={styles.note}>No stock movements in this period.</p>}
         </ReportDetails>

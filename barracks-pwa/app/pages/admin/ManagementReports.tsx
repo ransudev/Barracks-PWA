@@ -34,7 +34,7 @@ function ManagementReportsContent({ onToast, branch }: { onToast: (message: stri
   }
 
   return <div className={styles.dashboard}>
-    <PageHeader title="Reports" description="See the patterns behind your sales and stock." />
+    <PageHeader title="Reports" />
     <div className={styles.tabs} role="group" aria-label="Report type">
       <Button type="button" aria-pressed={section === "sales"} variant={section === "sales" ? "primary" : "secondary"} onClick={() => setSection("sales")}>Sales & revenue</Button>
       <Button type="button" aria-pressed={section === "inventory"} variant={section === "inventory" ? "primary" : "secondary"} onClick={() => setSection("inventory")}>Inventory</Button>

@@ -231,7 +231,7 @@ function QueuePageContent({ onToast, canOperate = true, branchId }: { branchId: 
   const tone = (status: ApiQueueEntry["status"]) => status === "ready" || status === "completed" ? "success" : status === "in_progress" ? "info" : "neutral";
   const openEntry = (entry: ApiQueueEntry) => setSelected(entry);
   return <div className="operational-workspace">
-    <PageHeader title="Queue management" description={canOperate ? "Persistent walk-ins and checked-in appointments." : "Read-only queue overview."} action={queueTab === "active" ? <><ViewToggle view={view} onChange={setView} label="Choose queue view" />{canOperate && <Button icon="plus" disabled={loading || !services.some((service) => service.active)} onClick={openAddDialog}>Add to queue</Button>}</> : undefined} />
+    <PageHeader title="Queue management" description={canOperate ? undefined : "Read-only access"} action={queueTab === "active" ? <><ViewToggle view={view} onChange={setView} label="Choose queue view" />{canOperate && <Button icon="plus" disabled={loading || !services.some((service) => service.active)} onClick={openAddDialog}>Add to queue</Button>}</> : undefined} />
     <div role="tablist" aria-label="Queue sections" className="queue-section-tabs">
       <button type="button" role="tab" aria-selected={queueTab === "active"} onClick={() => { setQueueTab("active"); setSelected(null); }}>Active</button>
       <button type="button" role="tab" aria-selected={queueTab === "completed-today"} onClick={() => { setQueueTab("completed-today"); setSelected(null); }}>Completed Today</button>

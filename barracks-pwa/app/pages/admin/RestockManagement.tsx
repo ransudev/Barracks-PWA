@@ -63,7 +63,7 @@ function RestockContent({ onToast: notify, branchId, branchName }: { onToast: (m
     </button>
     <div className="restock-request-row__action">{restock.status === "Delivered" ? <Button size="sm" disabled={loading || Boolean(loadError)} onClick={() => openReceive(restock)}>Receive delivery</Button> : restock.status === "Shipped" ? <Button size="sm" variant="secondary" disabled={loading || Boolean(loadError) || markingDelivered !== null} onClick={() => setPendingDelivery(restock)}>Confirm arrival</Button> : <Button size="sm" variant="secondary" onClick={() => setSelected(restock)}>View request</Button>}</div>
   </article>;
-  return <div className="operational-workspace restock-workspace"><PageHeader title="Restock requests" description="Receive deliveries, confirm arrivals, and track supplier preparation." action={<Button icon="plus" disabled={loading || Boolean(loadError)} onClick={openCreate}>New request</Button>} />
+  return <div className="operational-workspace restock-workspace"><PageHeader title="Restock requests" action={<Button icon="plus" disabled={loading || Boolean(loadError)} onClick={openCreate}>New request</Button>} />
     <FreshnessBar updatedAt={updatedAt} loading={loading} error={loadError} onRefresh={() => void load()} />
     <Panel className="operational-panel restock-list-panel">
     <div className="restock-list-tabs"><Tabs active={tab} onChange={(value) => { setTab(value); setStatusFilter("all"); setStage("all"); }} items={[{id:"active", label:"Active requests"}, {id:"history", label:"Completed / cancelled"}]} /></div>

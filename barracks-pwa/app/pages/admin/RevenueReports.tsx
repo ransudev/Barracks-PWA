@@ -59,7 +59,7 @@ function DailyActivity({ data, range }: { data: RevenueReport; range: ReportRang
   };
 
   return <Panel className={styles.visualPanel}>
-    <SectionHeading title="Daily activity" description="Spot busy days, quiet periods, and financial reversals." />
+    <SectionHeading title="Daily activity" />
     <div className={styles.chartControls}>
       <div className={styles.tabs} role="group" aria-label="Daily activity view">{(["calendar", "trend"] as const).map((value) => <Button key={value} type="button" size="sm" variant={view === value ? "primary" : "ghost"} aria-pressed={view === value} onClick={() => { setView(value); setSelected(null); }}>{value === "trend" ? "Line chart" : "Calendar"}</Button>)}</div>
       <div className={styles.tabs} role="group" aria-label="Daily activity measure">{metrics.map((item) => <Button key={item.key} type="button" size="sm" variant={metric === item.key ? "secondary" : "ghost"} aria-pressed={metric === item.key} onClick={() => setMetric(item.key)}>{item.label}</Button>)}</div>
@@ -120,11 +120,11 @@ export function RevenueReports({ range, onToast, branch }: { range: ReportRange;
       </div>
       <DailyActivity data={data} range={range} />
       <div className={styles.visualGrid}>
-        <RankedBars title="Revenue by service" description="Services ranked by net revenue." rows={data.byService.map((row) => ({ label: row.label, value: row.netRevenue, detail: `${row.transactionCount} transactions · Gross ${formatCurrency(row.grossSales)}` }))} format={formatCurrency}><RevenueTable title="Service breakdown" rows={data.byService} /></RankedBars>
-        <RankedBars title="Revenue by barber" description="Barbers ranked by net revenue from saved sales." rows={data.byBarber.map((row) => ({ label: row.label, value: row.netRevenue, detail: `${row.transactionCount} transactions · Gross ${formatCurrency(row.grossSales)}` }))} format={formatCurrency}><RevenueTable title="Barber breakdown" rows={data.byBarber} /></RankedBars>
+        <RankedBars title="Net revenue by service" rows={data.byService.map((row) => ({ label: row.label, value: row.netRevenue, detail: `${row.transactionCount} transactions · Gross ${formatCurrency(row.grossSales)}` }))} format={formatCurrency}><RevenueTable title="Service breakdown" rows={data.byService} /></RankedBars>
+        <RankedBars matchSibling title="Net revenue by barber" rows={data.byBarber.map((row) => ({ label: row.label, value: row.netRevenue, detail: `${row.transactionCount} transactions · Gross ${formatCurrency(row.grossSales)}` }))} format={formatCurrency}><RevenueTable title="Barber breakdown" rows={data.byBarber} /></RankedBars>
       </div>
-      <RankedBars title="Payment methods" description="Gross sales by payment method, before refunds and voids." rows={data.byPaymentMethod.map((row) => ({ label: row.label, value: row.grossSales, detail: `${row.transactionCount} transactions · ${data.summary.grossSales ? (row.grossSales / data.summary.grossSales * 100).toFixed(1) : "0"}% of gross sales` }))} format={formatCurrency}><RevenueTable title="Payment method breakdown" rows={data.byPaymentMethod} /></RankedBars>
-      <p className={styles.note}>Sales use the checkout date; refunds and voids use the action date. Older reversals without an action date use their sale date. Net revenue can be negative. Service and barber names reflect records saved at checkout.</p>
+      <RankedBars title="Payment methods" description="Gross sales before refunds and voids." rows={data.byPaymentMethod.map((row) => ({ label: row.label, value: row.grossSales, detail: `${row.transactionCount} transactions · ${data.summary.grossSales ? (row.grossSales / data.summary.grossSales * 100).toFixed(1) : "0"}% of gross sales` }))} format={formatCurrency}><RevenueTable title="Payment method breakdown" rows={data.byPaymentMethod} /></RankedBars>
+      <p className={styles.note}>Sales use checkout dates; refunds and voids use action dates. Legacy reversals use the sale date. Net revenue may be negative.</p>
     </>}
   </>;
 }
