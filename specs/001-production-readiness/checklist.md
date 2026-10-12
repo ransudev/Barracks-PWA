@@ -2,6 +2,8 @@
 
 Local P0 criteria passed (E01–E06); P1 and hosted release criteria remain pending. Add an evidence ID beside each checked item. A skipped test, proposed migration, source inspection, or local-only success cannot satisfy a required hosted/runtime gate.
 
+October 13 sprint follow-up: [local sprint diagnosis and acceptance](sprint-demo-20261013.md) resolves the 13 October 12 regression failures, records 164/164 passing tests and local authenticated demo evidence. Migration 031 and the application fix remain local; this does not satisfy the hosted release gates below.
+
 ## Scope and decisions
 
 - [x] Current branch/commit, target environment, and existing changes are recorded. Evidence: [E01–E06](evidence.md).

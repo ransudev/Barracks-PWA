@@ -798,6 +798,8 @@ Development route bundles and reloads share one PostgreSQL pool. Branch membersh
 
 ### Sprint scheduling regression safeguards
 
+See the [October 13 local sprint verification](specs/001-production-readiness/sprint-demo-20261013.md) for all 13 failure diagnoses, 164 passing tests, local browser evidence and the separate hosted rollout gates.
+
 Migration `031_booking_midnight_overlap.sql` corrects reservation checks against active services to use the saved booking duration and dated start, matching the existing exclusion constraints. Operational starts and bookable slots use the same dated ranges, including reservations continuing from the previous day; a midnight-wrapped `end_time` cannot hide a conflict. Intervals remain half-open, so exact back-to-back work is allowed. Unknown historical booking durations still block their entire day; unresolved walk-in durations still fail closed. Hours, attendance and permissions are unchanged. Migration 031 must be explicitly authorized and applied before hosted acceptance of this fix.
 
 Time-sensitive lifecycle tests use an opt-in clock in their disposable schema, anchored during supported hours and advancing with elapsed real time. Controlled late-night fixtures cover lock contention and midnight boundaries without changing the production clock or relaxing scheduling rules. Payment-history tests locate the search by its accessible label and exercise search, method, month, day and pagination.
