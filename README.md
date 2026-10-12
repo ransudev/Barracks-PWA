@@ -110,6 +110,8 @@ Every queue API record includes a derived `visitType`: `walk_in` for an entry wi
 
 There are five account roles:
 
+User stories and acceptance criteria for each account role are in [Account user stories](specs/user-stories/README.md), with [test coverage and remaining gaps](specs/user-stories/verification.md). Barbers and accountless walk-ins are included as staff-managed records, not additional login roles.
+
 - `administrator`: can enter Management and Front Desk, manage staff accounts and sensitive controls, and read operational data. Daily queue, booking lifecycle, and checkout writes remain Front Desk-only.
 - `manager`: uses the Management workspace for Front Desk accounts, customers, barber roster and schedules, suppliers, inventory, restocks, reports, transactions, services, commissions, and attendance history/corrections. Managers can manage front-desk staff accounts only, read queue and bookings, and perform refund/void actions. Managers cannot perform Front Desk queue, booking, or checkout writes, deactivate suppliers, or use Administrator-only deletion.
 - `front_desk`: works in Front Desk on customers, queue, bookings, checkout, barber operational status, and today's barber attendance. It can read transactions and make daily operational changes, but cannot access attendance history/corrections, inventory, suppliers, restocks, reports, roster editing, schedules, shop-hour mutations, financial adjustments, or staff-account management. Only administrators can hard-delete bookings.
