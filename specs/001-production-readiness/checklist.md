@@ -52,6 +52,8 @@ October 13 sprint follow-up: [local sprint diagnosis and acceptance](sprint-demo
 
 ## Verdict
 
+Focused local appointment-picker acceptance (October 13, 2026): registered choices, stale-selection denial, registered booking persistence, unchanged backend accountless rejection, and accountless editing/Queue regressions passed. Full suite: 166 pass, zero failures/skips. See [local eligibility evidence](booking-customer-eligibility-20261013.md). Hosted verification of this candidate and deployment remain pending; this does not close the release gates above.
+
 Record exactly one release verdict with evidence:
 
 - READY: All applicable required release gates passed.
