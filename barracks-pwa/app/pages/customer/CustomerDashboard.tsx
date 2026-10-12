@@ -13,6 +13,7 @@ import {
   EmptyState,
   MetricCard,
   Modal,
+  Pagination,
   Panel,
   SectionHeading,
   SelectField,
@@ -72,6 +73,8 @@ function bookingFormValue(booking: ApiBooking): BookingFormValue {
   };
 }
 
+const HISTORY_PAGE_SIZE = 5;
+
 export function CustomerDashboard({
   go,
   onToast,
@@ -105,6 +108,7 @@ export function CustomerDashboard({
   const [availabilityVersion, setAvailabilityVersion] = useState(0);
   const [pendingCancellation, setPendingCancellation] = useState<ApiBooking | null>(null);
   const [cancellingBookingId, setCancellingBookingId] = useState<number | null>(null);
+  const [historyPage, setHistoryPage] = useState(1);
 
   useEffect(() => {
     async function load() {
@@ -260,7 +264,13 @@ export function CustomerDashboard({
 
   const name = customer ? `${customer.firstName} ${customer.lastName}` : `${user.firstName} ${user.lastName}`;
   const upcoming = bookings.filter((booking) => ["confirmed", "checked_in", "in_progress"].includes(booking.status));
-  const past = bookings.filter((booking) => ["completed", "cancelled", "no_show"].includes(booking.status));
+  const past = bookings
+    .filter((booking) => ["completed", "cancelled", "no_show"].includes(booking.status))
+    .sort((a, b) => `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`));
+  const completedCount = past.filter((booking) => booking.status === "completed").length;
+  const historyPageCount = Math.max(1, Math.ceil(past.length / HISTORY_PAGE_SIZE));
+  const currentHistoryPage = Math.min(historyPage, historyPageCount);
+  const historyRows = past.slice((currentHistoryPage - 1) * HISTORY_PAGE_SIZE, currentHistoryPage * HISTORY_PAGE_SIZE);
 
   return (
     <div className="customer-page customer-page--dashboard">
@@ -280,8 +290,8 @@ export function CustomerDashboard({
             <>
               <div className="metrics-grid metrics-grid--three">
                 <MetricCard label="Loyalty points" value={String(customer.loyaltyPoints)} icon="spark" accent="amber" />
-                <MetricCard label="Next appointments" value={String(upcoming.length)} icon="calendar" accent="blue" />
-                <MetricCard label="Account status" value="Active" icon="check" accent="green" />
+                <MetricCard label="Upcoming" value={String(upcoming.length)} icon="calendar" accent="blue" />
+                <MetricCard label="Completed visits" value={String(completedCount)} icon="check" accent="green" />
               </div>
 
               <div className="customer-dashboard__grid">
@@ -294,21 +304,21 @@ export function CustomerDashboard({
                     <Avatar initials={createInitials(name)} tone="slate" size="lg" className="customer-dashboard__avatar" />
                     <div>
                       <strong>{name}</strong>
-                      <span>{customer.email}</span>
-                      <span>{customer.phone || "No phone on file"}</span>
+                      <span>{customer.loyaltyPoints} loyalty points</span>
                     </div>
                   </div>
-                  <div className="customer-profile-inline-facts">
-                    <div><small>Preferred barber</small><strong>{customer.preferredBarberName ?? "Not set"}</strong></div>
-                    <div><small>Loyalty points</small><strong>{customer.loyaltyPoints}</strong></div>
-                    <div><small>Member since</small><strong>{formatMemberSince(customer.createdAt)}</strong></div>
-                  </div>
+                  <dl className="customer-profile-facts">
+                    <div><dt>Email</dt><dd title={customer.email}>{customer.email}</dd></div>
+                    <div><dt>Phone</dt><dd>{customer.phone || "Not set"}</dd></div>
+                    <div><dt>Preferred barber</dt><dd>{customer.preferredBarberName ?? "Not set"}</dd></div>
+                    <div><dt>Member since</dt><dd>{formatMemberSince(customer.createdAt)}</dd></div>
+                  </dl>
                 </Panel>
 
                 <Panel className="customer-bookings-panel matched-height-panel">
                   <SectionHeading
                     title="Upcoming appointments"
-                    action={<button className="link-button" type="button" onClick={() => go("customer-booking")}>Book another</button>}
+                    action={<button className="link-button" type="button" onClick={() => go("customer-booking")}>Book</button>}
                   />
                   <div className="panel-scroll-body" role="region" aria-label="Upcoming appointments" tabIndex={0}>
                   {upcoming.length ? (
@@ -321,7 +331,7 @@ export function CustomerDashboard({
                             <small>with {booking.barberName} · {booking.branchName ?? "Main Branch"}</small>
                           </div>
                           <div className="customer-booking-card__actions">
-                            <Badge tone="warning">{booking.status === "confirmed" ? "Confirmed" : booking.status === "checked_in" ? "Checked in" : "In progress"}</Badge>
+                            {booking.status !== "confirmed" && <Badge tone="info">{booking.status === "checked_in" ? "Checked in" : "In progress"}</Badge>}
                             {booking.status === "confirmed" && <Button size="sm" variant="secondary" icon="edit" onClick={() => openBookingEditor(booking)}>Manage</Button>}
                             {booking.status === "confirmed" && <Button size="sm" variant="danger" onClick={() => setPendingCancellation(booking)}>Cancel</Button>}
                           </div>
@@ -329,11 +339,7 @@ export function CustomerDashboard({
                       ))}
                     </div>
                   ) : (
-                    <EmptyState
-                      icon="calendar"
-                      title="No appointments yet"
-                      description="Choose a service and time to reserve your next chair."
-                    />
+                    <EmptyState icon="calendar" title="No upcoming appointments" />
                   )}
                   </div>
                 </Panel>
@@ -342,22 +348,29 @@ export function CustomerDashboard({
               <Panel className="customer-history-panel">
                 <SectionHeading title="Appointment history" />
                 {past.length ? (
-                  <div className="customer-booking-list">
-                    {past.map((booking) => (
-                      <div className="customer-booking-card" key={booking.id}>
-                        <div>
+                  <>
+                    <div className="customer-booking-list">
+                      {historyRows.map((booking) => (
+                        <div className="customer-booking-card customer-booking-card--history" key={booking.id}>
                           <strong>{formatDate(booking.date)}</strong>
-                          <span>{booking.serviceName} · {booking.barberName}</span>
+                          <span>{booking.serviceName}</span>
+                          <span>{booking.barberName}</span>
                           <small>{booking.branchName ?? "Main Branch"}</small>
+                          <Badge tone={booking.status === "completed" ? "success" : "danger"}>
+                            {booking.status === "completed" ? "Completed" : booking.status === "no_show" ? "No show" : "Cancelled"}
+                          </Badge>
                         </div>
-                        <Badge tone={booking.status === "completed" ? "success" : "danger"}>
-                          {booking.status === "completed" ? "Completed" : booking.status === "no_show" ? "No show" : "Cancelled"}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                    <Pagination
+                      page={currentHistoryPage}
+                      pageCount={historyPageCount}
+                      onPageChange={setHistoryPage}
+                      summary={`${past.length} past appointment${past.length === 1 ? "" : "s"}`}
+                    />
+                  </>
                 ) : (
-                  <p className="customer-history-panel__empty">Completed and cancelled appointments will appear here.</p>
+                  <p className="customer-history-panel__empty">No past appointments yet.</p>
                 )}
               </Panel>
             </>
@@ -370,7 +383,6 @@ export function CustomerDashboard({
       <Modal
         open={Boolean(editingBooking && bookingDraft)}
         title="Update your appointment"
-        description="You can adjust your own upcoming appointment. Changes are subject to barber availability."
         onClose={() => !bookingSaving && setEditingBooking(null)}
       >
         <p>Branch: {editingBooking?.branchName ?? "Main Branch"}</p>
@@ -408,7 +420,6 @@ export function CustomerDashboard({
       <Modal
         open={editing}
         title="Edit your profile"
-        description="Keep your contact details and barber preference up to date."
         onClose={() => !saving && setEditing(false)}
       >
         <form className="modal-form" onSubmit={saveProfile}>

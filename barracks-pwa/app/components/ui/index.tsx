@@ -606,3 +606,31 @@ export function Toast({
 }
 
 export { ConfirmDialog } from "./ConfirmDialog";
+
+export function Pagination({
+  page,
+  pageCount,
+  onPageChange,
+  summary,
+  className = "",
+}: {
+  page: number;
+  pageCount: number;
+  onPageChange: (page: number) => void;
+  summary?: ReactNode;
+  className?: string;
+}) {
+  if (pageCount <= 1 && !summary) return null;
+  return (
+    <nav className={`pagination ${className}`} aria-label="Pagination">
+      {summary ? <span className="pagination__summary">{summary}</span> : null}
+      {pageCount > 1 && (
+        <span className="pagination__controls">
+          <Button type="button" size="sm" variant="ghost" icon="chevronLeft" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>Previous</Button>
+          <span className="pagination__page">Page {page} of {pageCount}</span>
+          <Button type="button" size="sm" variant="ghost" iconAfter="chevronRight" disabled={page >= pageCount} onClick={() => onPageChange(page + 1)}>Next</Button>
+        </span>
+      )}
+    </nav>
+  );
+}

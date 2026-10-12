@@ -1908,3 +1908,47 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .app-shell .topbar, .portal-topbar { background: var(--ink); }
 :is(.app-shell, .customer-page--dashboard) :is(.popover, .modal) { background: var(--surface-raised); }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .modal-backdrop, .modal { animation: none; } }
+
+/* Shared list pagination */
+.pagination { align-items: center; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; min-height: 52px; padding: 10px 22px; border-top: 1px solid var(--line); color: var(--text-muted); font-size: 12px; }
+.pagination__controls { align-items: center; display: inline-flex; gap: 6px; margin-left: auto; }
+.pagination__page { min-width: 84px; color: var(--text-soft); font-variant-numeric: tabular-nums; text-align: center; }
+.pagination .button--ghost { min-height: 32px; padding: 0 10px; }
+
+/* Customer dashboard: profile and upcoming share one fixed-height row; the
+   upcoming list scrolls instead of stretching the row. */
+.customer-dashboard__grid { grid-auto-rows: minmax(340px, auto); }
+.customer-dashboard__grid > .customer-summary-panel { display: flex; flex-direction: column; }
+.customer-summary-panel .customer-profile-inline-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: auto; }
+.customer-bookings-panel .customer-booking-list { padding-top: 0; }
+.customer-booking-list > .customer-booking-card:first-child { border-top: 0; }
+.customer-bookings-panel .empty-state { padding-block: 40px; }
+.customer-history-panel .customer-booking-list { padding-bottom: 6px; }
+.customer-booking-card--history { display: grid; grid-template-columns: 110px minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) 96px; align-items: center; gap: 16px; padding: 12px 0; }
+.customer-booking-card--history > :is(span, small) { margin: 0; }
+.customer-booking-card--history > .badge { justify-self: end; }
+@media (max-width: 760px) {
+  .customer-dashboard__grid { grid-auto-rows: auto; }
+  .customer-booking-card--history { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; }
+  .customer-booking-card--history > .badge { grid-column: 2; grid-row: 1; }
+  .customer-booking-card--history > small { display: none; }
+}
+.customer-profile-facts { display: grid; margin: 0; padding: 0 22px 18px; }
+.customer-profile-facts > div { align-items: baseline; display: flex; justify-content: space-between; gap: 16px; padding: 11px 0; border-top: 1px solid var(--line); }
+.customer-profile-facts dt { flex: 0 0 auto; color: var(--text-muted); font-size: 12px; }
+.customer-profile-facts dd { min-width: 0; margin: 0; overflow: hidden; color: var(--text); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.customer-booking-card--history { grid-template-columns: 120px minmax(0, 1fr) minmax(0, 1fr) minmax(0, .8fr) 96px; }
+@media (max-width: 760px) {
+  .customer-page--dashboard .metrics-grid--three { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .customer-page--dashboard .metrics-grid--three .metric-card { min-height: 0; padding: 12px; }
+  .customer-page--dashboard .metrics-grid--three .metric-card__icon { display: none; }
+  .customer-page--dashboard .metrics-grid--three .metric-card__value { margin-top: 8px; font-size: 22px; }
+  .customer-page--dashboard .panel > .section-heading { flex-direction: row; align-items: center; }
+  .customer-bookings-panel .customer-booking-card { align-items: stretch; flex-direction: column; gap: 10px; }
+  .customer-bookings-panel .customer-booking-card__actions { justify-content: flex-start; }
+}
+@media (max-width: 760px) {
+  .customer-booking-card--history { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; }
+  .customer-booking-card--history > .badge { grid-column: 2; grid-row: 1; }
+  .customer-booking-card--history > span:nth-of-type(2) { justify-self: end; }
+}
