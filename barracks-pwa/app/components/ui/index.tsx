@@ -408,7 +408,7 @@ export function EmptyState({
 }: {
   icon?: IconName;
   title: string;
-  description: string;
+  description?: string;
   action?: ReactNode;
 }) {
   return (
@@ -417,7 +417,7 @@ export function EmptyState({
         <Icon name={icon} size={22} />
       </span>
       <h3>{title}</h3>
-      <p>{description}</p>
+      {description && <p>{description}</p>}
       {action}
     </div>
   );

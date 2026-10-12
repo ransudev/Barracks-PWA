@@ -144,6 +144,8 @@ Dark mode remains the default for operational surfaces. The existing light-mode 
 
 Shared components should consume semantic aliases such as `--ink`, `--surface`, `--text`, `--line`, and the status tokens rather than introducing local hex values. Every status must also have a readable text label and must not rely on color alone. Internal operational modules use the shared hybrid primitives in `barracks-pwa/app/components/operations/OperationalPrimitives.tsx` for card/list toggles, filter toolbars, responsive tables, action menus, status badges, and accessible right-side detail drawers that become full-screen mobile sheets.
 
+The shared `EmptyState` component requires a title and accepts an optional description. Title-only states render without an empty description paragraph; supplied descriptions remain visible.
+
 The inventory item drawer and the shared detail drawer use a simple two-state transition: closed at `translateX(100%)`, open at `translateX(0)`, with a matching scrim fade over 180ms. The drawer holds its populated content while sliding back out, stops accepting input as soon as closing begins, and focuses its close control without scrolling the page. `barracks-pwa/app/hooks/useDrawerPresence.ts` keeps a closing drawer mounted until the transition finishes, cancels an opening that is closed before its first frame mounts, and publishes `entering`, `entered`, and `exiting` as `data-state` on the drawer layer. Reduced-motion mode skips the drawer and scrim transitions.
 
 ### Typography
