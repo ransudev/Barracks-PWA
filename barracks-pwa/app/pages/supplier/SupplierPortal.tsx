@@ -14,7 +14,7 @@ import {
   SectionHeading,
   TextField,
 } from "@/app/components/ui";
-import { ThemeToggle } from "@/app/components/ui/ThemeToggle";
+import { PortalTopbar } from "@/app/components/layout/PortalTopbar";
 import { DetailDrawer, DrawerSection } from "@/app/components/operations/OperationalPrimitives";
 import { Icon } from "@/app/components/ui/icons";
 
@@ -72,7 +72,7 @@ function restockTone(status: string): "danger" | "success" | "warning" {
 }
 
 function formatDeliveryDate(value: string | null) {
-  return value ? new Date(value).toLocaleString() : "Received";
+  return value ? new Date(value).toLocaleDateString([], { dateStyle: "medium" }) : "Received";
 }
 
 function formatRecordDate(value: string | null | undefined) {
@@ -247,8 +247,8 @@ export function SupplierPortal({ user, onSignOut, onToast }: { user: ApiUser; on
   const matchingDeliveryRequest = operationsDetail?.kind === "delivery"
     ? restocks.find((restock) => restock.id === operationsDetail.record.id)
     : undefined;
-  const requestPreview = restocks.slice(0, 2);
-  const deliveryPreview = profile?.recentDeliveries.slice(0, 2) ?? [];
+  const requestPreview = restocks.slice(0, 3);
+  const deliveryPreview = profile?.recentDeliveries.slice(0, 3) ?? [];
 
   function renderRestockRow(restock: Restock) {
     const next = supplierTransitions[restock.status];
@@ -268,7 +268,6 @@ export function SupplierPortal({ user, onSignOut, onToast }: { user: ApiUser; on
             </span>
             <span className="supplier-request-row__items">{items || "No line items"}</span>
           </span>
-          <span className="supplier-row-link"><span>View request</span><Icon name="arrowRight" size={14} /></span>
         </button>
         <div className="supplier-request-row__actions">
           <Badge tone={restockTone(restock.status)}>{restock.status}</Badge>
@@ -295,64 +294,44 @@ export function SupplierPortal({ user, onSignOut, onToast }: { user: ApiUser; on
           <strong>Request #{delivery.id}</strong>
           <span>{delivery.reference ?? "No reference"}</span>
         </div>
-        <div>
-          <span>{formatDeliveryDate(delivery.received_at)}</span>
-          <span className="supplier-row-link"><Badge tone="success">Received</Badge><Icon name="arrowRight" size={14} /></span>
-        </div>
+        <span className="supplier-delivery-row__date">{formatDeliveryDate(delivery.received_at)}</span>
+        <Icon name="chevronRight" size={15} />
       </button>
     );
   }
 
   return (
     <main className="supplier-portal">
-      <header className="supplier-portal__topbar">
-        <div className="supplier-portal__topbar-inner">
-          <div className="supplier-portal__brand">
-            <Avatar initials={supplierInitials || "SP"} tone="green" size="md" />
-            <div>
-              <h1>{supplier?.companyName ?? "Barracks supplier"}</h1>
-              <p>Supplier operations</p>
-            </div>
-          </div>
-          <div className="supplier-portal__actions">
-            <ThemeToggle />
-            <Button variant="secondary" onClick={onSignOut} icon="logOut">
-              Sign out
-            </Button>
-          </div>
-        </div>
-      </header>
+      <PortalTopbar
+        onHome={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        name={`${user.firstName} ${user.lastName}`.trim() || "Supplier"}
+        role="Supplier"
+        tone="green"
+        onSignOut={onSignOut}
+      />
 
       <div className="supplier-portal__content">
-        <PageHeader
-          title="Supplier dashboard"
-         
-          action={(
-            <Badge tone={pending.length ? "warning" : "success"}>
-              {pending.length ? `${pending.length} open request${pending.length === 1 ? "" : "s"}` : "All requests clear"}
-            </Badge>
-          )}
-        />
+        <PageHeader title={supplier?.companyName ?? "Supplier dashboard"} />
 
-        <div className="supplier-portal__overview">
+        <div className="metrics-grid metrics-grid--three supplier-portal__metrics">
+          <MetricCard label="Linked items" value={String(profile?.suppliedItems.length ?? 0)} icon="box" accent="blue" />
+          <MetricCard label="Open requests" value={String(pending.length)} icon="info" accent="amber" />
+          <MetricCard label="Received deliveries" value={String(profile?.recentDeliveries.length ?? 0)} icon="check" accent="green" />
+        </div>
+
+        <div className="supplier-portal__grid">
           <Panel className="supplier-profile-card">
             <SectionHeading
               title="Supplier profile"
-             
+              action={supplier ? <button className="link-button" type="button" onClick={openProfileDrawer}>Edit details</button> : undefined}
             />
             {loading ? (
               <div className="supplier-portal__loading">Loading supplier details…</div>
             ) : profile ? (
-              <button
-                className="supplier-profile-card__trigger"
-                type="button"
-                onClick={openProfileDrawer}
-                aria-label="Edit supplier details"
-              >
+              <>
                 <div className="supplier-profile-card__identity">
                   <Avatar initials={supplierInitials || "SP"} tone="green" size="lg" />
                   <div>
-                    <span className="supplier-profile-card__label">Business contact</span>
                     <h3>{profile.supplier.companyName}</h3>
                     <p>{profile.supplier.contactPerson || "No contact person set"}</p>
                   </div>
@@ -360,11 +339,12 @@ export function SupplierPortal({ user, onSignOut, onToast }: { user: ApiUser; on
                     {profile.supplier.status === "active" ? "Active" : "Inactive"}
                   </Badge>
                 </div>
-                <span className="supplier-profile-card__trigger-hint">
-                  <span>Edit supplier details</span>
-                  <Icon name="arrowRight" size={15} />
-                </span>
-              </button>
+                <dl className="supplier-profile-card__facts">
+                  <div><dt>Email</dt><dd title={profile.supplier.email || undefined}>{profile.supplier.email || "Not set"}</dd></div>
+                  <div><dt>Phone</dt><dd>{profile.supplier.phone || "Not set"}</dd></div>
+                  <div className="supplier-profile-card__facts-wide"><dt>Address</dt><dd title={profile.supplier.address || undefined}>{profile.supplier.address || "Not set"}</dd></div>
+                </dl>
+              </>
             ) : (
               <EmptyState
                 icon="users"
@@ -374,98 +354,66 @@ export function SupplierPortal({ user, onSignOut, onToast }: { user: ApiUser; on
             )}
           </Panel>
 
-          <div className="supplier-portal__metrics">
-            <MetricCard label="Linked items" value={String(profile?.suppliedItems.length ?? 0)} icon="box" accent="blue" />
-            <MetricCard label="Open requests" value={String(pending.length)} icon="info" accent="amber" />
-            <MetricCard label="Received deliveries" value={String(profile?.recentDeliveries.length ?? 0)} icon="check" accent="green" />
-            <MetricCard label="Account status" value={supplier?.status === "active" ? "Active" : "Inactive"} icon="users" accent="violet" />
-          </div>
-        </div>
+          <Panel className="supplier-requests-panel">
+            <SectionHeading
+              title="Restock requests"
+              action={restocks.length > requestPreview.length ? <button className="link-button" type="button" onClick={openRequestsDrawer}>View all {restocks.length}</button> : undefined}
+            />
+            {restocks.length ? (
+              <div className="supplier-request-list">
+                {requestPreview.map(renderRestockRow)}
+              </div>
+            ) : (
+              <p className="supplier-portal__empty-copy">No restock requests yet.</p>
+            )}
+          </Panel>
 
-        <div className="supplier-portal__workspace">
-          <div className="supplier-portal__primary-column">
-            <Panel className="supplier-items-panel">
-              <SectionHeading
-                title="Supplied items"
-               
-              />
-              {profile?.suppliedItems.length ? (
-                <div className="supplier-item-list" role="list">
-                  {profile.suppliedItems.map((item) => {
-                    const isLowStock = item.quantity <= item.minimum_stock;
-                    return (
-                      <div className="supplier-item-row" key={item.id} role="listitem">
-                        <div className="supplier-item-row__product">
-                          <strong>{item.name}</strong>
-                          <span>{item.category} · {item.sku ?? "No SKU"}</span>
-                        </div>
-                        <div className="supplier-item-row__quantity">
-                          <span>On hand</span>
-                          <strong>{item.quantity} <small>{item.unit}</small></strong>
-                        </div>
-                        <div className="supplier-item-row__status">
-                          <Badge tone={isLowStock ? "warning" : "success"}>
-                            {isLowStock ? "Low stock" : "In stock"}
-                          </Badge>
-                        </div>
+          <Panel className="supplier-items-panel">
+            <SectionHeading title="Supplied items" />
+            {profile?.suppliedItems.length ? (
+              <div className="supplier-item-list panel-scroll-body" role="list">
+                {profile.suppliedItems.map((item) => {
+                  const isLowStock = item.quantity <= item.minimum_stock;
+                  return (
+                    <div className="supplier-item-row" key={item.id} role="listitem">
+                      <div className="supplier-item-row__product">
+                        <strong>{item.name}</strong>
+                        <span>{item.category} · {item.sku ?? "No SKU"}</span>
                       </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="supplier-portal__empty-copy">No linked items yet.</p>
-              )}
-            </Panel>
-          </div>
+                      <div className="supplier-item-row__quantity">
+                        <strong>{item.quantity} <small>{item.unit}</small></strong>
+                      </div>
+                      <div className="supplier-item-row__status">
+                        <Badge tone={isLowStock ? "warning" : "success"}>
+                          {isLowStock ? "Low stock" : "In stock"}
+                        </Badge>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="supplier-portal__empty-copy">No linked items yet.</p>
+            )}
+          </Panel>
 
-          <aside className="supplier-portal__secondary-column">
-            <Panel className="supplier-requests-panel">
-              <SectionHeading
-                title="Restock requests"
-               
-              />
-              {restocks.length ? (
-                <>
-                  <div className="supplier-request-list">
-                    {requestPreview.map(renderRestockRow)}
-                  </div>
-                  <button className="supplier-collection-trigger" type="button" onClick={openRequestsDrawer}>
-                    <span>View all {restocks.length} request{restocks.length === 1 ? "" : "s"}</span>
-                    <Icon name="arrowRight" size={15} />
-                  </button>
-                </>
-              ) : (
-                <p className="supplier-portal__empty-copy">No restock requests yet.</p>
-              )}
-            </Panel>
-
-            <Panel className="supplier-deliveries-panel">
-              <SectionHeading
-                title="Delivery history"
-               
-              />
-              {profile?.recentDeliveries.length ? (
-                <>
-                  <div className="supplier-delivery-list">
-                    {deliveryPreview.map(renderDeliveryRow)}
-                  </div>
-                  <button className="supplier-collection-trigger" type="button" onClick={openDeliveriesDrawer}>
-                    <span>View all {profile.recentDeliveries.length} deliver{profile.recentDeliveries.length === 1 ? "y" : "ies"}</span>
-                    <Icon name="arrowRight" size={15} />
-                  </button>
-                </>
-              ) : (
-                <p className="supplier-portal__empty-copy">No received deliveries yet.</p>
-              )}
-            </Panel>
-          </aside>
+          <Panel className="supplier-deliveries-panel">
+            <SectionHeading
+              title="Delivery history"
+              action={(profile?.recentDeliveries.length ?? 0) > deliveryPreview.length ? <button className="link-button" type="button" onClick={openDeliveriesDrawer}>View all {profile?.recentDeliveries.length}</button> : undefined}
+            />
+            {profile?.recentDeliveries.length ? (
+              <div className="supplier-delivery-list">
+                {deliveryPreview.map(renderDeliveryRow)}
+              </div>
+            ) : (
+              <p className="supplier-portal__empty-copy">No received deliveries yet.</p>
+            )}
+          </Panel>
         </div>
 
         <Panel className="supplier-account-panel">
-          <SectionHeading
-            title="Account security"
-           
-          />
+          <SectionHeading title="Change password" />
           <form className="supplier-password-form" onSubmit={changePassword}>
             <div className="supplier-password-form__fields">
               <TextField
@@ -489,11 +437,8 @@ export function SupplierPortal({ user, onSignOut, onToast }: { user: ApiUser; on
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
               />
-            </div>
-            <div className="supplier-password-form__footer">
-              <p>Choose a password you do not reuse elsewhere.</p>
               <Button type="submit" disabled={savingPassword} icon="lock">
-                {savingPassword ? "Updating…" : "Change password"}
+                {savingPassword ? "Updating…" : "Update"}
               </Button>
             </div>
           </form>
