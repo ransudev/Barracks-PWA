@@ -128,6 +128,10 @@ export async function PUT(
     );
   }
 
+  if (actor.role === "customer" && !parsed.data.barberId) {
+    return Response.json({ success: false, message: "Choose a barber" }, { status: 400 });
+  }
+
   try {
     const input = {
       branchId: authorization.booking.branchId,

@@ -55,6 +55,7 @@ export async function POST(request: Request) {
   try {
     let customerId = parsed.data.customerId;
     if (user.role === "customer") {
+      if (!parsed.data.barberId) return Response.json({ success: false, message: "Choose a barber" }, { status: 400 });
       const customer = await findCustomerByUserId(pool, user.id);
       if (!customer) return Response.json({ success: false, message: "Customer profile not found" }, { status: 404 });
       customerId = customer.id;

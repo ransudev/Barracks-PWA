@@ -210,6 +210,10 @@ export function CustomerDashboard({
   async function saveBooking(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editingBooking || !bookingDraft) return;
+    if (!bookingDraft.barberId) {
+      onToast("Choose a barber");
+      return;
+    }
     setBookingSaving(true);
 
     try {
@@ -217,7 +221,7 @@ export function CustomerDashboard({
         method: "PUT",
         body: JSON.stringify({
           serviceId: bookingDraft.serviceId,
-          barberId: bookingDraft.barberId ? Number(bookingDraft.barberId) : null,
+          barberId: Number(bookingDraft.barberId),
           date: bookingDraft.date,
           time: bookingDraft.time,
           notes: bookingDraft.notes,
@@ -395,6 +399,7 @@ export function CustomerDashboard({
             services={bookingServices}
             barbers={bookingBarbers.filter((barber) => barber.status !== "unavailable")}
             hideCustomer
+            requireBarber
             excludeBookingId={editingBooking?.id}
             availabilityVersion={availabilityVersion}
             submitLabel="Save appointment"

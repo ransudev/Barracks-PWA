@@ -121,8 +121,8 @@ function CustomerBookingWorkspace({ go, onToast, onSignOut, user, branch, branch
 
   async function createBooking(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!value.serviceId || !value.date || !value.time) {
-      onToast("Choose a service, date, and available time");
+    if (!value.serviceId || !value.barberId || !value.date || !value.time) {
+      onToast("Choose a service, barber, date, and available time");
       return;
     }
 
@@ -132,7 +132,7 @@ function CustomerBookingWorkspace({ go, onToast, onSignOut, user, branch, branch
         method: "POST",
         body: JSON.stringify({
           serviceId: value.serviceId,
-          barberId: value.barberId ? Number(value.barberId) : null,
+          barberId: Number(value.barberId),
           date: value.date,
           time: value.time,
           notes: value.notes,
@@ -151,7 +151,7 @@ function CustomerBookingWorkspace({ go, onToast, onSignOut, user, branch, branch
   }
 
   const dayHours = value.date ? hours.find((day) => day.dayOfWeek === new Date(`${value.date}T00:00:00Z`).getUTCDay()) : undefined;
-  const barberName = selectedBarber ? `${selectedBarber.firstName} ${selectedBarber.lastName}` : "Any available";
+  const barberName = selectedBarber ? `${selectedBarber.firstName} ${selectedBarber.lastName}` : "Choose a barber";
 
   return (
     <div className="customer-page customer-page--dashboard customer-booking-view">
@@ -189,6 +189,7 @@ function CustomerBookingWorkspace({ go, onToast, onSignOut, user, branch, branch
                 services={services}
                 barbers={barbers}
                 hideCustomer
+                requireBarber
                 submitLabel="Confirm appointment"
                 submitting={submitting}
                 availabilityVersion={availabilityVersion}

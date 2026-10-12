@@ -22,6 +22,7 @@ export function BookingForm({
   services,
   barbers,
   hideCustomer = false,
+  requireBarber = false,
   excludeBookingId,
   availabilityVersion = 0,
   submitLabel = "Save booking",
@@ -36,6 +37,7 @@ export function BookingForm({
   services: Service[];
   barbers: ApiBarberAvailability[];
   hideCustomer?: boolean;
+  requireBarber?: boolean;
   excludeBookingId?: number;
   availabilityVersion?: number;
   submitLabel?: string;
@@ -57,7 +59,7 @@ export function BookingForm({
     }
   }, [hideCustomer, customerEligible, value, onChange]);
   useEffect(() => {
-    if (!serviceId || !date) return;
+    if (!serviceId || !date || (requireBarber && !barberId)) return;
     let active = true;
     const params = new URLSearchParams({ serviceId, date });
     if (branchId) params.set("branchId", String(branchId));
@@ -78,8 +80,9 @@ export function BookingForm({
     }
     void load();
     return () => { active = false; };
-  }, [branchId, serviceId, barberId, date, excludeBookingId, availabilityVersion]);
-  const selectedSlot = slots.find((slot) => slot.startTime === value.time);
+  }, [branchId, serviceId, barberId, date, excludeBookingId, availabilityVersion, requireBarber]);
+  const readyForAvailability = Boolean(serviceId && date && (!requireBarber || barberId));
+  const selectedSlot = readyForAvailability ? slots.find((slot) => slot.startTime === value.time) : undefined;
   const selectedService = services.find((service) => service.id === value.serviceId);
   const selectedBarber = barbers.find((barber) => String(barber.id) === value.barberId);
   return (
@@ -98,19 +101,19 @@ export function BookingForm({
         <option value="">Choose a service</option>
         {services.filter((service) => service.active).map((service) => <option key={service.id} value={service.id}>{service.name} · {service.durationMinutes} mins · ₱{service.price}</option>)}
       </SelectField>
-      <SelectField label="Barber" value={value.barberId} onChange={(event) => onChange({ ...value, barberId: event.target.value, time: "" })}>
-        <option value="">Any Available Barber</option>
+      <SelectField label="Barber" required={requireBarber} value={value.barberId} onChange={(event) => onChange({ ...value, barberId: event.target.value, time: "" })}>
+        <option value="">{requireBarber ? "Choose a barber" : "Any Available Barber"}</option>
         {barbers.filter((barber) => barber.status !== "unavailable").map((barber) => <option key={barber.id} value={barber.id}>{barber.firstName} {barber.lastName}</option>)}
       </SelectField>
       <div className="form-grid form-grid--two">
         <TextField label="Date" required type="date" value={value.date} min={dateInputValue()} onChange={(event) => onChange({ ...value, date: event.target.value, time: "" })} />
-        <SelectField label="Available time" required value={selectedSlot ? value.time : ""} disabled={loading || !slots.length} onChange={(event) => onChange({ ...value, time: event.target.value })}>
-          <option value="">{loading ? "Loading available times…" : slots.length ? "Choose a time" : "No available times"}</option>
-          {slots.map((slot) => <option key={slot.startTime} value={slot.startTime}>{slot.startTime}–{slot.endTime}</option>)}
+        <SelectField label="Available time" required value={selectedSlot ? value.time : ""} disabled={!readyForAvailability || loading || !slots.length} onChange={(event) => onChange({ ...value, time: event.target.value })}>
+          <option value="">{!readyForAvailability ? requireBarber ? "Choose service, barber and date first" : "Choose service and date first" : loading ? "Loading available times…" : slots.length ? "Choose a time" : "No available times"}</option>
+          {readyForAvailability && slots.map((slot) => <option key={slot.startTime} value={slot.startTime}>{slot.startTime}–{slot.endTime}</option>)}
         </SelectField>
       </div>
-      {availabilityError && <p role="alert" className="form-hint">{availabilityError}</p>}
-      {!loading && !availabilityError && !slots.length && <p className="form-hint">{availabilityReason === "schedule_not_configured" ? "This barber's schedule is not ready yet. Try another barber or ask the shop for help." : "No slots are available for this selection. Try another date or barber."}</p>}
+      {readyForAvailability && availabilityError && <p role="alert" className="form-hint">{availabilityError}</p>}
+      {readyForAvailability && !loading && !availabilityError && !slots.length && <p className="form-hint">{availabilityReason === "schedule_not_configured" ? "This barber's schedule is not ready yet. Try another barber or ask the shop for help." : "No slots are available for this selection. Try another date or barber."}</p>}
       <TextField label="Notes (optional)" value={value.notes} maxLength={500} onChange={(event) => onChange({ ...value, notes: event.target.value })} />
       {selectedSlot && selectedService && <div className="booking-form-review" aria-label="Review booking">
         <h3>Review appointment</h3>
