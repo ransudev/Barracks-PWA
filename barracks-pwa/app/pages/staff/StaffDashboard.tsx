@@ -1,7 +1,7 @@
 "use client";
 
 import { ReportBranchScope } from "@/app/components/ReportBranchScope";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { ApiBarberAvailability, ApiBooking, ApiQueueEntry } from "@/app/lib/api";
 import { apiRequest, readApiBody } from "@/app/lib/api";
 import type { ViewId } from "@/app/types/domain";
@@ -35,9 +35,9 @@ function formatTime(time: string) {
 
 type DashboardProps = { go: (view: ViewId) => void; onToast: (message: string) => void };
 export function StaffDashboard(props: DashboardProps) {
-  return <ReportBranchScope>{(branch) => <StaffDashboardContent key={branch} {...props} branch={branch} />}</ReportBranchScope>;
+  return <ReportBranchScope>{(branch, branchControl) => <StaffDashboardContent key={branch} {...props} branch={branch} branchControl={branchControl} />}</ReportBranchScope>;
 }
-function StaffDashboardContent({ go, onToast, branch }: DashboardProps & { branch: string }) {
+function StaffDashboardContent({ go, onToast, branch, branchControl }: DashboardProps & { branch: string; branchControl: ReactNode }) {
   const [refreshVersion, setRefreshVersion] = useState(0);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [barbers, setBarbers] = useState<ApiBarberAvailability[]>([]);
@@ -113,8 +113,7 @@ function StaffDashboardContent({ go, onToast, branch }: DashboardProps & { branc
 
   return (
     <div className="staff-dashboard">
-      <PageHeader title="Dashboard" action={<Button icon="scissors" onClick={() => go("barbers")}>View barber floor</Button>} />
-      <FreshnessBar updatedAt={updatedAt && queueAsOf ? Math.min(updatedAt, queueAsOf) : null} loading={loading || queueLoading} error={loadError || queueError} onRefresh={() => setRefreshVersion((value) => value + 1)} />
+      <PageHeader title="Dashboard" action={<><FreshnessBar updatedAt={updatedAt && queueAsOf ? Math.min(updatedAt, queueAsOf) : null} loading={loading || queueLoading} error={loadError || queueError} onRefresh={() => setRefreshVersion((value) => value + 1)} />{branchControl}<Button icon="scissors" onClick={() => go("barbers")}>View barber floor</Button></>} />
       <div className="metrics-grid metrics-grid--four">
         <MetricCard label="Customers in queue" value={queueLoading || queueError ? "—" : String(activeQueue.length)} change={queueError ? "Unable to load queue" : undefined} changeTone="warning" icon="queue" accent="blue" />
         <MetricCard label="Today’s bookings" value={loading || loadError ? "—" : String(todayBookings.length)} icon="calendar" accent="amber" />

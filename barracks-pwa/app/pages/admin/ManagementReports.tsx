@@ -1,7 +1,7 @@
 "use client";
 
 import { ReportBranchScope } from "@/app/components/ReportBranchScope";
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { Button, PageHeader, Panel, TextField } from "@/app/components/ui";
 import { InventoryReports } from "@/app/pages/admin/InventoryReports";
 import { RevenueReports } from "@/app/pages/admin/RevenueReports";
@@ -11,9 +11,9 @@ import styles from "./reports.module.css";
 const presets: ReportPreset[] = ["Today", "This week", "This month", "Last 30 days"];
 
 export function ManagementReports({ onToast, globalAllowed = false }: { onToast: (message: string) => void; globalAllowed?: boolean }) {
-  return <ReportBranchScope globalAllowed={globalAllowed}>{(branch) => <ManagementReportsContent branch={branch} onToast={onToast} />}</ReportBranchScope>;
+  return <ReportBranchScope globalAllowed={globalAllowed}>{(branch, branchControl) => <ManagementReportsContent branch={branch} branchControl={branchControl} onToast={onToast} />}</ReportBranchScope>;
 }
-function ManagementReportsContent({ onToast, branch }: { onToast: (message: string) => void; branch: string }) {
+function ManagementReportsContent({ onToast, branch, branchControl }: { onToast: (message: string) => void; branch: string; branchControl: ReactNode }) {
   const [section, setSection] = useState<"sales" | "inventory">("sales");
   const [range, setRange] = useState<ReportRange>(() => presetRange("Last 30 days"));
   const [draft, setDraft] = useState(range);
@@ -34,7 +34,7 @@ function ManagementReportsContent({ onToast, branch }: { onToast: (message: stri
   }
 
   return <div className={styles.dashboard}>
-    <PageHeader title="Reports" />
+    <PageHeader title="Reports" action={branchControl} />
     <div className={styles.tabs} role="group" aria-label="Report type">
       <Button type="button" aria-pressed={section === "sales"} variant={section === "sales" ? "primary" : "secondary"} onClick={() => setSection("sales")}>Sales & revenue</Button>
       <Button type="button" aria-pressed={section === "inventory"} variant={section === "inventory" ? "primary" : "secondary"} onClick={() => setSection("inventory")}>Inventory</Button>

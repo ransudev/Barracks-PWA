@@ -281,3 +281,9 @@ a.button { text-decoration: none; }
 .restock-list-tabs .tabs { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-raised); }
 .restock-list-tabs .tabs > button { min-height: 30px; padding: 0 12px; border: 0; border-radius: 6px; background: transparent; box-shadow: none; color: var(--text-muted); font-size: 12px; font-weight: 650; }
 .restock-list-tabs .tabs > button.is-active { background: var(--surface-hover); color: var(--text); }
+.sales-trend { height: 200px; margin: 6px 22px 16px; }
+.sales-trend > div > em { color: var(--text-soft); font-family: var(--font-geist-mono), monospace; font-size: 10px; font-style: normal; white-space: nowrap; }
+.sales-trend__bar { background: color-mix(in srgb, var(--green) 80%, transparent); }
+.sales-breakdown { margin: 0 22px 18px; border-top: 1px solid var(--line); }
+.sales-breakdown > summary { padding: 12px 0; color: var(--text-soft); cursor: pointer; font-size: 12px; font-weight: 650; }
+.sales-breakdown .operational-table-wrap { padding: 0; }
