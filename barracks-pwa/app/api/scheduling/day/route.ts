@@ -3,7 +3,7 @@ import { requireStaffUser } from "@/server/auth/require-role";
 import { resolveOperationalBranch } from "@/server/auth/barber-branch-access";
 import { branchApiError } from "@/server/services/branch-api";
 import { pool } from "@/server/db/pool";
-import { listShopHours, listBarberSchedules, listBarberUnavailability } from "@/server/services/schedule.service";
+import { listShopHours, listBranchDaySchedules } from "@/server/services/schedule.service";
 
 export const runtime = "nodejs";
 
@@ -21,16 +21,12 @@ export async function GET(request: Request) {
     next.setUTCDate(next.getUTCDate() + 1);
     const from = `${date}T00:00:00+08:00`;
     const to = `${next.toISOString().slice(0, 10)}T00:00:00+08:00`;
-    const roster = await pool.query<{ id: number }>("SELECT id FROM barbers WHERE branch_id=$1 ORDER BY id", [branchId]);
-    const barbers = await Promise.all(roster.rows.map(async ({ id }) => ({
-      barberId: id,
-      shift: (await listBarberSchedules(pool, id)).find((shift) => shift.dayOfWeek === dayOfWeek) ?? null,
-      timeAway: await listBarberUnavailability(pool, id, from, to),
-    })));
-    let shopHours = null;
-    let hoursError = "";
-    try { shopHours = (await listShopHours(pool, branchId)).find((hour) => hour.dayOfWeek === dayOfWeek) ?? null; }
-    catch (cause) { hoursError = cause instanceof Error ? cause.message : "Shop hours unavailable"; }
+    const [barbers, hours] = await Promise.all([
+      listBranchDaySchedules(pool, branchId, dayOfWeek, from, to),
+      listShopHours(pool, branchId).then((days) => ({ shopHours: days.find((hour) => hour.dayOfWeek === dayOfWeek) ?? null, hoursError: "" }))
+        .catch((cause: unknown) => ({ shopHours: null, hoursError: cause instanceof Error ? cause.message : "Shop hours unavailable" })),
+    ]);
+    const { shopHours, hoursError } = hours;
     return Response.json({ success: true, date, barbers, shopHours, hoursError, timezone: "Asia/Manila" }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (cause) {
     console.error("Unable to load day schedule", cause);

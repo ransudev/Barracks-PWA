@@ -73,3 +73,22 @@ export async function removeBarberUnavailability(db: Db, barberId: number, id: n
   const result = await db.query("DELETE FROM barber_unavailability WHERE barber_id=$1 AND id=$2", [barberId, id]);
   return Boolean(result.rowCount);
 }
+
+// Batch the read-only day view; mutations continue to use their locked guards.
+export async function listBranchDaySchedules(db: Db, branchId: number, dayOfWeek: number, from: string, to: string) {
+  const result = await db.query<{ barberId: number; shift: WeeklySchedule | null; timeAway: Unavailability[] }>(`
+    SELECT b.id AS "barberId",
+      CASE WHEN s.id IS NULL THEN NULL ELSE jsonb_build_object('dayOfWeek',s.day_of_week,'isWorking',s.is_working,
+        'startTime',left(s.start_time::text,5),'endTime',left(s.end_time::text,5),
+        'breaks',COALESCE((SELECT jsonb_agg(jsonb_build_object('startTime',left(br.start_time::text,5),
+          'endTime',left(br.end_time::text,5)) ORDER BY br.start_time)
+          FROM barber_schedule_breaks br WHERE br.barber_schedule_id=s.id),'[]'::jsonb)) END AS shift,
+      COALESCE((SELECT jsonb_agg(jsonb_build_object('id',u.id,'startsAt',u.starts_at,'endsAt',u.ends_at,'reason',u.reason)
+        ORDER BY u.starts_at) FROM barber_unavailability u WHERE u.barber_id=b.id
+        AND u.ends_at>$3::timestamptz AND u.starts_at<$4::timestamptz),'[]'::jsonb) AS "timeAway"
+    FROM barbers b LEFT JOIN barber_schedules s ON s.barber_id=b.id AND s.day_of_week=$2
+    WHERE b.branch_id=$1 ORDER BY b.id`, [branchId, dayOfWeek, from, to]);
+  return result.rows.map((row) => ({ ...row, timeAway: row.timeAway.map((item) => ({ ...item,
+    startsAt: new Date(item.startsAt).toISOString(), endsAt: new Date(item.endsAt).toISOString(),
+  })) }));
+}

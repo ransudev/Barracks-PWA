@@ -5,6 +5,11 @@ import { requireManagementReport, resolveReportBranches } from "@/server/auth/re
 export async function getDashboardReport(db: Pool, actor: BranchActor, rawBranch: string | null = null) {
   requireManagementReport(actor);
   const branchIds = await resolveReportBranches(db, actor, rawBranch);
+  return getDashboardReportForBranches(db, branchIds);
+}
+
+// Internal query helper: callers must resolve authorized branch IDs first.
+export async function getDashboardReportForBranches(db: Pool, branchIds: number[]) {
   const [metrics, attention, deliveries] = await Promise.all([
     db.query(`SELECT
       (SELECT COALESCE(SUM(quantity * unit_cost),0) FROM inventory_items WHERE branch_id=ANY($1::integer[])) AS inventory_value,

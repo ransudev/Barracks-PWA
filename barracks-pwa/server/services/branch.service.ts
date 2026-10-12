@@ -13,6 +13,11 @@ export class BranchError extends Error {
 export async function listBranches(db: Db, activeOnly = false): Promise<Branch[]> {
   return (await db.query<BranchRow>(`SELECT ${columns} FROM branches ${activeOnly ? "WHERE status='active'" : ""} ORDER BY name, id`)).rows.map(mapBranch);
 }
+export async function listAssignedBranches(db: Db, userId: number): Promise<Branch[]> {
+  return (await db.query<BranchRow>(`SELECT ${columns} FROM branches
+    WHERE id IN (SELECT branch_id FROM user_branches WHERE user_id=$1) ORDER BY name,id`, [userId])).rows.map(mapBranch);
+}
+
 export async function findBranch(db: Db, id: number): Promise<Branch | null> {
   const row = (await db.query<BranchRow>(`SELECT ${columns} FROM branches WHERE id=$1`, [id])).rows[0];
   return row ? mapBranch(row) : null;

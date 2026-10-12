@@ -1,5 +1,5 @@
 import type { Pool, PoolClient } from "pg";
-import { listBarberSchedules, listBarberUnavailability, listShopHours } from "@/server/services/schedule.service";
+import { listBarberSchedules, listBarberUnavailability, listShopHours, ShopHoursConfigurationError, type ShopHours, type WeeklySchedule } from "@/server/services/schedule.service";
 
 type Db = Pool | PoolClient;
 export type OperationalReason = "absent" | "clocked_out" | "barber_not_found" | "invalid_branch" | "duration_unknown" | "reservation_collision" | "unavailable" | "serving_customer" | "off_shift" | "break" | "temporary_unavailability";
@@ -34,28 +34,23 @@ export async function getBarberOperationalAvailability(db: Db, barberId: number,
   const duration = visit?.durationMinutes ?? 0;
   const end = new Date(instant.getTime() + duration * 60_000);
   const interval = { startsAt: instant.toISOString(), endsAt: end.toISOString() };
-  const deny = (reason: OperationalReason) => ({ ...blocked(reason), interval });
   const attendance = (await db.query<{ status: "present" | "late" | "absent"; clock_out: Date | null }>(
     `SELECT status,clock_out FROM barber_attendance WHERE barber_id=$1
      AND attendance_date=($2::timestamptz AT TIME ZONE 'Asia/Manila')::date`, [barberId, instant])).rows[0];
-  if (attendance?.status === "absent") return { ...deny("absent"), attendanceState: "absent" };
-  if (attendance?.clock_out) return { ...deny("clocked_out"), attendanceState: "clocked_out" };
-  const minute = (time: string) => { const [h, m, s = 0] = time.split(":").map(Number); return h * 60 + m + s / 60; };
-  const startMinute = minute(localTime);
-  const endMinute = startMinute + duration;
-  // A PoolClient runs one query at a time; issue these reads in sequence.
+  const attendanceDenied = attendance?.status === "absent" ? "absent" : attendance?.clock_out ? "clocked_out" : null;
+  if (attendanceDenied) return { ...blocked(attendanceDenied), interval, attendanceState: attendanceDenied };
+  // A PoolClient runs one query at a time; keep transaction reads sequential.
   const hours = await listShopHours(db, barber.rows[0].branch_id);
   const schedules = await listBarberSchedules(db, barberId);
   const absences = await listBarberUnavailability(db, barberId, instant.toISOString(), new Date(Math.max(end.getTime(), instant.getTime() + 1)).toISOString());
-  const shop = hours.find((day) => day.dayOfWeek === weekday);
-  const shift = schedules.find((day) => day.dayOfWeek === weekday);
-  if (!shop || shop.isClosed || !shift?.isWorking || localTime < shop.openTime || localTime >= shop.closeTime ||
-      localTime < shift.startTime || localTime >= shift.endTime ||
-      endMinute > Math.min(minute(shop.closeTime), minute(shift.endTime))) return deny("off_shift");
-  if (shift.breaks.some((item) => startMinute < minute(item.endTime) && (duration ? endMinute > minute(item.startTime) : startMinute >= minute(item.startTime)))) return deny("break");
-  if (absences.some((item) => Date.parse(item.startsAt) < Math.max(end.getTime(), instant.getTime() + 1) && Date.parse(item.endsAt) > instant.getTime()))
-    return deny("temporary_unavailability");
+  const availability = evaluateAvailability({ status: barber.rows[0].status, activeQueueEntryId: null,
+    instant: instant.toISOString(), localTime, weekday, attendance, hours, schedules, absences }, duration);
+  if (!availability.available) return availability;
+  const deny = (reason: OperationalReason) => ({ ...blocked(reason), interval });
   if (visit) {
+    const minute = timeInMinutes;
+    const startMinute = minute(localTime);
+    const endMinute = startMinute + duration;
     const bookings = await db.query<{ booking_time: string; end_time: string | null; service_duration_minutes: number | null }>(
       `SELECT booking_time, end_time, service_duration_minutes FROM bookings
        WHERE barber_id=$1 AND booking_date=($2::timestamptz AT TIME ZONE 'Asia/Manila')::date
@@ -68,7 +63,80 @@ export async function getBarberOperationalAvailability(db: Db, barberId: number,
       return startMinute < finish && endMinute > start;
     })) return deny("reservation_collision");
   }
+  return availability;
+}
+
+type AvailabilitySnapshot = {
+  status: "available" | "busy" | "unavailable";
+  activeQueueEntryId: number | null;
+  instant: string;
+  localTime: string;
+  weekday: number;
+  attendance: { status: "present" | "late" | "absent"; clock_out: Date | string | null } | null | undefined;
+  hours: ShopHours[];
+  schedules: WeeklySchedule[];
+  absences: OperationalInterval[];
+};
+const timeInMinutes = (time: string) => {
+  const [h, m, s = 0] = time.split(":").map(Number);
+  return h * 60 + m + s / 60;
+};
+function evaluateAvailability(snapshot: AvailabilitySnapshot, duration = 0): OperationalAvailability {
+  const { status, activeQueueEntryId, localTime, weekday, attendance, hours, schedules, absences } = snapshot;
+  if (status === "unavailable") return blocked("unavailable");
+  if (activeQueueEntryId !== null) return blocked("serving_customer", Number(activeQueueEntryId));
+  const instant = new Date(snapshot.instant);
+  const end = new Date(instant.getTime() + duration * 60_000);
+  const interval = { startsAt: instant.toISOString(), endsAt: end.toISOString() };
+  const deny = (reason: OperationalReason) => ({ ...blocked(reason), interval });
+  if (attendance?.status === "absent") return { ...deny("absent"), attendanceState: "absent" };
+  if (attendance?.clock_out) return { ...deny("clocked_out"), attendanceState: "clocked_out" };
+  const minute = timeInMinutes;
+  const startMinute = minute(localTime);
+  const endMinute = startMinute + duration;
+  const shop = hours.find((day) => day.dayOfWeek === weekday);
+  const shift = schedules.find((day) => day.dayOfWeek === weekday);
+  if (!shop || shop.isClosed || !shift?.isWorking || localTime < shop.openTime || localTime >= shop.closeTime ||
+      localTime < shift.startTime || localTime >= shift.endTime ||
+      endMinute > Math.min(minute(shop.closeTime), minute(shift.endTime))) return deny("off_shift");
+  if (shift.breaks.some((item) => startMinute < minute(item.endTime) && (duration ? endMinute > minute(item.startTime) : startMinute >= minute(item.startTime)))) return deny("break");
+  if (absences.some((item) => Date.parse(item.startsAt) < Math.max(end.getTime(), instant.getTime() + 1) && Date.parse(item.endsAt) > instant.getTime()))
+    return deny("temporary_unavailability");
   return { ...allowed, interval, attendanceState: attendance?.status ?? "unmarked" };
+}
+
+// Display reads use one database round trip and one authoritative clock for the
+// whole list. Start transactions still use the locked single-barber guard above.
+export async function listBarberOperationalAvailability(db: Db, barberIds: number[]): Promise<Map<number, OperationalAvailability>> {
+  if (!barberIds.length) return new Map();
+  const result = await db.query<AvailabilitySnapshot & { id: number }>(`
+    WITH clock AS MATERIALIZED (SELECT clock_timestamp() AS instant)
+    SELECT b.id, b.status, clock.instant::text AS instant,
+      (clock.instant AT TIME ZONE 'Asia/Manila')::time::text AS "localTime",
+      EXTRACT(DOW FROM clock.instant AT TIME ZONE 'Asia/Manila')::integer AS weekday,
+      (SELECT q.id FROM queue_entries q WHERE q.barber_id=b.id AND q.status='in_progress' LIMIT 1) AS "activeQueueEntryId",
+      (SELECT jsonb_build_object('status',a.status,'clock_out',a.clock_out) FROM barber_attendance a
+        WHERE a.barber_id=b.id AND a.attendance_date=(clock.instant AT TIME ZONE 'Asia/Manila')::date) AS attendance,
+      COALESCE((SELECT jsonb_agg(jsonb_build_object('dayOfWeek',h.day_of_week,'openTime',left(h.open_time::text,5),
+        'closeTime',left(h.close_time::text,5),'isClosed',h.is_closed)) FROM shop_operating_hours h WHERE h.branch_id=b.branch_id),'[]'::jsonb) AS hours,
+      COALESCE((SELECT jsonb_agg(jsonb_build_object('dayOfWeek',s.day_of_week,'isWorking',s.is_working,
+        'startTime',left(s.start_time::text,5),'endTime',left(s.end_time::text,5),
+        'breaks',COALESCE((SELECT jsonb_agg(jsonb_build_object('startTime',left(br.start_time::text,5),
+          'endTime',left(br.end_time::text,5))) FROM barber_schedule_breaks br WHERE br.barber_schedule_id=s.id),'[]'::jsonb)))
+        FROM barber_schedules s WHERE s.barber_id=b.id),'[]'::jsonb) AS schedules,
+      COALESCE((SELECT jsonb_agg(jsonb_build_object('startsAt',u.starts_at,'endsAt',u.ends_at))
+        FROM barber_unavailability u WHERE u.barber_id=b.id AND u.ends_at>clock.instant
+        AND u.starts_at<clock.instant + interval '1 millisecond'),'[]'::jsonb) AS absences
+    FROM barbers b CROSS JOIN clock WHERE b.id=ANY($1::integer[])`, [barberIds]);
+  return new Map(result.rows.map((snapshot) => {
+    // Match the single-barber guard's early returns before checking configuration.
+    if (snapshot.status !== "unavailable" && snapshot.activeQueueEntryId === null &&
+        snapshot.attendance?.status !== "absent" && !snapshot.attendance?.clock_out &&
+        new Set(snapshot.hours.map((day) => day.dayOfWeek)).size !== snapshot.hours.length) {
+      throw new ShopHoursConfigurationError();
+    }
+    return [snapshot.id, evaluateAvailability(snapshot)];
+  }));
 }
 
 export function requireBarberOperationalAvailability(result: OperationalAvailability): void {

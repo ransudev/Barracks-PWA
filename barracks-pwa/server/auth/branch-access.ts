@@ -1,6 +1,6 @@
 import type { Pool, PoolClient } from "pg";
 import type { PublicUser } from "@/server/services/user.service";
-import { BranchError, findBranch, listBranches } from "@/server/services/branch.service";
+import { BranchError, findBranch, listBranches, listAssignedBranches } from "@/server/services/branch.service";
 import type { Branch } from "@/app/types/branch";
 
 type Db = Pool | PoolClient;
@@ -12,15 +12,13 @@ export const isBranchStaff = (role: string) => role === "manager" || role === "f
 export async function listAccessibleBranches(db: Db, actor: Actor): Promise<Branch[]> {
   if (actor.role === "administrator") return listBranches(db);
   if (!isBranchStaff(actor.role)) return [];
-  const memberships = await db.query<{ branch_id: number }>("SELECT branch_id FROM user_branches WHERE user_id=$1", [actor.id]);
-  const ids = new Set(memberships.rows.map((row) => row.branch_id));
-  return (await listBranches(db)).filter((branch) => ids.has(branch.id));
+  return listAssignedBranches(db, actor.id);
 }
 export async function checkBranchAccess(db: Db, actor: Actor, branchId: number): Promise<boolean> {
   if (actor.role !== "administrator" && !isBranchStaff(actor.role)) return false;
-  if (!await findBranch(db, branchId)) return false;
-  if (actor.role === "administrator") return true;
-  return Boolean((await db.query("SELECT 1 FROM user_branches WHERE user_id=$1 AND branch_id=$2", [actor.id, branchId])).rowCount);
+  return Boolean((await db.query(`SELECT 1 FROM branches b WHERE b.id=$1
+    AND ($2::boolean OR EXISTS (SELECT 1 FROM user_branches ub WHERE ub.user_id=$3 AND ub.branch_id=b.id))`,
+    [branchId, actor.role === "administrator", actor.id])).rowCount);
 }
 export async function requireBranchAccess(db: Db, actor: Actor, branchId: number): Promise<void> {
   if (!await checkBranchAccess(db, actor, branchId)) throw new BranchError("You do not have access to this branch", 403);

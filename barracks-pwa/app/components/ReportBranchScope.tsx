@@ -9,7 +9,7 @@ export function ReportBranchScope({ globalAllowed = false, children }: { globalA
   const { branches, branchId, setBranchId, branchError, branchLoading } = useBranchContext();
   const [global, setGlobal] = useState(globalAllowed);
   const selected = globalAllowed && global ? "all" : String(branchId);
-  const ready = !branchLoading && (globalAllowed && global || branchId > 0);
+  const ready = (globalAllowed && global) || (!branchLoading && branchId > 0);
   const control = <SelectField className="branch-switcher" label="Branch" value={ready ? selected : ""} onChange={(event) => {
     const value = event.target.value;
     setGlobal(value === "all");

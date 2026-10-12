@@ -73,6 +73,11 @@ function nextDate(date: string): string {
 export async function getRevenueReport(db: Pool, range: RevenueRange, actor: BranchActor, rawBranch: string | null = null): Promise<RevenueReport> {
   requireManagementReport(actor);
   const branchIds = await resolveReportBranches(db, actor, rawBranch);
+  return getRevenueReportForBranches(db, range, branchIds);
+}
+
+// Internal query helper: callers must resolve authorized branch IDs first.
+export async function getRevenueReportForBranches(db: Pool, range: RevenueRange, branchIds: number[]): Promise<RevenueReport> {
   const start = `${range.from}T00:00:00+08:00`;
   const end = `${nextDate(range.to)}T00:00:00+08:00`;
   const result = await db.query<EventRow>(`

@@ -9,12 +9,16 @@ if (!connectionString) {
   throw new Error("DATABASE_URL or POSTGRES_URL must be configured");
 }
 
-export const pool = new Pool({
+// Next development reloads and route bundles must share one connection pool.
+const databaseGlobal = globalThis as typeof globalThis & { barracksDatabasePool?: Pool };
+const existingPool = databaseGlobal.barracksDatabasePool;
+export const pool = existingPool ?? new Pool({
   connectionString,
   ssl,
   max: Number(process.env.DATABASE_POOL_MAX ?? (process.env.VERCEL ? 3 : 10)),
 });
 
-pool.on("error", (error) => {
+if (process.env.NODE_ENV !== "production") databaseGlobal.barracksDatabasePool = pool;
+if (!existingPool) pool.on("error", (error) => {
   console.error("Unexpected PostgreSQL pool error", error);
 });

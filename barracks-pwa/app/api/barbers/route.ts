@@ -6,7 +6,7 @@ import { requireAdministrator, requireManagementUser, requireRolesUser } from "@
 import { pool } from "@/server/db/pool";
 import { barberSchema, barberStaffSchema, formatValidationErrors } from "@/server/schemas/sprint.schema";
 import { createBarber, listBarberAvailability, listBarbers } from "@/server/services/barber.service";
-import { getBarberOperationalAvailability } from "@/server/services/barber-operational-availability.service";
+import { listBarberOperationalAvailability } from "@/server/services/barber-operational-availability.service";
 
 export const runtime = "nodejs";
 
@@ -15,16 +15,20 @@ export async function GET(request: Request) {
   if (authorizationResult instanceof Response) return authorizationResult;
   try {
     const actor = authorizationResult;
-    const rawBranch = new URL(request.url).searchParams.get("branchId");
+    const params = new URL(request.url).searchParams;
+    const rawBranch = params.get("branchId");
+    const optionsOnly = params.get("view") === "options";
     const branchIds = actor.role === "customer" ? [await visitBranch(pool, actor, request)]
       : rawBranch !== null || actor.role === "front_desk" ? [await resolveOperationalBranch(pool, actor, rawBranch)]
       : actor.role === "administrator" ? undefined : (await listAccessibleBranches(pool, actor)).map((branch) => branch.id);
-    const barbers = authorizationResult.role === "customer" || authorizationResult.role === "front_desk"
+    const barbers = optionsOnly || authorizationResult.role === "customer" || authorizationResult.role === "front_desk"
       ? await listBarberAvailability(pool, branchIds)
       : await listBarbers(pool, branchIds);
-    const operationalBarbers = actor.role === "customer" ? barbers : await Promise.all(barbers.map(async (barber) => ({
-      ...barber, operationalAvailability: await getBarberOperationalAvailability(pool, barber.id),
-    })));
+    const availability = optionsOnly || actor.role === "customer" ? null
+      : await listBarberOperationalAvailability(pool, barbers.map((barber) => barber.id));
+    const operationalBarbers = availability ? barbers.map((barber) => ({
+      ...barber, operationalAvailability: availability.get(barber.id) ?? { available: false, reason: "barber_not_found", activeQueueEntryId: null },
+    })) : barbers;
     return Response.json({ success: true, barbers: operationalBarbers });
   } catch (error) {
     return branchApiError(error);
