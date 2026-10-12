@@ -320,6 +320,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .topbar__account strong { color: var(--text); font-size: 12px; }
 .topbar__account small { color: var(--text-muted); font-size: 10px; }
 .topbar__account > svg { color: var(--text-muted); }
+/* Customer and supplier portals reuse the workspace topbar. */
+.portal-topbar { z-index: 30; }
+.portal-topbar__start { align-items: center; display: flex; min-width: 0; gap: 28px; }
+.portal-topbar__nav { align-items: center; display: flex; gap: 4px; }
+.portal-topbar__link { align-items: center; display: inline-flex; min-height: 36px; padding: 0 13px; border-radius: 7px; background: transparent; color: var(--text-muted); font-size: 13px; font-weight: 650; white-space: nowrap; transition: color .2s ease, background .2s ease; }
+.portal-topbar__link:hover { background: var(--surface); color: var(--text); }
+.portal-topbar__link.is-active { background: var(--surface); color: var(--text); box-shadow: inset 0 -2px 0 var(--brand-primary, var(--red)); }
 .popover { position: absolute; z-index: 20; top: calc(100% + 10px); right: 0; overflow: hidden; width: 300px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface-raised); box-shadow: var(--shadow); }
 .popover__header { align-items: center; display: flex; justify-content: space-between; padding: 15px; border-bottom: 1px solid var(--line); }
 .popover__header strong { font-size: 13px; }
@@ -862,6 +869,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .topbar__mobile-start { display: flex; }
   .topbar__mobile-logo { display: block; }
   .topbar__context { display: none; }
+  .portal-topbar__start { gap: 10px; }
+  .portal-topbar .logo-lockup--compact, .portal-topbar .logo-lockup--compact .logo-image { width: 72px; }
+  .portal-topbar__link { min-height: 32px; padding: 0 9px; font-size: 12px; }
   .app-content { padding: 28px 18px 50px; }
   .page-header { align-items: flex-start; flex-direction: column; gap: 15px; }
   .section-heading { flex-direction: column; }
@@ -1221,7 +1231,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 .app-shell .topbar,
-.customer-page--dashboard .customer-topbar {
+.portal-topbar {
   background: var(--glass-grain), linear-gradient(180deg, var(--glass-highlight), transparent), var(--glass-topbar);
   border-bottom-color: var(--glass-border);
   box-shadow: 0 4px 16px rgba(0, 0, 0, .08);
@@ -1478,7 +1488,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   box-shadow: inset -1px 0 0 rgba(226, 226, 220, .025);
 }
 
-:root[data-theme="dark"] .app-shell .topbar {
+:root[data-theme="dark"] :is(.app-shell .topbar, .portal-topbar) {
   background: linear-gradient(180deg, #121212 0%, #0a0a0a 100%);
   border-bottom-color: #303030;
   box-shadow: 0 2px 8px rgba(0, 0, 0, .16);
@@ -1895,6 +1905,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 /* Short entrances keep content usable while the surface settles. */
 .screen-loading { padding: 24px; color: var(--text-muted); }
-.app-shell .topbar { background: var(--ink); }
+.app-shell .topbar, .portal-topbar { background: var(--ink); }
 :is(.app-shell, .customer-page--dashboard) :is(.popover, .modal) { background: var(--surface-raised); }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .modal-backdrop, .modal { animation: none; } }

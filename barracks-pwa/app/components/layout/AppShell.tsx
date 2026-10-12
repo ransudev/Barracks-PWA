@@ -4,16 +4,12 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { canAccessView } from "@/app/utils/view";
 import { frontDeskNavigation, managementNavigation } from "@/app/constants/navigation";
 import { roleLabel as sharedRoleLabel } from "@/app/constants/roles";
-import {
-  Avatar,
-  IconButton,
-  Logo,
-} from "@/app/components/ui";
+import { IconButton, Logo } from "@/app/components/ui";
+import { AccountMenu } from "@/app/components/layout/AccountMenu";
 import { ThemeToggle } from "@/app/components/ui/ThemeToggle";
 import { Icon } from "@/app/components/ui/icons";
 import { apiRequest, readApiBody, type ApiLowStockAlert, type ApiUser } from "@/app/lib/api";
 import type { ShellArea, ViewId } from "@/app/types/domain";
-import { createInitials } from "@/app/utils/format";
 import { BranchContextProvider, useBranchContext } from "@/app/utils/use-branch-context";
 
 type AppShellProps = {
@@ -189,7 +185,6 @@ function Topbar({
   const isManagement = area === "admin";
   const canSwitchWorkspace = currentUser.role === "administrator";
   const name = displayName(currentUser);
-  const initials = createInitials(name);
   const role = roleLabel(currentUser);
   const homeView = dashboardForArea(area);
   const visibleLowStock = lowStockBranchId === branchId ? lowStock : [];
@@ -303,61 +298,27 @@ function Topbar({
           )}
         </div>}
 
-        <div className="topbar__popover-wrap">
-          <button
-            className="topbar__account"
-            type="button"
-            onClick={() => {
-              setProfileOpen(!profileOpen);
-              setNotificationsOpen(false);
-            }}
-          >
-            <Avatar
-              initials={initials}
-              tone={isManagement ? "violet" : "blue"}
-              size="sm"
-            />
-            <span>
-              <strong>{name}</strong>
-              <small>{role}</small>
-            </span>
-            <Icon name="chevronDown" size={14} />
-          </button>
-          {profileOpen && (
-            <div className="popover profile-popover">
-              <div className="profile-popover__identity">
-                <Avatar
-                  initials={initials}
-                  tone={isManagement ? "violet" : "blue"}
-                  size="md"
-                />
-                <span>
-                  <strong>{name}</strong>
-                  <small>{role}</small>
-                </span>
-              </div>
-              {canSwitchWorkspace && (
-                <button
-                  type="button"
-                  onClick={() => go(isManagement ? "staff-dashboard" : "admin-dashboard")}
-                >
-                  <Icon name="refresh" size={15} />
-                  Switch workspace
-                </button>
-              )}
-              <button
-                className="is-danger"
-                type="button"
-                onClick={() => {
-                  void onSignOut();
-                }}
-              >
-                <Icon name="logOut" size={15} />
-                Sign out
-              </button>
-            </div>
+        <AccountMenu
+          name={name}
+          role={role}
+          tone={isManagement ? "violet" : "blue"}
+          open={profileOpen}
+          onOpenChange={(open) => {
+            setProfileOpen(open);
+            if (open) setNotificationsOpen(false);
+          }}
+          onSignOut={onSignOut}
+        >
+          {canSwitchWorkspace && (
+            <button
+              type="button"
+              onClick={() => { setProfileOpen(false); go(isManagement ? "staff-dashboard" : "admin-dashboard"); }}
+            >
+              <Icon name="refresh" size={15} />
+              Switch workspace
+            </button>
           )}
-        </div>
+        </AccountMenu>
       </div>
     </header>
   );

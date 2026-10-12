@@ -2,9 +2,7 @@
 
 import type { ApiUser } from "@/app/lib/api";
 import type { ViewId } from "@/app/types/domain";
-import { Logo } from "@/app/components/ui";
-import { ThemeToggle } from "@/app/components/ui/ThemeToggle";
-import { Icon } from "@/app/components/ui/icons";
+import { PortalTopbar } from "@/app/components/layout/PortalTopbar";
 
 export function CustomerTopbar({
   go,
@@ -18,29 +16,17 @@ export function CustomerTopbar({
   user?: ApiUser | null;
 }) {
   return (
-    <header className="customer-topbar">
-      <Logo onClick={() => go("landing")} />
-      <nav className="customer-topbar__links" aria-label="Customer navigation">
-        <button
-          type="button"
-          className={active === "customer-dashboard" || active === "customer-profile" ? "is-active" : ""}
-          onClick={() => go("customer-dashboard")}
-        >
-          Dashboard
-        </button>
-        <button
-          type="button"
-          className={active === "customer-booking" ? "is-active" : ""}
-          onClick={() => go("customer-booking")}
-        >
-          Book
-        </button>
-        <ThemeToggle />
-        <span>{user ? `${user.firstName} ${user.lastName}` : "Customer account"}</span>
-        <button type="button" onClick={onSignOut}>
-          Sign out <Icon name="logOut" size={14} />
-        </button>
-      </nav>
-    </header>
+    <PortalTopbar
+      onHome={() => go("landing")}
+      links={[
+        { id: "customer-dashboard", label: "Dashboard" },
+        { id: "customer-booking", label: "Book" },
+      ]}
+      active={active === "customer-profile" ? "customer-dashboard" : active}
+      onNavigate={(id) => go(id as ViewId)}
+      name={user ? `${user.firstName} ${user.lastName}`.trim() || "Customer" : "Customer"}
+      role="Customer"
+      onSignOut={onSignOut}
+    />
   );
 }
