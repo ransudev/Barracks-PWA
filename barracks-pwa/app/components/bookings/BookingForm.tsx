@@ -4,6 +4,7 @@ import type { Service } from "@/app/types/domain";
 import { Button, SelectField, TextField } from "@/app/components/ui";
 import { dateInputValue } from "@/app/utils/format";
 import { apiRequest, readApiBody } from "@/app/lib/api";
+import { hasAppointmentCustomer, isAppointmentCustomer } from "@/app/utils/booking-customers";
 
 export type BookingFormValue = {
   customerId: string;
@@ -48,6 +49,13 @@ export function BookingForm({
   const [availabilityError, setAvailabilityError] = useState("");
   const [availabilityReason, setAvailabilityReason] = useState<"schedule_not_configured" | null>(null);
   const { serviceId, barberId, date } = value;
+  const eligibleCustomers = customers.filter(isAppointmentCustomer);
+  const customerEligible = hideCustomer || hasAppointmentCustomer(eligibleCustomers, value.customerId);
+  useEffect(() => {
+    if (!hideCustomer && value.customerId && !customerEligible) {
+      onChange({ ...value, customerId: "" });
+    }
+  }, [hideCustomer, customerEligible, value, onChange]);
   useEffect(() => {
     if (!serviceId || !date) return;
     let active = true;
@@ -75,13 +83,17 @@ export function BookingForm({
   const selectedService = services.find((service) => service.id === value.serviceId);
   const selectedBarber = barbers.find((barber) => String(barber.id) === value.barberId);
   return (
-    <form className="modal-form" onSubmit={onSubmit}>
+    <form className="modal-form" onSubmit={(event) => {
+      if (!customerEligible) { event.preventDefault(); return; }
+      onSubmit(event);
+    }}>
       {!hideCustomer && (
         <SelectField label="Customer" required value={value.customerId} onChange={(event) => onChange({ ...value, customerId: event.target.value })}>
           <option value="">Choose a customer</option>
-          {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.firstName} {customer.lastName}</option>)}
+          {eligibleCustomers.map((customer) => <option key={customer.id} value={customer.id}>{customer.firstName} {customer.lastName}</option>)}
         </SelectField>
       )}
+      {!hideCustomer && <p className="form-hint">Appointments require a registered customer account. Add accountless walk-ins through Queue.</p>}
       <SelectField label="Service" required value={value.serviceId} onChange={(event) => onChange({ ...value, serviceId: event.target.value, time: "" })}>
         <option value="">Choose a service</option>
         {services.filter((service) => service.active).map((service) => <option key={service.id} value={service.id}>{service.name} · {service.durationMinutes} mins · ₱{service.price}</option>)}
@@ -108,7 +120,7 @@ export function BookingForm({
       </div>}
       <div className="modal-actions">
         <Button variant="secondary" type="button" disabled={submitting} onClick={onCancel}>Cancel</Button>
-        <Button type="submit" icon="calendar" disabled={submitting || loading || !selectedSlot || Boolean(availabilityError)}>{submitting ? "Saving…" : submitLabel}</Button>
+        <Button type="submit" icon="calendar" disabled={!customerEligible || submitting || loading || !selectedSlot || Boolean(availabilityError)}>{submitting ? "Saving…" : submitLabel}</Button>
       </div>
     </form>
   );

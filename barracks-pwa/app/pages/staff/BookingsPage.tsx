@@ -12,6 +12,7 @@ import { createInitials, dateInputValue, formatCurrency, futureDateInputValue } 
 import { DetailDrawer, DrawerSection, FreshnessBar, FilterToolbar, RecordCard, ResponsiveTable, type OperationalViewMode } from "@/app/components/operations/OperationalPrimitives";
 import { DaySchedule, type DayContext } from "@/app/components/bookings/DaySchedule";
 import { mayMarkNoShow } from "@/app/constants/booking";
+import { hasAppointmentCustomer, isAppointmentCustomer } from "@/app/utils/booking-customers";
 
 const statuses: ApiBookingStatus[] = ["confirmed", "checked_in", "in_progress", "completed", "cancelled", "no_show"];
 const label = (status: string) => status.split("_").map((word) => word[0].toUpperCase() + word.slice(1)).join(" ");
@@ -81,7 +82,7 @@ function BookingsPageContent({ onToast, canOperate = true, canDelete = false, br
         }
         if (!active) return;
         setItems(bookings.bookings ?? []);
-        setCustomers(customerData.customers ?? []);
+        setCustomers((customerData.customers ?? []).filter(isAppointmentCustomer));
         setBarbers(barberData.barbers ?? []);
         setServices(serviceData.services ?? []);
         setLoadError("");
@@ -117,7 +118,7 @@ function BookingsPageContent({ onToast, canOperate = true, canDelete = false, br
 
   async function saveBooking(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!draft.customerId || !draft.serviceId || !draft.time) return;
+    if (!hasAppointmentCustomer(customers, draft.customerId) || !draft.serviceId || !draft.time) return;
     setBusy(true);
     try {
       const response = await apiRequest(editing && selected ? `/api/bookings/${selected.id}` : `/api/bookings?branchId=${branchId}`, {
