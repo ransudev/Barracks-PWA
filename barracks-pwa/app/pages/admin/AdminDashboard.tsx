@@ -56,12 +56,14 @@ function AdminDashboardContent({ go, onToast, currentUser, branch }: DashboardPr
         </>}
         <p className="task-note">Net sales = paid sales − refunds − voids. Reversals use their action date; legacy reversals without an audit event use the original sale date.</p>
       </Panel>
-      <Panel><SectionHeading title="Needs attention" />
+      <Panel className="management-attention-panel"><SectionHeading title="Needs attention" />
+        <div className="management-attention-list" role="region" aria-label="Needs attention entries" tabIndex={0}>
         {loading ? <p role="status">Loading exceptions…</p> : loadError ? <p role="alert">Exceptions unavailable. Refresh to retry.</p> : <>
           {(dashboard?.actionableRestocks ?? []).map((request) => <a className="attention-row" key={request.id} href={`/admin/restocks?request=${request.id}&branchId=${request.branchId}`}><span><strong>{request.status === "Delivered" ? "Receive stock" : "Confirm delivery"} · #{request.id}</strong><small>{request.supplierName} · {request.branch}</small></span><span>Open request</span></a>)}
           {(dashboard?.lowStock ?? []).map((item) => <a className="attention-row" key={item.id} href={`/admin/inventory?item=${item.id}&branchId=${item.branchId}`}><span><strong>{item.quantity === 0 ? "Out of stock" : "Low stock"} · {item.name}</strong><small>{item.branch ?? "Branch unavailable"} · {item.quantity} / {item.minimumStock} {item.unit}</small></span><span>Open item</span></a>)}
           {!dashboard?.lowStock.length && !dashboard?.actionableRestocks?.length && <EmptyState title="No actionable exceptions" description="Low stock and deliveries requiring confirmation appear here." />}
         </>}
+        </div>
       </Panel>
     </div>
     <Panel><SectionHeading title="Bookings and staffing" /><div className="overview-context"><div><span>Today’s bookings · except cancelled</span><strong>{count(dashboard?.todayBookings)}</strong></div><div><span>Confirmed · today onward</span><strong>{count(dashboard?.upcomingBookings)}</strong></div><div><span>Active roster · not on-duty count</span><strong>{count(dashboard?.activeBarbers)}</strong></div><div><span>Open restocks · current</span><strong>{count(dashboard?.openRestocks)}</strong></div></div><div className="overview-links"><Button variant="ghost" onClick={() => go("admin-barbers")}>Barber schedules</Button><Button variant="ghost" onClick={() => go("admin-attendance")}>Attendance</Button><Button variant="ghost" onClick={() => go("admin-restocks")}>Restocks</Button></div></Panel>

@@ -76,6 +76,11 @@
 .operational-drawer :is(.financial-action-panel, .financial-audit-panel) { margin-top: 28px; }
 .overview-period { color: var(--text-soft); margin: 0 0 16px; }
 .management-activity-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 24px; margin-bottom: 24px; }
+/* Sales content sets the shared row height; attention entries fill that space. */
+.management-attention-panel { display: flex; flex-direction: column; min-height: 0; contain: size; }
+.management-attention-panel > .section-heading { flex-shrink: 0; }
+.management-attention-list { flex: 1; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; }
+.management-attention-list:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
 .attention-row { display: flex; justify-content: space-between; gap: 14px; width: 100%; text-align: left; background: transparent; color: var(--text); border-bottom: 1px solid var(--line); padding: 16px 0; }
 .attention-row:hover { background: var(--surface-hover); }
 .attention-row small { display: block; margin-top: 6px; color: var(--text-soft); }
@@ -185,7 +190,12 @@
   .restock-request-row__action .button { width: 100%; }
 }
 @media (max-width: 760px) { .attendance-week { display: none; } .attendance-mobile-list { display: block; } }
-@media (max-width: 1000px) { .management-activity-grid { grid-template-columns: 1fr; } .overview-context { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 1000px) {
+  .management-activity-grid { grid-template-columns: 1fr; }
+  .management-attention-panel { contain: none; }
+  .management-attention-list { max-height: min(32rem, 70vh); }
+  .overview-context { grid-template-columns: repeat(2, 1fr); }
+}
 @media (max-width: 900px) { .checkout-workspace { grid-template-columns: 1fr; } }
 @media (max-width: 760px) { .weekly-timeline > button { grid-template-columns: 95px 1fr; } .weekly-timeline__track { grid-column: 1 / -1; } .weekly-timeline small { grid-column: 1 / -1; } }
 @media (max-width: 760px) { .booking-calendar { display: none; } .booking-agenda { display: block; } .task-view-switch .desktop-day { display: none; } }
