@@ -467,6 +467,7 @@
 @media (max-width: 960px) {
   .login-page {
     grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
   }
 
   .login-page__aside {
@@ -484,5 +485,40 @@
 
   .login-card {
     padding: 28px 22px;
+  }
+
+  /* On small screens the brand panel collapses to a slim header so the
+     sign-in card stays at the top of the page. */
+  .login-page__aside {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .login-page__aside-bg,
+  .login-page__aside-overlay,
+  .login-aside__crest,
+  .login-aside__footer {
+    display: none;
+  }
+
+  .login-page__aside-content > div:first-child {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .login-aside__brand {
+    order: -1;
+    margin: 0;
+  }
+
+  .login-aside__brand .logo-image {
+    width: 84px;
+  }
+
+  .login-page__main {
+    align-items: flex-start;
+    padding: 24px 16px 40px;
   }
 }
