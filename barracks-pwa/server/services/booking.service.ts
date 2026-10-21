@@ -235,7 +235,9 @@ export async function createBooking(
       throw error;
     }
   }
-  throw new BookingServiceError("conflict", "No barber is available at that time. Please choose another slot");
+  throw new BookingServiceError("conflict", input.barberId
+    ? "That time is no longer open with this barber. Please choose another time"
+    : "No barber is available at that time. Please choose another slot");
 }
 
 async function bookingCandidates(db: Pool, input: { serviceId: string; barberId?: number | null; date: string; time: string; branchId?: number }, excludeBookingId?: number): Promise<number[]> {
@@ -419,7 +421,9 @@ export async function updateBookingDetails(
       throw error;
     }
   }
-  throw new BookingServiceError("conflict", "No barber is available at that time. Please choose another slot");
+  throw new BookingServiceError("conflict", input.barberId
+    ? "That time is no longer open with this barber. Please choose another time"
+    : "No barber is available at that time. Please choose another slot");
 }
 
 /**
