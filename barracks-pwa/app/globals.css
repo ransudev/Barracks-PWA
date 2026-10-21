@@ -973,7 +973,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 /* Customer account layout */
-.customer-page__eyebrow { margin: 0; color: var(--text-muted); font-family: var(--font-numeric); font-size: var(--text-2xs); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.customer-page__eyebrow { margin: 0; color: var(--text-muted); font-family: var(--font-ui); font-variant-numeric: tabular-nums; font-size: var(--text-2xs); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
 .customer-topbar__links button.is-active { color: var(--text); }
 .customer-profile-page__heading, .customer-dashboard__heading { align-items: flex-end; display: flex; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
 .customer-profile-page__heading h1, .customer-dashboard__heading h1 { margin: 7px 0 6px; color: var(--text); font-family: var(--font-heading); font-size: 38px; font-weight: 700; letter-spacing: -.045em; line-height: 1.05; }
@@ -1798,7 +1798,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .operational-drawer__header { align-items: flex-start; display: flex; justify-content: space-between; gap: 16px; padding: 24px 23px 20px; border-bottom: 1px solid var(--line); }.operational-drawer__header h2 { margin: 6px 0 0; color: var(--text); font-size: 21px; letter-spacing: -.04em; line-height: 1.1; }.operational-drawer__header p { margin: 6px 0 0; color: var(--text-muted); font-size: 11px; }
 .operational-drawer__body { min-height: 0; overflow-y: auto; padding: 18px 23px 30px; }.operational-drawer__section { padding: 21px 0; border-top: 1px solid var(--line); }.operational-drawer__section:first-child { padding-top: 0; border-top: 0; }.operational-drawer__section-heading { align-items: flex-start; display: flex; justify-content: space-between; gap: 12px; margin-bottom: 15px; }.operational-drawer__section-heading h3 { margin: 5px 0 0; color: var(--text); font-size: 14px; letter-spacing: -.02em; }
 .operational-drawer__identity { align-items: center; display: flex; gap: 11px; }.operational-drawer__identity > div { min-width: 0; }.operational-drawer__identity > div > strong, .operational-drawer__identity > div > span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.operational-drawer__identity > div > strong { color: var(--text); font-size: 14px; }.operational-drawer__identity > div > span { margin-top: 4px; color: var(--text-muted); font-size: 10px; }
-.operational-drawer__facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }.operational-drawer__facts > div { min-height: 70px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-raised); }.operational-drawer__facts span, .operational-drawer__facts strong { display: block; }.operational-drawer__facts span { color: var(--text-muted); font-size: var(--text-2xs); }.operational-drawer__facts strong { margin-top: 8px; color: var(--text); font-family: var(--font-numeric); font-size: 15px; }
+.operational-drawer__facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }.operational-drawer__facts > div { min-height: 70px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-raised); }.operational-drawer__facts span, .operational-drawer__facts strong { display: block; }.operational-drawer__facts span { color: var(--text-muted); font-size: var(--text-2xs); }.operational-drawer__facts strong { margin-top: 8px; color: var(--text); font-family: var(--font-ui); font-variant-numeric: tabular-nums; font-size: var(--text-md); }
 /* A note that captions a drawer action grid takes the full row and a readable
    gap; the base form-hint margin suits tightly stacked modal fields instead. */
 .operational-drawer__actions > .form-hint { grid-column: 1 / -1; margin-top: 8px; }
@@ -1850,7 +1850,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 .operational-workspace > .schedule-management { margin-top: 22px; overflow: hidden; }
 .schedule-management > .tabs { margin: 16px 23px 0; max-width: calc(100% - 46px); }
-.schedule-management__timezone { flex: 0 0 auto; border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; background: var(--surface-raised); color: var(--text-muted); font-family: var(--font-numeric); font-size: 10px; }
+.schedule-management__timezone { flex: 0 0 auto; border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; background: var(--surface-raised); color: var(--text-muted); font-family: var(--font-ui); font-variant-numeric: tabular-nums; font-size: 10px; }
 .schedule-management__error { margin: 16px 23px 0; }
 .schedule-management__section { padding: 22px 23px 24px; }
 .schedule-management__section + .schedule-management__section { border-top: 1px solid var(--line); }

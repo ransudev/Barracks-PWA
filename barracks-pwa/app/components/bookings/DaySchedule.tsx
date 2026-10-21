@@ -53,7 +53,7 @@ export function DaySchedule({ bookings, barbers, context, date, onOpen }: { book
     {context?.hoursError && <p role="alert" className="form-error">{context.hoursError}</p>}
     {unknownDuration.length > 0 && <div className="duration-unavailable"><p>Duration unavailable</p>{unknownDuration.map((booking) => <button type="button" key={booking.id} onClick={() => onOpen(booking)}>{formatTime(booking.time)} · {booking.customerName} · {booking.serviceName} · {booking.barberName} · {statusLabel(booking.status)}</button>)}</div>}
     <div className="day-schedule" aria-label={`Appointments on ${date}`}>
-      <div className="day-schedule__grid" style={{ gridTemplateColumns: `56px repeat(${Math.max(1, columns.length)}, minmax(180px, 1fr))` }}>
+      <div className="day-schedule__grid" style={{ gridTemplateColumns: `72px repeat(${Math.max(1, columns.length)}, minmax(180px, 1fr))` }}>
         <div className="day-schedule__corner" />
         {columns.map((column) => {
           const data = context?.barbers.find((barber) => barber.barberId === column.id);

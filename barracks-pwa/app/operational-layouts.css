@@ -49,7 +49,7 @@
 .day-schedule__heading strong { color: var(--text); font-size: 13px; }
 .day-schedule__heading small { margin-top: 3px; color: var(--text-muted); font-size: 11px; }
 .day-schedule__axis { position: sticky; left: 0; z-index: 4; border-right: 1px solid var(--line); background: var(--surface); }
-.day-schedule__axis span { position: absolute; right: 8px; transform: translateY(-50%); color: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.day-schedule__axis span { position: absolute; right: 8px; white-space: nowrap; transform: translateY(-50%); color: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .day-schedule__axis span:first-child { transform: translateY(2px); }
 .day-schedule__column { position: relative; border-right: 1px solid var(--line); }
 .day-schedule__column:last-child { border-right: 0; }
