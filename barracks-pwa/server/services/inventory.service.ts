@@ -199,15 +199,17 @@ export async function listInventoryThresholdHistory(db: Pool | PoolClient, inven
   return result.rows;
 }
 
-export async function deleteInventory(db: Pool | PoolClient, id: number): Promise<boolean> {
+// Items with stock history are archived (inactive, hidden by default) so audit and
+// cost records stay intact; items that never moved are removed outright.
+export async function deleteInventory(db: Pool | PoolClient, id: number): Promise<"deleted" | "archived" | null> {
   const history = await db.query(`
     SELECT 1 FROM inventory_movements WHERE inventory_item_id=$1
     UNION ALL SELECT 1 FROM restock_request_items WHERE inventory_item_id=$1
     UNION ALL SELECT 1 FROM inventory_threshold_history WHERE inventory_item_id=$1 LIMIT 1`, [id]);
   if (history.rows[0]) {
     const result = await db.query("UPDATE inventory_items SET status='inactive',updated_at=NOW() WHERE id=$1", [id]);
-    return Boolean(result.rowCount);
+    return result.rowCount ? "archived" : null;
   }
   const result = await db.query("DELETE FROM inventory_items WHERE id=$1", [id]);
-  return Boolean(result.rowCount);
+  return result.rowCount ? "deleted" : null;
 }

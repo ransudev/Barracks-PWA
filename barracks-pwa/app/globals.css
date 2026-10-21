@@ -1978,3 +1978,26 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 .page-header__actions > .operational-freshness { order: -2; }
 .page-header__actions > .branch-switcher { order: -1; }
+
+/* Before → after preview for stock operations, so the direction of a change is never ambiguous. */
+.stock-preview { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-raised-2); color: var(--text-soft); font-size: var(--text-sm); }
+.stock-preview strong { color: var(--text); font-family: var(--font-numeric); font-size: var(--text-md); }
+.stock-preview em { margin-left: auto; font-family: var(--font-numeric); font-style: normal; font-weight: var(--weight-bold); }
+.stock-preview .is-up { color: var(--green); }
+.stock-preview .is-down { color: var(--amber); }
+.stock-preview.is-invalid { border-color: var(--red); color: var(--red); }
+
+.supplier-items__toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.supplier-items__toolbar .search-input { flex: 1 1 200px; width: auto; }
+.supplier-items__list { display: grid; gap: 4px; max-height: 340px; margin: 0; padding: 0; overflow-y: auto; list-style: none; border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.supplier-items__list li + li { border-top: 1px solid var(--line); }
+.supplier-items__list label { display: flex; align-items: center; gap: 12px; padding: 10px 12px; cursor: pointer; }
+.supplier-items__list label:hover { background: var(--surface-hover); }
+.supplier-items__list input { width: 16px; height: 16px; accent-color: var(--text); }
+.supplier-items__list span { display: grid; gap: 2px; min-width: 0; }
+.supplier-items__list strong { font-size: var(--text-base); font-weight: var(--weight-semibold); }
+.supplier-items__list small { color: var(--text-muted); font-size: var(--text-xs); }
+
+.restock-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 16px 0 10px; padding: 0; list-style: none; counter-reset: step; }
+.restock-steps li { position: relative; padding-top: 10px; border-top: 3px solid var(--line); color: var(--text-muted); font-size: var(--text-xs); line-height: 1.3; }
+.restock-steps li.is-done { border-top-color: var(--green); color: var(--text); }

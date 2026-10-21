@@ -70,7 +70,7 @@ export function PageRouter({ view, go, onToast, currentUser }: PageRouterProps) 
       return <PaymentPage onToast={onToast} canCheckout={isStaffRole(currentUser.role)} canManageFinancialActions={isManagementRole(currentUser.role)} />;
     case "inventory":
     case "admin-inventory":
-      return <InventoryPage admin={view === "admin-inventory"} onToast={onToast} canDelete={currentUser.role === "administrator"} />;
+      return <InventoryPage admin={view === "admin-inventory"} onToast={onToast} canDelete={isManagementRole(currentUser.role)} />;
     case "staff-dashboard":
     default:
       return <StaffDashboard go={go} onToast={onToast} />;
