@@ -1,5 +1,6 @@
 "use client";
 
+import { EMAIL_MESSAGE, PHONE_MESSAGE, isValidEmail, isValidPhone } from "@/app/utils/contact-validation";
 import { useState, type FormEvent } from "react";
 import Image from "next/image";
 import type { ViewId } from "@/app/types/domain";
@@ -35,8 +36,8 @@ export function LoginPage({ go, onLogin }: LoginPageProps) {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!email.includes("@")) {
-      setError("Enter a valid email address.");
+    if (!isValidEmail(email)) {
+      setError(`${EMAIL_MESSAGE}.`);
       return;
     }
     if (password.length < 8) {
@@ -86,8 +87,12 @@ export function LoginPage({ go, onLogin }: LoginPageProps) {
       setError("Enter your full name.");
       return;
     }
-    if (!accountEmail.includes("@")) {
-      setError("Enter a valid email address.");
+    if (!isValidEmail(accountEmail)) {
+      setError(`${EMAIL_MESSAGE}.`);
+      return;
+    }
+    if (signupPhone.trim() && !isValidPhone(signupPhone)) {
+      setError(`${PHONE_MESSAGE}.`);
       return;
     }
     if (signupPassword.length < 8) {

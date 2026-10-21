@@ -1,5 +1,6 @@
 "use client";
 
+import { emailFieldError } from "@/app/utils/contact-validation";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { apiRequest, readApiBody, type ApiRole, type ApiUser } from "@/app/lib/api";
 import { canChangeStaffLifecycle, canCreateStaffUser, canDeactivateStaffUser, canUpdateStaffUser, canViewStaffUser, roleLabel, roleOptions } from "@/app/constants/roles";
@@ -186,7 +187,7 @@ export function StaffManagement({ onToast, currentUserId, currentUserRole }: { o
         <TextField label="First name" required value={form.firstName} onChange={(event) => setForm((current) => ({ ...current, firstName: event.target.value }))} />
         <TextField label="Last name" required value={form.lastName} onChange={(event) => setForm((current) => ({ ...current, lastName: event.target.value }))} />
       </div>
-      <TextField label="Email address" type="email" required value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} icon="mail" />
+      <TextField label="Email address" type="email" required value={form.email} error={emailFieldError(form.email)} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} icon="mail" />
       <TextField label={editing ? "New password (optional)" : "Password"} type="password" required={!editing} minLength={8} value={form.password} onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))} icon="lock" />
       <SelectField label="Role" required value={form.role} onChange={(event) => setForm((current) => ({ ...current, role: event.target.value as ApiRole }))}>
         {formRoleOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}

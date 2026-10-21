@@ -1,5 +1,6 @@
 "use client";
 
+import { emailFieldError, phoneFieldError } from "@/app/utils/contact-validation";
 import { useEffect, useState, type FormEvent } from "react";
 import { BookingForm, type BookingFormValue } from "@/app/components/bookings/BookingForm";
 import type { ApiBarberAvailability, ApiBooking, ApiCustomer, ApiUser } from "@/app/lib/api";
@@ -432,8 +433,8 @@ export function CustomerDashboard({
             <TextField label="First name" value={draft.firstName} onChange={(event) => setDraft({ ...draft, firstName: event.target.value })} />
             <TextField label="Last name" value={draft.lastName} onChange={(event) => setDraft({ ...draft, lastName: event.target.value })} />
           </div>
-          <TextField label="Email address" type="email" value={draft.email} onChange={(event) => setDraft({ ...draft, email: event.target.value })} icon="mail" />
-          <TextField label="Phone number" type="tel" inputMode="numeric" maxLength={11} value={draft.phone} onChange={(event) => setDraft({ ...draft, phone: event.target.value })} icon="phone" />
+          <TextField label="Email address" type="email" value={draft.email} error={emailFieldError(draft.email)} onChange={(event) => setDraft({ ...draft, email: event.target.value })} icon="mail" />
+          <TextField label="Phone number" type="tel" inputMode="numeric" maxLength={11} value={draft.phone} error={phoneFieldError(draft.phone)} onChange={(event) => setDraft({ ...draft, phone: event.target.value })} icon="phone" />
           <SelectField label="Preferred barber" value={draft.preferredBarberId} onChange={(event) => setDraft({ ...draft, preferredBarberId: event.target.value })}>
             <option value="">Not set</option>
             {barbers.map((barber) => <option key={barber.id} value={barber.id}>{barber.firstName} {barber.lastName}</option>)}
