@@ -13,14 +13,6 @@
 .operational-workspace .modal-backdrop { z-index: 130; }
 .receipt-paper dl { grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); }
 .receipt-paper dd { overflow-wrap: anywhere; min-width: 0; }
-@media print {
-  body:has(.receipt-view) .operational-drawer-layer,
-  body:has(.receipt-view) .operational-drawer,
-  body:has(.receipt-view) .operational-drawer__body {
-    position: static; height: auto; width: auto; overflow: visible; transform: none;
-  }
-  body:has(.receipt-view) .receipt-view { position: absolute; inset: 0 auto auto 0; }
-}
 .task-note { margin: 12px 20px; color: var(--text-soft); font-size: 13px; }
 /* Bookings toolbar + day schedule */
 .bookings-toolbar { align-items: center; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding: 16px 22px 4px; }

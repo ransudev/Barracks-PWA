@@ -637,13 +637,18 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .receipt-paper dl { display: grid; grid-template-columns: 1fr auto; gap: 10px; margin: 20px 0 0; font-size: 12px; }
 .receipt-paper dt { color: #444; }
 .receipt-paper dd { margin: 0; text-align: right; font-weight: 700; }
+.receipt-print-root { display: none; }
 @media print {
-  @page { margin: 12mm; }
-  body:has(.receipt-view) * { visibility: hidden !important; }
-  body:has(.receipt-view) .receipt-view, body:has(.receipt-view) .receipt-paper, body:has(.receipt-view) .receipt-paper * { visibility: visible !important; }
-  .receipt-view { position: absolute; inset: 0 auto auto 0; width: 100%; margin: 0; }
-  .receipt-actions { display: none !important; }
-  .receipt-paper { width: 80mm; max-width: 100%; padding: 0; border: 0; border-radius: 0; box-shadow: none; color: #000; }
+  @page { margin: 6mm; }
+  /* Only the body-level receipt copy prints; everything else is removed from layout so it fits one page. */
+  body:has(.receipt-print-root) > *:not(.receipt-print-root) { display: none !important; }
+  body:has(.receipt-print-root) { min-height: 0 !important; background: #fff !important; }
+  html:has(.receipt-print-root) { background: #fff !important; }
+  .receipt-print-root { display: block; }
+  .receipt-print-root .receipt-paper { width: 72mm; max-width: 100%; margin: 0 auto; padding: 0; border: 0; border-radius: 0; box-shadow: none; background: #fff; color: #000; break-inside: avoid; }
+  .receipt-print-root .receipt-paper dl { gap: 4px 8px; margin-top: 10px; font-size: 10px; }
+  .receipt-print-root .receipt-paper h2 { font-size: 16px; }
+  .receipt-print-root .receipt-paper > p { margin: 2px 0 0; font-size: 10px; }
 }
 
 /* Inventory, management and reporting */
