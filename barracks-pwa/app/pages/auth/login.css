@@ -10,7 +10,7 @@
   min-height: 100vh;
   background-color: #0b0d0d;
   color: #e2e2e6;
-  font-family: var(--font-dashboard-sans), "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-ui);
 }
 
 /* --------------------------------------------------------------------------
@@ -114,9 +114,9 @@
 }
 
 .login-aside__crest h2 {
-  font-family: var(--font-dashboard-accent), "Sora", sans-serif;
+  font-family: var(--font-heading);
   font-size: 26px;
-  font-weight: 800;
+  font-weight: var(--weight-bold);
   line-height: 1.25;
   color: #ffffff;
   letter-spacing: -0.02em;
@@ -218,7 +218,7 @@
   border: none;
   background: transparent;
   color: #a3a49e;
-  font-family: var(--font-dashboard-sans), "Inter", sans-serif;
+  font-family: var(--font-ui);
   font-size: 13px;
   font-weight: 600;
   border-radius: 8px;
@@ -259,9 +259,9 @@
 }
 
 .login-card__head h1 {
-  font-family: var(--font-dashboard-accent), "Sora", sans-serif;
+  font-family: var(--font-heading);
   font-size: 26px;
-  font-weight: 800;
+  font-weight: var(--weight-bold);
   color: #ffffff;
   letter-spacing: -0.02em;
   text-transform: uppercase;
@@ -325,7 +325,7 @@
   border-radius: 9px;
   color: #ffffff;
   font-size: 14px;
-  font-family: var(--font-dashboard-sans), "Inter", sans-serif;
+  font-family: var(--font-ui);
   transition: all 0.2s ease;
 }
 
@@ -398,7 +398,7 @@
   border: 1px solid #dc2626 !important;
   border-radius: 9px !important;
   color: #ffffff !important;
-  font-family: var(--font-dashboard-sans), "Inter", sans-serif !important;
+  font-family: var(--font-ui) !important;
   font-size: 14px !important;
   font-weight: 600 !important;
   cursor: pointer;
