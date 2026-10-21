@@ -112,7 +112,7 @@ export function BarberFloorPage() {
       {statusError && <p className="operational-loading" role="alert">{statusError}</p>}
       {loading ? <SkeletonCards count={4} label="Loading barber floor" />
         : error ? <p className="operational-loading" role="alert">{error}</p>
-        : !barbers.length ? <EmptyState icon="scissors" title="No barbers found" description="The roster is managed in the Management workspace." />
+        : !barbers.length ? <EmptyState icon="scissors" title="No barbers found" description="Barbers are added by a manager or administrator under Barbers. Ask them to add barbers to this branch." />
         : <div className="barber-status-grid">{barbers.map((barber) => {
           const name = barberName(barber);
           const currentService = serving.find((entry) => entry.barberId === barber.id);

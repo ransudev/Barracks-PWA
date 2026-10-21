@@ -382,7 +382,7 @@ export function CustomerDashboard({
               </Panel>
             </>
           ) : (
-            <Panel><EmptyState icon="users" title="Account unavailable" description="Sign out and sign in again to reload your customer account." /></Panel>
+            <Panel><EmptyState icon="users" title="Account unavailable" description="Your customer details could not be loaded. Sign out, then sign in again to reload them." action={<Button variant="secondary" icon="logOut" onClick={onSignOut}>Sign out</Button>} /></Panel>
           )}
         </div>
       </main>

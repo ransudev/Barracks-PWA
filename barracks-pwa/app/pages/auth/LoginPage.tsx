@@ -361,11 +361,11 @@ export function LoginPage({ go, onLogin }: LoginPageProps) {
       <Modal
         open={recoveryOpen}
         title="Sign-in help"
-        description="Password reset is not available in Sprint 1."
+        description="Online password reset is not available yet."
         onClose={() => setRecoveryOpen(false)}
       >
         <div className="modal-form">
-          <p className="modal-copy">Contact an administrator or visit any of our 4 Davao HQs if you need your access restored.</p>
+          <p className="modal-copy">Staff: ask your administrator to set a new password from Staff management. Customers: call or visit any Barracks branch and the front desk will restore your access.</p>
           <div className="modal-actions">
             <Button type="button" onClick={() => setRecoveryOpen(false)}>
               Close
