@@ -93,9 +93,21 @@ export async function updateSupplierRestockStatus(db: Pool | PoolClient, id: num
   });
 }
 
+// Staff confirm the delivery arrived. Suppliers without a portal login never move
+// their requests forward, so arrival can be confirmed from any open stage.
 export async function markRestockDelivered(db: Pool | PoolClient, id: number) {
   const result = await db.query<{ id: number }>(
-    "UPDATE restock_requests SET status='Delivered',updated_at=NOW() WHERE id=$1 AND status='Shipped' RETURNING id",
+    "UPDATE restock_requests SET status='Delivered',updated_at=NOW() WHERE id=$1 AND status IN ('Pending','Accepted','Preparing','Shipped') RETURNING id",
+    [id],
+  );
+  if (!result.rows[0]) throw new Error("INVALID_STATUS_TRANSITION");
+  return getRestockRequest(db, id);
+}
+
+// Staff may withdraw a request any time before its stock is received.
+export async function cancelRestockByStaff(db: Pool | PoolClient, id: number) {
+  const result = await db.query<{ id: number }>(
+    "UPDATE restock_requests SET status='Cancelled',updated_at=NOW() WHERE id=$1 AND status IN ('Pending','Accepted','Preparing','Shipped','Delivered') AND received_at IS NULL RETURNING id",
     [id],
   );
   if (!result.rows[0]) throw new Error("INVALID_STATUS_TRANSITION");

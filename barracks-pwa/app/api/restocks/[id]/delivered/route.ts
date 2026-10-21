@@ -17,7 +17,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   } catch (error) {
     const branchError = inventoryBranchError(error); if (branchError) return branchError;
     const message = error instanceof Error && error.message === "INVALID_STATUS_TRANSITION"
-      ? "Only shipped restock requests can be marked delivered"
+      ? "Only open restock requests can be marked as arrived"
       : "Unable to mark delivery as delivered";
     return Response.json({ success: false, message }, { status: 400 });
   }
