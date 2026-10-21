@@ -1399,18 +1399,20 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .app-shell .sidebar__link.is-active::before { background: var(--brand-primary); }
 .app-shell .sidebar__link.is-active svg { color: #f87171; }
 
+/* Primary actions are the inverse of the page in both themes: off-white on dark,
+   near-black on light (see theme.css). Red stays reserved for brand marks and danger. */
 :is(.app-shell, .customer-page--dashboard) .button.button--primary {
-  background: linear-gradient(180deg, var(--brand-primary-bright), var(--brand-primary));
-  color: #fff;
-  border-color: #ef4444;
+  background: var(--barracks-off-white);
+  color: var(--barracks-near-black);
+  border-color: var(--barracks-off-white);
   border-radius: 6px;
-  box-shadow: inset 0 1px 0 var(--glass-highlight);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, .24);
 }
 
 @media (hover: hover) and (pointer: fine) {
   :is(.app-shell, .customer-page--dashboard) .button.button--primary:not(:disabled):hover {
-    background: linear-gradient(180deg, #f05252, #e52b2b);
-    border-color: #f87171;
+    background: #ffffff;
+    border-color: #ffffff;
     box-shadow: var(--glass-shadow);
   }
 }

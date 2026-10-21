@@ -288,3 +288,14 @@ a.button { text-decoration: none; }
 .bookings-approval__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 .bookings-approval__head h2 { margin: 0; font-size: var(--text-lg); font-weight: var(--weight-semibold); }
 .bookings-approval__head p { margin: 4px 0 0; color: var(--text-soft); font-size: var(--text-sm); }
+/* Awaiting approval shares the amber role with Checked in, so it is drawn hollow and dashed to stay distinct. */
+.day-schedule__legend li.is-pending::before { background: transparent; box-shadow: inset 0 0 0 2px var(--status-color); }
+.day-schedule__booking.is-pending { background: color-mix(in srgb, var(--status-color) 8%, var(--surface)); }
+
+/* One vertical rhythm for every workspace: sections are separated by the same gap
+   instead of each panel carrying its own top/bottom margin. */
+:root { --space-section: 16px; --space-header: 20px; }
+:is(.operational-workspace, .inventory-workspace, .staff-dashboard) { display: flex; flex-direction: column; gap: var(--space-section); }
+:is(.operational-workspace, .inventory-workspace, .staff-dashboard) > * { margin-top: 0 !important; margin-bottom: 0 !important; }
+:is(.operational-workspace, .inventory-workspace, .staff-dashboard) > .page-header { margin-bottom: calc(var(--space-header) - var(--space-section)) !important; }
+:is(.operational-workspace, .inventory-workspace, .staff-dashboard) > :is(.tabs, .task-view-switch, .queue-section-tabs, [role="tablist"]) { align-self: flex-start; }
