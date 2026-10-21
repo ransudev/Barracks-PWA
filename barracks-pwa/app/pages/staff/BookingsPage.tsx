@@ -17,6 +17,8 @@ import { hasAppointmentCustomer, isAppointmentCustomer } from "@/app/utils/booki
 
 const statuses: ApiBookingStatus[] = ["pending", "confirmed", "checked_in", "in_progress", "completed", "cancelled", "rejected", "no_show"];
 // Closed bookings no longer hold a slot; they are hidden unless the status filter asks for them.
+// Card headings are short; the drawer shows the full date with the year.
+const cardDate: Intl.DateTimeFormatOptions = { weekday: "short", month: "short", day: "numeric" };
 const closedStatuses: ApiBookingStatus[] = ["cancelled", "rejected", "no_show"];
 const deletableStatuses: ApiBookingStatus[] = ["pending", "confirmed", "rejected", "cancelled", "no_show"];
 const label = (status: string) => status === "pending" ? "Awaiting approval" : status.split("_").map((word) => word[0].toUpperCase() + word.slice(1)).join(" ");
@@ -196,7 +198,7 @@ function BookingsPageContent({ onToast, canOperate = true, canDelete = false, br
     {awaiting.length > 0 && <Panel className="operational-panel bookings-approval">
       <div className="bookings-approval__head"><div><h2>Awaiting approval</h2><p>{awaiting.length} customer request{awaiting.length === 1 ? "" : "s"} to confirm or reject. Each request holds its time slot until you decide.</p></div></div>
       <div className="operational-card-grid">{awaiting.map((booking) => <RecordCard key={booking.id} onOpen={() => openDetails(booking)} ariaLabel={`Open booking request from ${booking.customerName}`} actions={quickActions(booking)}>
-        <div className="operational-card__header"><h3>{formatDate(booking.date)} · {formatTime(booking.time)}</h3><Badge tone="warning">Awaiting approval</Badge></div>
+        <div className="operational-card__header"><h3>{formatDate(booking.date, cardDate)} · {formatTime(booking.time)}</h3><Badge tone="warning">Awaiting approval</Badge></div>
         <div className="operational-card__identity"><Avatar initials={createInitials(booking.customerName)} tone="slate" size="sm" /><strong>{booking.customerName}</strong></div>
         <p>{booking.serviceName} · {booking.barberName}</p><small>#{booking.id} · {formatCurrency(booking.price)}{booking.notes ? ` · “${booking.notes}”` : ""}</small>
       </RecordCard>)}</div>
@@ -221,7 +223,7 @@ function BookingsPageContent({ onToast, canOperate = true, canDelete = false, br
       {loading && !updatedAt && <ScheduleSkeleton gridOnly label="Loading bookings" />}{(!loading || updatedAt) && !loadError && dayView && <div className="booking-calendar"><DaySchedule bookings={visible} barbers={barbers.filter((barber) => !barberFilter || String(barber.id) === barberFilter)} context={context?.date === date ? context : null} date={date} onOpen={openDetails} /></div>}
       <div className={dayView ? "booking-agenda" : ""}>
       {loading && !updatedAt ? null : loadError ? <p role="alert">{loadError}</p> : !visible.length ? <EmptyState icon="calendar" title="No bookings found" /> : view === "cards" ?
-        <div className="operational-card-grid">{visible.map((booking) => <RecordCard key={booking.id} onOpen={() => { setSelected(booking); setEditing(false); }} ariaLabel={`Open booking for ${booking.customerName}`} actions={quickActions(booking)}><div className="operational-card__header"><h3>{date ? formatTime(booking.time) : `${formatDate(booking.date)} · ${formatTime(booking.time)}`}</h3><Badge tone={tone(booking.status)}>{label(booking.status)}</Badge></div><div className="operational-card__identity"><Avatar initials={createInitials(booking.customerName)} tone="slate" size="sm" /><strong>{booking.customerName}</strong></div><p>{booking.serviceName} · {booking.barberName}</p><small>#{booking.id} · {formatCurrency(booking.price)}</small></RecordCard>)}</div> :
+        <div className="operational-card-grid">{visible.map((booking) => <RecordCard key={booking.id} onOpen={() => { setSelected(booking); setEditing(false); }} ariaLabel={`Open booking for ${booking.customerName}`} actions={quickActions(booking)}><div className="operational-card__header"><h3>{date ? formatTime(booking.time) : `${formatDate(booking.date, cardDate)} · ${formatTime(booking.time)}`}</h3><Badge tone={tone(booking.status)}>{label(booking.status)}</Badge></div><div className="operational-card__identity"><Avatar initials={createInitials(booking.customerName)} tone="slate" size="sm" /><strong>{booking.customerName}</strong></div><p>{booking.serviceName} · {booking.barberName}</p><small>#{booking.id} · {formatCurrency(booking.price)}</small></RecordCard>)}</div> :
         <ResponsiveTable headers={["When", "Customer", "Service", "Barber", "Status"]}>{visible.map((booking) => <tr key={booking.id} tabIndex={0} onClick={() => { setSelected(booking); setEditing(false); }} onKeyDown={(event) => { if (event.key === "Enter") setSelected(booking); }}><td>{formatDate(booking.date)} · {formatTime(booking.time)}</td><td>{booking.customerName}</td><td>{booking.serviceName}</td><td>{booking.barberName}</td><td><Badge tone={tone(booking.status)}>{label(booking.status)}</Badge></td></tr>)}</ResponsiveTable>}
       </div>
     </Panel>
