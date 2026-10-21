@@ -19,7 +19,7 @@ import {
   SelectField,
   TextField,
 } from "@/app/components/ui";
-import { createInitials } from "@/app/utils/format";
+import { createInitials, formatDate, formatTime, formatTimeRange } from "@/app/utils/format";
 import { CustomerTopbar } from "@/app/pages/customer/CustomerTopbar";
 
 type ProfileDraft = {
@@ -40,20 +40,8 @@ function profileForm(customer: ApiCustomer): ProfileDraft {
   };
 }
 
-function formatDate(date: string) {
-  return new Date(`${date}T12:00:00`).toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-function formatTime(time: string) {
-  const [hours, minutes] = time.split(":").map(Number);
-  const meridiem = hours >= 12 ? "PM" : "AM";
-  const displayHours = hours % 12 || 12;
-  return `${displayHours}:${String(minutes).padStart(2, "0")} ${meridiem}`;
-}
+const upcomingLabel: Record<string, string> = { pending: "Awaiting confirmation", confirmed: "Confirmed", checked_in: "Checked in", in_progress: "In progress" };
+const historyLabel: Record<string, string> = { completed: "Completed", cancelled: "Cancelled", rejected: "Declined by shop", no_show: "No show", pending: "Not confirmed", confirmed: "Not attended" };
 
 function formatMemberSince(date: string) {
   return new Date(date).toLocaleDateString(undefined, {
@@ -109,6 +97,12 @@ export function CustomerDashboard({
   const [pendingCancellation, setPendingCancellation] = useState<ApiBooking | null>(null);
   const [cancellingBookingId, setCancellingBookingId] = useState<number | null>(null);
   const [historyPage, setHistoryPage] = useState(1);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -234,7 +228,7 @@ export function CustomerDashboard({
       setBookings((current) => current.map((booking) => booking.id === body.booking!.id ? body.booking! : booking));
       setEditingBooking(null);
       setBookingDraft(null);
-      onToast("Appointment updated");
+      onToast(body.booking.status === "pending" ? "Appointment updated. The shop will confirm the new time." : "Appointment updated");
     } catch (error) {
       onToast(error instanceof Error ? error.message : "Unable to update your appointment");
       setBookingDraft((current) => current ? { ...current, time: "" } : current);
@@ -267,9 +261,15 @@ export function CustomerDashboard({
   }
 
   const name = customer ? `${customer.firstName} ${customer.lastName}` : `${user.firstName} ${user.lastName}`;
-  const upcoming = bookings.filter((booking) => ["confirmed", "checked_in", "in_progress"].includes(booking.status));
+  // Upcoming = still active and not yet over, soonest first. Appointments whose time has
+  // passed without a visit move to history so the next real appointment is always on top.
+  const isOver = (booking: ApiBooking) => Date.parse(`${booking.date}T${booking.endTime ?? booking.time}:00+08:00`) < now;
+  const isActive = (booking: ApiBooking) => ["pending", "confirmed", "checked_in", "in_progress"].includes(booking.status);
+  const upcoming = bookings
+    .filter((booking) => isActive(booking) && (booking.status === "checked_in" || booking.status === "in_progress" || !isOver(booking)))
+    .sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
   const past = bookings
-    .filter((booking) => ["completed", "cancelled", "no_show"].includes(booking.status))
+    .filter((booking) => !upcoming.includes(booking))
     .sort((a, b) => `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`));
   const completedCount = past.filter((booking) => booking.status === "completed").length;
   const historyPageCount = Math.max(1, Math.ceil(past.length / HISTORY_PAGE_SIZE));
@@ -331,13 +331,13 @@ export function CustomerDashboard({
                         <div className="customer-booking-card" key={booking.id}>
                           <div className="customer-booking-card__content">
                             <strong>{formatDate(booking.date)}</strong>
-                            <span>{formatTime(booking.time)} · {booking.serviceName}</span>
+                            <span>{formatTimeRange(booking.time, booking.endTime)} · {booking.serviceName}</span>
                             <small>with {booking.barberName} · {booking.branchName ?? "Main Branch"}</small>
                           </div>
                           <div className="customer-booking-card__actions">
-                            {booking.status !== "confirmed" && <Badge tone="info">{booking.status === "checked_in" ? "Checked in" : "In progress"}</Badge>}
-                            {booking.status === "confirmed" && <Button size="sm" variant="secondary" icon="edit" onClick={() => openBookingEditor(booking)}>Manage</Button>}
-                            {booking.status === "confirmed" && <Button size="sm" variant="danger" onClick={() => setPendingCancellation(booking)}>Cancel</Button>}
+                            <Badge tone={booking.status === "pending" ? "warning" : booking.status === "confirmed" ? "success" : "info"}>{upcomingLabel[booking.status] ?? booking.status}</Badge>
+                            {["pending", "confirmed"].includes(booking.status) && <Button size="sm" variant="secondary" icon="edit" onClick={() => openBookingEditor(booking)}>Manage</Button>}
+                            {["pending", "confirmed"].includes(booking.status) && <Button size="sm" variant="danger" onClick={() => setPendingCancellation(booking)}>Cancel</Button>}
                           </div>
                         </div>
                       ))}
@@ -360,8 +360,8 @@ export function CustomerDashboard({
                           <span>{booking.serviceName}</span>
                           <span>{booking.barberName}</span>
                           <small>{booking.branchName ?? "Main Branch"}</small>
-                          <Badge tone={booking.status === "completed" ? "success" : "danger"}>
-                            {booking.status === "completed" ? "Completed" : booking.status === "no_show" ? "No show" : "Cancelled"}
+                          <Badge tone={booking.status === "completed" ? "success" : booking.status === "pending" || booking.status === "confirmed" ? "neutral" : "danger"}>
+                            {historyLabel[booking.status] ?? booking.status}
                           </Badge>
                         </div>
                       ))}

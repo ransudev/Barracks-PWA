@@ -7,6 +7,7 @@ import type { ApiBarberAvailability, ApiBooking, ApiUser } from "@/app/lib/api";
 import { apiRequest, readApiBody } from "@/app/lib/api";
 import type { Service, ViewId } from "@/app/types/domain";
 import { CustomerTopbar } from "@/app/pages/customer/CustomerTopbar";
+import { formatDate, formatTime, formatTimeRange } from "@/app/utils/format";
 import type { CustomerBranch } from "@/app/types/branch";
 
 type CustomerHours = { dayOfWeek: number; openTime: string; closeTime: string; isClosed: boolean };
@@ -158,7 +159,7 @@ function CustomerBookingWorkspace({ go, onToast, onSignOut, user, branch, branch
       <CustomerTopbar go={go} active="customer-booking" onSignOut={onSignOut} user={user} />
       <main className="customer-content">
         <div className="customer-dashboard__heading booking-heading">
-          <h1>{confirmation ? "Appointment confirmed" : "Book an appointment"}</h1>
+          <h1>{confirmation ? confirmation.status === "pending" ? "Request sent" : "Appointment confirmed" : "Book an appointment"}</h1>
           {!confirmation && <SelectField className="booking-branch-field" label="Booking branch" value={branch.id} disabled={submitting} onChange={(event) => selectBranch(Number(event.target.value))}>
             {branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
           </SelectField>}
@@ -168,12 +169,13 @@ function CustomerBookingWorkspace({ go, onToast, onSignOut, user, branch, branch
           <Panel className="booking-form-card">
             {confirmation ? (
               <div className="booking-confirmation" role="status">
+                {confirmation.status === "pending" && <p className="booking-confirmation__note">Your time is held while the shop reviews your request. You will see it marked Confirmed under My appointments once staff approve it.</p>}
                 <dl className="booking-facts">
                   <div><dt>Booking</dt><dd>#{confirmation.id}</dd></div>
                   <div><dt>Service</dt><dd>{confirmation.serviceName}</dd></div>
                   <div><dt>Barber</dt><dd>{confirmation.barberName}</dd></div>
-                  <div><dt>Date</dt><dd>{confirmation.date}</dd></div>
-                  <div><dt>Time</dt><dd>{confirmation.time}–{confirmation.endTime}</dd></div>
+                  <div><dt>Date</dt><dd>{formatDate(confirmation.date)}</dd></div>
+                  <div><dt>Time</dt><dd>{formatTimeRange(confirmation.time, confirmation.endTime)}</dd></div>
                   <div><dt>Branch</dt><dd>{confirmation.branchName ?? branch.name}</dd></div>
                   {confirmation.notes && <div><dt>Notes</dt><dd>{confirmation.notes}</dd></div>}
                   <div className="booking-facts__total"><dt>Total</dt><dd>₱{confirmation.price.toLocaleString()}</dd></div>
@@ -190,7 +192,7 @@ function CustomerBookingWorkspace({ go, onToast, onSignOut, user, branch, branch
                 barbers={barbers}
                 hideCustomer
                 requireBarber
-                submitLabel="Confirm appointment"
+                submitLabel="Request appointment"
                 submitting={submitting}
                 availabilityVersion={availabilityVersion}
                 onChange={setValue}
@@ -212,9 +214,9 @@ function CustomerBookingWorkspace({ go, onToast, onSignOut, user, branch, branch
               <div><dt>Service</dt><dd>{selectedService?.name ?? "—"}</dd></div>
               <div><dt>Duration</dt><dd>{selectedService?.durationMinutes ? `${selectedService.durationMinutes} min` : "—"}</dd></div>
               <div><dt>Barber</dt><dd>{barberName}</dd></div>
-              <div><dt>Date</dt><dd>{value.date || "—"}</dd></div>
-              <div><dt>Time</dt><dd>{value.time || "—"}</dd></div>
-              <div><dt>Branch</dt><dd>{branch.name}{branch.address && <small>{branch.address}</small>}{dayHours && <small>{dayHours.isClosed ? "Closed on this date" : `Open ${dayHours.openTime}–${dayHours.closeTime}`}</small>}</dd></div>
+              <div><dt>Date</dt><dd>{value.date ? formatDate(value.date) : "—"}</dd></div>
+              <div><dt>Time</dt><dd>{formatTime(value.time)}</dd></div>
+              <div><dt>Branch</dt><dd>{branch.name}{branch.address && <small>{branch.address}</small>}{dayHours && <small>{dayHours.isClosed ? "Closed on this date" : `Open ${formatTimeRange(dayHours.openTime, dayHours.closeTime)}`}</small>}</dd></div>
               <div className="booking-facts__total"><dt>Total</dt><dd>₱{selectedService?.price.toLocaleString() ?? "0"}</dd></div>
             </dl>
           </Panel>}

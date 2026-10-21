@@ -47,3 +47,5 @@
   .booking-form-card .modal-actions { flex-direction: column-reverse; }
   .booking-form-card .modal-actions .button { width: 100%; }
 }
+
+.booking-confirmation__note { margin: 0 0 16px; padding: 12px 14px; border: 1px solid color-mix(in srgb, var(--amber) 45%, var(--line)); border-radius: var(--radius-sm); color: var(--text-soft); font-size: var(--text-sm); line-height: 1.5; }
