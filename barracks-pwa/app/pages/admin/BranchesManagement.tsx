@@ -1,4 +1,5 @@
 "use client";
+import { SkeletonCards } from "@/app/components/ui/Skeletons";
 
 import { useEffect, useState, type FormEvent } from "react";
 import { apiRequest, readApiBody, type ApiRole } from "@/app/lib/api";
@@ -64,7 +65,7 @@ function AdministratorBranches({ onToast }: { onToast: (message: string) => void
   }
   return <div className="branches-management">
     <PageHeader title="Branches" action={<Button icon="plus" disabled={saving || loading} onClick={() => { setDraft(blank); setFormError(""); setAdding(true); }}>Add branch</Button>} />
-    {loading ? <div className="branch-notice" role="status">Loading branches…</div> : error ? <div className="branch-notice" role="alert">{error}</div> : branches.length ? <div className="branches-list">
+    {loading ? <SkeletonCards count={3} label="Loading branches" /> : error ? <div className="branch-notice" role="alert">{error}</div> : branches.length ? <div className="branches-list">
       {branches.map((branch) => <Panel key={branch.id} className="branch-card">
         <div className="branch-summary"><div><h2>{branch.name}</h2><p>{branch.code}</p></div><Badge tone={branch.status === "active" ? "success" : "warning"}>{branch.status === "active" ? "Active" : "Inactive"}</Badge></div>
         <dl className="branch-details">

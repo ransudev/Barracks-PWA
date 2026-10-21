@@ -1,10 +1,11 @@
 "use client";
+import { CustomerDashboardSkeleton, SkeletonForm } from "@/app/components/ui/Skeletons";
 
 import { emailFieldError, phoneFieldError } from "@/app/utils/contact-validation";
 import { useEffect, useState, type FormEvent } from "react";
 import { BookingForm, type BookingFormValue } from "@/app/components/bookings/BookingForm";
 import type { ApiBarberAvailability, ApiBooking, ApiCustomer, ApiUser } from "@/app/lib/api";
-import { apiRequest, readApiBody } from "@/app/lib/api";
+import { apiRequest, peekApiBody, readApiBody } from "@/app/lib/api";
 import type { Service, ViewId } from "@/app/types/domain";
 import {
   Avatar,
@@ -75,12 +76,13 @@ export function CustomerDashboard({
   onSignOut: () => void;
   user: ApiUser;
 }) {
-  const [customer, setCustomer] = useState<ApiCustomer | null>(null);
-  const [barbers, setBarbers] = useState<ApiBarberAvailability[]>([]);
+  // Show the last loaded account at once while it refreshes in the background.
+  const [customer, setCustomer] = useState<ApiCustomer | null>(() => peekApiBody<{ customer?: ApiCustomer }>("/api/customers/me")?.customer ?? null);
+  const [barbers, setBarbers] = useState<ApiBarberAvailability[]>(() => peekApiBody<{ barbers?: ApiBarberAvailability[] }>("/api/barbers")?.barbers ?? []);
   const [bookingBarbers, setBookingBarbers] = useState<ApiBarberAvailability[]>([]);
   const [bookingServices, setBookingServices] = useState<Service[]>([]);
   const [bookingChoicesLoading, setBookingChoicesLoading] = useState(false);
-  const [bookings, setBookings] = useState<ApiBooking[]>([]);
+  const [bookings, setBookings] = useState<ApiBooking[]>(() => peekApiBody<{ bookings?: ApiBooking[] }>("/api/bookings")?.bookings ?? []);
   const [draft, setDraft] = useState<ProfileDraft>({
     firstName: "",
     lastName: "",
@@ -89,7 +91,7 @@ export function CustomerDashboard({
     preferredBarberId: "",
   });
   const [editing, setEditing] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !peekApiBody("/api/customers/me"));
   const [saving, setSaving] = useState(false);
   const [editingBooking, setEditingBooking] = useState<ApiBooking | null>(null);
   const [bookingDraft, setBookingDraft] = useState<BookingFormValue | null>(null);
@@ -290,7 +292,7 @@ export function CustomerDashboard({
           </div>
 
           {loading ? (
-            <Panel><div className="staff-table__empty">Loading your account…</div></Panel>
+            <CustomerDashboardSkeleton />
           ) : customer ? (
             <>
               <div className="metrics-grid metrics-grid--three">
@@ -391,7 +393,7 @@ export function CustomerDashboard({
         onClose={() => !bookingSaving && setEditingBooking(null)}
       >
         <p>Branch: {editingBooking?.branchName ?? "Main Branch"}</p>
-        {bookingChoicesLoading && <p>Loading appointment barbers…</p>}
+        {bookingChoicesLoading && <SkeletonForm fields={4} label="Loading appointment barbers" />}
         {bookingDraft && !bookingChoicesLoading && (
           <BookingForm
             key={editingBooking?.id}

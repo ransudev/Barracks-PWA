@@ -1,4 +1,5 @@
 "use client";
+import { SkeletonRows } from "@/app/components/ui/Skeletons";
 
 import { ReportBranchScope } from "@/app/components/ReportBranchScope";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -110,7 +111,7 @@ function StaffDashboardContent({ go, onToast, branch, branchControl }: Dashboard
       <div className="dashboard-grid dashboard-grid--wide">
         <Panel className="queue-preview">
           <SectionHeading title="Today’s queue" action={<Button variant="ghost" size="sm" iconAfter="arrowRight" onClick={() => go("queue")}>View all</Button>} />
-          {queueLoading ? <p role="status" className="staff-table__empty">Loading queue…</p>
+          {queueLoading ? <SkeletonRows count={3} label="Loading queue" />
             : queueError ? <p role="alert" className="staff-table__empty">{queueError}</p>
             : activeQueue.length ? <div className="queue-preview__list">{activeQueue.slice(0, 3).map((entry) => (
               <button type="button" className="queue-preview__row" key={entry.id} onClick={() => go("queue")}>
@@ -130,7 +131,7 @@ function StaffDashboardContent({ go, onToast, branch, branchControl }: Dashboard
             action={<Button variant="ghost" size="sm" iconAfter="arrowRight" onClick={() => go("bookings")}>View all</Button>}
           />
           <div className="schedule-list">
-            {loading ? <div className="staff-table__empty">Loading bookings…</div> : loadError ? <div className="staff-table__empty">{loadError}</div> : upcomingBookings.length ? upcomingBookings.slice(0, 3).map((booking, index) => (
+            {loading ? <SkeletonRows count={3} label="Loading bookings" /> : loadError ? <div className="staff-table__empty">{loadError}</div> : upcomingBookings.length ? upcomingBookings.slice(0, 3).map((booking, index) => (
               <div className={`schedule-row ${index === 0 ? "is-priority" : ""}`} key={booking.id}>
                 <span className="schedule-row__time"><strong>{formatTime(booking.time)}</strong><small>{formatDate(booking.date, { weekday: "short", month: "short", day: "numeric" })}</small></span>
                 <span className="schedule-row__line" aria-hidden="true" />
@@ -164,7 +165,7 @@ function StaffDashboardContent({ go, onToast, branch, branchControl }: Dashboard
         <SectionHeading title="Live barber overview" />
         <div className="barber-status-grid">
           {loading ? (
-            <div className="staff-table__empty">Loading barber profiles…</div>
+            <SkeletonRows count={3} label="Loading barber profiles" />
           ) : loadError ? (
             <div className="staff-table__empty">{loadError}</div>
           ) : barbers.length ? (

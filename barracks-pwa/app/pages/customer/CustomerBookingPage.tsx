@@ -1,4 +1,5 @@
 "use client";
+import { SkeletonForm } from "@/app/components/ui/Skeletons";
 
 import { useEffect, useState, type FormEvent } from "react";
 import { BookingForm, type BookingFormValue } from "@/app/components/bookings/BookingForm";
@@ -62,7 +63,7 @@ export function CustomerBookingPage(props: CustomerBookingProps) {
         </SelectField>}
       </div>
       <Panel className="booking-form-card">
-        {loading ? <p className="booking-loading">Loading branches…</p> : branches.length ? <p className="booking-loading">Choose a branch to see services and available times.</p> : <EmptyState icon="calendar" title="No branches available" description="Online booking is unavailable right now." />}
+        {loading ? <SkeletonForm fields={3} label="Loading branches" /> : branches.length ? <p className="booking-loading">Choose a branch to see services and available times.</p> : <EmptyState icon="calendar" title="No branches available" description="Online booking is unavailable right now." />}
       </Panel>
     </main>
   </div>;
@@ -183,7 +184,7 @@ function CustomerBookingWorkspace({ go, onToast, onSignOut, user, branch, branch
                 <div className="modal-actions"><Button onClick={() => go("customer-dashboard")}>View my appointments</Button></div>
               </div>
             ) : loading ? (
-              <div className="booking-loading">Loading available barbers…</div>
+              <SkeletonForm fields={4} label="Loading available barbers" />
             ) : barbers.length ? (
               <BookingForm
                 branchId={branch.id}

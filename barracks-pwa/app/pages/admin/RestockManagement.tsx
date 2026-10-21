@@ -1,4 +1,5 @@
 "use client";
+import { ListPageSkeleton, SkeletonRows } from "@/app/components/ui/Skeletons";
 import { useBranchContext } from "@/app/utils/use-branch-context";
 import { BranchSwitcher } from "@/app/components/BranchSwitcher";
 
@@ -26,7 +27,8 @@ export function RestockManagement({ onToast }: { onToast: (message: string) => v
   const branchControl = <BranchSwitcher branches={branches} value={branchId} loading={branchLoading} onChange={setBranchId} />;
   const branchName = branches.find((branch) => branch.id === branchId)?.name ?? "";
   if (branchId > 0) return <RestockContent key={branchId} branchId={branchId} branchName={branchName} onToast={onToast} branchControl={branchControl} />;
-  return <div className="operational-workspace">{branchControl}{branchError ? <p role="alert">{branchError}</p> : !branchLoading && <p className="operational-loading">No branch assigned.</p>}</div>;
+  if (branchLoading && !branchError) return <ListPageSkeleton cards={false} label="Loading restock requests" />;
+  return <div className="operational-workspace">{branchControl}{branchError ? <p role="alert">{branchError}</p> : <p className="operational-loading">No branch assigned.</p>}</div>;
 }
 
 function RestockContent({ onToast: notify, branchId, branchName, branchControl }: { branchControl: ReactNode; onToast: (message: string) => void; branchId: number; branchName: string }) {
@@ -70,7 +72,7 @@ function RestockContent({ onToast: notify, branchId, branchName, branchControl }
     <div className="restock-list-tabs"><Tabs active={tab} onChange={(value) => { setTab(value); setStatusFilter("all"); setStage("all"); }} items={[{id:"active", label:"Active requests"}, {id:"history", label:"Completed / cancelled"}]} /></div>
     {tab === "active" && <div className="restock-stages" role="group" aria-label="Filter by request stage">{stages.map((item) => <button type="button" key={item.id} aria-pressed={stage === item.id} onClick={() => setStage(item.id)}><span>{item.label}</span><strong>{loading || loadError ? "—" : visible.filter((request) => item.statuses.includes(request.status)).length}</strong></button>)}</div>}
     <FilterToolbar search={search} onSearchChange={setSearch} placeholder="Search supplier, item or request" onReset={() => { setSearch(""); setStatusFilter("all"); setStage("all"); }} filters={<SelectField label="Status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">All statuses</option>{(tab === "history" ? ["Received", "Cancelled"] : ["Pending", "Accepted", "Preparing", "Shipped", "Delivered"]).map((status) => <option key={status} value={status}>{status}</option>)}</SelectField>} resultCount={loading || loadError ? undefined : displayed.length} />
-    {loading ? <div className="operational-loading" role="status">Loading restock requests…</div> : loadError ? <div className="operational-loading" role="alert">{loadError}</div> : !displayed.length ? <EmptyState icon="box" title={search || statusFilter !== "all" || stage !== "all" ? "No matching requests" : tab === "history" ? "No completed requests" : "No active requests"} description="Change the filters or open the other request view." /> : <div className="restock-request-list">
+    {loading ? <SkeletonRows count={5} label="Loading restock requests" /> : loadError ? <div className="operational-loading" role="alert">{loadError}</div> : !displayed.length ? <EmptyState icon="box" title={search || statusFilter !== "all" || stage !== "all" ? "No matching requests" : tab === "history" ? "No completed requests" : "No active requests"} description="Change the filters or open the other request view." /> : <div className="restock-request-list">
       <div className="restock-list-heading" aria-hidden="true"><div><span>Request / supplier</span><span>Branch / requested</span><span>Items</span><span>Status</span></div><span>Next action</span></div>
       {displayed.map(requestRow)}
     </div>}

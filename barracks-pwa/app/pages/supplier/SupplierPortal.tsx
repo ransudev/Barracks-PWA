@@ -1,4 +1,5 @@
 "use client";
+import { SkeletonRows } from "@/app/components/ui/Skeletons";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import type { ApiUser } from "@/app/lib/api";
@@ -326,7 +327,7 @@ export function SupplierPortal({ user, onSignOut, onToast }: { user: ApiUser; on
               action={supplier ? <button className="link-button" type="button" onClick={openProfileDrawer}>Edit details</button> : undefined}
             />
             {loading ? (
-              <div className="supplier-portal__loading">Loading supplier details…</div>
+              <SkeletonRows count={5} label="Loading supplier details" />
             ) : profile ? (
               <>
                 <div className="supplier-profile-card__identity">

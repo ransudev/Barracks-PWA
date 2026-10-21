@@ -1,4 +1,5 @@
 "use client";
+import { SkeletonRows } from "@/app/components/ui/Skeletons";
 import { useBranchContext } from "@/app/utils/use-branch-context";
 
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
@@ -31,7 +32,7 @@ export function AttendanceManagement() {
   if (branchId > 0) return <AttendanceBranch key={branchId} branchId={branchId} branchControl={branchControl} />;
   return <div className="operational-workspace attendance-workspace">
     <PageHeader title="Barber attendance" action={branchControl} />
-    {branchError ? <p role="alert">{branchError}</p> : !branchLoading && <Panel><EmptyState icon="calendar" title="No branch assigned" /></Panel>}
+    {branchError ? <p role="alert">{branchError}</p> : branchLoading ? <SkeletonRows count={6} label="Loading attendance" /> : <Panel><EmptyState icon="calendar" title="No branch assigned" /></Panel>}
   </div>;
 }
 
@@ -185,7 +186,7 @@ function AttendanceBranch({ branchId, branchControl }: { branchId: number; branc
       {view === "week" && !loading && !error && <div className="attendance-week"><div className="attendance-matrix-wrap"><table className="attendance-matrix"><thead><tr><th scope="col">Barber</th>{dates.map((day) => <th scope="col" key={day} className={day === todayInManila() ? "is-today" : undefined}><span>{Number(day.slice(-2))}</span><small>{new Date(`${day}T12:00:00Z`).toLocaleDateString("en-PH", {weekday:"short", timeZone:"Asia/Manila"})}</small></th>)}</tr></thead><tbody>{visibleBarbers.map((barber) => <tr key={barber.id}><th scope="row">{barber.firstName} {barber.lastName}</th>{dates.map((day) => { const cell = cellStatus(barber.id, day); return <td key={day} className={day === todayInManila() ? "is-today" : undefined}><button type="button" className={`attendance-cell attendance-cell--${cell.symbol}`} aria-label={`${barber.firstName} ${barber.lastName}, ${day}, ${cell.label}`} title={`${day} · ${cell.label}`} onClick={() => { if (cell.record) void openRecord(cell.record); else { setSelected(null); setSelectedCell({name: `${barber.firstName} ${barber.lastName}`, date: day, status: cell.label}); } }}>{cellText[cell.symbol]}</button></td>; })}</tr>)}</tbody></table></div>{!visibleBarbers.length && <EmptyState title="No matching barbers" description="Reset the filters to review the roster." />}</div>}
       <div className={view === "week" ? "attendance-mobile-list" : ""}>
       {error && !selected && <p role="alert" className="operational-loading">{error}</p>}
-      {loading ? <p role="status" className="operational-loading">Loading attendance…</p> : error ? null : dailyRecords.length === 0 ? <EmptyState icon="calendar" title="No attendance records" /> :
+      {loading ? <SkeletonRows count={6} label="Loading attendance" /> : error ? null : dailyRecords.length === 0 ? <EmptyState icon="calendar" title="No attendance records" /> :
         <ResponsiveTable headers={["Date", "Barber", "Attendance", "Clock In", "Clock Out", "Details"]}>
           {dailyRecords.map((record) => <tr key={record.id}><td>{record.date}</td><td>{record.barberName}</td><td><Badge tone={record.status === "present" ? "success" : record.status === "late" ? "warning" : "danger"}>{record.status}</Badge></td><td>{clockLabel(record.clockIn)}</td><td>{clockLabel(record.clockOut)}</td><td><Button size="sm" variant="secondary" onClick={() => void openRecord(record)}>View record</Button></td></tr>)}
         </ResponsiveTable>}

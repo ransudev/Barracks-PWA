@@ -1,4 +1,5 @@
 "use client";
+import { ListPageSkeleton } from "@/app/components/ui/Skeletons";
 import { useBranchContext } from "@/app/utils/use-branch-context";
 import { BranchSwitcher } from "@/app/components/BranchSwitcher";
 
@@ -18,7 +19,7 @@ import {
   type ReactNode,
 } from "react";
 import type { ApiInventoryItem, ApiSupplier } from "@/app/lib/api";
-import { apiRequest, readApiBody } from "@/app/lib/api";
+import { apiRequest, peekApiBody, readApiBody } from "@/app/lib/api";
 import { useBodyScrollLock } from "@/app/hooks/useBodyScrollLock";
 import { useDrawerPresence } from "@/app/hooks/useDrawerPresence";
 import { downloadCsv } from "@/app/utils/download";
@@ -448,16 +449,20 @@ export function InventoryPage(props: { onToast: (message: string) => void; admin
   const branchControl = <BranchSwitcher branches={branches} value={branchId} loading={branchLoading} onChange={setBranchId} />;
   const branchName = branches.find((branch) => branch.id === branchId)?.name ?? "";
   if (branchId > 0) return <InventoryPageContent key={branchId} {...props} branchId={branchId} branchName={branchName} branchControl={branchControl} />;
-  return <div className="operational-workspace">{branchControl}{branchError ? <p role="alert">{branchError}</p> : !branchLoading && <p className="operational-loading">No branch assigned.</p>}</div>;
+  if (branchLoading && !branchError) return <ListPageSkeleton metrics label="Loading inventory" />;
+  return <div className="operational-workspace">{branchControl}{branchError ? <p role="alert">{branchError}</p> : <p className="operational-loading">No branch assigned.</p>}</div>;
 }
 
 function InventoryPageContent({ onToast: notify, admin = false, canDelete, branchId, branchName, branchControl }: { branchControl: ReactNode; onToast: (message: string) => void; admin?: boolean; canDelete: boolean; branchId: number; branchName: string }) {
   const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   const onToast = useCallback((message: string) => { if (active.current) notify(message); }, [notify]);
-  const [items, setItems] = useState<ApiInventoryItem[]>([]);
-  const [suppliers, setSuppliers] = useState<ApiSupplier[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Paint the last loaded catalog at once; refreshes replace it without a loading flash.
+  const [items, setItems] = useState<ApiInventoryItem[]>(() => peekApiBody<{ items?: ApiInventoryItem[] }>(`/api/inventory?branchId=${branchId}`)?.items ?? []);
+  const [suppliers, setSuppliers] = useState<ApiSupplier[]>(() => peekApiBody<{ suppliers?: ApiSupplier[] }>("/api/suppliers")?.suppliers ?? []);
+  const [hadCache] = useState(() => Boolean(peekApiBody(`/api/inventory?branchId=${branchId}`)));
+  const hasLoaded = useRef(hadCache);
+  const [loading, setLoading] = useState(!hadCache);
   const [loadError, setLoadError] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const [search, setSearch] = useState("");
@@ -496,13 +501,14 @@ function InventoryPageContent({ onToast: notify, admin = false, canDelete, branc
   const initialLinkHandled = useRef(false);
   const loadInventory = useCallback(async () => {
     if (!active.current) return;
-    setLoading(true);
+    if (!hasLoaded.current) setLoading(true);
     try {
       const response = await apiRequest(`/api/inventory?branchId=${branchId}`, { cache: "no-store" });
       const body = await readApiBody<{ success: boolean; items?: ApiInventoryItem[]; message?: string }>(response);
       if (!active.current) return;
       if (!response.ok || !body?.success || !body.items) throw new Error(body?.message ?? "Unable to load inventory");
       setItems(body.items);
+      hasLoaded.current = true;
       if (!initialLinkHandled.current) {
         initialLinkHandled.current = true;
         const linked = body.items.find((item) => String(item.id) === new URLSearchParams(window.location.search).get("item"));

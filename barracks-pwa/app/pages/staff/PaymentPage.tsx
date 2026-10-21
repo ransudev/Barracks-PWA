@@ -1,4 +1,5 @@
 "use client";
+import { SkeletonRows } from "@/app/components/ui/Skeletons";
 import { createPortal } from "react-dom";
 import { useBranchContext } from "@/app/utils/use-branch-context";
 
@@ -81,7 +82,7 @@ export function PaymentPage({ onToast, canCheckout = false, canManageFinancialAc
   if (branchId > 0) return <PaymentBranch key={branchId} branchId={branchId} branchControl={branchControl} onToast={onToast} canCheckout={canCheckout} canManageFinancialActions={canManageFinancialActions} />;
   return <div className="operational-workspace">
     <PageHeader title={canCheckout ? "Payments" : "Transactions"} action={branchControl} />
-    {branchError ? <p role="alert">{branchError}</p> : !branchLoading && <Panel><EmptyState icon="creditCard" title="No branch assigned" description="Ask an administrator to assign you to a branch." /></Panel>}
+    {branchError ? <p role="alert">{branchError}</p> : branchLoading ? <Panel><SkeletonRows count={5} label="Loading payments" /></Panel> : <Panel><EmptyState icon="creditCard" title="No branch assigned" description="Ask an administrator to assign you to a branch." /></Panel>}
   </div>;
 }
 
@@ -266,7 +267,7 @@ function PaymentBranch({ branchId, branchControl, onToast, canCheckout, canManag
     {canCheckout && <div className="checkout-workspace">
       <Panel className="eligible-visits-panel matched-height-panel"><SectionHeading title="Completed unpaid visits" /><FilterToolbar search={visitSearch} onSearchChange={setVisitSearch} placeholder="Search customer, service or visit" resultCount={loading || loadError ? undefined : visits.filter((visit) => `${visit.customerName} ${visit.serviceName} ${visit.barberName} ${visit.visitRecordId}`.toLowerCase().includes(visitSearch.trim().toLowerCase())).length} onReset={() => setVisitSearch("")} />
         <div className="panel-scroll-body" role="region" aria-label="Completed unpaid visits" tabIndex={0}>
-        {loading ? <p role="status" className="operational-loading">Loading eligible visits…</p> : loadError ? <p role="alert" className="operational-loading">Eligible visits unavailable. Refresh to retry.</p> : !visits.length ? <EmptyState title="No visits ready for payment" /> : <div className="eligible-visit-list">{visits.filter((visit) => `${visit.customerName} ${visit.serviceName} ${visit.barberName} ${visit.visitRecordId}`.toLowerCase().includes(visitSearch.trim().toLowerCase())).map((visit) => <button type="button" key={visitKey(visit)} aria-pressed={selectedKey === visitKey(visit)} disabled={processing} onClick={() => { setSelectedKey(visitKey(visit)); setCashReceived(""); setCompleted(null); setCheckoutError(""); }}><span><strong>{visit.customerName}</strong><small>{visit.serviceName} · {visit.barberName}</small><small>{visit.visitType === "booking" ? "Booking" : "Walk-in"} #{visit.visitRecordId}</small></span><strong>{money(visit.total)}</strong></button>)}{visits.length > 0 && !visits.some((visit) => `${visit.customerName} ${visit.serviceName} ${visit.barberName} ${visit.visitRecordId}`.toLowerCase().includes(visitSearch.trim().toLowerCase())) && <EmptyState title="No matching visits" description="Reset search to see eligible visits." />}</div>}
+        {loading ? <SkeletonRows count={3} label="Loading eligible visits" /> : loadError ? <p role="alert" className="operational-loading">Eligible visits unavailable. Refresh to retry.</p> : !visits.length ? <EmptyState title="No visits ready for payment" /> : <div className="eligible-visit-list">{visits.filter((visit) => `${visit.customerName} ${visit.serviceName} ${visit.barberName} ${visit.visitRecordId}`.toLowerCase().includes(visitSearch.trim().toLowerCase())).map((visit) => <button type="button" key={visitKey(visit)} aria-pressed={selectedKey === visitKey(visit)} disabled={processing} onClick={() => { setSelectedKey(visitKey(visit)); setCashReceived(""); setCompleted(null); setCheckoutError(""); }}><span><strong>{visit.customerName}</strong><small>{visit.serviceName} · {visit.barberName}</small><small>{visit.visitType === "booking" ? "Booking" : "Walk-in"} #{visit.visitRecordId}</small></span><strong>{money(visit.total)}</strong></button>)}{visits.length > 0 && !visits.some((visit) => `${visit.customerName} ${visit.serviceName} ${visit.barberName} ${visit.visitRecordId}`.toLowerCase().includes(visitSearch.trim().toLowerCase())) && <EmptyState title="No matching visits" description="Reset search to see eligible visits." />}</div>}
         </div>
       </Panel>
       {canCheckout && <Panel className="payment-form-panel">
@@ -329,7 +330,7 @@ function PaymentBranch({ branchId, branchControl, onToast, canCheckout, canManag
           </div>}
       </Panel>
     <div className="transaction-day-modal"><Modal open={dayOpen} title={selectedDay ? dayLabel(selectedDay) : "Daily transactions"} width="lg" onClose={() => setDayOpen(false)}>
-      {loading ? <p role="status" className="operational-loading">Loading transactions…</p> : loadError ? <p role="alert" className="operational-loading">{loadError}</p> : !dayHistory.length ? <EmptyState title="No transactions on this date" description={search || methodFilter ? "No transactions match the active filters." : undefined} /> : <>
+      {loading ? <SkeletonRows count={5} label="Loading transactions" /> : loadError ? <p role="alert" className="operational-loading">{loadError}</p> : !dayHistory.length ? <EmptyState title="No transactions on this date" description={search || methodFilter ? "No transactions match the active filters." : undefined} /> : <>
         <div className="transaction-day-summary">
           <div><span>Collected</span><strong className="is-positive">{money(dayCollected)}</strong></div>
           <div><span>Transactions</span><strong>{dayHistory.length}</strong></div>

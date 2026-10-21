@@ -1,4 +1,5 @@
 "use client";
+import { SkeletonCards } from "@/app/components/ui/Skeletons";
 
 import { useBranchContext } from "@/app/utils/use-branch-context";
 import { BranchSwitcher } from "@/app/components/BranchSwitcher";
@@ -109,7 +110,7 @@ export function BarberFloorPage() {
     <Panel className="operational-panel">
       <div className="inventory-catalog-head"><div><h2>Barber availability</h2></div></div>
       {statusError && <p className="operational-loading" role="alert">{statusError}</p>}
-      {loading ? <p className="operational-loading" role="status">Loading barber floor…</p>
+      {loading ? <SkeletonCards count={4} label="Loading barber floor" />
         : error ? <p className="operational-loading" role="alert">{error}</p>
         : !barbers.length ? <EmptyState icon="scissors" title="No barbers found" description="The roster is managed in the Management workspace." />
         : <div className="barber-status-grid">{barbers.map((barber) => {

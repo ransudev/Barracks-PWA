@@ -5,7 +5,8 @@ import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "re
 import { BookingForm, type BookingFormValue } from "@/app/components/bookings/BookingForm";
 import type { Service } from "@/app/types/domain";
 import type { ApiBarberAvailability, ApiBooking, ApiBookingStatus, ApiCustomer } from "@/app/lib/api";
-import { apiRequest, readApiBody } from "@/app/lib/api";
+import { apiRequest, peekApiBody, readApiBody } from "@/app/lib/api";
+import { ScheduleSkeleton } from "@/app/components/ui/Skeletons";
 import { Avatar, Badge, Button, ConfirmDialog, EmptyState, IconButton, Modal, PageHeader, Panel, SelectField, TextField } from "@/app/components/ui";
 import { BranchSwitcher } from "@/app/components/BranchSwitcher";
 import { createInitials, dateInputValue, formatCurrency, formatDate, formatTime, formatTimeRange, futureDateInputValue } from "@/app/utils/format";
@@ -30,21 +31,29 @@ export function BookingsPage({ onToast, canOperate = true, canDelete = false }: 
   if (branchId > 0) return <BookingsPageContent key={branchId} branchId={branchId} branchControl={branchControl} onToast={onToast} canOperate={canOperate} canDelete={canDelete} />;
   return <div className="operational-workspace">
     <PageHeader title="Bookings" action={branchControl} />
-    {branchError ? <p role="alert">{branchError}</p> : !branchLoading && <Panel><EmptyState icon="calendar" title="No branch assigned" description="Ask an administrator to assign you to a branch." /></Panel>}
+    {branchError ? <p role="alert">{branchError}</p> : branchLoading ? <Panel><ScheduleSkeleton gridOnly label="Loading bookings" /></Panel> : <Panel><EmptyState icon="calendar" title="No branch assigned" description="Ask an administrator to assign you to a branch." /></Panel>}
   </div>;
 }
 
 function BookingsPageContent({ onToast, canOperate = true, canDelete = false, branchId, branchControl }: { onToast: (message: string) => void; branchId: number; branchControl: ReactNode; canOperate?: boolean; canDelete?: boolean }) {
-  const [items, setItems] = useState<ApiBooking[]>([]);
-  const [customers, setCustomers] = useState<ApiCustomer[]>([]);
-  const [barbers, setBarbers] = useState<ApiBarberAvailability[]>([]);
-  const [services, setServices] = useState<Service[]>([]);
+  // Paint the last known data at once (if any), then refresh in the background.
+  const [cached] = useState(() => ({
+    bookings: peekApiBody<{ bookings?: ApiBooking[] }>(`/api/bookings?branchId=${branchId}`)?.bookings,
+    customers: peekApiBody<{ customers?: ApiCustomer[] }>("/api/customers")?.customers,
+    barbers: peekApiBody<{ barbers?: ApiBarberAvailability[] }>(`/api/barbers?branchId=${branchId}`)?.barbers,
+    services: peekApiBody<{ services?: Service[] }>("/api/services")?.services,
+  }));
+  const hasCache = Boolean(cached.bookings && cached.customers && cached.barbers && cached.services);
+  const [items, setItems] = useState<ApiBooking[]>(cached.bookings ?? []);
+  const [customers, setCustomers] = useState<ApiCustomer[]>((cached.customers ?? []).filter(isAppointmentCustomer));
+  const [barbers, setBarbers] = useState<ApiBarberAvailability[]>(cached.barbers ?? []);
+  const [services, setServices] = useState<Service[]>(cached.services ?? []);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [tab, setTab] = useState("open");
   const [date, setDate] = useState(dateInputValue);
   const [barberFilter, setBarberFilter] = useState("");
-  const [updatedAt, setUpdatedAt] = useState<number | null>(null);
+  const [updatedAt, setUpdatedAt] = useState<number | null>(() => hasCache ? Date.now() : null);
   const [dayView, setDayView] = useState(true);
   const [context, setContext] = useState<DayContext | null>(null);
   const [contextError, setContextError] = useState("");
@@ -209,9 +218,9 @@ function BookingsPageContent({ onToast, canOperate = true, canDelete = false, br
         {(search || barberFilter || tab !== "open") && <Button variant="ghost" onClick={() => { setSearch(""); setBarberFilter(""); setTab("open"); }}>Reset filters</Button>}{!dayView && date && <Button variant="ghost" onClick={() => setDate("")}>All dates</Button>}
       </>} />
       {contextError && <p role="alert" className="task-note">{contextError}</p>}
-      {!loading && !loadError && dayView && <div className="booking-calendar"><DaySchedule bookings={visible} barbers={barbers.filter((barber) => !barberFilter || String(barber.id) === barberFilter)} context={context?.date === date ? context : null} date={date} onOpen={openDetails} /></div>}
+      {loading && !updatedAt && <ScheduleSkeleton gridOnly label="Loading bookings" />}{(!loading || updatedAt) && !loadError && dayView && <div className="booking-calendar"><DaySchedule bookings={visible} barbers={barbers.filter((barber) => !barberFilter || String(barber.id) === barberFilter)} context={context?.date === date ? context : null} date={date} onOpen={openDetails} /></div>}
       <div className={dayView ? "booking-agenda" : ""}>
-      {loading ? <p role="status">Loading bookings…</p> : loadError ? <p role="alert">{loadError}</p> : !visible.length ? <EmptyState icon="calendar" title="No bookings found" /> : view === "cards" ?
+      {loading && !updatedAt ? null : loadError ? <p role="alert">{loadError}</p> : !visible.length ? <EmptyState icon="calendar" title="No bookings found" /> : view === "cards" ?
         <div className="operational-card-grid">{visible.map((booking) => <RecordCard key={booking.id} onOpen={() => { setSelected(booking); setEditing(false); }} ariaLabel={`Open booking for ${booking.customerName}`} actions={quickActions(booking)}><div className="operational-card__header"><h3>{date ? formatTime(booking.time) : `${formatDate(booking.date)} · ${formatTime(booking.time)}`}</h3><Badge tone={tone(booking.status)}>{label(booking.status)}</Badge></div><div className="operational-card__identity"><Avatar initials={createInitials(booking.customerName)} tone="slate" size="sm" /><strong>{booking.customerName}</strong></div><p>{booking.serviceName} · {booking.barberName}</p><small>#{booking.id} · {formatCurrency(booking.price)}</small></RecordCard>)}</div> :
         <ResponsiveTable headers={["When", "Customer", "Service", "Barber", "Status"]}>{visible.map((booking) => <tr key={booking.id} tabIndex={0} onClick={() => { setSelected(booking); setEditing(false); }} onKeyDown={(event) => { if (event.key === "Enter") setSelected(booking); }}><td>{formatDate(booking.date)} · {formatTime(booking.time)}</td><td>{booking.customerName}</td><td>{booking.serviceName}</td><td>{booking.barberName}</td><td><Badge tone={tone(booking.status)}>{label(booking.status)}</Badge></td></tr>)}</ResponsiveTable>}
       </div>

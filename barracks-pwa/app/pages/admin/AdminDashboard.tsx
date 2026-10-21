@@ -1,4 +1,5 @@
 "use client";
+import { SkeletonRows } from "@/app/components/ui/Skeletons";
 
 import { useEffect, useState, type ReactNode } from "react";
 import type { ViewId } from "@/app/types/domain";
@@ -49,14 +50,14 @@ function AdminDashboardContent({ go, onToast, currentUser, branch, branchControl
     </div>
     <div className="management-activity-grid">
       <Panel><SectionHeading title="Sales by day" />
-        {initialLoading ? <p role="status">Loading sales…</p> : loadError ? <p role="alert">Sales unavailable while the overview refresh failed.</p> : dashboard?.salesError || !sales ? <p role="alert">{dashboard?.salesError ?? "Sales aggregation unavailable"}</p> : !sales.summary.transactionCount && !sales.summary.reversedAmount ? <EmptyState title="No sales activity in this period" description="Paid visits and financial actions will appear here." /> : <>
+        {initialLoading ? <SkeletonRows count={4} label="Loading sales" /> : loadError ? <p role="alert">Sales unavailable while the overview refresh failed.</p> : dashboard?.salesError || !sales ? <p role="alert">{dashboard?.salesError ?? "Sales aggregation unavailable"}</p> : !sales.summary.transactionCount && !sales.summary.reversedAmount ? <EmptyState title="No sales activity in this period" description="Paid visits and financial actions will appear here." /> : <>
           <div className="sales-trend" role="img" aria-label="Paid sales over seven days; exact sales, refund and void values are listed below">{days.map((day) => <div key={day.date}><em>{day.gross ? formatCurrency(day.gross) : ""}</em><span className="sales-trend__bar" style={{ height: `${day.gross / max * 140}px` }} /><span>{day.date.slice(5)}</span></div>)}</div>
           <details className="sales-breakdown"><summary>Daily breakdown</summary><div className="operational-table-wrap"><table className="operational-table sales-summary"><thead><tr><th scope="col">Date</th><th scope="col">Paid sales</th><th scope="col">Refunds</th><th scope="col">Voids</th><th scope="col">Net</th></tr></thead><tbody>{days.map((day) => <tr key={day.date}><th scope="row">{day.date}</th><td>{formatCurrency(day.gross)}</td><td>{formatCurrency(day.refund)}</td><td>{formatCurrency(day.voided)}</td><td>{formatCurrency(day.net)}</td></tr>)}</tbody></table></div><p className="task-note">Net = paid sales − refunds − voids.</p></details>
         </>}
       </Panel>
       <Panel className="management-attention-panel"><SectionHeading title="Needs attention" />
         <div className="management-attention-list" role="region" aria-label="Needs attention entries" tabIndex={0}>
-        {initialLoading ? <p role="status">Loading exceptions…</p> : loadError ? <p role="alert">Exceptions unavailable. Refresh to retry.</p> : <>
+        {initialLoading ? <SkeletonRows count={4} label="Loading exceptions" /> : loadError ? <p role="alert">Exceptions unavailable. Refresh to retry.</p> : <>
           {Boolean(dashboard?.pendingBookings) && <button type="button" className="attention-row" onClick={() => go("bookings")}><span><strong>Booking requests · {dashboard!.pendingBookings}</strong><small>Customers are waiting for you to confirm or reject</small></span><span>Review</span></button>}
           {(dashboard?.actionableRestocks ?? []).map((request) => <a className="attention-row" key={request.id} href={`/admin/restocks?request=${request.id}&branchId=${request.branchId}`}><span><strong>{request.status === "Delivered" ? "Receive stock" : "Confirm delivery"} · #{request.id}</strong><small>{request.supplierName} · {request.branch}</small></span><span>Open request</span></a>)}
           {(dashboard?.lowStock ?? []).map((item) => <a className="attention-row" key={item.id} href={`/admin/inventory?item=${item.id}&branchId=${item.branchId}`}><span><strong>{item.quantity === 0 ? "Out of stock" : "Low stock"} · {item.name}</strong><small>{item.branch ?? "Branch unavailable"} · {item.quantity} / {item.minimumStock} {item.unit}</small></span><span>Open item</span></a>)}

@@ -1,4 +1,5 @@
 "use client";
+import { ListPageSkeleton, SkeletonCards, SkeletonRows } from "@/app/components/ui/Skeletons";
 import { phoneFieldError } from "@/app/utils/contact-validation";
 import { useBranchContext } from "@/app/utils/use-branch-context";
 import { BranchSwitcher } from "@/app/components/BranchSwitcher";
@@ -26,7 +27,8 @@ export function QueuePage({ onToast, canOperate = true }: { onToast: (message: s
   const { branches, branchId, setBranchId, branchError, branchLoading } = useBranchContext();
   const branchControl = <BranchSwitcher branches={branches} value={branchId} loading={branchLoading} onChange={setBranchId} />;
   if (branchId > 0) return <QueuePageContent key={branchId} branchId={branchId} onToast={onToast} canOperate={canOperate} branchControl={branchControl} />;
-  return <div className="operational-workspace">{branchControl}{branchError ? <p role="alert">{branchError}</p> : !branchLoading && <p className="operational-loading">No branch assigned.</p>}</div>;
+  if (branchLoading && !branchError) return <ListPageSkeleton label="Loading queue" />;
+  return <div className="operational-workspace">{branchControl}{branchError ? <p role="alert">{branchError}</p> : <p className="operational-loading">No branch assigned.</p>}</div>;
 }
 
 function QueuePageContent({ onToast, canOperate = true, branchId, branchControl }: { branchControl: ReactNode; branchId: number; onToast: (message: string) => void; canOperate?: boolean }) {
@@ -255,7 +257,7 @@ function QueuePageContent({ onToast, canOperate = true, branchId, branchControl 
     </Panel>}
     <Panel className="operational-panel"><div className="inventory-catalog-head"><div><span className="inventory-kicker">Live floor</span><h2>Current queue</h2><p>{canOperate ? "Open an entry to assign a barber or move it forward." : "Open an entry to view its assignment and status."}</p></div></div>
       <FilterToolbar search={search} onSearchChange={setSearch} placeholder="Search queue" filters={<SelectField value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filter queue by status"><option value="all">All statuses</option>{(["waiting", "ready", "in_progress"] as const).map((status) => <option value={status} key={status}>{statusLabel(status)}</option>)}</SelectField>} resultCount={visible.length} />
-      {loading ? <p role="status">Loading queue…</p> : error ? <p role="alert">{error}</p> : !visible.length ? <EmptyState icon="queue" title="Queue is empty" description="Check in an appointment or add a walk-in." /> : view === "cards" ?
+      {loading ? <SkeletonCards label="Loading queue" /> : error ? <p role="alert">{error}</p> : !visible.length ? <EmptyState icon="queue" title="Queue is empty" description="Check in an appointment or add a walk-in." /> : view === "cards" ?
         <div className="operational-card-grid">{visible.map((entry) => <RecordCard key={entry.id} onOpen={() => openEntry(entry)} ariaLabel={`Open queue entry for ${entry.customerName}`}><div className="operational-card__header"><div className="operational-card__identity"><Avatar initials={createInitials(entry.customerName)} tone="slate" size="md" /><div><strong>{entry.customerName}</strong><small>Queue #{entry.id}{entry.bookingId !== null && ` · Booking #${entry.bookingId}`}</small></div></div><Badge tone={tone(entry.status)}>{statusLabel(entry.status)}</Badge></div><div className="queue-visit-type"><Badge tone={entry.visitType === "appointment" ? "info" : "neutral"}>{visitLabel(entry)}</Badge>{scheduledTime(entry) && <span>• {scheduledTime(entry)}</span>}</div><p className="operational-card__note">{entry.serviceName} · {entry.barberName ?? "Awaiting barber"}</p><div className="operational-card__facts"><div><span>Joined</span><strong>{new Date(entry.joinedAt).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "numeric", minute: "2-digit" })}</strong></div><div><span>Wait</span><strong>{entry.status === "completed" ? "—" : `${waitMinutes(entry)}m`}</strong></div></div></RecordCard>)}</div> :
         <ResponsiveTable headers={["#", "Customer", "Type", "Service", "Barber", "Status", "Wait"]}>{visible.map((entry) => <tr key={entry.id} tabIndex={0} onClick={() => openEntry(entry)} onKeyDown={(event) => { if (event.key === "Enter") openEntry(entry); }}><td>{entry.id}</td><td>{entry.customerName}</td><td><span className="queue-visit-type"><Badge tone={entry.visitType === "appointment" ? "info" : "neutral"}>{visitLabel(entry)}</Badge>{scheduledTime(entry) && <span>• {scheduledTime(entry)}</span>}</span></td><td>{entry.serviceName}</td><td>{entry.barberName ?? "Unassigned"}</td><td><Badge tone={tone(entry.status)}>{statusLabel(entry.status)}</Badge></td><td>{entry.status === "completed" ? "—" : `${waitMinutes(entry)}m`}</td></tr>)}</ResponsiveTable>}
     </Panel>
@@ -263,7 +265,7 @@ function QueuePageContent({ onToast, canOperate = true, branchId, branchControl 
     {queueTab === "completed-today" && <div role="tabpanel"><Panel className="operational-panel">
       <div className="inventory-catalog-head"><div><span className="inventory-kicker">Today in Manila</span><h2>Completed Today</h2><p>Finished services are read-only.</p></div></div>
       <FilterToolbar search={search} onSearchChange={setSearch} placeholder="Search completed services" resultCount={visible.length} />
-      {completedLoading ? <p role="status">Loading completed services…</p> : completedError ? <p role="alert">{completedError}</p> : !visible.length ? <EmptyState icon="queue" title="No completed services today" description="Finished services will appear here." /> :
+      {completedLoading ? <SkeletonRows count={3} label="Loading completed services" /> : completedError ? <p role="alert">{completedError}</p> : !visible.length ? <EmptyState icon="queue" title="No completed services today" description="Finished services will appear here." /> :
         <ResponsiveTable headers={["Customer", "Service", "Barber", "Type", "Started", "Completed"]}>{visible.map((entry) => <tr key={entry.id}><td>{entry.customerName}</td><td>{entry.serviceName}</td><td>{entry.barberName ?? "Unassigned"}</td><td><Badge tone={entry.visitType === "appointment" ? "info" : "neutral"}>{visitLabel(entry)}</Badge></td><td>{manilaTime(entry.startedAt)}</td><td>{manilaTime(entry.completedAt)}</td></tr>)}</ResponsiveTable>}
     </Panel></div>}
     <Modal open={addOpen} title="Add to queue" description="Choose an existing customer or add a walk-in record." onClose={closeAddDialog}><form className="modal-form" onSubmit={addWalkIn}>

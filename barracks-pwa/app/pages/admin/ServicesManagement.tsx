@@ -1,4 +1,5 @@
 "use client";
+import { SkeletonRows } from "@/app/components/ui/Skeletons";
 
 import { useEffect, useState, type FormEvent } from "react";
 import type { Service } from "@/app/types/domain";
@@ -108,7 +109,7 @@ export function ServicesManagement({ onToast }: { onToast: (message: string) => 
     </div>
     <Panel className="services-panel"><SectionHeading title="All services" action={<Button variant="ghost" size="sm" icon="filter" onClick={() => setFilterOpen(true)}>Filters</Button>} />
       <div className="services-table"><div className="services-table__head"><span>Service</span><span>Description</span><span>Duration</span><span>Price</span><span>Status</span><span>Actions</span></div>
-        {loading ? <div role="status">Loading services…</div> : error ? <div role="alert">{error}</div> : visible.length ? visible.map((service) =>
+        {loading ? <SkeletonRows count={6} label="Loading services" /> : error ? <div role="alert">{error}</div> : visible.length ? visible.map((service) =>
           <div className="services-table__row" key={service.id}><span><strong>{service.name}</strong></span><span>{service.description}</span><span>{service.durationMinutes === null ? "Unknown" : `${service.durationMinutes} mins`}</span><strong>{formatCurrency(service.price)}</strong><span><Badge tone={service.active ? "success" : "warning"}>{service.active ? "Active" : "Archived"}</Badge></span><span className="row-actions"><button className="row-action" type="button" disabled={busyId !== null} onClick={() => openEdit(service)}>Edit</button><button className="row-action" type="button" disabled={busyId !== null} onClick={() => service.active ? setPendingAction({ service, kind: "archive" }) : void toggle(service)}>{service.active ? "Archive" : "Restore"}</button>{service.hasHistory === false && <button className="row-action row-action--danger" type="button" disabled={busyId !== null} onClick={() => setPendingAction({ service, kind: "delete" })}>Delete</button>}</span></div>
         ) : <EmptyState title="No services found" description="Add a service or change the filter." />}
       </div>
