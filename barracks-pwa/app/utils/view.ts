@@ -2,8 +2,9 @@ import { viewAccessGroups } from "@/app/constants/navigation";
 import { isManagementRole, isStaffRole } from "@/app/constants/roles";
 import type { ShellArea, ViewId } from "@/app/types/domain";
 
-export function workspaceAreaForView(view: ViewId, role: string): ShellArea {
-  return isManagementRole(role) && (requiresManagement(view) || view === "payments") ? "admin" : "staff";
+// Management roles always use the full management sidebar; front desk uses its own.
+export function workspaceAreaForView(_view: ViewId, role: string): ShellArea {
+  return isManagementRole(role) ? "admin" : "staff";
 }
 
 export function requiresManagement(view: ViewId) {
@@ -31,7 +32,7 @@ export function canAccessView(view: ViewId, role: string | null): boolean {
   if (group === "public") return true;
   if (!role) return false;
   if (group === "customer" || group === "supplier") return role === group;
-  if (group === "front_desk") return role === "front_desk" || role === "administrator";
+  if (group === "front_desk") return isStaffRole(role);
   if (group === "administrator") return role === "administrator";
   if (group === "staff") return isStaffRole(role);
   return group === "management" && isManagementRole(role);

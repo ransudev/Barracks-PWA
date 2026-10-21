@@ -1,6 +1,7 @@
 "use client";
 import { Fragment, useState, type ReactNode } from "react";
 import { SelectField } from "@/app/components/ui";
+import { DashboardSkeleton } from "@/app/components/ui/Skeletons";
 import { useBranchContext } from "@/app/utils/use-branch-context";
 
 // Children receive the selected scope and a compact branch picker to place in
@@ -19,6 +20,7 @@ export function ReportBranchScope({ globalAllowed = false, children }: { globalA
     {globalAllowed && <option value="all">All branches</option>}
     {branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
   </SelectField>;
+  if (!ready && branchLoading && !branchError) return <DashboardSkeleton />;
   if (!ready) return <div className="operational-workspace"><div className="page-header__actions">{control}</div>{branchError && <p role="alert">{branchError}</p>}</div>;
   return <>
     <p className="visually-hidden" role="status">{selected === "all" ? "Global view · All branches" : `Branch view · ${branches.find((branch) => String(branch.id) === selected)?.name ?? ""}`}</p>

@@ -2,6 +2,7 @@
 
 import type { ApiBooking, ApiBarberAvailability } from "@/app/lib/api";
 import type { ShopHours, WeeklySchedule, Unavailability } from "@/server/services/schedule.service";
+import { formatTime, formatTimeRange } from "@/app/utils/format";
 
 export type DayContext = { date: string; barbers: { barberId: number; shift: WeeklySchedule | null; timeAway: Unavailability[] }[]; shopHours: ShopHours | null; hoursError: string };
 const minutes = (time: string) => { const [hour, minute] = time.split(":").map(Number); return hour * 60 + minute; };
@@ -16,11 +17,12 @@ const manilaNow = () => {
 // Pixels per minute: a 30-minute visit is 60px, enough for time, name and service.
 const SCALE = 2;
 const LEGEND: { status: string; label: string }[] = [
+  { status: "pending", label: "Awaiting approval" },
   { status: "confirmed", label: "Confirmed" },
   { status: "checked_in", label: "Checked in" },
   { status: "in_progress", label: "In progress" },
   { status: "completed", label: "Completed" },
-  { status: "cancelled", label: "Cancelled / no show" },
+  { status: "cancelled", label: "Cancelled / rejected / no show" },
 ];
 
 export function DaySchedule({ bookings, barbers, context, date, onOpen }: { bookings: ApiBooking[]; barbers: ApiBarberAvailability[]; context: DayContext | null; date: string; onOpen: (booking: ApiBooking) => void }) {
@@ -45,23 +47,23 @@ export function DaySchedule({ bookings, barbers, context, date, onOpen }: { book
 
   return <>
     <div className="day-schedule__meta">
-      <span>{context?.shopHours ? context.shopHours.isClosed ? "Shop closed" : `Shop hours ${context.shopHours.openTime}–${context.shopHours.closeTime}` : "Shop hours unavailable"}</span>
+      <span>{context?.shopHours ? context.shopHours.isClosed ? "Shop closed" : `Shop hours ${formatTimeRange(context.shopHours.openTime, context.shopHours.closeTime)}` : "Shop hours unavailable"}</span>
       <ul className="day-schedule__legend" aria-label="Status colors">{LEGEND.map((item) => <li key={item.status} className={`is-${item.status}`}>{item.label}</li>)}</ul>
     </div>
     {context?.hoursError && <p role="alert" className="form-error">{context.hoursError}</p>}
-    {unknownDuration.length > 0 && <div className="duration-unavailable"><p>Duration unavailable</p>{unknownDuration.map((booking) => <button type="button" key={booking.id} onClick={() => onOpen(booking)}>{booking.time} · {booking.customerName} · {booking.serviceName} · {booking.barberName} · {statusLabel(booking.status)}</button>)}</div>}
+    {unknownDuration.length > 0 && <div className="duration-unavailable"><p>Duration unavailable</p>{unknownDuration.map((booking) => <button type="button" key={booking.id} onClick={() => onOpen(booking)}>{formatTime(booking.time)} · {booking.customerName} · {booking.serviceName} · {booking.barberName} · {statusLabel(booking.status)}</button>)}</div>}
     <div className="day-schedule" aria-label={`Appointments on ${date}`}>
-      <div className="day-schedule__grid" style={{ gridTemplateColumns: `56px repeat(${Math.max(1, columns.length)}, minmax(180px, 1fr))` }}>
+      <div className="day-schedule__grid" style={{ gridTemplateColumns: `72px repeat(${Math.max(1, columns.length)}, minmax(180px, 1fr))` }}>
         <div className="day-schedule__corner" />
         {columns.map((column) => {
           const data = context?.barbers.find((barber) => barber.barberId === column.id);
-          const count = bookings.filter((booking) => booking.barberId === column.id && !["cancelled", "no_show"].includes(booking.status)).length;
+          const count = bookings.filter((booking) => booking.barberId === column.id && !["cancelled", "rejected", "no_show"].includes(booking.status)).length;
           return <div className="day-schedule__heading" key={column.id}>
             <strong>{column.name}</strong>
-            <small>{!data ? "Schedule unavailable" : !data.shift ? "Shift not set" : data.shift.isWorking ? `${data.shift.startTime}–${data.shift.endTime}` : "Off today"}{count > 0 && ` · ${count} booked`}</small>
+            <small>{!data ? "Schedule unavailable" : !data.shift ? "Shift not set" : data.shift.isWorking ? formatTimeRange(data.shift.startTime, data.shift.endTime) : "Off today"}{count > 0 && ` · ${count} booked`}</small>
           </div>;
         })}
-        <div className="day-schedule__axis" style={{ height }}>{hours.map((hour) => <span key={hour} style={{ top: (hour - start) * SCALE }}>{clock(hour)}</span>)}</div>
+        <div className="day-schedule__axis" style={{ height }}>{hours.map((hour) => <span key={hour} style={{ top: (hour - start) * SCALE }}>{formatTime(clock(hour))}</span>)}</div>
         {columns.map((column) => {
           const data = context?.barbers.find((barber) => barber.barberId === column.id);
           const events = bookings.filter((booking) => booking.barberId === column.id && endMinute(booking) !== null).sort((a, b) => a.time.localeCompare(b.time));
@@ -75,7 +77,7 @@ export function DaySchedule({ bookings, barbers, context, date, onOpen }: { book
           if (data?.shift?.isWorking) {
             constraints.push({ key: "before", label: "Off shift", begin: start, finish: minutes(data.shift.startTime) });
             constraints.push({ key: "after", label: "Off shift", begin: minutes(data.shift.endTime), finish: end });
-            data.shift.breaks.forEach((pause, index) => constraints.push({ key: `break-${index}`, label: `Break ${pause.startTime}–${pause.endTime}`, begin: minutes(pause.startTime), finish: minutes(pause.endTime) }));
+            data.shift.breaks.forEach((pause, index) => constraints.push({ key: `break-${index}`, label: `Break ${formatTimeRange(pause.startTime, pause.endTime)}`, begin: minutes(pause.startTime), finish: minutes(pause.endTime) }));
           }
           const dayStart = Date.parse(`${date}T00:00:00+08:00`);
           data?.timeAway.forEach((away) => constraints.push({ key: `away-${away.id}`, label: `Away · ${away.reason}`, begin: (Date.parse(away.startsAt) - dayStart) / 60000, finish: (Date.parse(away.endsAt) - dayStart) / 60000, away: true }));
@@ -87,7 +89,7 @@ export function DaySchedule({ bookings, barbers, context, date, onOpen }: { book
               const finish = endMinute(booking)!;
               const { style } = block(minutes(booking.time), finish);
               return <button type="button" className={`day-schedule__booking is-${booking.status}`} key={booking.id} style={{ ...style, left: `calc(${lane / lanes * 100}% + 3px)`, width: `calc(${100 / lanes}% - 6px)` }} onClick={() => onOpen(booking)} aria-label={`${booking.customerName}, ${booking.serviceName}, ${booking.time}, ${statusLabel(booking.status)}, ${column.name}`}>
-                <span>{booking.time}–{clock(finish)}</span>
+                <span>{formatTimeRange(booking.time, clock(finish))}</span>
                 <strong>{booking.customerName}</strong>
                 <small>{booking.serviceName}</small>
               </button>;

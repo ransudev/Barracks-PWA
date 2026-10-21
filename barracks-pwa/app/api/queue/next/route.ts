@@ -30,7 +30,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const actor = await requireRolesUser(["front_desk"]);
+  const actor = await requireRolesUser(["administrator", "manager", "front_desk"]);
   if (actor instanceof Response) return actor;
   let body: unknown;
   try { body = await request.json(); } catch {

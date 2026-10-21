@@ -1,9 +1,11 @@
 "use client";
+import { CustomerDashboardSkeleton, SkeletonForm } from "@/app/components/ui/Skeletons";
 
+import { emailFieldError, phoneFieldError } from "@/app/utils/contact-validation";
 import { useEffect, useState, type FormEvent } from "react";
 import { BookingForm, type BookingFormValue } from "@/app/components/bookings/BookingForm";
 import type { ApiBarberAvailability, ApiBooking, ApiCustomer, ApiUser } from "@/app/lib/api";
-import { apiRequest, readApiBody } from "@/app/lib/api";
+import { apiRequest, peekApiBody, readApiBody } from "@/app/lib/api";
 import type { Service, ViewId } from "@/app/types/domain";
 import {
   Avatar,
@@ -19,7 +21,7 @@ import {
   SelectField,
   TextField,
 } from "@/app/components/ui";
-import { createInitials } from "@/app/utils/format";
+import { createInitials, formatDate, formatTime, formatTimeRange } from "@/app/utils/format";
 import { CustomerTopbar } from "@/app/pages/customer/CustomerTopbar";
 
 type ProfileDraft = {
@@ -40,20 +42,8 @@ function profileForm(customer: ApiCustomer): ProfileDraft {
   };
 }
 
-function formatDate(date: string) {
-  return new Date(`${date}T12:00:00`).toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-function formatTime(time: string) {
-  const [hours, minutes] = time.split(":").map(Number);
-  const meridiem = hours >= 12 ? "PM" : "AM";
-  const displayHours = hours % 12 || 12;
-  return `${displayHours}:${String(minutes).padStart(2, "0")} ${meridiem}`;
-}
+const upcomingLabel: Record<string, string> = { pending: "Awaiting confirmation", confirmed: "Confirmed", checked_in: "Checked in", in_progress: "In progress" };
+const historyLabel: Record<string, string> = { completed: "Completed", cancelled: "Cancelled", rejected: "Declined by shop", no_show: "No show", pending: "Not confirmed", confirmed: "Not attended" };
 
 function formatMemberSince(date: string) {
   return new Date(date).toLocaleDateString(undefined, {
@@ -86,12 +76,13 @@ export function CustomerDashboard({
   onSignOut: () => void;
   user: ApiUser;
 }) {
-  const [customer, setCustomer] = useState<ApiCustomer | null>(null);
-  const [barbers, setBarbers] = useState<ApiBarberAvailability[]>([]);
+  // Show the last loaded account at once while it refreshes in the background.
+  const [customer, setCustomer] = useState<ApiCustomer | null>(() => peekApiBody<{ customer?: ApiCustomer }>("/api/customers/me")?.customer ?? null);
+  const [barbers, setBarbers] = useState<ApiBarberAvailability[]>(() => peekApiBody<{ barbers?: ApiBarberAvailability[] }>("/api/barbers")?.barbers ?? []);
   const [bookingBarbers, setBookingBarbers] = useState<ApiBarberAvailability[]>([]);
   const [bookingServices, setBookingServices] = useState<Service[]>([]);
   const [bookingChoicesLoading, setBookingChoicesLoading] = useState(false);
-  const [bookings, setBookings] = useState<ApiBooking[]>([]);
+  const [bookings, setBookings] = useState<ApiBooking[]>(() => peekApiBody<{ bookings?: ApiBooking[] }>("/api/bookings")?.bookings ?? []);
   const [draft, setDraft] = useState<ProfileDraft>({
     firstName: "",
     lastName: "",
@@ -100,7 +91,7 @@ export function CustomerDashboard({
     preferredBarberId: "",
   });
   const [editing, setEditing] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !peekApiBody("/api/customers/me"));
   const [saving, setSaving] = useState(false);
   const [editingBooking, setEditingBooking] = useState<ApiBooking | null>(null);
   const [bookingDraft, setBookingDraft] = useState<BookingFormValue | null>(null);
@@ -109,6 +100,12 @@ export function CustomerDashboard({
   const [pendingCancellation, setPendingCancellation] = useState<ApiBooking | null>(null);
   const [cancellingBookingId, setCancellingBookingId] = useState<number | null>(null);
   const [historyPage, setHistoryPage] = useState(1);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -234,7 +231,7 @@ export function CustomerDashboard({
       setBookings((current) => current.map((booking) => booking.id === body.booking!.id ? body.booking! : booking));
       setEditingBooking(null);
       setBookingDraft(null);
-      onToast("Appointment updated");
+      onToast(body.booking.status === "pending" ? "Appointment updated. The shop will confirm the new time." : "Appointment updated");
     } catch (error) {
       onToast(error instanceof Error ? error.message : "Unable to update your appointment");
       setBookingDraft((current) => current ? { ...current, time: "" } : current);
@@ -267,9 +264,15 @@ export function CustomerDashboard({
   }
 
   const name = customer ? `${customer.firstName} ${customer.lastName}` : `${user.firstName} ${user.lastName}`;
-  const upcoming = bookings.filter((booking) => ["confirmed", "checked_in", "in_progress"].includes(booking.status));
+  // Upcoming = still active and not yet over, soonest first. Appointments whose time has
+  // passed without a visit move to history so the next real appointment is always on top.
+  const isOver = (booking: ApiBooking) => Date.parse(`${booking.date}T${booking.endTime ?? booking.time}:00+08:00`) < now;
+  const isActive = (booking: ApiBooking) => ["pending", "confirmed", "checked_in", "in_progress"].includes(booking.status);
+  const upcoming = bookings
+    .filter((booking) => isActive(booking) && (booking.status === "checked_in" || booking.status === "in_progress" || !isOver(booking)))
+    .sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
   const past = bookings
-    .filter((booking) => ["completed", "cancelled", "no_show"].includes(booking.status))
+    .filter((booking) => !upcoming.includes(booking))
     .sort((a, b) => `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`));
   const completedCount = past.filter((booking) => booking.status === "completed").length;
   const historyPageCount = Math.max(1, Math.ceil(past.length / HISTORY_PAGE_SIZE));
@@ -289,7 +292,7 @@ export function CustomerDashboard({
           </div>
 
           {loading ? (
-            <Panel><div className="staff-table__empty">Loading your account…</div></Panel>
+            <CustomerDashboardSkeleton />
           ) : customer ? (
             <>
               <div className="metrics-grid metrics-grid--three">
@@ -331,13 +334,13 @@ export function CustomerDashboard({
                         <div className="customer-booking-card" key={booking.id}>
                           <div className="customer-booking-card__content">
                             <strong>{formatDate(booking.date)}</strong>
-                            <span>{formatTime(booking.time)} · {booking.serviceName}</span>
+                            <span>{formatTimeRange(booking.time, booking.endTime)} · {booking.serviceName}</span>
                             <small>with {booking.barberName} · {booking.branchName ?? "Main Branch"}</small>
                           </div>
                           <div className="customer-booking-card__actions">
-                            {booking.status !== "confirmed" && <Badge tone="info">{booking.status === "checked_in" ? "Checked in" : "In progress"}</Badge>}
-                            {booking.status === "confirmed" && <Button size="sm" variant="secondary" icon="edit" onClick={() => openBookingEditor(booking)}>Manage</Button>}
-                            {booking.status === "confirmed" && <Button size="sm" variant="danger" onClick={() => setPendingCancellation(booking)}>Cancel</Button>}
+                            <Badge tone={booking.status === "pending" ? "warning" : booking.status === "confirmed" ? "success" : "info"}>{upcomingLabel[booking.status] ?? booking.status}</Badge>
+                            {["pending", "confirmed"].includes(booking.status) && <Button size="sm" variant="secondary" icon="edit" onClick={() => openBookingEditor(booking)}>Manage</Button>}
+                            {["pending", "confirmed"].includes(booking.status) && <Button size="sm" variant="danger" onClick={() => setPendingCancellation(booking)}>Cancel</Button>}
                           </div>
                         </div>
                       ))}
@@ -360,8 +363,8 @@ export function CustomerDashboard({
                           <span>{booking.serviceName}</span>
                           <span>{booking.barberName}</span>
                           <small>{booking.branchName ?? "Main Branch"}</small>
-                          <Badge tone={booking.status === "completed" ? "success" : "danger"}>
-                            {booking.status === "completed" ? "Completed" : booking.status === "no_show" ? "No show" : "Cancelled"}
+                          <Badge tone={booking.status === "completed" ? "success" : booking.status === "pending" || booking.status === "confirmed" ? "neutral" : "danger"}>
+                            {historyLabel[booking.status] ?? booking.status}
                           </Badge>
                         </div>
                       ))}
@@ -379,7 +382,7 @@ export function CustomerDashboard({
               </Panel>
             </>
           ) : (
-            <Panel><EmptyState icon="users" title="Account unavailable" description="Sign out and sign in again to reload your customer account." /></Panel>
+            <Panel><EmptyState icon="users" title="Account unavailable" description="Your customer details could not be loaded. Sign out, then sign in again to reload them." action={<Button variant="secondary" icon="logOut" onClick={onSignOut}>Sign out</Button>} /></Panel>
           )}
         </div>
       </main>
@@ -390,7 +393,7 @@ export function CustomerDashboard({
         onClose={() => !bookingSaving && setEditingBooking(null)}
       >
         <p>Branch: {editingBooking?.branchName ?? "Main Branch"}</p>
-        {bookingChoicesLoading && <p>Loading appointment barbers…</p>}
+        {bookingChoicesLoading && <SkeletonForm fields={4} label="Loading appointment barbers" />}
         {bookingDraft && !bookingChoicesLoading && (
           <BookingForm
             key={editingBooking?.id}
@@ -432,8 +435,8 @@ export function CustomerDashboard({
             <TextField label="First name" value={draft.firstName} onChange={(event) => setDraft({ ...draft, firstName: event.target.value })} />
             <TextField label="Last name" value={draft.lastName} onChange={(event) => setDraft({ ...draft, lastName: event.target.value })} />
           </div>
-          <TextField label="Email address" type="email" value={draft.email} onChange={(event) => setDraft({ ...draft, email: event.target.value })} icon="mail" />
-          <TextField label="Phone number" type="tel" inputMode="numeric" maxLength={11} value={draft.phone} onChange={(event) => setDraft({ ...draft, phone: event.target.value })} icon="phone" />
+          <TextField label="Email address" type="email" value={draft.email} error={emailFieldError(draft.email)} onChange={(event) => setDraft({ ...draft, email: event.target.value })} icon="mail" />
+          <TextField label="Phone number" type="tel" inputMode="numeric" maxLength={11} value={draft.phone} error={phoneFieldError(draft.phone)} onChange={(event) => setDraft({ ...draft, phone: event.target.value })} icon="phone" />
           <SelectField label="Preferred barber" value={draft.preferredBarberId} onChange={(event) => setDraft({ ...draft, preferredBarberId: event.target.value })}>
             <option value="">Not set</option>
             {barbers.map((barber) => <option key={barber.id} value={barber.id}>{barber.firstName} {barber.lastName}</option>)}

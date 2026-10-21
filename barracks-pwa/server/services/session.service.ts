@@ -64,6 +64,11 @@ export async function findUserBySessionToken(
         AND u.deleted_at IS NULL
         AND u.is_verified = TRUE
         AND u.is_blocked = FALSE
+        -- A deactivated supplier company blocks every login linked to it.
+        AND (r.name <> 'supplier' OR EXISTS (
+          SELECT 1 FROM supplier_accounts sa
+          INNER JOIN suppliers sp ON sp.id = sa.supplier_id AND sp.status = 'active'
+          WHERE sa.user_id = u.id))
       LIMIT 1
     `,
     [hashSessionToken(token)],

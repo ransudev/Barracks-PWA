@@ -6,3 +6,6 @@ export const bookingIntervalStartSql = `CASE WHEN service_duration_minutes IS NU
 export const bookingIntervalEndSql = `CASE WHEN service_duration_minutes IS NULL
   THEN booking_date::timestamp + INTERVAL '1 day'
   ELSE booking_date + booking_time + service_duration_minutes * INTERVAL '1 minute' END`;
+
+// Statuses that occupy a barber/customer slot. Match migration 032's constraints.
+export const activeBookingStatusesSql = `('pending','confirmed','checked_in','in_progress')`;

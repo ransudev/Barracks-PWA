@@ -1,13 +1,12 @@
 import { z } from "zod";
+import { EMAIL_MESSAGE, PHONE_MESSAGE, isValidEmail, isValidPhone } from "@/app/utils/contact-validation";
 
 const money = z.number().finite().min(0).max(9999999999.99);
 const positiveInt = z.number().int().positive();
 const nonNegativeInt = z.number().int().min(0).max(2147483647);
-const phoneSchema = z.string().trim().max(11, "Phone number cannot exceed 11 characters");
-const optionalEmail = z.string().trim().max(320).refine(
-  (value) => !value || z.string().email().safeParse(value).success,
-  { message: "Enter a valid email address" },
-);
+const phoneSchema = z.string().trim().max(11, "Phone number cannot exceed 11 characters")
+  .refine((value) => !value || isValidPhone(value), PHONE_MESSAGE);
+const optionalEmail = z.string().trim().max(320).refine((value) => !value || isValidEmail(value), { message: EMAIL_MESSAGE });
 
 const supplierDetailsShape = {
   companyName: z.string().trim().min(1).max(180),

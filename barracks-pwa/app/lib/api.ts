@@ -124,7 +124,7 @@ export type ApiCustomer = {
   updatedAt: string;
 };
 
-export type ApiBookingStatus = "confirmed" | "checked_in" | "in_progress" | "completed" | "cancelled" | "no_show";
+export type ApiBookingStatus = "pending" | "confirmed" | "rejected" | "checked_in" | "in_progress" | "completed" | "cancelled" | "no_show";
 
 export type ApiBooking = {
   branchId: number;
@@ -186,6 +186,30 @@ export function clearApiCache() {
   referenceReads.clear();
 }
 
+// Last successful JSON body per GET path, for stale-while-revalidate screens: a page
+// can paint what it showed last time immediately, then replace it with the fresh read.
+// Never used for authorization; cleared whenever the signed-in account changes.
+const lastReads = new Map<string, unknown>();
+const LAST_READS_LIMIT = 60;
+
+export function peekApiBody<T>(path: string): T | null {
+  return (lastReads.get(path) as T | undefined) ?? null;
+}
+
+export function clearStaleReads() {
+  lastReads.clear();
+}
+
+function rememberRead(path: string, response: Response) {
+  if (!(response.headers.get("content-type") ?? "").includes("application/json")) return;
+  void response.json().then((body: unknown) => {
+    if (!body || typeof body !== "object" || (body as { success?: unknown }).success === false) return;
+    lastReads.delete(path);
+    lastReads.set(path, body);
+    if (lastReads.size > LAST_READS_LIMIT) lastReads.delete(lastReads.keys().next().value!);
+  }).catch(() => undefined);
+}
+
 export async function apiRequest(
   path: string,
   init: ApiRequestInit = {},
@@ -214,6 +238,8 @@ export async function apiRequest(
   const version = cacheVersion;
   const request = fetch(path, { ...requestInit, credentials: "same-origin", headers }).then((response) => {
     if (!isRead || response.status === 401 || response.status === 403) clearApiCache();
+    if (response.status === 401) clearStaleReads();
+    if (isRead && response.ok && typeof window !== "undefined" && path.startsWith("/api/") && !path.startsWith("/api/auth/")) rememberRead(path, response.clone());
     if (typeof window !== "undefined" && response.status === 401 && !path.startsWith("/api/auth/")) {
       window.dispatchEvent(new Event("barracks:session-expired"));
     }

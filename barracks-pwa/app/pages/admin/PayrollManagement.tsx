@@ -1,4 +1,5 @@
 "use client";
+import { SkeletonRows } from "@/app/components/ui/Skeletons";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { apiRequest, readApiBody, type ApiRole } from "@/app/lib/api";
@@ -95,7 +96,7 @@ function BranchPayroll({ currentUserRole, onToast, context }: { currentUserRole:
     </div>
     {(branchError || error) && <p className="form-error" role="alert">{branchError || error} <Button variant="ghost" onClick={()=>setRevision(r=>r+1)}>Retry</Button></p>}
     {loading && overview && !selected && <p role="status">Updating payroll…</p>}
-    {(loading && (!overview || selected)) || branchLoading ? <p role="status">Loading payroll…</p> : !branchId ? <Panel><EmptyState title="Select a branch" /></Panel> : detail ? <>
+    {(loading && (!overview || selected)) || branchLoading ? <SkeletonRows count={6} label="Loading payroll" /> : !branchId ? <Panel><EmptyState title="Select a branch" /></Panel> : detail ? <>
       <div className="payroll-detail-actions"><Button variant="secondary" onClick={()=>setSelected(null)}>Back to payroll</Button><Status record={detail.record} />
         {detail.record.status==='draft' && <><Button onClick={()=>edit({kind:'submit',record:detail.record})}>Submit for approval</Button><Button variant="secondary" onClick={()=>edit({kind:'adjust',record:detail.record})}>Add adjustment</Button></>}
         {detail.record.status==='pending_approval' && <><Button variant="secondary" onClick={()=>edit({kind:'return',record:detail.record})}>Return to draft</Button>{currentUserRole==='manager' && <Button onClick={()=>edit({kind:'approve',record:detail.record})}>Approve payroll</Button>}</>}

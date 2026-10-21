@@ -10,6 +10,7 @@ export type ManagementDashboardData = {
   openRestocks: number;
   todayBookings: number;
   upcomingBookings: number;
+  pendingBookings: number;
   activeBarbers: number;
   customerCount: number;
   lowStock: { id: number; name: string; branch?: string; branchId: number; supplierName: string | null; category: string; quantity: number; minimumStock: number; unit: string }[];

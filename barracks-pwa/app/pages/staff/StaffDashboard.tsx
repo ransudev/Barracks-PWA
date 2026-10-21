@@ -1,11 +1,12 @@
 "use client";
+import { SkeletonRows } from "@/app/components/ui/Skeletons";
 
 import { ReportBranchScope } from "@/app/components/ReportBranchScope";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { ApiBarberAvailability, ApiBooking, ApiQueueEntry } from "@/app/lib/api";
 import { apiRequest, readApiBody } from "@/app/lib/api";
 import type { ViewId } from "@/app/types/domain";
-import { createInitials, dateInputValue, formatCurrency } from "@/app/utils/format";
+import { createInitials, dateInputValue, formatCurrency, formatDate, formatTime } from "@/app/utils/format";
 import { Avatar, Badge, Button, EmptyState, MetricCard, PageHeader, Panel, SectionHeading } from "@/app/components/ui";
 import { FreshnessBar } from "@/app/components/operations/OperationalPrimitives";
 import { Icon } from "@/app/components/ui/icons";
@@ -17,20 +18,6 @@ function displayName(barber: ApiBarberAvailability) {
 
 function dateString(date = new Date()) {
   return dateInputValue(date);
-}
-
-function formatDate(date: string) {
-  return new Date(`${date}T12:00:00`).toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-function formatTime(time: string) {
-  const [hours, minutes] = time.split(":").map(Number);
-  const meridiem = hours >= 12 ? "PM" : "AM";
-  return `${hours % 12 || 12}:${String(minutes).padStart(2, "0")} ${meridiem}`;
 }
 
 type DashboardProps = { go: (view: ViewId) => void; onToast: (message: string) => void };
@@ -99,12 +86,12 @@ function StaffDashboardContent({ go, onToast, branch, branchControl }: Dashboard
 
   const today = dateString();
   const todayBookings = useMemo(
-    () => bookings.filter((booking) => booking.date === today && booking.status !== "cancelled"),
+    () => bookings.filter((booking) => booking.date === today && !["cancelled", "rejected"].includes(booking.status)),
     [bookings, today],
   );
   const upcomingBookings = useMemo(
     () => bookings
-      .filter((booking) => booking.status === "confirmed" && booking.date >= today)
+      .filter((booking) => ["pending", "confirmed"].includes(booking.status) && booking.date >= today)
       .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)),
     [bookings, today],
   );
@@ -124,7 +111,7 @@ function StaffDashboardContent({ go, onToast, branch, branchControl }: Dashboard
       <div className="dashboard-grid dashboard-grid--wide">
         <Panel className="queue-preview">
           <SectionHeading title="Today’s queue" action={<Button variant="ghost" size="sm" iconAfter="arrowRight" onClick={() => go("queue")}>View all</Button>} />
-          {queueLoading ? <p role="status" className="staff-table__empty">Loading queue…</p>
+          {queueLoading ? <SkeletonRows count={3} label="Loading queue" />
             : queueError ? <p role="alert" className="staff-table__empty">{queueError}</p>
             : activeQueue.length ? <div className="queue-preview__list">{activeQueue.slice(0, 3).map((entry) => (
               <button type="button" className="queue-preview__row" key={entry.id} onClick={() => go("queue")}>
@@ -144,11 +131,11 @@ function StaffDashboardContent({ go, onToast, branch, branchControl }: Dashboard
             action={<Button variant="ghost" size="sm" iconAfter="arrowRight" onClick={() => go("bookings")}>View all</Button>}
           />
           <div className="schedule-list">
-            {loading ? <div className="staff-table__empty">Loading bookings…</div> : loadError ? <div className="staff-table__empty">{loadError}</div> : upcomingBookings.length ? upcomingBookings.slice(0, 3).map((booking, index) => (
+            {loading ? <SkeletonRows count={3} label="Loading bookings" /> : loadError ? <div className="staff-table__empty">{loadError}</div> : upcomingBookings.length ? upcomingBookings.slice(0, 3).map((booking, index) => (
               <div className={`schedule-row ${index === 0 ? "is-priority" : ""}`} key={booking.id}>
-                <span className="schedule-row__time"><strong>{formatTime(booking.time)}</strong><small>{formatDate(booking.date)}</small></span>
+                <span className="schedule-row__time"><strong>{formatTime(booking.time)}</strong><small>{formatDate(booking.date, { weekday: "short", month: "short", day: "numeric" })}</small></span>
                 <span className="schedule-row__line" aria-hidden="true" />
-                <span><strong>{booking.customerName}</strong><small>{booking.serviceName} · {booking.barberName}</small></span>
+                <span><strong>{booking.customerName}</strong><small>{booking.serviceName} · {booking.barberName}{booking.status === "pending" ? " · Awaiting approval" : ""}</small></span>
                 <strong className="schedule-row__price">{formatCurrency(booking.price)}</strong>
               </div>
             )) : <EmptyState icon="calendar" title="No upcoming bookings" description="Scheduled appointments will appear here." />}
@@ -178,7 +165,7 @@ function StaffDashboardContent({ go, onToast, branch, branchControl }: Dashboard
         <SectionHeading title="Live barber overview" />
         <div className="barber-status-grid">
           {loading ? (
-            <div className="staff-table__empty">Loading barber profiles…</div>
+            <SkeletonRows count={3} label="Loading barber profiles" />
           ) : loadError ? (
             <div className="staff-table__empty">{loadError}</div>
           ) : barbers.length ? (

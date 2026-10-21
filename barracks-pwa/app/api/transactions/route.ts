@@ -1,7 +1,7 @@
 import { listAccessibleBranches } from "@/server/auth/branch-access";
 import { resolveOperationalBranch } from "@/server/auth/barber-branch-access";
 import { visitBranchError } from "@/server/auth/visit-branch-access";
-import { requireFrontDeskUser, requireStaffUser } from "@/server/auth/require-role";
+import { requireStaffUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { createTransactionSchema, transactionHistorySchema } from "@/server/schemas/payment.schema";
 import { formatValidationErrors } from "@/server/schemas/user.schema";
@@ -42,7 +42,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const user = await requireFrontDeskUser();
+  const user = await requireStaffUser();
   if (user instanceof Response) return user;
   let body: unknown;
   try { body = await request.json(); }

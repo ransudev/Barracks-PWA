@@ -9,7 +9,7 @@
 .payroll-section-head h2 { margin: 0; }
 .payroll-period { color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 .payroll-workspace .payroll-muted { margin: 4px 0 12px; color: var(--text-muted); font-size: 12px; }
-.payroll-workspace h2 { font-size: 15px; font-weight: 750; letter-spacing: -.02em; margin: 0 0 12px; }
+.payroll-workspace h2 { font-size: 15px; font-weight: var(--weight-bold); letter-spacing: -.02em; margin: 0 0 12px; }
 .payroll-workspace h3 { font-size: 15px; margin: 24px 0 12px; }
 .payroll-workspace p { color: var(--text-soft); line-height: 1.6; overflow-wrap: anywhere; }
 .payroll-workspace > .panel > p { margin: 8px 0 20px; }
@@ -20,7 +20,7 @@
 .payroll-metrics dd.is-warning { color: var(--amber); }
 .payroll-workspace dt { color: var(--text-muted); font-size: 12px; }
 .payroll-workspace dd { margin: 8px 0 0; font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.payroll-metrics dd { margin-top: 4px; font-family: var(--font-geist-mono), monospace; font-size: 18px; }
+.payroll-metrics dd { margin-top: 4px; font-family: var(--font-numeric); font-size: 18px; }
 .payroll-filters { display: grid; grid-template-columns: 170px 200px minmax(0,1fr) 190px; gap: 8px; margin-bottom: 14px; align-items: center; }
 .payroll-records-panel .pagination { margin: 8px -22px -20px; }
 .payroll-workspace .operational-table-wrap { max-width: 100%; padding: 0 0 8px; scrollbar-color: var(--line-strong) var(--surface); }

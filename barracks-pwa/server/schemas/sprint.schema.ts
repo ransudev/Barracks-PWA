@@ -1,11 +1,12 @@
 import { z } from "zod";
-import { formatValidationErrors } from "@/server/schemas/user.schema";
+import { emailSchema, formatValidationErrors } from "@/server/schemas/user.schema";
+import { PHONE_MESSAGE, isValidPhone } from "@/app/utils/contact-validation";
 
 export { formatValidationErrors };
 
 export const barberStatusSchema = z.enum(["available", "busy", "unavailable"]);
 export const inventoryCategorySchema = z.enum(["Supplies", "Equipment", "Products"]);
-export const bookingStatusSchema = z.enum(["confirmed", "checked_in", "in_progress", "completed", "cancelled", "no_show"]);
+export const bookingStatusSchema = z.enum(["pending", "confirmed", "rejected", "checked_in", "in_progress", "completed", "cancelled", "no_show"]);
 
 const percentageSchema = z
   .number()
@@ -95,7 +96,7 @@ export const bookingCreateSchema = z
 
 export const bookingUpdateSchema = z
   .object({
-    status: z.enum(["checked_in", "in_progress", "completed", "cancelled", "no_show"]),
+    status: z.enum(["confirmed", "rejected", "checked_in", "in_progress", "completed", "cancelled", "no_show"]),
   })
   .strict();
 
@@ -112,16 +113,18 @@ export const bookingEditSchema = z
 
 export const customerBookingEditSchema = bookingEditSchema.omit({ customerId: true }).strict();
 
+// Optional for customers; when given it must be a real contact number.
 const phoneSchema = z
   .string()
   .trim()
-  .max(11, "Phone number cannot exceed 11 characters");
+  .max(11, "Phone number cannot exceed 11 characters")
+  .refine((value) => !value || isValidPhone(value), PHONE_MESSAGE);
 
 export const customerSignupSchema = z
   .object({
     firstName: z.string().trim().min(1, "First name is required").max(100),
     lastName: z.string().trim().min(1, "Last name is required").max(100),
-    email: z.string().trim().toLowerCase().email("Enter a valid email address").max(320),
+    email: emailSchema,
     password: z.string().min(8, "Password must be at least 8 characters").max(128),
     phone: phoneSchema.default(""),
     preferredBarberId: z.number().int().positive().nullable().default(null),
@@ -132,7 +135,7 @@ export const customerProfileSchema = z
   .object({
     firstName: z.string().trim().min(1, "First name is required").max(100),
     lastName: z.string().trim().min(1, "Last name is required").max(100),
-    email: z.string().trim().toLowerCase().email("Enter a valid email address").max(320),
+    email: emailSchema,
     phone: phoneSchema,
     preferredBarberId: z.number().int().positive().nullable(),
     loyaltyPoints: loyaltyPointsSchema.optional(),

@@ -1,29 +1,20 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Inter, Libre_Baskerville, Sora } from "next/font/google";
+import { Geist_Mono, Inter, Sora } from "next/font/google";
 import { BarracksApp } from "@/app/components/BarracksApp";
 import "./globals.css";
+import "./design-system.css";
 import "./pages/admin/branches.css";
 import "./theme.css";
 import "./operational-layouts.css";
 import "./pages/public/landing.css";
 import "./pages/auth/login.css";
 import "./pages/customer/booking.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+import "./components/bookings/booking-picker.css";
+import "./components/ui/skeleton.css";
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
-});
-
-const libreBaskerville = Libre_Baskerville({
-  variable: "--font-display",
-  subsets: ["latin"],
-  weight: ["400", "700"],
-  display: "swap",
 });
 
 const dashboardSans = Inter({
@@ -66,7 +57,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       data-scroll-behavior="smooth"
       data-theme="dark"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} ${libreBaskerville.variable} ${dashboardSans.variable} ${dashboardAccent.variable} h-full antialiased`}
+      className={`${geistMono.variable} ${dashboardSans.variable} ${dashboardAccent.variable} h-full antialiased`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />

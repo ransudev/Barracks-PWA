@@ -76,11 +76,13 @@ export function RecordCard({
   onOpen,
   className = "",
   ariaLabel,
+  actions,
 }: {
   children: ReactNode;
   onOpen?: () => void;
   className?: string;
   ariaLabel?: string;
+  actions?: ReactNode;
 }) {
   return (
     <article className={`operational-card ${className}`}>
@@ -89,6 +91,7 @@ export function RecordCard({
           {children}
         </button>
       ) : children}
+      {actions && <div className="operational-card__actions">{actions}</div>}
     </article>
   );
 }

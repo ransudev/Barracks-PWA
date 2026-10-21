@@ -34,7 +34,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const user = await requireRolesUser(["front_desk", "customer"]);
+  const user = await requireRolesUser(["administrator", "manager", "front_desk", "customer"]);
   if (user instanceof Response) return user;
 
   let body: unknown;
@@ -65,7 +65,8 @@ export async function POST(request: Request) {
     }
 
     const branchId = await visitBranch(pool, user, request);
-    const booking = await createBooking(pool, { ...parsed.data, customerId, branchId });
+    // Customer requests wait for staff approval; staff-entered bookings are confirmed on entry.
+    const booking = await createBooking(pool, { ...parsed.data, customerId, branchId, status: user.role === "customer" ? "pending" : "confirmed" });
     return Response.json({ success: true, booking }, { status: 201 });
   } catch (error) {
     const branchResponse = visitBranchError(error);

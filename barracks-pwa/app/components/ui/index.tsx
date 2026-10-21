@@ -322,11 +322,13 @@ export function TextField({
   min,
   max,
   step,
+  error,
   ...props
 }: {
   label?: string;
   id?: string;
   required?: boolean;
+  error?: string;
   value?: string;
   onChange?: (event: ChangeEvent<HTMLInputElement>) => void;
   placeholder?: string;
@@ -360,9 +362,12 @@ export function TextField({
           max={max}
           step={step}
           required={required}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? `${fieldId}-error` : undefined}
           {...props}
         />
       </span>
+      {error && <span className="field__error" id={`${fieldId}-error`} role="alert">{error}</span>}
     </label>
   );
 }

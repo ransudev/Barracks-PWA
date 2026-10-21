@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     if (branchResponse) return branchResponse; console.error("Unable to load queue", error); return Response.json({ success: false, message: "Unable to load queue" }, { status: 500 }); }
 }
 export async function POST(request: Request) {
-  const actor = await requireRolesUser(["front_desk"]);
+  const actor = await requireRolesUser(["administrator", "manager", "front_desk"]);
   if (actor instanceof Response) return actor;
   let body: unknown;
   try { body = await request.json(); } catch { return Response.json({ success: false, message: "Invalid walk-in" }, { status: 400 }); }

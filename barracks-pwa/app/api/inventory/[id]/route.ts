@@ -1,5 +1,5 @@
 import { withInventoryOwner, inventoryBranchError } from "@/server/auth/inventory-branch-access";
-import { requireRolesUser, requireManagementUser } from "@/server/auth/require-role";
+import { requireManagementUser } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { inventoryMetadataSchema } from "@/server/schemas/sprint2.schema";
 import { deleteInventory, findInventoryById, updateInventoryMetadata } from "@/server/services/inventory.service";
@@ -57,13 +57,14 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const staff = await requireRolesUser(["administrator"]);
+  const staff = await requireManagementUser();
   if (staff instanceof Response) return staff;
   const id = parseId((await params).id);
   if (!id) return Response.json({ success: false, message: "Invalid inventory item id" }, { status: 400 });
   try {
-    if (!(await withInventoryOwner(pool, staff, request, "inventory_items", id, (client) => deleteInventory(client, id)))) return Response.json({ success: false, message: "Inventory item not found" }, { status: 404 });
-    return Response.json({ success: true, message: "Inventory item deactivated or deleted" });
+    const outcome = await withInventoryOwner(pool, staff, request, "inventory_items", id, (client) => deleteInventory(client, id));
+    if (!outcome) return Response.json({ success: false, message: "Inventory item not found" }, { status: 404 });
+    return Response.json({ success: true, outcome, message: outcome === "deleted" ? "Inventory item deleted" : "Inventory item archived" });
   } catch (error) {
     const branchError = inventoryBranchError(error); if (branchError) return branchError;
     console.error("Unable to delete inventory item", error);

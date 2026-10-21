@@ -30,7 +30,7 @@
 .diverging > span { position: absolute; }
 .diverging::after { content: ""; position: absolute; inset: -3px auto -3px 50%; width: 1px; background: var(--text-muted); }
 .details { margin-top: 22px; border-top: 1px solid var(--line); }
-.details > summary { padding: 16px 0 4px; cursor: pointer; font-size: 12px; font-weight: 650; color: var(--text-soft); }
+.details > summary { padding: 16px 0 4px; cursor: pointer; font-size: 12px; font-weight: var(--weight-semibold); color: var(--text-soft); }
 .details > summary > span { float: right; color: var(--text-muted); font-size: 11px; }
 .details[open] > summary > span { display: none; }
 .details > summary:focus-visible { outline: 2px solid var(--text); outline-offset: 4px; }
@@ -103,7 +103,7 @@
   .dateForm > button { width: 100%; }
   .calendar { gap: 3px; }
   .calendarDay { padding: 5px; min-height: 68px; }
-  .calendarDay > strong { font-size: 9px; }
+  .calendarDay > strong { font-size: var(--text-2xs); }
   .chartFrame { grid-template-columns: 64px minmax(0, 1fr); gap: 6px; }
   .yAxis, .linePlot { height: 200px; }
   .lineAxis { margin-left: 70px; }

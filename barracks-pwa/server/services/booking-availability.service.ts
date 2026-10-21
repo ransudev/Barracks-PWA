@@ -1,11 +1,18 @@
 import type { Pool, PoolClient } from "pg";
-import { bookingIntervalStartSql, bookingIntervalEndSql } from "./booking-interval";
+import { activeBookingStatusesSql, bookingIntervalStartSql, bookingIntervalEndSql } from "./booking-interval";
 import { findServiceById } from "@/server/services/service.service";
 import { findBarberById, listBarberAvailability } from "@/server/services/barber.service";
 import { listBarberSchedules, listBarberUnavailability, listShopHours, type ShopHours, type WeeklySchedule } from "@/server/services/schedule.service";
+import { isWithinBookingWindow, manilaToday } from "@/app/constants/booking";
 
 export type AvailabilitySlot = { startTime: string; endTime: string };
-export type AvailabilityResult = { date: string; durationMinutes: number; slots: AvailabilitySlot[]; reason?: "schedule_not_configured" };
+// Why a listed time cannot be booked, so forms can grey it out with a reason.
+export type TimeReason = "past" | "booked" | "break" | "away" | "outside_shift";
+export type TimeOption = AvailabilitySlot & { available: boolean; reason?: TimeReason };
+// Why a whole day has nothing to offer.
+export type DayReason = "schedule_not_configured" | "closed" | "not_working" | "barber_unavailable" | "fully_booked" | "past" | "too_far";
+export type AvailabilityResult = { date: string; durationMinutes: number; slots: AvailabilitySlot[]; times: TimeOption[]; reason?: DayReason };
+export type MonthAvailabilityDay = { date: string; openSlots: number; times: TimeOption[]; reason?: DayReason };
 export type BlockedInterval = { start: number; end: number };
 type Db = Pool | PoolClient;
 
@@ -38,6 +45,35 @@ export function calculateSlots(input: { date: string; durationMinutes: number; h
   return slots;
 }
 
+// Every 15-minute start inside shop hours, each marked bookable or not with the first
+// rule that blocks it. calculateSlots stays the authority for what is bookable.
+export function describeTimes(input: { date: string; durationMinutes: number; hours?: ShopHours; schedule?: WeeklySchedule; booked?: BlockedInterval[]; away?: BlockedInterval[]; now?: Date }): TimeOption[] {
+  const { date, durationMinutes, hours, schedule, booked = [], away = [], now = new Date() } = input;
+  if (!hours || hours.isClosed || durationMinutes <= 0) return [];
+  const bookable = new Set(calculateSlots({ date, durationMinutes, hours, schedule, blocks: [...booked, ...away], now }).map((slot) => slot.startTime));
+  const options: TimeOption[] = [];
+  for (let start = Math.ceil(minuteOfDay(hours.openTime) / 15) * 15; start + durationMinutes <= minuteOfDay(hours.closeTime); start += 15) {
+    const end = start + durationMinutes;
+    const candidate = { start, end };
+    const slot = { startTime: clock(start), endTime: clock(end) };
+    if (bookable.has(slot.startTime)) { options.push({ ...slot, available: true }); continue; }
+    const reason: TimeReason = Date.parse(`${date}T00:00:00+08:00`) + start * 60_000 <= now.getTime() ? "past"
+      : !schedule?.isWorking || start < minuteOfDay(schedule.startTime) || end > minuteOfDay(schedule.endTime) ? "outside_shift"
+      : schedule.breaks.some((item) => overlaps(candidate, { start: minuteOfDay(item.startTime), end: minuteOfDay(item.endTime) })) ? "break"
+      : away.some((item) => overlaps(candidate, item)) ? "away" : "booked";
+    options.push({ ...slot, available: false, reason });
+  }
+  return options;
+}
+
+function dayReason(times: TimeOption[], hours?: ShopHours, schedule?: WeeklySchedule): DayReason | undefined {
+  if (times.some((time) => time.available)) return undefined;
+  if (!hours || hours.isClosed) return "closed";
+  if (!schedule) return "schedule_not_configured";
+  if (!schedule.isWorking) return "not_working";
+  return times.length && times.every((time) => time.reason === "past") ? "past" : "fully_booked";
+}
+
 export class AvailabilityError extends Error {
   constructor(public readonly kind: "service_not_found" | "barber_not_found", message: string) { super(message); }
 }
@@ -59,12 +95,14 @@ function branchHours(db: Db, context: Awaited<ReturnType<typeof loadContext>>, b
 }
 
 async function availabilityForBarber(db: Pool, input: { barberId: number; date: string }, barber: AvailableBarber, context: Awaited<ReturnType<typeof loadContext>>, options: AvailabilityOptions): Promise<AvailabilityResult> {
-  const empty: AvailabilityResult = { date: input.date, durationMinutes: context.durationMinutes, slots: [] };
-  if (barber.status === "unavailable") return empty;
+  const empty: AvailabilityResult = { date: input.date, durationMinutes: context.durationMinutes, slots: [], times: [] };
+  if (!isWithinBookingWindow(input.date, options.now)) return { ...empty, reason: "too_far" };
+  if (barber.status === "unavailable") return { ...empty, reason: "barber_unavailable" };
   const hours = (await branchHours(db, context, barber.branchId)).find((item) => item.dayOfWeek === context.weekday);
-  const { schedule, blocks } = await loadBarberIntervals(db, input.barberId, input.date, context.weekday, options);
-  if (!schedule) return hours && !hours.isClosed ? { ...empty, reason: "schedule_not_configured" } : empty;
-  return { ...empty, slots: calculateSlots({ date: input.date, durationMinutes: context.durationMinutes, hours: hours, schedule, blocks, now: options.now }) };
+  const { schedule, blocks, booked, away } = await loadBarberIntervals(db, input.barberId, input.date, context.weekday, options);
+  const times = describeTimes({ date: input.date, durationMinutes: context.durationMinutes, hours, schedule, booked, away, now: options.now });
+  const slots = calculateSlots({ date: input.date, durationMinutes: context.durationMinutes, hours: hours, schedule, blocks, now: options.now });
+  return { ...empty, slots, times, reason: slots.length ? undefined : dayReason(times, hours, schedule) };
 }
 
 async function loadBarberIntervals(db: Db, barberId: number, date: string, weekday: number, options: AvailabilityOptions) {
@@ -74,17 +112,15 @@ async function loadBarberIntervals(db: Db, barberId: number, date: string, weekd
       `SELECT EXTRACT(EPOCH FROM ((${bookingIntervalStartSql}) - $2::date::timestamp))/60 AS start_minute,
          EXTRACT(EPOCH FROM ((${bookingIntervalEndSql}) - $2::date::timestamp))/60 AS end_minute
        FROM bookings WHERE barber_id=$1
-       AND status IN ('confirmed','checked_in','in_progress') AND ($3::bigint IS NULL OR id<>$3)
+       AND status IN ${activeBookingStatusesSql} AND ($3::bigint IS NULL OR id<>$3)
        AND (${bookingIntervalStartSql}) < $2::date::timestamp + INTERVAL '1 day'
        AND (${bookingIntervalEndSql}) > $2::date::timestamp`,
       [barberId, date, options.excludeBookingId ?? null]);
   const schedule = schedules.find((item) => item.dayOfWeek === weekday);
   const midnight = Date.parse(`${date}T00:00:00+08:00`);
-  const blocks: BlockedInterval[] = absence.map((item) => ({ start: (Date.parse(item.startsAt) - midnight) / 60_000, end: (Date.parse(item.endsAt) - midnight) / 60_000 }));
-  for (const row of bookings.rows) {
-    blocks.push({ start: Number(row.start_minute), end: Number(row.end_minute) });
-  }
-  return { schedule, blocks };
+  const away: BlockedInterval[] = absence.map((item) => ({ start: (Date.parse(item.startsAt) - midnight) / 60_000, end: (Date.parse(item.endsAt) - midnight) / 60_000 }));
+  const booked: BlockedInterval[] = bookings.rows.map((row) => ({ start: Number(row.start_minute), end: Number(row.end_minute) }));
+  return { schedule, blocks: [...away, ...booked], booked, away };
 }
 
 // Queue service starts are immediate, rather than restricted to the booking
@@ -121,7 +157,7 @@ export async function findAvailableBarbers(db: Pool, input: { serviceId: string;
     listBarberAvailability(db, input.branchId === undefined ? undefined : [input.branchId]),
     db.query<{ barber_id: number; appointment_count: string }>(
       `SELECT barber_id, COUNT(*) AS appointment_count FROM bookings
-       WHERE booking_date=$1 AND status IN ('confirmed','checked_in','in_progress')
+       WHERE booking_date=$1 AND status IN ${activeBookingStatusesSql}
        AND ($2::bigint IS NULL OR id<>$2) GROUP BY barber_id`,
       [input.date, options.excludeBookingId ?? null],
     ),
@@ -142,6 +178,75 @@ export async function getAnyBarberAvailability(db: Pool, input: { serviceId: str
   const results = await Promise.all(barbers.map((barber) => availabilityForBarber(db, { barberId: barber.id, date: input.date }, barber, context, options)));
   const slots = new Map<string, AvailabilitySlot>();
   results.forEach((result) => result.slots.forEach((slot) => slots.set(slot.startTime, slot)));
+  // A time is open when any barber is free; otherwise keep the most specific shared reason.
+  const times = new Map<string, TimeOption>();
+  results.forEach((result) => result.times.forEach((time) => {
+    const current = times.get(time.startTime);
+    if (!current || time.available || (!current.available && current.reason !== "past" && time.reason === "past")) times.set(time.startTime, time);
+  }));
+  const reasons = results.map((result) => result.reason);
+  const reason: DayReason | undefined = slots.size ? undefined
+    : !isWithinBookingWindow(input.date, options.now) ? "too_far"
+    : !barbers.length ? "barber_unavailable"
+    : reasons.every((item) => item === reasons[0]) ? reasons[0] : "fully_booked";
   return { date: input.date, durationMinutes: context.durationMinutes, slots: [...slots.values()].sort((a, b) => a.startTime.localeCompare(b.startTime)),
-    ...(barbers.length && results.every((result) => result.reason === "schedule_not_configured") ? { reason: "schedule_not_configured" as const } : {}) };
+    times: [...times.values()].sort((a, b) => a.startTime.localeCompare(b.startTime)), ...(reason ? { reason } : {}) };
+}
+
+// One pass over a calendar month, used to grey out dates before a customer opens them.
+// Reads each barber's week, time away and bookings once for the whole month.
+export async function getMonthAvailability(db: Pool, input: { serviceId: string; month: string; barberId?: number; branchId?: number }, options: { now?: Date; excludeBookingId?: number } = {}): Promise<MonthAvailabilityDay[]> {
+  const now = options.now ?? new Date();
+  const first = `${input.month}-01`;
+  const context = await loadContext(db, input.serviceId, first);
+  const all = input.barberId
+    ? [await findBarberById(db, input.barberId)].filter((barber): barber is NonNullable<typeof barber> => Boolean(barber))
+    : await listBarberAvailability(db, input.branchId === undefined ? undefined : [input.branchId]);
+  if (input.barberId && (!all.length || (input.branchId !== undefined && all[0].branchId !== input.branchId))) throw new AvailabilityError("barber_not_found", "Barber not found");
+  const barbers = all.filter((barber) => barber.status !== "unavailable");
+  const days: string[] = [];
+  for (const cursor = new Date(`${first}T12:00:00Z`); cursor.toISOString().slice(0, 7) === input.month; cursor.setUTCDate(cursor.getUTCDate() + 1)) days.push(cursor.toISOString().slice(0, 10));
+  const monthStart = `${first}T00:00:00+08:00`;
+  const monthEnd = new Date(Date.parse(`${days[days.length - 1]}T00:00:00+08:00`) + 86_400_000).toISOString();
+  const perBarber = await Promise.all(barbers.map(async (barber) => {
+    const [schedules, absence, bookings, hours] = await Promise.all([
+      listBarberSchedules(db, barber.id),
+      listBarberUnavailability(db, barber.id, monthStart, monthEnd),
+      db.query<{ starts: string; ends: string }>(
+        `SELECT EXTRACT(EPOCH FROM ((${bookingIntervalStartSql}) AT TIME ZONE 'Asia/Manila'))*1000 AS starts,
+           EXTRACT(EPOCH FROM ((${bookingIntervalEndSql}) AT TIME ZONE 'Asia/Manila'))*1000 AS ends
+         FROM bookings WHERE barber_id=$1 AND status IN ${activeBookingStatusesSql} AND ($4::bigint IS NULL OR id<>$4)
+         AND (${bookingIntervalStartSql}) < $3::date::timestamp + INTERVAL '1 day' AND (${bookingIntervalEndSql}) > $2::date::timestamp`,
+        [barber.id, first, days[days.length - 1], options.excludeBookingId ?? null]),
+      branchHours(db, context, barber.branchId),
+    ]);
+    const away = absence.map((item) => [Date.parse(item.startsAt), Date.parse(item.endsAt)] as const);
+    const booked = bookings.rows.map((row) => [Number(row.starts), Number(row.ends)] as const);
+    return { schedules, away, booked, hours };
+  }));
+  return days.map((date) => {
+    if (date < manilaToday(now)) return { date, openSlots: 0, times: [], reason: "past" as const };
+    if (!isWithinBookingWindow(date, now)) return { date, openSlots: 0, times: [], reason: "too_far" as const };
+    if (!barbers.length) return { date, openSlots: 0, times: [], reason: "barber_unavailable" as const };
+    const weekday = new Date(`${date}T12:00:00Z`).getUTCDay();
+    const midnight = Date.parse(`${date}T00:00:00+08:00`);
+    const onDay = (intervals: readonly (readonly [number, number])[]) => intervals.filter(([start, end]) => start < midnight + 86_400_000 && end > midnight)
+      .map(([start, end]) => ({ start: (start - midnight) / 60_000, end: (end - midnight) / 60_000 }));
+    const merged = new Map<string, TimeOption>();
+    const reasons: (DayReason | undefined)[] = [];
+    for (const barber of perBarber) {
+      const hours = barber.hours.find((item) => item.dayOfWeek === weekday);
+      const schedule = barber.schedules.find((item) => item.dayOfWeek === weekday);
+      const times = describeTimes({ date, durationMinutes: context.durationMinutes, hours, schedule, booked: onDay(barber.booked), away: onDay(barber.away), now });
+      times.forEach((time) => {
+        const current = merged.get(time.startTime);
+        if (!current || time.available || (!current.available && current.reason !== "past" && time.reason === "past")) merged.set(time.startTime, time);
+      });
+      reasons.push(dayReason(times, hours, schedule));
+    }
+    const times = [...merged.values()].sort((a, b) => a.startTime.localeCompare(b.startTime));
+    const openSlots = times.filter((time) => time.available).length;
+    if (openSlots) return { date, openSlots, times };
+    return { date, openSlots, times, reason: reasons.every((item) => item === reasons[0]) ? reasons[0] ?? "fully_booked" : "fully_booked" };
+  });
 }

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { emailSchema } from "@/server/schemas/user.schema";
 import { requireAdministrator } from "@/server/auth/require-role";
 import { pool } from "@/server/db/pool";
 import { hashPassword } from "@/server/services/password.service";
@@ -8,7 +9,7 @@ const parseId = (raw: string) => /^\d+$/.test(raw) && Number(raw) > 0 ? Number(r
 const schema = z.object({
   firstName: z.string().trim().min(1).max(100),
   lastName: z.string().trim().min(1).max(100),
-  email: z.string().trim().toLowerCase().email().max(320),
+  email: emailSchema,
   password: z.string().min(8).max(128),
 }).strict();
 

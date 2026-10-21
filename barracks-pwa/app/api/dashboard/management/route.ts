@@ -27,7 +27,7 @@ export async function GET(request: Request) {
     ]);
     const dashboard: ManagementDashboardData = {
       inventoryValue: summary.inventoryValue, openRestocks: summary.openRestocks,
-      todayBookings: summary.todayBookings, upcomingBookings: summary.upcomingBookings,
+      todayBookings: summary.todayBookings, upcomingBookings: summary.upcomingBookings, pendingBookings: summary.pendingBookings,
       activeBarbers: summary.activeBarbers, customerCount: summary.customers,
       lowStock: summary.attentionItems, recentDeliveries: summary.recentDeliveries,
       sales: financial.sales, salesError: financial.salesError,
