@@ -9,6 +9,7 @@ import "./operational-layouts.css";
 import "./pages/public/landing.css";
 import "./pages/auth/login.css";
 import "./pages/customer/booking.css";
+import "./components/bookings/booking-picker.css";
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
