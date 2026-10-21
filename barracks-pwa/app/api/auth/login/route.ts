@@ -7,6 +7,7 @@ import {
 } from "@/server/schemas/user.schema";
 import { findUserByEmail } from "@/server/services/user.service";
 import { verifyPassword } from "@/server/services/password.service";
+import { supplierIdForUser } from "@/server/services/supplier.service";
 
 export const runtime = "nodejs";
 
@@ -60,6 +61,13 @@ export async function POST(request: Request) {
             ? "This account is blocked. Contact an administrator."
             : "This account is not verified yet. Contact an administrator.",
         },
+        { status: 403 },
+      );
+    }
+
+    if (account.user.role === "supplier" && !(await supplierIdForUser(pool, account.user.id))) {
+      return NextResponse.json(
+        { success: false, message: "This supplier account is inactive. Contact the shop administrator." },
         { status: 403 },
       );
     }
