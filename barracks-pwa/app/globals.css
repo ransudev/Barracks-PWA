@@ -1753,6 +1753,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .operational-card:hover { border-color: var(--line-strong); background: var(--surface-hover); box-shadow: 0 12px 28px rgba(0, 0, 0, .14); transform: translateY(-2px); }
 .operational-card__main { display: block; width: 100%; padding: 17px; background: transparent; color: inherit; text-align: left; }
 .operational-card__main:focus-visible { outline: 2px solid var(--text); outline-offset: -3px; }
+.operational-card__actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 17px 17px; }
+.operational-card__actions > .button { flex: 1 1 0; }
 .operational-card__footer { align-items: center; display: flex; justify-content: space-between; gap: 10px; min-height: 49px; padding: 0 17px; border-top: 1px solid var(--line); }
 .operational-card__header, .operational-card__identity, .operational-card__meta-row, .operational-card__facts > div { align-items: center; display: flex; justify-content: space-between; gap: 10px; }
 .operational-card__identity { justify-content: flex-start; min-width: 0; }

@@ -38,7 +38,6 @@ function Sidebar({
   area,
   active,
   go,
-  onToast,
   currentUser,
   onSignOut,
   collapsed,
@@ -52,7 +51,6 @@ function Sidebar({
   onMobileClose: () => void;
 }) {
   const isManagement = area === "admin";
-  const canSwitchWorkspace = currentUser.role === "administrator";
   const navigation = (isManagement ? managementNavigation : frontDeskNavigation).filter((item) => canAccessView(item.id, currentUser.role));
   const homeView = dashboardForArea(area);
   const navigate = (view: ViewId) => {
@@ -77,53 +75,11 @@ function Sidebar({
         />
       </div>
 
-      {canSwitchWorkspace && (
-        <div className="sidebar__workspace">
-          <span className="sidebar__label">Workspace</span>
-          <div className="workspace-switcher" role="group" aria-label="Choose workspace">
-            <button
-              className={`workspace-option ${isManagement ? "is-active" : ""}`}
-              type="button"
-              aria-pressed={isManagement}
-              title="Management · Business view"
-              onClick={() => {
-                if (!isManagement) {
-                  navigate("admin-dashboard");
-                  onToast("Switched to management");
-                }
-              }}
-            >
-              <span className="workspace-option__mark">
-                <Icon name="chart" size={15} />
-              </span>
-              <span className="workspace-option__label">Management</span>
-            </button>
-            <button
-              className={`workspace-option ${!isManagement ? "is-active" : ""}`}
-              type="button"
-              aria-pressed={!isManagement}
-              title="Front Desk · Live operations"
-              onClick={() => {
-                if (isManagement) {
-                  navigate("staff-dashboard");
-                  onToast("Switched to Front Desk");
-                }
-              }}
-            >
-              <span className="workspace-option__mark">
-                <Icon name="frontDesk" size={15} />
-              </span>
-              <span className="workspace-option__label">Front Desk</span>
-            </button>
-          </div>
-        </div>
-      )}
-
       <nav
         className="sidebar__nav"
         aria-label={`${isManagement ? "Management" : "Front Desk"} navigation`}
       >
-        {[{ name: "Business", ids: ["staff-dashboard", "admin-dashboard", "queue", "bookings", "payments", "admin-reports", "admin-services"] }, { name: "People", ids: ["staff-management", "customers", "admin-customers", "barbers", "admin-barbers", "admin-attendance", "admin-payroll"] }, { name: "Stock", ids: ["admin-inventory", "admin-suppliers", "admin-restocks"] }].map((group) => <div className="sidebar__group" key={group.name}>
+        {[{ name: "Today", ids: ["admin-dashboard", "staff-dashboard", "bookings", "queue", "payments"] }, { name: "People", ids: ["admin-customers", "customers", "staff-management", "admin-barbers", "barbers", "admin-attendance", "admin-payroll"] }, { name: "Business", ids: ["admin-services", "admin-reports", "admin-branches"] }, { name: "Stock", ids: ["admin-inventory", "admin-suppliers", "admin-restocks"] }].map((group) => <div className="sidebar__group" key={group.name}>
         {navigation.some((item) => group.ids.includes(item.id)) && <span className="sidebar__label">{group.name}</span>}
         {navigation.filter((item) => group.ids.includes(item.id)).map((item) => (
           <button
@@ -183,7 +139,6 @@ function Topbar({
   const branchRef = useRef(branchId);
   const lowStockRequest = useRef(0);
   const isManagement = area === "admin";
-  const canSwitchWorkspace = currentUser.role === "administrator";
   const name = displayName(currentUser);
   const role = roleLabel(currentUser);
   const homeView = dashboardForArea(area);
@@ -309,15 +264,6 @@ function Topbar({
           }}
           onSignOut={onSignOut}
         >
-          {canSwitchWorkspace && (
-            <button
-              type="button"
-              onClick={() => { setProfileOpen(false); go(isManagement ? "staff-dashboard" : "admin-dashboard"); }}
-            >
-              <Icon name="refresh" size={15} />
-              Switch workspace
-            </button>
-          )}
         </AccountMenu>
       </div>
     </header>

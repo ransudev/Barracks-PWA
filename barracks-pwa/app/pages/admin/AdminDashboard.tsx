@@ -57,9 +57,10 @@ function AdminDashboardContent({ go, onToast, currentUser, branch, branchControl
       <Panel className="management-attention-panel"><SectionHeading title="Needs attention" />
         <div className="management-attention-list" role="region" aria-label="Needs attention entries" tabIndex={0}>
         {initialLoading ? <p role="status">Loading exceptions…</p> : loadError ? <p role="alert">Exceptions unavailable. Refresh to retry.</p> : <>
+          {Boolean(dashboard?.pendingBookings) && <button type="button" className="attention-row" onClick={() => go("bookings")}><span><strong>Booking requests · {dashboard!.pendingBookings}</strong><small>Customers are waiting for you to confirm or reject</small></span><span>Review</span></button>}
           {(dashboard?.actionableRestocks ?? []).map((request) => <a className="attention-row" key={request.id} href={`/admin/restocks?request=${request.id}&branchId=${request.branchId}`}><span><strong>{request.status === "Delivered" ? "Receive stock" : "Confirm delivery"} · #{request.id}</strong><small>{request.supplierName} · {request.branch}</small></span><span>Open request</span></a>)}
           {(dashboard?.lowStock ?? []).map((item) => <a className="attention-row" key={item.id} href={`/admin/inventory?item=${item.id}&branchId=${item.branchId}`}><span><strong>{item.quantity === 0 ? "Out of stock" : "Low stock"} · {item.name}</strong><small>{item.branch ?? "Branch unavailable"} · {item.quantity} / {item.minimumStock} {item.unit}</small></span><span>Open item</span></a>)}
-          {!dashboard?.lowStock.length && !dashboard?.actionableRestocks?.length && <EmptyState title="Nothing needs attention" />}
+          {!dashboard?.lowStock.length && !dashboard?.actionableRestocks?.length && !dashboard?.pendingBookings && <EmptyState title="Nothing needs attention" />}
         </>}
         </div>
       </Panel>

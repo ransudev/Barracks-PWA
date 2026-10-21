@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { ScreenLoading } from "@/app/components/ui/ScreenLoading";
-import { isManagementRole } from "@/app/constants/roles";
+import { isManagementRole, isStaffRole } from "@/app/constants/roles";
 import type { ApiUser } from "@/app/lib/api";
 import type { ViewId } from "@/app/types/domain";
 
@@ -63,11 +63,11 @@ export function PageRouter({ view, go, onToast, currentUser }: PageRouterProps) 
     case "barbers":
       return <BarberFloorPage />;
     case "bookings":
-      return <BookingsPage onToast={onToast} canOperate={currentUser.role === "front_desk"} canDelete={currentUser.role === "administrator"} />;
+      return <BookingsPage onToast={onToast} canOperate={isStaffRole(currentUser.role)} canDelete={isStaffRole(currentUser.role)} />;
     case "queue":
-      return <QueuePage onToast={onToast} canOperate={currentUser.role === "front_desk"} />;
+      return <QueuePage onToast={onToast} canOperate={isStaffRole(currentUser.role)} />;
     case "payments":
-      return <PaymentPage onToast={onToast} canCheckout={currentUser.role === "front_desk"} canManageFinancialActions={isManagementRole(currentUser.role)} />;
+      return <PaymentPage onToast={onToast} canCheckout={isStaffRole(currentUser.role)} canManageFinancialActions={isManagementRole(currentUser.role)} />;
     case "inventory":
     case "admin-inventory":
       return <InventoryPage admin={view === "admin-inventory"} onToast={onToast} canDelete={currentUser.role === "administrator"} />;

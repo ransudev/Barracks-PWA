@@ -34,11 +34,12 @@
 .day-schedule__legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 0; padding: 0; list-style: none; }
 .day-schedule__legend li { align-items: center; display: inline-flex; gap: 6px; }
 .day-schedule__legend li::before { width: 10px; height: 10px; border-radius: 2px; background: var(--status-color); content: ""; }
+:is(.day-schedule__legend li, .day-schedule__booking).is-pending { --status-color: var(--amber); }
 :is(.day-schedule__legend li, .day-schedule__booking).is-confirmed { --status-color: var(--blue); }
 :is(.day-schedule__legend li, .day-schedule__booking).is-checked_in { --status-color: var(--amber); }
 :is(.day-schedule__legend li, .day-schedule__booking).is-in_progress { --status-color: var(--violet); }
 :is(.day-schedule__legend li, .day-schedule__booking).is-completed { --status-color: var(--green); }
-:is(.day-schedule__legend li, .day-schedule__booking):is(.is-cancelled, .is-no_show) { --status-color: var(--red); }
+:is(.day-schedule__legend li, .day-schedule__booking):is(.is-cancelled, .is-rejected, .is-no_show) { --status-color: var(--red); }
 .day-schedule { overflow: auto; max-height: min(680px, 70vh); margin: 0 22px 22px; border: 1px solid var(--line); border-radius: 8px; }
 .day-schedule__grid { display: grid; min-width: 100%; }
 .day-schedule__heading, .day-schedule__corner { position: sticky; top: 0; z-index: 5; padding: 10px 12px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--surface-raised); }
@@ -62,8 +63,9 @@
 .day-schedule__booking > span { color: var(--text-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
 .day-schedule__booking strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .day-schedule__booking small { overflow: hidden; color: var(--text-soft); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.day-schedule__booking:is(.is-cancelled, .is-no_show) { opacity: .6; }
-.day-schedule__booking:is(.is-cancelled, .is-no_show) strong { text-decoration: line-through; }
+.day-schedule__booking.is-pending { border-style: dashed; }
+.day-schedule__booking:is(.is-cancelled, .is-rejected, .is-no_show) { opacity: .6; }
+.day-schedule__booking:is(.is-cancelled, .is-rejected, .is-no_show) strong { text-decoration: line-through; }
 .day-schedule__now { position: absolute; z-index: 3; left: 0; right: 0; border-top: 2px solid var(--red); pointer-events: none; }
 .booking-calendar { padding-top: 4px; }
 .booking-agenda { display: none; }
@@ -288,3 +290,9 @@ a.button { text-decoration: none; }
 .sales-breakdown > summary { padding: 12px 0; color: var(--text-soft); cursor: pointer; font-size: 12px; font-weight: var(--weight-semibold); }
 .sales-breakdown .operational-table-wrap { padding: 0; }
 .button.button--ghost[aria-pressed="true"] { background: var(--surface-hover); box-shadow: inset 0 0 0 1px var(--line-strong); color: var(--text); }
+
+/* Customer requests waiting for staff approval sit above the schedule. */
+.bookings-approval { margin-bottom: 14px; border-color: color-mix(in srgb, var(--amber) 45%, var(--line)); }
+.bookings-approval__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.bookings-approval__head h2 { margin: 0; font-size: var(--text-lg); font-weight: var(--weight-semibold); }
+.bookings-approval__head p { margin: 4px 0 0; color: var(--text-soft); font-size: var(--text-sm); }
