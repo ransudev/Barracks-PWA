@@ -1,5 +1,5 @@
 import type { Pool, PoolClient } from "pg";
-import { bookingIntervalStartSql, bookingIntervalEndSql } from "./booking-interval";
+import { activeBookingStatusesSql, bookingIntervalStartSql, bookingIntervalEndSql } from "./booking-interval";
 import { listBarberSchedules, listBarberUnavailability, listShopHours, ShopHoursConfigurationError, type ShopHours, type WeeklySchedule } from "@/server/services/schedule.service";
 
 type Db = Pool | PoolClient;
@@ -51,7 +51,7 @@ export async function getBarberOperationalAvailability(db: Db, barberId: number,
   if (visit) {
     const bookings = await db.query(
       `SELECT id FROM bookings WHERE barber_id=$1
-       AND status IN ('confirmed','checked_in','in_progress') AND ($3::bigint IS NULL OR id<>$3)
+       AND status IN ${activeBookingStatusesSql} AND ($3::bigint IS NULL OR id<>$3)
        AND (${bookingIntervalStartSql}) AT TIME ZONE 'Asia/Manila' < $4::timestamptz
        AND (${bookingIntervalEndSql}) AT TIME ZONE 'Asia/Manila' > $2::timestamptz LIMIT 1`,
       [barberId, instant, visit.excludeBookingId ?? null, end]);

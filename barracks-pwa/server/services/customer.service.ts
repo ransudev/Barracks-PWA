@@ -265,7 +265,7 @@ export async function deleteCustomer(db: Pool, id: number): Promise<DeleteCustom
 
     const activeBooking = await client.query<{ id: number }>(
       `SELECT id FROM bookings
-       WHERE customer_id = $1 AND status IN ('confirmed', 'checked_in', 'in_progress')
+       WHERE customer_id = $1 AND status IN ('pending', 'confirmed', 'checked_in', 'in_progress')
        LIMIT 1`,
       [id],
     );

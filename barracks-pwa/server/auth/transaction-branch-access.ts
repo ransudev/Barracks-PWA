@@ -10,7 +10,7 @@ export async function lockOperationalActor(client: PoolClient, actor?: BranchAct
   const row = (await client.query<{ role: BranchActor["role"] }>(`SELECT r.name AS role FROM users u
     JOIN roles r ON r.id=u.role_id WHERE u.id=$1 AND u.deleted_at IS NULL
     AND u.is_verified AND NOT u.is_blocked FOR SHARE OF u`, [actor.id])).rows[0];
-  if (!row || row.role !== "front_desk") throw new BranchError("Front Desk access is required", 403);
+  if (!row || !["administrator", "manager", "front_desk"].includes(row.role)) throw new BranchError("Staff access is required", 403);
   return { id: actor.id, role: row.role };
 }
 

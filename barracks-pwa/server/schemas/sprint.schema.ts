@@ -5,7 +5,7 @@ export { formatValidationErrors };
 
 export const barberStatusSchema = z.enum(["available", "busy", "unavailable"]);
 export const inventoryCategorySchema = z.enum(["Supplies", "Equipment", "Products"]);
-export const bookingStatusSchema = z.enum(["confirmed", "checked_in", "in_progress", "completed", "cancelled", "no_show"]);
+export const bookingStatusSchema = z.enum(["pending", "confirmed", "rejected", "checked_in", "in_progress", "completed", "cancelled", "no_show"]);
 
 const percentageSchema = z
   .number()
@@ -95,7 +95,7 @@ export const bookingCreateSchema = z
 
 export const bookingUpdateSchema = z
   .object({
-    status: z.enum(["checked_in", "in_progress", "completed", "cancelled", "no_show"]),
+    status: z.enum(["confirmed", "rejected", "checked_in", "in_progress", "completed", "cancelled", "no_show"]),
   })
   .strict();
 

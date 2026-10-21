@@ -124,7 +124,7 @@ export type ApiCustomer = {
   updatedAt: string;
 };
 
-export type ApiBookingStatus = "confirmed" | "checked_in" | "in_progress" | "completed" | "cancelled" | "no_show";
+export type ApiBookingStatus = "pending" | "confirmed" | "rejected" | "checked_in" | "in_progress" | "completed" | "cancelled" | "no_show";
 
 export type ApiBooking = {
   branchId: number;

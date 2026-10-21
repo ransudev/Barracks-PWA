@@ -8,7 +8,7 @@ export const roleOptions = [
 
 export type UserRole = (typeof userRoles)[number];
 
-export type BookingAction = "edit" | "cancel" | "check_in" | "start" | "complete" | "no_show" | "delete";
+export type BookingAction = "edit" | "confirm" | "reject" | "cancel" | "check_in" | "start" | "complete" | "no_show" | "delete";
 
 export function roleLabel(role: string): string {
   if (role === "manager") return "Manager";
@@ -65,7 +65,6 @@ export function canChangeStaffLifecycle(
 export const canDeactivateStaffUser = canChangeStaffLifecycle;
 
 export function canManageBooking(actorRole: string, action: BookingAction, ownsBooking = false): boolean {
-  if (actorRole === "administrator") return action === "delete";
-  if (actorRole === "front_desk") return action !== "delete";
+  if (isStaffRole(actorRole)) return true;
   return actorRole === "customer" && ownsBooking && (action === "edit" || action === "cancel");
 }

@@ -44,7 +44,7 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const actor = await requireRolesUser(["front_desk", "customer"]);
+  const actor = await requireRolesUser(["administrator", "manager", "front_desk", "customer"]);
   if (actor instanceof Response) return actor;
 
   const id = Number((await params).id);
@@ -70,11 +70,11 @@ export async function PATCH(
     const authorization = await authorizeBookingAction(
       id,
       actor,
-      ({ cancelled: "cancel", checked_in: "check_in", in_progress: "start", completed: "complete", no_show: "no_show" } as const)[parsed.data.status],
+      ({ confirmed: "confirm", rejected: "reject", cancelled: "cancel", checked_in: "check_in", in_progress: "start", completed: "complete", no_show: "no_show" } as const)[parsed.data.status],
     );
     if (authorization instanceof Response) return authorization;
-    if (actor.role === "customer" && parsed.data.status === "cancelled" && authorization.booking.status !== "confirmed") {
-      return Response.json({ success: false, message: "Only confirmed bookings can be cancelled" }, { status: 409 });
+    if (actor.role === "customer" && parsed.data.status === "cancelled" && !["pending", "confirmed"].includes(authorization.booking.status)) {
+      return Response.json({ success: false, message: "Only pending or confirmed bookings can be cancelled" }, { status: 409 });
     }
 
     const booking = await updateBooking(
@@ -101,7 +101,7 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const actor = await requireRolesUser(["front_desk", "customer"]);
+  const actor = await requireRolesUser(["administrator", "manager", "front_desk", "customer"]);
   if (actor instanceof Response) return actor;
 
   const id = Number((await params).id);
@@ -169,7 +169,7 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const actor = await requireRolesUser(["administrator"]);
+  const actor = await requireRolesUser(["administrator", "manager", "front_desk"]);
   if (actor instanceof Response) return actor;
   const id = Number((await params).id);
   if (!Number.isInteger(id) || id < 1) {

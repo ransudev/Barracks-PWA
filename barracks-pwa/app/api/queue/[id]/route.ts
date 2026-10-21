@@ -32,7 +32,7 @@ async function change(id: number, body: unknown, actor: import("@/server/auth/ba
   }
 }
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const actor = await requireRolesUser(["front_desk"]);
+  const actor = await requireRolesUser(["administrator", "manager", "front_desk"]);
   if (actor instanceof Response) return actor;
   const id = Number((await params).id);
   if (!Number.isInteger(id) || id < 1) return Response.json({ success: false, message: "Queue entry not found" }, { status: 404 });
@@ -41,7 +41,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   return change(id, body, actor);
 }
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const actor = await requireRolesUser(["front_desk"]);
+  const actor = await requireRolesUser(["administrator", "manager", "front_desk"]);
   if (actor instanceof Response) return actor;
   const id = Number((await params).id);
   if (!Number.isInteger(id) || id < 1) return Response.json({ success: false, message: "Queue entry not found" }, { status: 404 });
