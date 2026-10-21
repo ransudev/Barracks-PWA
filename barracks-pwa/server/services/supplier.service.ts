@@ -122,3 +122,29 @@ export async function getSupplierProfile(db: Pool, supplierId: number, branchIds
   ]);
   return { supplier, suppliedItems: items.rows, recentDeliveries: deliveries.rows, restockHistory: restocks.rows };
 }
+
+// Replace which inventory items in one branch this supplier provides. Items still
+// tied to an open restock request keep their supplier so the delivery can be received.
+export async function setSupplierItems(db: Pool, supplierId: number, branchId: number, itemIds: number[]) {
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const supplier = await client.query("SELECT id FROM suppliers WHERE id=$1 AND status='active' FOR SHARE", [supplierId]);
+    if (!supplier.rows[0]) throw new Error("SUPPLIER_UNAVAILABLE");
+    const owned = await client.query<{ id: number }>("SELECT id FROM inventory_items WHERE id = ANY($1::int[]) AND branch_id=$2 FOR UPDATE", [itemIds, branchId]);
+    if (owned.rows.length !== new Set(itemIds).size) throw new Error("ITEM_NOT_IN_BRANCH");
+    const removed = await client.query<{ name: string }>(`
+      SELECT i.name FROM inventory_items i
+      WHERE i.supplier_id=$1 AND i.branch_id=$2 AND NOT (i.id = ANY($3::int[]))
+        AND EXISTS (SELECT 1 FROM restock_request_items ri JOIN restock_requests r ON r.id=ri.restock_request_id
+          WHERE ri.inventory_item_id=i.id AND r.supplier_id=$1 AND r.status NOT IN ('Received','Cancelled'))`,
+      [supplierId, branchId, itemIds]);
+    if (removed.rows[0]) throw Object.assign(new Error("ITEM_HAS_OPEN_RESTOCK"), { itemName: removed.rows[0].name });
+    await client.query("UPDATE inventory_items SET supplier_id=NULL, updated_at=NOW() WHERE supplier_id=$1 AND branch_id=$2 AND NOT (id = ANY($3::int[]))", [supplierId, branchId, itemIds]);
+    await client.query("UPDATE inventory_items SET supplier_id=$1, updated_at=NOW() WHERE id = ANY($2::int[]) AND branch_id=$3 AND supplier_id IS DISTINCT FROM $1", [supplierId, itemIds, branchId]);
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally { client.release(); }
+}
