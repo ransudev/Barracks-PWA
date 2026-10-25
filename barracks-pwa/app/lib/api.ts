@@ -184,6 +184,7 @@ export function clearApiCache() {
   cacheVersion++;
   pendingReads.clear();
   referenceReads.clear();
+  clearStaleReads();
 }
 
 // Last successful JSON body per GET path, for stale-while-revalidate screens: a page
@@ -191,18 +192,22 @@ export function clearApiCache() {
 // Never used for authorization; cleared whenever the signed-in account changes.
 const lastReads = new Map<string, unknown>();
 const LAST_READS_LIMIT = 60;
+let staleReadVersion = 0;
 
 export function peekApiBody<T>(path: string): T | null {
   return (lastReads.get(path) as T | undefined) ?? null;
 }
 
 export function clearStaleReads() {
+  staleReadVersion++;
   lastReads.clear();
 }
 
-function rememberRead(path: string, response: Response) {
+function rememberRead(path: string, response: Response, version: number, staleVersion: number) {
   if (!(response.headers.get("content-type") ?? "").includes("application/json")) return;
   void response.json().then((body: unknown) => {
+    // A request or its body can finish after a mutation or account change.
+    if (version !== cacheVersion || staleVersion !== staleReadVersion) return;
     if (!body || typeof body !== "object" || (body as { success?: unknown }).success === false) return;
     lastReads.delete(path);
     lastReads.set(path, body);
@@ -236,11 +241,12 @@ export async function apiRequest(
 
   if (!isRead) clearApiCache();
   const version = cacheVersion;
+  const staleVersion = staleReadVersion;
   const request = fetch(path, { ...requestInit, credentials: "same-origin", headers }).then((response) => {
-    if (!isRead || response.status === 401 || response.status === 403) clearApiCache();
-    if (response.status === 401) clearStaleReads();
-    if (isRead && response.ok && typeof window !== "undefined" && path.startsWith("/api/") && !path.startsWith("/api/auth/")) rememberRead(path, response.clone());
-    if (typeof window !== "undefined" && response.status === 401 && !path.startsWith("/api/auth/")) {
+    const current = version === cacheVersion;
+    if (!isRead || (current && (response.status === 401 || response.status === 403))) clearApiCache();
+    if (isRead && current && response.ok && typeof window !== "undefined" && path.startsWith("/api/") && !path.startsWith("/api/auth/")) rememberRead(path, response.clone(), version, staleVersion);
+    if (current && typeof window !== "undefined" && response.status === 401 && !path.startsWith("/api/auth/")) {
       window.dispatchEvent(new Event("barracks:session-expired"));
     }
     if (response.ok && lifetime && version === cacheVersion) {

@@ -543,11 +543,9 @@ Workspace and account screens load their JavaScript on demand. Internal screen n
 
 The management dashboard retains its branch-scoped `GET /api/reports/dashboard?branchId=...` summary, restricted to administrators and managers with existing branch permissions. It returns aggregate metrics, low-stock rows, and five recent deliveries. Business dates use Asia/Manila, and dashboard data stays fresh.
 
-Concurrent identical GET requests share one network request. Booking and queue forms can reuse customer/service reference lists in memory for up to 15 seconds; cache keys include the full URL so branch-specific lists stay separate; mutations, login/logout, authorization failures, and returning to the tab clear these lists. Queue, booking, payment, stock, and dashboard responses are never retained by this reference cache.
+Concurrent identical GET requests share one network request. Booking and queue forms can reuse customer/service reference lists in memory for up to 15 seconds; cache keys include the full URL so branch-specific lists stay separate. Mutations, login/logout, authorization failures, and returning to the tab clear both these lists and the last-read screen snapshots. Requests and JSON bodies that finish after invalidation cannot restore an old snapshot. A refreshed session with a different account, role, or branch assignment clears cached data and remounts the workspace with the current access scope. Queue, booking, payment, stock, and dashboard responses are never retained by the reference cache.
 
 The management dashboard uses `GET /api/dashboard/management`, restricted to administrators and managers. It returns aggregate metrics, low-stock rows, and five recent deliveries instead of downloading five full collections. Business dates use Asia/Manila, and dashboard responses are private and uncached.
-
-Concurrent identical GET requests share one network request. Booking and queue forms can reuse customer/service reference lists in memory for up to 15 seconds; mutations, login/logout, authorization failures, and returning to the tab clear these lists. Queue, booking, payment, stock, and dashboard responses are never retained by this reference cache.
 
 Dashboard entrances take about 200ms without staggered delays. Landing reveals take about 260ms, respect reduced-motion preferences, and use one-time visibility observation instead of scroll-driven parallax calculations. Modals animate opacity and transforms without backdrop blur; sidebar resizing happens immediately rather than animating the entire page layout.
 
