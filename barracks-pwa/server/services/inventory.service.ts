@@ -3,6 +3,7 @@ import { inTransaction } from "@/server/db/transaction";
 import type { InventoryItemInput } from "@/server/schemas/sprint.schema";
 import type { InventoryCreateInput, InventoryMetadataInput } from "@/server/schemas/sprint2.schema";
 import { getInventoryImageForName } from "../../app/data/inventory-images";
+import { assertSupplierChangeAllowed } from "@/server/services/supplier.service";
 
 type Queryable = Pool | PoolClient;
 
@@ -159,6 +160,7 @@ export async function updateInventoryMetadata(
       const previousMinimum = Number(existing.minimum_stock);
       const previousMaximum = existing.maximum_stock === null ? null : Number(existing.maximum_stock);
       await assertActiveSupplier(client, input.supplierId);
+      await assertSupplierChangeAllowed(client, [id], input.supplierId);
       if (previousMinimum !== input.minimumStock) {
         await client.query("DELETE FROM inventory_alert_acknowledgements WHERE inventory_item_id=$1", [id]);
       }

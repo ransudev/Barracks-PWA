@@ -24,7 +24,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const code = error instanceof Error ? error.message : "";
     if (code === "SUPPLIER_UNAVAILABLE") return Response.json({ success: false, message: "Supplier is inactive or unavailable" }, { status: 400 });
     if (code === "ITEM_NOT_IN_BRANCH") return Response.json({ success: false, message: "Some items are not in this branch" }, { status: 400 });
-    if (code === "ITEM_HAS_OPEN_RESTOCK") return Response.json({ success: false, message: `${(error as Error & { itemName?: string }).itemName ?? "An item"} has an open restock request with this supplier. Receive or cancel it first.` }, { status: 409 });
+    if (code === "ITEM_HAS_OPEN_RESTOCK") return Response.json({ success: false, message: `${(error as Error & { itemName?: string }).itemName ?? "An item"} has an open restock request. Receive or cancel it before changing its supplier.` }, { status: 409 });
     return branchApiError(error);
   }
 }

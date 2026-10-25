@@ -453,7 +453,7 @@ export function InventoryPage(props: { onToast: (message: string) => void; admin
   return <div className="operational-workspace">{branchControl}{branchError ? <p role="alert">{branchError}</p> : <p className="operational-loading">No branch assigned.</p>}</div>;
 }
 
-function InventoryPageContent({ onToast: notify, admin = false, canDelete, branchId, branchName, branchControl }: { branchControl: ReactNode; onToast: (message: string) => void; admin?: boolean; canDelete: boolean; branchId: number; branchName: string }) {
+function InventoryPageContent({ onToast: notify, canDelete, branchId, branchName, branchControl }: { branchControl: ReactNode; onToast: (message: string) => void; admin?: boolean; canDelete: boolean; branchId: number; branchName: string }) {
   const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   const onToast = useCallback((message: string) => { if (active.current) notify(message); }, [notify]);

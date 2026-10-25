@@ -26,13 +26,14 @@ export async function createRestockRequest(db: Pool | PoolClient, userId: number
     );
     const requestId = Number(request.rows[0].id);
 
+    const linked = await client.query<{ id: number; branch_id: number }>(
+      "SELECT id,branch_id FROM inventory_items WHERE id = ANY($1::int[]) AND supplier_id=$2 AND status='active' ORDER BY id FOR SHARE",
+      [input.items.map((item) => item.inventoryItemId), input.supplierId],
+    );
+    if (linked.rows.length !== input.items.length) throw new Error("ITEM_NOT_LINKED_TO_SUPPLIER");
+    if (linked.rows.some((item) => Number(item.branch_id) !== Number(request.rows[0].branch_id))) throw new Error("ITEM_NOT_IN_BRANCH");
+
     for (const item of input.items) {
-      const linked = await client.query<{ id: number; branch_id: number }>(
-        "SELECT id,branch_id FROM inventory_items WHERE id=$1 AND supplier_id=$2 AND status='active' FOR SHARE",
-        [item.inventoryItemId, input.supplierId],
-      );
-      if (!linked.rows[0]) throw new Error("ITEM_NOT_LINKED_TO_SUPPLIER");
-      if (Number(linked.rows[0].branch_id) !== Number(request.rows[0].branch_id)) throw new Error("ITEM_NOT_IN_BRANCH");
       await client.query(
         `INSERT INTO restock_request_items (restock_request_id,inventory_item_id,requested_quantity,unit_cost)
          VALUES ($1,$2,$3,$4)`,

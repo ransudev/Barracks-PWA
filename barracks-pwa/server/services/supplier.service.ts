@@ -123,24 +123,37 @@ export async function getSupplierProfile(db: Pool, supplierId: number, branchIds
   return { supplier, suppliedItems: items.rows, recentDeliveries: deliveries.rows, restockHistory: restocks.rows };
 }
 
-// Replace which inventory items in one branch this supplier provides. Items still
-// tied to an open restock request keep their supplier so the delivery can be received.
+// Callers hold the affected inventory rows locked until the supplier change commits.
+export async function assertSupplierChangeAllowed(db: PoolClient, itemIds: number[], supplierId: number | null) {
+  if (!itemIds.length) return;
+  const conflict = await db.query<{ name: string }>(`
+    SELECT i.name FROM inventory_items i
+    WHERE i.id = ANY($1::int[]) AND i.supplier_id IS DISTINCT FROM $2::integer
+      AND EXISTS (SELECT 1 FROM restock_request_items ri JOIN restock_requests r ON r.id=ri.restock_request_id
+        WHERE ri.inventory_item_id=i.id AND r.status NOT IN ('Received','Cancelled')
+          AND r.supplier_id IS DISTINCT FROM $2::integer)
+    ORDER BY i.id LIMIT 1`, [itemIds, supplierId]);
+  if (conflict.rows[0]) throw Object.assign(new Error("ITEM_HAS_OPEN_RESTOCK"), { itemName: conflict.rows[0].name });
+}
+
+// Replace the supplier's items in one branch without stranding an open delivery.
 export async function setSupplierItems(db: Pool, supplierId: number, branchId: number, itemIds: number[]) {
   const client = await db.connect();
   try {
     await client.query("BEGIN");
     const supplier = await client.query("SELECT id FROM suppliers WHERE id=$1 AND status='active' FOR SHARE", [supplierId]);
     if (!supplier.rows[0]) throw new Error("SUPPLIER_UNAVAILABLE");
-    const owned = await client.query<{ id: number }>("SELECT id FROM inventory_items WHERE id = ANY($1::int[]) AND branch_id=$2 FOR UPDATE", [itemIds, branchId]);
-    if (owned.rows.length !== new Set(itemIds).size) throw new Error("ITEM_NOT_IN_BRANCH");
-    const removed = await client.query<{ name: string }>(`
-      SELECT i.name FROM inventory_items i
-      WHERE i.supplier_id=$1 AND i.branch_id=$2 AND NOT (i.id = ANY($3::int[]))
-        AND EXISTS (SELECT 1 FROM restock_request_items ri JOIN restock_requests r ON r.id=ri.restock_request_id
-          WHERE ri.inventory_item_id=i.id AND r.supplier_id=$1 AND r.status NOT IN ('Received','Cancelled'))`,
-      [supplierId, branchId, itemIds]);
-    if (removed.rows[0]) throw Object.assign(new Error("ITEM_HAS_OPEN_RESTOCK"), { itemName: removed.rows[0].name });
-    await client.query("UPDATE inventory_items SET supplier_id=NULL, updated_at=NOW() WHERE supplier_id=$1 AND branch_id=$2 AND NOT (id = ANY($3::int[]))", [supplierId, branchId, itemIds]);
+    // Lock additions and removals in the same order used by restock creation.
+    const owned = await client.query<{ id: number; supplier_id: number | null }>(`
+      SELECT id,supplier_id FROM inventory_items
+      WHERE branch_id=$2 AND (id = ANY($1::int[]) OR supplier_id=$3)
+      ORDER BY id FOR UPDATE`, [itemIds, branchId, supplierId]);
+    const selected = new Set(itemIds);
+    if (owned.rows.filter((item) => selected.has(Number(item.id))).length !== selected.size) throw new Error("ITEM_NOT_IN_BRANCH");
+    const removedIds = owned.rows.filter((item) => Number(item.supplier_id) === supplierId && !selected.has(Number(item.id))).map((item) => Number(item.id));
+    await assertSupplierChangeAllowed(client, removedIds, null);
+    await assertSupplierChangeAllowed(client, itemIds, supplierId);
+    await client.query("UPDATE inventory_items SET supplier_id=NULL, updated_at=NOW() WHERE id = ANY($1::int[])", [removedIds]);
     await client.query("UPDATE inventory_items SET supplier_id=$1, updated_at=NOW() WHERE id = ANY($2::int[]) AND branch_id=$3 AND supplier_id IS DISTINCT FROM $1", [supplierId, itemIds, branchId]);
     await client.query("COMMIT");
   } catch (error) {
