@@ -45,9 +45,9 @@ The combined suite uses disposable schemas and checks migration repeatability an
 
 Rendered browser verification used only a disposable schema and synthetic accounts: Manager submitted, approved and recorded a full external Cash payout; the original-price commission remained PHP 100; paid history survived a later rate change; settings displayed rate/correction actors; a paid payslip downloaded successfully. Responsive checks at 320, 768, 1024 and 1440 px found no document overflow after the table-container fix. Front Desk had no Payroll navigation and direct `/admin/payroll` navigation redirected to its staff dashboard.
 
-## Activation decisions and deployment boundary
+## Original implementation boundary (before the activation follow-up)
 
-- No production migration, real payout, push or merge was performed. Read-only preflight found deployed migration 027 and no completed source rows missing a barber.
+- During the original local implementation, no production migration, real payout, push or merge was performed. Its read-only preflight found deployed migration 027 and no completed source rows missing a barber. The dated October 10 activation follow-up above records the later authorized migration; these earlier boundaries do not describe current hosted state.
 - Owner must choose the first period start date for each branch. Production dates are never inferred from the synthetic fixtures.
 - Eligibility uses existing completed booking/walk-in records and the authoritative successful transaction tender. Historical missing percentages require Manager evidence rather than a fabricated backfill.
 - Post-payment voids of qualifying services are blocked pending an owner policy; confirmed refund retention remains supported.

@@ -1,94 +1,61 @@
 # Run Barracks locally
 
-This guide is for running Barracks on your own computer. You do not need to understand the code first—follow the steps in order.
+This guide matches the current repository. Run app and database commands from `barracks-pwa/`; run Git commands from the repository root.
 
 ## What you need
 
-Install these two programs before starting:
+- Node.js `20.9.0` or newer, as required by the installed Next.js package: [nodejs.org](https://nodejs.org/).
+- A running PostgreSQL server and its command-line tools: [postgresql.org/download](https://www.postgresql.org/download/).
+- This project folder, including `barracks-pwa/package-lock.json`.
 
-- Node.js `20.9.0` or newer: [nodejs.org](https://nodejs.org/)
-- PostgreSQL: [postgresql.org/download](https://www.postgresql.org/download/)
+## 1. Open the app folder
 
-You also need this project folder on your computer.
-
-## 1. Open the project folder
-
-Open a command window and move into the Next.js app folder. Replace the example path if your project is somewhere else.
-
-On macOS, open **Terminal** and run:
-
-```bash
-cd "/Users/your-name/Documents/Barracks Prototype/barracks-pwa"
-ls
-```
-
-On Windows, open **PowerShell** and run:
+On Windows, open **PowerShell** and adjust the path for your computer:
 
 ```powershell
-cd "C:\Users\your-name\Documents\Barracks Prototype\barracks-pwa"
+cd "C:\Users\your-name\Documents\Barracks-PWA-sprint-2\barracks-pwa"
 Get-ChildItem
 ```
 
-You should see files such as `package.json` and `.env.example`.
+On macOS or Linux:
 
-## 2. Check that Node.js and PostgreSQL are installed
+```bash
+cd "/path/to/Barracks-PWA-sprint-2/barracks-pwa"
+ls
+```
 
-Run this in either Terminal or PowerShell:
+You should see `package.json`, `package-lock.json`, and `.env.example`. Check the tools:
 
 ```bash
 node --version
 psql --version
 ```
 
-The Node.js version should be `20.9.0` or newer. If either command is not found, install the missing program and open a new command window.
+## 2. Start PostgreSQL and create a database
 
-## 3. Start PostgreSQL
-
-PostgreSQL must be running before Barracks can use customer, barber, inventory, booking, or login data.
-
-On macOS, if you installed PostgreSQL with an app, open that app and start the database server. If you use Homebrew, the command is usually:
-
-```bash
-brew services start postgresql
-```
-
-If your Homebrew installation uses a versioned PostgreSQL service, use the version shown by `brew services list`, for example `postgresql@16`.
-
-On Windows, open **SQL Shell (psql)** or **pgAdmin**, start PostgreSQL, and create a database named `barracks`. In pgAdmin, right-click **Databases**, choose **Create → Database**, enter `barracks`, and save.
-
-You can also create it from PowerShell if the PostgreSQL commands are on your PATH:
+Start the PostgreSQL service before using login or database-backed screens. On Windows, start the installed PostgreSQL service from **Services**, then use pgAdmin to create a database named `barracks`, or run:
 
 ```powershell
 createdb -U postgres barracks
 ```
 
-On macOS, create the local database once with:
+On macOS, start your installed PostgreSQL app or the matching Homebrew service shown by `brew services list`, then create the database with the correct PostgreSQL user:
 
 ```bash
-createdb barracks
+createdb -U postgres barracks
 ```
 
-If it says the database already exists, that is okay—continue to the next step.
+If your installation uses a different database role, replace `postgres` here and in the connection string below. Create the database once; do not recreate a database containing records you need.
 
-## 4. Install the app packages
-
-Make sure you are still inside `barracks-pwa/`, then run this in either Terminal or PowerShell:
+## 3. Install the app packages
 
 ```bash
-npm install
+npm ci
 ```
 
-This downloads the packages the app needs. You normally only need to run it once, or after the dependencies change.
+This installs the versions recorded in the lockfile. Repeat it after pulling changes that update dependencies.
 
-## 5. Create your local settings file
-
-Copy the example settings file.
-
-On macOS:
-
-```bash
-cp .env.example .env.local
-```
+## 4. Create the local settings file
 
 On Windows PowerShell:
 
@@ -96,7 +63,13 @@ On Windows PowerShell:
 Copy-Item .env.example .env.local
 ```
 
-Open `.env.local` in a text editor. Use these local values unless your PostgreSQL setup uses a different username or password:
+On macOS or Linux:
+
+```bash
+cp .env.example .env.local
+```
+
+Copy only if `.env.local` does not already exist; keep your existing settings when updating the repository. Edit the file to match your PostgreSQL username, password, port, and database:
 
 ```text
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/barracks
@@ -109,194 +82,154 @@ INITIAL_ADMIN_EMAIL=admin@example.com
 INITIAL_ADMIN_PASSWORD=choose-a-long-random-password
 ```
 
-Change `INITIAL_ADMIN_PASSWORD` to a password you will remember. Do not share or commit `.env.local`; it contains private database and login settings.
+The database password in this example is a placeholder, not a password that Barracks sets. Change `INITIAL_ADMIN_PASSWORD` before creating the administrator. Keep environment files and connection strings private. URL-encode reserved characters in the database username/password when putting them in a connection URL.
 
-### Optional: use the Supabase database
+Next.js reads `.env.local` automatically. The database npm scripts do not. The commands below use Node's `--env-file` option so they work in PowerShell, macOS, and Linux without shell-specific environment loading. Variables already set in the command window take precedence over the file; check that they target the intended database.
 
-The application can use Supabase without changing the frontend or API code. Keep the local values above for local development. For a hosted environment, use the Supabase transaction-pooler connection string for the `simplecrudapp` project instead:
+## 5. Apply migrations and create the administrator
 
-```text
-DATABASE_URL=<Supabase transaction-pooler connection string>
-DATABASE_SSL=true
-DATABASE_POOL_MAX=3
-```
-
-The Vercel Supabase integration can provide `POSTGRES_URL` automatically; the app uses it when `DATABASE_URL` is not set. Apply the Barracks migrations to that database before starting the hosted app. Only run `db:seed-demo` against a disposable preview/demo database because it replaces non-administrator business data. Keep connection strings server-only; do not prefix them with `NEXT_PUBLIC_` or paste them into client-side code. Vercel uses its own environment variables, so switching Vercel to Supabase does not replace or modify your local PostgreSQL database.
-
-## 6. Load the settings in your command window
-
-The Next.js app reads `.env.local` automatically. The database setup scripts need you to load the settings into the current command window first.
-
-On macOS, run:
+Run these one at a time from `barracks-pwa/`:
 
 ```bash
-set -a
-source .env.local
-set +a
+node --env-file=.env.local --import tsx scripts/db-migrate.ts
+node --env-file=.env.local --import tsx scripts/seed-admin.ts
 ```
 
-On Windows PowerShell, run:
+These are the environment-file equivalents of `npm run db:migrate` and `npm run db:seed-admin`. The npm commands also work when the intended variables are already exported in the current shell.
 
-```powershell
-Get-Content .env.local | ForEach-Object {
-    if ($_ -match '^\s*([^#][^=]*)=(.*)$') {
-        $name = $matches[1].Trim()
-        $value = $matches[2].Trim()
-        Set-Item -Path "Env:$name" -Value $value
-    }
-}
-```
+The migration runner applies missing files in order, records them in `schema_migrations`, and skips files already applied. The current files run from `001_user_management.sql` through `032_booking_approval.sql`, including branch ownership, payroll, database access controls, saved visit durations, midnight overlap protection, and booking approval. Let the runner complete before starting the app against an older database. Do not manually mark a failed migration as applied.
 
-Run the matching command again whenever you open a new command window before running a migration or seed command. Keep that window open while completing the next step.
-
-## 7. Set up the database
-
-Run these commands one at a time in either Terminal or PowerShell:
+The administrator seed creates the account configured by `INITIAL_ADMIN_*`. Rerunning it for an existing administrator does not reset that account's password. To reset it deliberately, change `INITIAL_ADMIN_PASSWORD` and run:
 
 ```bash
-npm run db:migrate
-npm run db:seed-admin
-npm run db:seed-demo
+node --env-file=.env.local --import tsx scripts/reset-admin-password.ts
 ```
 
-To change the administrator password later, update `INITIAL_ADMIN_PASSWORD` in `.env.local`, load the environment variables in the same command window, and run:
+This updates the account identified by `INITIAL_ADMIN_EMAIL` and revokes its sessions.
 
-```powershell
-npm run db:reset-admin
+## 6. Choose whether to add demo data
+
+Skip this section for a database intended to hold real shop records. An administrator-only database can be used to set up branches, staff assignments, services, and barbers through the app.
+
+For a **fresh disposable local demo database only**, initialize the showcase:
+
+```bash
+node --env-file=.env.local --import tsx scripts/seed-demo.ts
 ```
 
-This updates the administrator identified by `INITIAL_ADMIN_EMAIL` and revokes existing sessions. It requires PostgreSQL to be running and the migrations to have been applied.
+This is `npm run db:seed-demo` with `.env.local` loaded. It attempts to replace non-administrator business data, including users, customers, bookings, stock, and restocks. Finalized financial and attendance records can prevent reseeding; a failure rolls back the transaction. Do not rerun it as an update step for populated databases.
 
-What they do:
+For an **existing demo database**, the additive refresh command is:
 
-- `db:migrate` creates the tables Barracks needs.
-- `db:seed-admin` creates the administrator account from `.env.local`.
-- `db:seed-demo` replaces the local business/demo records and loads the Sprint 2 sample barbers, suppliers, supplier accounts, linked inventory, restocks, receiving history, customers, bookings, transactions, and Front Desk account.
+```bash
+node --env-file=.env.local --import tsx scripts/refresh-demo.ts
+```
 
-The demo seed is deterministic but destructive to non-administrator local data. It is safe for a disposable local/demo database only; do not run it against production or a database containing records you need to keep.
+This is `npm run db:refresh-demo`. It expects the original demo accounts, roster, services, supplier-linked stock, and, with the current branch schema, the four named satellite branches to exist. It adds demonstration activity and can move untouched overdue fixture appointments; it does not initialize an empty database or reset account passwords.
 
-## 8. Start Barracks
+For the fuller five-branch activity and payroll showcase, use `npm run db:seed-working-app`, or:
 
-Run:
+```bash
+node --env-file=.env.local --import tsx scripts/seed-working-app.ts
+```
+
+This also requires Main Branch plus `Barracks Bajada HQ`, `Barracks Lanang HQ`, `Barracks Bangkal HQ`, and `Barracks Maa HQ`, and verified, unblocked demo Manager and Front Desk accounts assigned to all five branches. The script stops when prerequisites are missing. It preserves existing records through fingerprint checks and adds synthetic sales and payroll marked **DEMO ONLY**; it does not transfer funds. See [the demo guide](DEMO_README.md) for prerequisites, accounts, and walkthroughs.
+
+## 7. Start Barracks and sign in
 
 ```bash
 npm run dev
 ```
 
-When you see that the server is ready, open [http://localhost:3000](http://localhost:3000) in your browser.
+When the server is ready, open [http://localhost:3000](http://localhost:3000). Sign in using `INITIAL_ADMIN_EMAIL` and `INITIAL_ADMIN_PASSWORD`. Keep the terminal open; stop the server with `Ctrl+C`.
 
-Keep the command window open while using the app. To stop the app, press `Ctrl+C` in that window.
+If you seeded a demo, its account identifiers end in `@barracks.app`, not `@barracks.local`. See [DEMO_README.md](DEMO_README.md) for the seeded credentials. They apply only when that seed was used and those accounts have not since been changed.
 
-## 9. Sign in
+Administrators and Managers have one sidebar covering their permitted management and daily operational modules. Front Desk has its own operational sidebar. There is no workspace switcher. New Manager and Front Desk accounts need explicit branch assignments; if a seeded or newly created staff account shows **No branch assigned**, sign in as Administrator, open **Branches**, and assign it to the intended branch. New staff accounts also require verification before login.
 
-Use the administrator email and password from `.env.local`:
+Customer booking requests start as **Awaiting approval**. An authorized staff user must confirm the request in **Bookings** before check-in and service.
+
+## Updating an existing local checkout
+
+Run Git commands from the repository root. Inspect `git status` and preserve local work before changing branches or pulling. After updating the intended branch:
+
+1. Run `npm ci` from `barracks-pwa/` if dependencies changed.
+2. Keep your existing `.env.local` and confirm its database target.
+3. Stop the local app, apply missing migrations with the command in step 5, then restart it.
+4. Do not rerun `db:seed-demo` to update existing business data. Demo refresh commands are optional and only for databases intended to contain synthetic records.
+
+## Optional: use a hosted Supabase database
+
+Barracks uses PostgreSQL through the Next.js server and the application's own users/sessions. It does not require Supabase Auth, a browser Supabase client, or public API keys.
+
+Copy connection details from **Connect** in the intended project's Supabase dashboard. Earlier Barracks activation evidence names `barracksbarbers`; the connection URL selects the actual target, so verify it rather than copying a project name from old notes.
+
+For a serverless app runtime such as Vercel, use the intended project's transaction-pooler URL and server-only variables:
 
 ```text
-Email: the value of INITIAL_ADMIN_EMAIL
-Password: the value of INITIAL_ADMIN_PASSWORD
+DATABASE_URL=<the intended project's transaction-pooler URL>
+DATABASE_SSL=true
+DATABASE_POOL_MAX=3
 ```
 
-You can also try the seeded demo accounts:
-
-```text
-Front Desk
-Email: demo.frontdesk@barracks.local
-Password: frontdesk123
-
-Customer
-Email: demo.customer.ana@barracks.local
-Password: customer123
-
-Supplier
-Email: demo.supplier.nina@barracks.local
-Password: supplier123
-```
-
-See [DEMO_README.md](DEMO_README.md) for the recommended walkthrough.
-
-## If something goes wrong
-
-### `command not found: node`, `command not found: psql`, or a Windows command is not recognized
-
-Install the missing program, close the command window, open it again, and repeat the version check in step 2.
-
-### PowerShell says that `npm.ps1` cannot be loaded
-
-Use `npm.cmd` instead of `npm` in that PowerShell window. For example:
-
-```powershell
-npm.cmd install
-npm.cmd run dev
-```
-
-### `database "barracks" does not exist`
-
-Start PostgreSQL, then run the command for your computer.
-
-On macOS:
+For migrations, use a direct connection, or a session-pooler connection when direct access is unavailable on your network. The repository's migration runner holds a session-level advisory lock across migration transactions, so a transaction-pooler URL is unsuitable for that command. Keep migration connection settings in a separate untracked file such as `.env.migrations.local`, with SSL enabled, and run:
 
 ```bash
-createdb barracks
+node --env-file=.env.migrations.local --import tsx scripts/db-migrate.ts
 ```
 
-On Windows, use pgAdmin as described in step 3, or run:
+Ensure an existing shell `DATABASE_URL` does not override that file. See the [Supabase connection guide](https://supabase.com/docs/guides/database/connecting-to-postgres) for connection modes. Hosted migrations must target the intended database and be authorized separately; these instructions do not establish the live migration state.
 
-```powershell
-createdb -U postgres barracks
-```
+The app falls back to `POSTGRES_URL` only when `DATABASE_URL` is unset. Vercel uses its own environment settings; a local `.env.local` does not configure or change a deployment. Never add database credentials or `INITIAL_ADMIN_*` values to `NEXT_PUBLIC_*` variables. Demo seeds are not production setup commands.
 
-If your database uses a different name, update the database name at the end of `DATABASE_URL` in `.env.local`.
+## Troubleshooting
 
-### `connection refused` or `ECONNREFUSED`
+### A command is not found
 
-PostgreSQL is probably not running. Start it, confirm that `.env.local` has the right username, password, host, port, and database name, then rerun the failed command.
+Install the missing tool and reopen the terminal. On Windows, PostgreSQL's `bin` directory may need to be on PATH for `psql` and `createdb`; pgAdmin is an alternative for creating the database.
 
-### A script says an environment variable is required
+### PowerShell cannot load `npm.ps1`
 
-Load `.env.local` in the same command window. On macOS:
+Use `npm.cmd ci`, `npm.cmd run dev`, and the corresponding `npm.cmd` form for other npm commands. The `node --env-file=...` database commands above do not use `npm.ps1`.
 
-```bash
-set -a
-source .env.local
-set +a
-```
+### Database does not exist, password authentication failed, or connection refused
 
-On Windows PowerShell, run:
+Confirm that PostgreSQL is running and that `DATABASE_URL` matches the database name, role, password, host, and port. Create a missing local database once as described in step 2. Restart the app after changing environment settings.
 
-```powershell
-Get-Content .env.local | ForEach-Object {
-    if ($_ -match '^\s*([^#][^=]*)=(.*)$') {
-        $name = $matches[1].Trim()
-        $value = $matches[2].Trim()
-        Set-Item -Path "Env:$name" -Value $value
-    }
-}
-```
+### A database script says an environment variable is required
 
-Then run the database command again.
+Use the full `node --env-file=.env.local --import tsx scripts/...` command from the guide, from `barracks-pwa/`. Check that the file exists and contains `DATABASE_URL` or `POSTGRES_URL`. Do not print connection strings while troubleshooting.
 
-### Login does not work
+### Login fails or a staff screen is empty
 
-Check that the migration and administrator seed completed successfully. Use the exact email and password from `.env.local`. For the demo accounts, use the credentials listed above.
+Confirm that migrations and the administrator seed completed. Use the configured administrator email, or the `.app` demo email from the current seed. An existing administrator keeps its prior password until the reset command is used. Staff accounts must be verified, active, unblocked, and assigned to a branch to use branch operations.
 
-### Port 3000 is already in use
+### A demo refresh reports missing branches or fixtures
 
-Start the app on another port. This command works in both macOS Terminal and Windows PowerShell:
+The refresh scripts extend an existing showcase. They do not create every prerequisite. Use Administrator **Branches** to create any missing satellite branches with the exact names above and assign demo staff as required. Keep the original roster, active services, and supplier-linked items. Do not use destructive reseeding to repair a database containing records you need.
+
+### A migration reports overlapping bookings or inconsistent historical records
+
+Read its reported record IDs and reconcile the data deliberately before rerunning the migration. The runner rolls back that file. For migration 011 overlap reports, the read-only `scripts/booking-overlap-review.sql` lists affected booking pairs. Never delete bookings or bypass constraints just to advance the ledger.
+
+### Port 3000 is in use
 
 ```bash
 npm run dev -- --port 3001
 ```
 
-Then open [http://localhost:3001](http://localhost:3001).
+Open [http://localhost:3001](http://localhost:3001).
 
 ## Useful commands
 
 Run these from `barracks-pwa/`:
 
 ```bash
-npm run dev          # Start the development server
-npm run lint         # Check code style
-npx tsc --noEmit     # Check TypeScript
-npm run build        # Create a production build
-npm run start        # Serve the production build
+npm run dev                 # Development server
+npm run lint                # ESLint
+npx tsc --noEmit             # TypeScript check
+npm run build               # Production build
+npm run start               # Serve an existing production build
 ```
+
+Only run checks requested for the task or permitted by `AGENTS.md`. These commands do not certify hosted behavior. A production build must complete before `npm run start`; migrations and seeding are separate database operations.

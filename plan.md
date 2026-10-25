@@ -1,5 +1,7 @@
 # Phase: Task-focused operational screens
 
+Historical completed-phase plan. Later booking approval, unified management navigation, permissions, and inventory changes supersede parts of this milestone's scope. Use [README.md](README.md) for current behavior and [running.md](running.md) for setup; this document is not a pending implementation request or current release checklist.
+
 Status: Complete on `layout-redesign`; compatible isolated demo verification recorded in evidence/layout-redesign/local-demo.md.
 
 ## Goal
@@ -8,9 +10,9 @@ Improve how staff and management find appointments, check out completed visits, 
 
 This plan records the completed task-focused screen work. Creating this plan does not begin implementation.
 
-## Start with /goal
+## Original implementation prompt (historical)
 
-Use this prompt when ready:
+The following was the prompt for this completed phase. It is retained as history, not an instruction to rerun the work:
 
 > Implement the task-focused operational screen phase in the repository-root plan.md. Complete stages 0–6 in order, preserve existing business rules and role permissions, verify the changed screens in the browser, and update the plan checklist with evidence as each stage finishes. Follow barracks-pwa/AGENTS.md. Keep changes local; do not push, merge, deploy, or apply production database migrations. Report any blocked acceptance criteria instead of marking them complete.
 

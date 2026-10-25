@@ -1,133 +1,116 @@
-# Barracks PWA Demo Guide
+# Barracks PWA demo guide
 
-This guide is for presenting the current Barracks Barbers & Shaves sprint showcase locally.
+This guide describes the current source behavior. Demo records and credentials depend on which seed ran and any later staff changes; historical screenshots and counts do not establish the state of a local or hosted database.
 
-## Start the demo
+## Start a local demo
 
-From the repository root:
+Follow [running.md](running.md) to install packages, create `.env.local`, and start PostgreSQL. From `barracks-pwa/`, apply migrations and create the administrator:
 
 ```bash
-cd barracks-pwa
-set -a
-source .env.local
-set +a
-npm run db:migrate
-npm run db:seed-admin
-npm run db:seed-demo
+node --env-file=.env.local --import tsx scripts/db-migrate.ts
+node --env-file=.env.local --import tsx scripts/seed-admin.ts
+```
+
+For a **fresh disposable demo database only**, initialize the original showcase once:
+
+```bash
+node --env-file=.env.local --import tsx scripts/seed-demo.ts
+```
+
+Then start the app:
+
+```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000). These commands work in PowerShell, macOS, and Linux. Database npm scripts require the environment to be loaded separately; Node's `--env-file` option above loads it for each command. Existing shell variables take precedence over the file.
 
-`npm run db:seed-demo` initializes a fresh disposable demo database in one transaction. It preserves administrator accounts, but attempts to remove existing business data; finalized financial records and attendance prevent destructive reseeding. On an already populated demo database, run `npm run db:refresh-demo` to add activity while preserving current records. Use these commands only for demo databases.
+`db:seed-demo` attempts to remove existing non-administrator business data before rebuilding it in a transaction. Finalized sales and attendance can prevent destructive reseeding. Do not use it as an update command for a populated database.
+
+Sign in as Administrator and open **Branches**. Assign the demo Manager and Front Desk accounts to Main Branch if they have no membership. New staff accounts created after the branch migration need explicit assignment; creating a login does not grant branch access.
 
 ## Demo accounts
 
-### Administrator
+The original seed uses the following public demo credentials. They are for disposable demonstrations, and do not establish a password for an existing or hosted account whose credentials have since changed.
 
-Use the administrator values configured in `.env.local`:
+| Account | Email | Password source/value |
+| --- | --- | --- |
+| Administrator | `INITIAL_ADMIN_EMAIL` in your environment | `INITIAL_ADMIN_PASSWORD` when first seeded; use the documented reset command if needed |
+| Manager | `demo.manager@barracks.app` | `manager123` |
+| Front Desk | `demo.frontdesk@barracks.app` | `frontdesk123` |
+| Customer | `demo.customer.ana@barracks.app` | `customer123` |
+| Supplier | `demo.supplier.nina@barracks.app` | `supplier123` |
 
-```text
-Email: admin@example.com
-Password: the value of INITIAL_ADMIN_PASSWORD
-```
+The other original customers are `demo.customer.paulo@barracks.app`, `demo.customer.samira@barracks.app`, and `demo.customer.jethro@barracks.app`, with the same seeded customer password. The second supplier login is `demo.supplier.marco@barracks.app`, with the same seeded supplier password. The older `@barracks.local` addresses are not the identifiers in the current seed.
 
-The administrator can access the Management workspace and switch to Front Desk.
+Administrator seeding does not reset an existing administrator's password. Demo refresh commands do not reset existing account passwords. New staff accounts start unverified; account verification, active/unblocked status, and branch membership are separate requirements. Deactivating a supplier company also prevents its linked accounts from signing in.
 
-### Front Desk
+## Current role boundaries
 
-```text
-Email: demo.frontdesk@barracks.app
-Password: frontdesk123
-```
+- **Administrator:** one sidebar includes management and daily operations, including booking approval, Queue, Payments, Customers, Barber Floor, Staff, Branches, and Payroll. There is no workspace switcher. Sensitive account actions and deletions retain their server restrictions.
+- **Manager:** the same sidebar for assigned branches, with daily bookings/queue/checkout plus roster, schedules, attendance history/corrections, suppliers, stock, restocks, reports, and payroll. Managers can manage Front Desk accounts within their branch authority, but cannot deactivate suppliers, delete barbers/customers, or create supplier logins. Only assigned Managers approve payroll.
+- **Front Desk:** Dashboard, Queue, Bookings, Payments, Customers, and Barber Floor for assigned branches. It can record today's attendance and operational barber status, but cannot edit the roster/schedules, manage inventory/restocks/suppliers, open reports/payroll, or manage staff accounts. Loyalty-point changes and financial refunds/voids require management.
+- **Customer:** their own dashboard, profile, and bookings. A booking request starts `pending`; staff must confirm or reject it. Editing an upcoming pending/confirmed booking returns it to approval.
+- **Supplier:** the linked supplier profile, supplied items, restock requests, and delivery history. Supplier actions affect only their linked company; receiving stock stays with management.
 
-Front Desk users open directly in the Front Desk workspace. They can manage customer contact/preferences, barber roster details, and inventory, but cannot see or enter Management. Loyalty points and barber ratings remain administrator-only; barber service totals are read-only.
-
-### Manager
-
-```text
-Email: demo.manager@barracks.app
-Password: manager123
-```
-
-Managers open in the Management workspace and can manage day-to-day business operations, including customers, barbers, suppliers, inventory, restocks, reports, and bookings. Staff account administration remains administrator-only.
-
-### Customer
-
-```text
-Email: demo.customer.ana@barracks.app
-Password: customer123
-```
-
-Customers can only access their own customer dashboard and profile. The other seeded customer accounts use the same password:
-
-```text
-demo.customer.paulo@barracks.app
-demo.customer.samira@barracks.app
-demo.customer.jethro@barracks.app
-```
-
-These are local demo credentials only. Do not use them in production.
-
-### Supplier
-
-```text
-Email: demo.supplier.nina@barracks.app
-Password: supplier123
-```
-
-The second seeded supplier account is `demo.supplier.marco@barracks.app` with the same password.
+Barbers and accountless walk-ins are business records, not login roles. Staff can create and edit accountless customers and serve them through Queue; appointments require a registered customer account.
 
 ## Suggested walkthrough
 
-1. Start on the public landing page and open **Login**.
-2. Sign in as the Administrator.
-3. Show the Management dashboard and its seeded summary counts, including low-stock items and open restocks.
-4. Open **Staff** to show administrator-only account management.
-5. Create a temporary staff account, open its details, verify it, block/unblock it, and show the real status badges. New accounts cannot sign in until verified.
-6. Open **Barbers** to inspect and manage the roster, summary metrics, and each barber’s services, revenue, commission, and rating.
-7. Open **Suppliers** to show the two supplier records and supplier login setup.
-8. Open **Restocks** to show pending, delivered, and received requests. Receive the delivered request and confirm inventory and movement history update.
-9. Open **Inventory** and show the linked suppliers, In Stock/Low Stock/Out of Stock states, filters, and movement history.
-10. Use the workspace switcher to switch to Front Desk.
-11. Sign out and sign in as Front Desk. Confirm that the Management selector and User Management are not visible; create/update inventory and barber records, but note delete actions are administrator-only.
-12. Open **Customers** to show the seeded customer profiles and preferred barbers.
-13. Sign out and sign in as the demo Customer to show the unified customer account dashboard, including profile details and appointments.
-14. Open **Book**, choose a service, barber, date, and time, then confirm the appointment.
-15. Sign back in as Front Desk and open **Bookings** to see the saved appointment and mark it completed or cancelled.
-16. Sign out and sign in as the demo Supplier to show the supplier portal: the linked profile, supplied items, open restock requests, and delivery history. Suppliers can only advance their own requests from Pending through Accepted, Preparing, and Shipped — receiving stays with staff.
+1. Open the public landing page, then sign in as Administrator using the configured account.
+2. Open **Branches** and confirm the intended demo branch and staff assignments. Select that branch when demonstrating operational pages.
+3. Show the Management dashboard and its period/branch labels. Seeded counts depend on the selected branch, current Manila date, and fixture progress.
+4. Open **Staff**. Create a temporary account with an explicit branch assignment, verify it, and show block/unblock status. Managers can perform these actions only for permitted Front Desk accounts.
+5. Open **Barbers** for roster and schedules. Open **Payroll → Commission settings** for effective-dated commission changes; the old bulk commission API is disabled.
+6. Open **Suppliers** and the supplied-items picker. Moving or removing an item is blocked while it would strand an open restock. Supplier login creation and deactivation are Administrator-only.
+7. Open **Restocks** as Administrator or Manager. Show open stages, confirm arrival for an appropriate request, and receive every line. Confirm the inventory and movement history update. An unreceived request can instead be cancelled.
+8. Sign in as Front Desk. Confirm the operational sidebar and absence of inventory, reports, payroll, roster editing, and staff-account tools.
+9. Open **Customers** and **Queue**. Demonstrate creating an accountless walk-in, selecting a service and optional barber, assigning a waiting visit, starting service, and completing it when the barber is operationally available. Add-to-Queue retries retain their idempotency protection.
+10. Open **Payments**, select a completed unpaid visit, and record a synthetic checkout. Reopen the saved receipt. Administrator and Manager can also check out; only management can perform permitted refund/void actions.
+11. Sign in as a demo Customer. Open **Book**, choose an active branch, service, specific barber, available date and time within the 90-day booking window, review, and submit. Show **Awaiting approval**, not an automatic confirmation.
+12. Sign in as Front Desk, Manager, or Administrator. In **Bookings → Awaiting approval**, confirm or reject that request. At an eligible booked time, show check-in → start → complete. Started/completed bookings remain on record; eligible pending/confirmed/closed-without-service bookings can be removed by staff.
+13. Sign in as a demo Supplier. Show only that supplier's profile, items, requests, and history. Advance an eligible request Pending → Accepted → Preparing → Shipped, or cancel it at a permitted supplier stage. Administrator/Manager confirm arrival and receive stock.
+14. For a prepared payroll showcase, sign in as the assigned Manager, inspect period breakdowns, and demonstrate permitted draft submission/approval. Paid payslips record fictional external disbursements; Barracks does not send money.
 
-## Seeded showcase data
+Use synthetic records for the walkthrough. Existing reservations, attendance, schedules, and branch permissions can make a service unavailable; complete those prerequisites instead of treating an empty picker as a broken screen.
 
-The deployed Supabase working demo was expanded across Main, Bajada, Lanang, Bangkal, and Maa on October 10, 2026. To refresh the same fixtures after migration 028, run `node --env-file=.env.local --import tsx scripts/seed-working-app.ts` from `barracks-pwa/`. It preserves existing data and staff progress; it does not replace accounts or reset passwords.
+## Refresh an existing demo
 
-Each branch now has three demo barbers, the original product/supply catalog, recent paid sales, attendance, today's appointment/queue examples, and upcoming reservations. Payroll has three older Paid examples and one newer example each in Draft, Pending Approval, and Approved, plus current-period earnings. Sign in as the existing demo Manager, open **Payroll**, and select each branch to review settings, history, service breakdowns, approval events, and paid payslips. The demo calendar starts September 5, 2026 on the deployed first run. Unmarked historical services are not assigned invented rates. **DEMO ONLY** audit notes and `DEMO-ONLY-NO-FUNDS` payment references identify fictional disbursements; no funds were transferred.
+From `barracks-pwa/`, after applying all current migrations:
 
-The bullets below describe the original baseline before this additive multi-branch expansion.
+```bash
+node --env-file=.env.local --import tsx scripts/refresh-demo.ts
+```
 
-- Four barbers with a working queue and an unavailable roster member.
-- Two active suppliers, each with a supplier portal account.
-- Twenty-six supplier-linked inventory items across Supplies, Products, and Equipment, including all 21 products shown on the public landing page and low-stock items.
-- Three restock requests in Pending, Delivered, and Received states, plus one audited receiving movement.
-- Four customer accounts plus 12 accountless customer profiles with realistic names and phone numbers.
-- Four weeks of completed, cancelled, and no-show visits, paid receipts across cash/card/e-wallet, and a week of upcoming appointments. Existing reservations can reduce the number of new appointments.
-- Fourteen days of attendance history plus today's attendance; waiting, ready, in-progress, and completed unpaid walk-ins demonstrate the queue and checkout flow.
-- One Manager account and one Front Desk account.
+This is the environment-file equivalent of `npm run db:refresh-demo`. It requires the original demo roster, active services, supplier-linked disinfectant and pomade inventory, and an active administrator. With the current branch schema it also requires these existing active branches: `Barracks Bajada HQ`, `Barracks Lanang HQ`, `Barracks Bangkal HQ`, and `Barracks Maa HQ`. It does not create the branch directory.
 
-New accounts created from Management start unverified. Use the account details view to verify them before testing login; blocking an account revokes its active sessions.
+The command adds branch stock/restock examples and working-day activity in one transaction. It preserves staff progress and financial history, and moves only eligible untouched overdue fixture appointments forward. It does not initialize an empty database or reset accounts. If prerequisites are missing, stop and prepare the intended demo rather than running the destructive seed over records you need.
 
-The booking flow uses one service, barber, date, and time. Front Desk can manage the queue and check out the completed unpaid walk-in. Payments have persisted visit identities and matching tenders; revenue reports include dated history rather than a single sale. The additive refresh also retains the four-branch stock/restock examples. Existing accounts, completed sales, request progress, and staff attendance edits remain intact.
+## Five-branch working app and payroll fixtures
+
+The fuller optional command is:
+
+```bash
+node --env-file=.env.local --import tsx scripts/seed-working-app.ts
+```
+
+This is `npm run db:seed-working-app` with the file loaded. It requires:
+
+- All current migrations, including the payroll foundation in 028.
+- The original demo accounts, services, roster, suppliers, and linked stock.
+- Main Branch (`MAIN`) and the four named satellite branches above, all active.
+- Verified, unblocked demo Manager and Front Desk accounts explicitly assigned to all five branches.
+
+Use Administrator **Branches** to prepare missing branches and memberships. The script checks these prerequisites and rolls back on failure; it is not a blank-database installer.
+
+It expands demo rosters and stock, adds synthetic customers, paid history, today's queue, upcoming reservations, attendance, and payroll examples. Existing accounts, stock, attendance, financial records, and payroll are fingerprinted and checked before commit. Existing passwords, calendars, and staff progress are retained. Missing demo payroll calendars are anchored relative to the first run; a date from an older deployment is not a universal default.
+
+Payroll examples include Draft, Pending Approval, Approved, and Paid records plus current-period earnings. Audit notes say **DEMO ONLY** and fictional disbursement references start `DEMO-ONLY-NO-FUNDS`. No funds are transferred. The original seed's four-barber/two-supplier showcase and the October 10, 2026 hosted expansion are historical baselines; current counts must be read from the selected database.
 
 ## Troubleshooting
 
-If the database commands fail, confirm that PostgreSQL is running and that `.env.local` contains the correct local `DATABASE_URL`.
-
-Database scripts do not load `.env.local` automatically, so run this before migration or seeding:
-
-```bash
-set -a
-source .env.local
-set +a
-```
-
-If the app was already running before `.env.local` was created or changed, restart it with `Ctrl+C`, then run `npm run dev` again.
+- Use `.app` demo emails and the current environment. Do not assume an old `.local` address or published seed password matches a modified account.
+- **No branch assigned:** sign in as Administrator and assign the staff account through Branches. A Manager cannot grant themselves additional branch authority.
+- **Missing demo fixtures/branches:** check the prerequisites above. Additive seeds preserve progress and do not create every missing dependency.
+- **Database/environment errors:** follow [running.md](running.md). Restart Next.js after changing `.env.local`.
+- An earlier deployed-demo report is historical evidence, not proof of the current hosted schema, account state, or browser behavior.

@@ -1,5 +1,7 @@
 # Design QA — Barracks Hero
 
+Historical visual-comparison report for the earlier generated shaving hero. The active `app/pages/public/landing/HeroSection.tsx` now uses `public/barracks/hero-barracks-landscape.png`. The screenshots, findings, and checks below describe that earlier implementation and do not verify the current hero or mobile menu. See the repository [README](../README.md) for current design behavior.
+
 ## Comparison target
 
 - Source visual truth: `C:\Users\Lance\AppData\Local\Temp\codex-clipboard-7c603929-23fa-4907-94ad-577a79c57ff8.png`
