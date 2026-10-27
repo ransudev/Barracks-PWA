@@ -1,5 +1,5 @@
 [build]
-  base = "barracks-pwa"
+  base = "barracks-wa"
   command = "npm run db:migrate && if [ \"$SEED_DEMO_DATA\" = \"true\" ]; then npm run db:seed-demo; fi && npm run build"
   publish = ".next"
 

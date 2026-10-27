@@ -4,7 +4,7 @@ Confirmed 2026-10-04 against the scoped brief in `../../plan.md`, implementation
 
 ## Confirmed inheritance
 
-- `barracks-pwa/app/layout.tsx` retains Inter as `--font-dashboard-sans` and Sora as `--font-dashboard-accent`. The existing assignments in `globals.css` and later overrides in `theme.css` remain the authority; an earlier root serif rule is not the effective dashboard identity.
+- `barracks-wa/app/layout.tsx` retains Inter as `--font-dashboard-sans` and Sora as `--font-dashboard-accent`. The existing assignments in `globals.css` and later overrides in `theme.css` remain the authority; an earlier root serif rule is not the effective dashboard identity.
 - The incumbent monochrome shell, off-white text, red actions, semantic status colors, borders, rounded controls, panels, logo, icon vocabulary, and detail drawers remain recognizable in the baseline/final comparisons. `globals.css` and `theme.css` have no working-tree diff at this inspection. Their existing theme-specific overrides remain authoritative rather than being copied into a second token registry.
 - `app/operational-layouts.css`, imported after both incumbent stylesheets, consumes their variables for task-specific composition. Its local sizes and breakpoints describe these screens, not a new global spacing, radius, typography, or motion system. Existing layered surfaces and drawer behavior are inherited even where a generic craft-floor preference differs.
 

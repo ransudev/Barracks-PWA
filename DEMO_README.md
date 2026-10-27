@@ -1,10 +1,10 @@
-# Barracks PWA demo guide
+# Barracks WA demo guide
 
 This guide describes the current source behavior. Demo records and credentials depend on which seed ran and any later staff changes; historical screenshots and counts do not establish the state of a local or hosted database.
 
 ## Start a local demo
 
-Follow [running.md](running.md) to install packages, create `.env.local`, and start PostgreSQL. From `barracks-pwa/`, apply migrations and create the administrator:
+Follow [running.md](running.md) to install packages, create `.env.local`, and start PostgreSQL. From `barracks-wa/`, apply migrations and create the administrator:
 
 ```bash
 node --env-file=.env.local --import tsx scripts/db-migrate.ts
@@ -76,7 +76,7 @@ Use synthetic records for the walkthrough. Existing reservations, attendance, sc
 
 ## Refresh an existing demo
 
-From `barracks-pwa/`, after applying all current migrations:
+From `barracks-wa/`, after applying all current migrations:
 
 ```bash
 node --env-file=.env.local --import tsx scripts/refresh-demo.ts

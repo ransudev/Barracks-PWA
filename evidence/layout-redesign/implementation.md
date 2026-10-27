@@ -48,7 +48,7 @@ Baseline PNGs in this folder capture dashboard, attendance, restocks, transactio
 
 ## Local delivery
 
-Implementation savepoint: `a0a59b0` (`feat: add task-focused operational layouts`). Final UI review scored calendar summary, attendance mobile filtering and receipt wrapping resolved. The implementation preserves the preexisting modified `barracks-pwa/AGENTS.md`, which is deliberately excluded from task commits. Evidence/savepoint documentation is committed separately. This remains a partial acceptance delivery; the pending plan criteria are not marked complete.
+Implementation savepoint: `a0a59b0` (`feat: add task-focused operational layouts`). Final UI review scored calendar summary, attendance mobile filtering and receipt wrapping resolved. The implementation preserves the preexisting modified `barracks-wa/AGENTS.md`, which is deliberately excluded from task commits. Evidence/savepoint documentation is committed separately. This remains a partial acceptance delivery; the pending plan criteria are not marked complete.
 
 ## Compatible environment closes pending booking criteria
 

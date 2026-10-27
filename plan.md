@@ -14,7 +14,7 @@ This plan records the completed task-focused screen work. Creating this plan doe
 
 The following was the prompt for this completed phase. It is retained as history, not an instruction to rerun the work:
 
-> Implement the task-focused operational screen phase in the repository-root plan.md. Complete stages 0–6 in order, preserve existing business rules and role permissions, verify the changed screens in the browser, and update the plan checklist with evidence as each stage finishes. Follow barracks-pwa/AGENTS.md. Keep changes local; do not push, merge, deploy, or apply production database migrations. Report any blocked acceptance criteria instead of marking them complete.
+> Implement the task-focused operational screen phase in the repository-root plan.md. Complete stages 0–6 in order, preserve existing business rules and role permissions, verify the changed screens in the browser, and update the plan checklist with evidence as each stage finishes. Follow barracks-wa/AGENTS.md. Keep changes local; do not push, merge, deploy, or apply production database migrations. Report any blocked acceptance criteria instead of marking them complete.
 
 ## Scope and boundaries
 
@@ -26,7 +26,7 @@ The following was the prompt for this completed phase. It is retained as history
 - Reuse existing components and visual tokens. Retain the current typography baseline. Visual consistency comes from controls and behavior rather than identical page composition.
 - Add read-only data aggregation only where needed to support an accepted view. Preserve existing response contracts; document additive fields/endpoints. A schema change or new business workflow requires a separately defined scope before implementation.
 - Queue lanes, Barber Floor restructuring, full roster redesigns, customer/supplier dashboards, Services, Reports redesign, commission recalculation, and public landing changes are deferred.
-- Preserve unrelated local changes, including the pre-existing modification to `barracks-pwa/AGENTS.md` observed while creating this plan.
+- Preserve unrelated local changes, including the pre-existing modification to `barracks-wa/AGENTS.md` observed while creating this plan.
 
 ## Stage 0 — Confirm source, data, and visual baseline
 

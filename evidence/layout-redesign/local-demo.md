@@ -6,12 +6,12 @@ The user selected a compatible disposable database to finish booking walkthrough
 - PostgreSQL17: 127.0.0.1:55432, database `barracks_layout_demo`, role `layout_demo`.
 - Connection: `postgresql://layout_demo@127.0.0.1:55432/barracks_layout_demo`
 - `DATABASE_SSL=false`; loopback-only disposable cluster uses trust authentication.
-- Ignored app configuration: `barracks-pwa/.env.layout-demo.local`. It contains only isolated-demo configuration and a generated initial-demo administrator secret. Do not commit it.
+- Ignored app configuration: `barracks-wa/.env.layout-demo.local`. It contains only isolated-demo configuration and a generated initial-demo administrator secret. Do not commit it.
 - Cluster/logs: `C:/Users/Lance/.codex/local-runtimes/barracks-layout-demo/`. App process18060 is agent-created. Existing PostgreSQL service and existing app processes are retained.
 
 All21 repository migrations were applied with `node --env-file=.env.layout-demo.local --import tsx scripts/db-migrate.ts`, followed by existing administrator and demo seed scripts against that local URL. Seven weekday rows are unique, resolving the409 for these walkthroughs without modifying scheduling rules. Existing seeded Front Desk/Manager `.app` demo accounts are usable.
 
-Start the app from barracks-pwa:
+Start the app from barracks-wa:
 
 ```powershell
 node --env-file=.env.layout-demo.local node_modules/next/dist/bin/next start -p 3001 -H 127.0.0.1

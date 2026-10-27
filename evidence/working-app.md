@@ -28,4 +28,4 @@ The hosted Bajada dashboard also rendered PHP 8,050 paid/net sales and 21 paid v
 
 ## Source checks and scope
 
-TypeScript (`npx tsc --noEmit`) and scoped ESLint (`npx eslint scripts/seed-working-app.ts`) passed. No additional test runner was invoked for this seed request; the prior migration request’s 21-test suite remains documented in `PAYROLL_IMPLEMENTATION.md`. The deployed app consumes Supabase immediately; these scripts and documentation are saved locally without a Git push or merge. The pre-existing `barracks-pwa/AGENTS.md` edit is preserved.
+TypeScript (`npx tsc --noEmit`) and scoped ESLint (`npx eslint scripts/seed-working-app.ts`) passed. No additional test runner was invoked for this seed request; the prior migration request’s 21-test suite remains documented in `PAYROLL_IMPLEMENTATION.md`. The deployed app consumes Supabase immediately; these scripts and documentation are saved locally without a Git push or merge. The pre-existing `barracks-wa/AGENTS.md` edit is preserved.

@@ -1,4 +1,4 @@
-# Barracks PWA — Barber Payroll Specification
+# Barracks WA — Barber Payroll Specification
 
 **Version:** 1.0  
 **Date:** 2026-10-10  

@@ -1,26 +1,26 @@
 # Run Barracks locally
 
-This guide matches the current repository. Run app and database commands from `barracks-pwa/`; run Git commands from the repository root.
+This guide matches the current repository. Run app and database commands from `barracks-wa/`; run Git commands from the repository root.
 
 ## What you need
 
 - Node.js `20.9.0` or newer, as required by the installed Next.js package: [nodejs.org](https://nodejs.org/).
 - A running PostgreSQL server and its command-line tools: [postgresql.org/download](https://www.postgresql.org/download/).
-- This project folder, including `barracks-pwa/package-lock.json`.
+- This project folder, including `barracks-wa/package-lock.json`.
 
 ## 1. Open the app folder
 
 On Windows, open **PowerShell** and adjust the path for your computer:
 
 ```powershell
-cd "C:\Users\your-name\Documents\Barracks-PWA-sprint-2\barracks-pwa"
+cd "C:\Users\your-name\Documents\Barracks-WA-sprint-2\barracks-wa"
 Get-ChildItem
 ```
 
 On macOS or Linux:
 
 ```bash
-cd "/path/to/Barracks-PWA-sprint-2/barracks-pwa"
+cd "/path/to/Barracks-WA-sprint-2/barracks-wa"
 ls
 ```
 
@@ -88,7 +88,7 @@ Next.js reads `.env.local` automatically. The database npm scripts do not. The c
 
 ## 5. Apply migrations and create the administrator
 
-Run these one at a time from `barracks-pwa/`:
+Run these one at a time from `barracks-wa/`:
 
 ```bash
 node --env-file=.env.local --import tsx scripts/db-migrate.ts
@@ -153,7 +153,7 @@ Customer booking requests start as **Awaiting approval**. An authorized staff us
 
 Run Git commands from the repository root. Inspect `git status` and preserve local work before changing branches or pulling. After updating the intended branch:
 
-1. Run `npm ci` from `barracks-pwa/` if dependencies changed.
+1. Run `npm ci` from `barracks-wa/` if dependencies changed.
 2. Keep your existing `.env.local` and confirm its database target.
 3. Stop the local app, apply missing migrations with the command in step 5, then restart it.
 4. Do not rerun `db:seed-demo` to update existing business data. Demo refresh commands are optional and only for databases intended to contain synthetic records.
@@ -198,7 +198,7 @@ Confirm that PostgreSQL is running and that `DATABASE_URL` matches the database 
 
 ### A database script says an environment variable is required
 
-Use the full `node --env-file=.env.local --import tsx scripts/...` command from the guide, from `barracks-pwa/`. Check that the file exists and contains `DATABASE_URL` or `POSTGRES_URL`. Do not print connection strings while troubleshooting.
+Use the full `node --env-file=.env.local --import tsx scripts/...` command from the guide, from `barracks-wa/`. Check that the file exists and contains `DATABASE_URL` or `POSTGRES_URL`. Do not print connection strings while troubleshooting.
 
 ### Login fails or a staff screen is empty
 
@@ -222,7 +222,7 @@ Open [http://localhost:3001](http://localhost:3001).
 
 ## Useful commands
 
-Run these from `barracks-pwa/`:
+Run these from `barracks-wa/`:
 
 ```bash
 npm run dev                 # Development server

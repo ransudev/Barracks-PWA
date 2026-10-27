@@ -1,6 +1,6 @@
 # Barracks Barbers & Shaves
 
-Barracks is a Next.js App Router PWA prototype for barbershop operations. The active application lives in `barracks-pwa/` and combines a public landing page, customer booking/account flows, staff operations, administrator management, and a PostgreSQL-backed sprint implementation.
+Barracks is a Next.js App Router WA prototype for barbershop operations. The active application lives in `barracks-wa/` and combines a public landing page, customer booking/account flows, staff operations, administrator management, and a PostgreSQL-backed sprint implementation.
 
 This is the canonical project guide. It combines the product context, design direction, runtime architecture, codebase map, API contract, database notes, and current limitations in one place. The two supporting documents stay focused on their specific jobs:
 
@@ -35,7 +35,7 @@ Locked-record corrections can explicitly create a separate correction draft with
 
 ## Quick start
 
-Create a local PostgreSQL database and `.env.local` using [running.md](running.md), then run from `barracks-pwa/`:
+Create a local PostgreSQL database and `.env.local` using [running.md](running.md), then run from `barracks-wa/`:
 
 ```bash
 npm ci
@@ -56,7 +56,7 @@ Barracks connects the daily rhythm of a barbershop—bookings, barber availabili
 
 The active `sprint-2` experience includes:
 
-- Public landing page with Barracks branding, service information, branches, contact details, and login/customer-account actions. Its full-bleed hero uses a landscape adaptation of the real Barracks shop photo at `barracks-pwa/public/barracks/hero-barracks-landscape.png`, retaining the Barracks uniform and lightly altering the faces; it pairs with a left-aligned Barracks lockup, red establishment kicker, appointment/service actions, bottom benefits rail, responsive navigation/footer rules, smooth anchor scrolling, scroll-linked image depth, staged section reveals, fully visible responsive service numerals, and compact inline icon labels.
+- Public landing page with Barracks branding, service information, branches, contact details, and login/customer-account actions. Its full-bleed hero uses a landscape adaptation of the real Barracks shop photo at `barracks-wa/public/barracks/hero-barracks-landscape.png`, retaining the Barracks uniform and lightly altering the faces; it pairs with a left-aligned Barracks lockup, red establishment kicker, appointment/service actions, bottom benefits rail, responsive navigation/footer rules, smooth anchor scrolling, scroll-linked image depth, staged section reveals, fully visible responsive service numerals, and compact inline icon labels.
 - The public header fades in without a transform so the mobile navigation menu fills the viewport below the header and scrolls to all links and actions without being clipped.
 - Customer and supplier phone inputs are capped at 11 characters in the UI and server schemas, with the API enforcing the same limit for signup, profile, customer-management, and supplier-management payloads.
 - Staff management is available to administrators and managers: administrators can view all staff accounts and create, edit, manage lifecycle, and deactivate permitted accounts, but cannot deactivate themselves or manage another administrator account; managers can view and manage front-desk accounts only.
@@ -135,16 +135,16 @@ Dark mode remains the default for operational surfaces. The existing light-mode 
 | Muted | `#B0B0AB` | Supporting copy and control labels |
 | Green / amber / red | semantic tokens | Success, warning, and danger only |
 
-Shared components should consume semantic aliases such as `--ink`, `--surface`, `--text`, `--line`, and the status tokens rather than introducing local hex values. Every status must also have a readable text label and must not rely on color alone. Internal operational modules use the shared hybrid primitives in `barracks-pwa/app/components/operations/OperationalPrimitives.tsx` for card/list toggles, filter toolbars, responsive tables, action menus, status badges, and accessible right-side detail drawers that become full-screen mobile sheets.
+Shared components should consume semantic aliases such as `--ink`, `--surface`, `--text`, `--line`, and the status tokens rather than introducing local hex values. Every status must also have a readable text label and must not rely on color alone. Internal operational modules use the shared hybrid primitives in `barracks-wa/app/components/operations/OperationalPrimitives.tsx` for card/list toggles, filter toolbars, responsive tables, action menus, status badges, and accessible right-side detail drawers that become full-screen mobile sheets.
 
 The shared `EmptyState` component requires a title and accepts an optional description. Title-only states render without an empty description paragraph; supplied descriptions remain visible.
 
-The inventory item drawer and the shared detail drawer use a simple two-state transition: closed at `translateX(100%)`, open at `translateX(0)`, with a matching scrim fade over 180ms. The drawer holds its populated content while sliding back out, stops accepting input as soon as closing begins, and focuses its close control without scrolling the page. `barracks-pwa/app/hooks/useDrawerPresence.ts` keeps a closing drawer mounted until the transition finishes, cancels an opening that is closed before its first frame mounts, and publishes `entering`, `entered`, and `exiting` as `data-state` on the drawer layer. Reduced-motion mode skips the drawer and scrim transitions.
+The inventory item drawer and the shared detail drawer use a simple two-state transition: closed at `translateX(100%)`, open at `translateX(0)`, with a matching scrim fade over 180ms. The drawer holds its populated content while sliding back out, stops accepting input as soon as closing begins, and focuses its close control without scrolling the page. `barracks-wa/app/hooks/useDrawerPresence.ts` keeps a closing drawer mounted until the transition finishes, cancels an opening that is closed before its first frame mounts, and publishes `entering`, `entered`, and `exiting` as `data-state` on the drawer layer. Reduced-motion mode skips the drawer and scrim transitions.
 
 ### Typography
 
 - The public hero uses the bundled Barracks lockup image for the oversized brand moment, with Sora and Inter retained for navigation, controls, and supporting editorial UI.
-- The type system lives in `barracks-pwa/app/design-system.css`: `--font-heading` (Sora) for page and section titles, `--font-ui` (Inter) for all interface text, `--font-numeric` (Geist Mono) only for figures such as prices, counts, IDs and dense time columns, and `--font-wordmark` (the serif) only for the Barracks wordmark.
+- The type system lives in `barracks-wa/app/design-system.css`: `--font-heading` (Sora) for page and section titles, `--font-ui` (Inter) for all interface text, `--font-numeric` (Geist Mono) only for figures such as prices, counts, IDs and dense time columns, and `--font-wordmark` (the serif) only for the Barracks wordmark.
 - Sizes and weights come from the same file: `--text-2xs` (10px) through `--text-3xl` (32px), and four weights (`--weight-regular`, `--weight-medium`, `--weight-semibold`, `--weight-bold`). New styles should use these tokens rather than raw values.
 - Times are shown in 12-hour format (`9:30 AM`) everywhere through `formatTime`/`formatTimeRange` in `app/utils/format.ts`; dates use `formatDate`.
 - Primary buttons are the inverse of the page in both themes (off-white on dark, near-black on light). Workspace sections share one vertical gap (`--space-section`).
@@ -157,7 +157,7 @@ All customer-facing and operational prices use the Philippine peso symbol (`₱`
 
 The public composition remains a paced editorial read: compact navigation, a photography-led hero, service cards, a dark barber roster, branch details, an about/contact section, and a decisive CTA/footer close. Cream and paper surfaces contrast with the dark sections while Barracks photography and the display face carry the brand.
 
-The internal workspace uses a persistent sidebar, a compact sticky topbar, metric rows, layered panels, tables, modals, and clear action zones. Shared controls use restrained radii, quiet borders, and monochrome selection states. The shared UI primitives live in `barracks-pwa/app/components/ui/`.
+The internal workspace uses a persistent sidebar, a compact sticky topbar, metric rows, layered panels, tables, modals, and clear action zones. Shared controls use restrained radii, quiet borders, and monochrome selection states. The shared UI primitives live in `barracks-wa/app/components/ui/`.
 
 ### Product and accessibility principles
 
@@ -170,7 +170,7 @@ The internal workspace uses a persistent sidebar, a compact sticky topbar, metri
 - Keep dense booking and schedule-row time/date labels compact and on one line for quick scanning.
 - Keep report period actions aligned to the date input controls, with the toolbar wrapping safely at narrow widths.
 - Keep shared staff tables aligned by declaring each table's real column count (`staff-table--cols-2` through `staff-table--cols-6`), and stack each cell's primary and secondary text instead of letting them run together on one line.
-- Keep page-level vertical rhythm in one place: `app-content > * + *` in `barracks-pwa/app/globals.css` spaces stacked panels and metric grids, and adjacent margins collapse into it. Do not add per-block `margin-bottom` values to fix a single page.
+- Keep page-level vertical rhythm in one place: `app-content > * + *` in `barracks-wa/app/globals.css` spaces stacked panels and metric grids, and adjacent margins collapse into it. Do not add per-block `margin-bottom` values to fix a single page.
 - Define every table grid track as `minmax(<minimum>, <fr>)`, never a bare `fr`. A bare `fr` track floors at its own min-content, which differs between the header labels and the row values, so the header and rows resolve to different column widths and drift out of alignment. Give action columns a padded pixel minimum wide enough for their controls.
 - Keep row actions compact and contained: a row of inline text buttons crowds the actions column and forces the whole table wider. Give action-heavy tables such as Suppliers a minimum action track and right-align the complete group, put multi-step row actions behind one icon trigger (the shared `stockIn` icon, a carton with an arrow entering it) that opens a chooser, and reserve inline icon buttons for single-step actions (edit, history, deactivate). Choose an icon whose metaphor matches what the menu does rather than a generic overflow/more glyph.
 - Preserve factual Barracks content for Davao, its branches, services, roster, contact details, and hours. Synthetic data and placeholder imagery must remain clearly replaceable.
@@ -206,9 +206,9 @@ The current sprint pages use the API for customers, barbers, inventory, supplier
 
 ### Runtime composition
 
-`barracks-pwa/app/layout.tsx` is the root document shell. It loads Geist, Geist Mono, Libre Baskerville, Inter, and Sora, imports `app/globals.css` and the canonical `app/theme.css` layer followed by the landing, login, and booking stylesheets, bootstraps the stored theme before hydration, and defines page metadata.
+`barracks-wa/app/layout.tsx` is the root document shell. It loads Geist, Geist Mono, Libre Baskerville, Inter, and Sora, imports `app/globals.css` and the canonical `app/theme.css` layer followed by the landing, login, and booking stylesheets, bootstraps the stored theme before hydration, and defines page metadata.
 
-`barracks-pwa/app/components/BarracksApp.tsx` is the client composition root. It:
+`barracks-wa/app/components/BarracksApp.tsx` is the client composition root. It:
 
 - Tracks the active `ViewId`, pending destination, current user, search value, and toast message.
 - Restores the current session through `GET /api/auth/me` when the app loads.
@@ -218,7 +218,7 @@ The current sprint pages use the API for customers, barbers, inventory, supplier
 - Chooses the full management sidebar for Administrators/Managers and the operational sidebar for Front Desk, with no workspace switcher.
 - Handles sign-out through `POST /api/auth/logout`.
 
-`barracks-pwa/app/utils/routes.ts` maps active view identifiers to canonical browser paths, while `barracks-pwa/app/[...slug]/page.tsx` exposes those paths through the App Router. `barracks-pwa/app/pages/PageRouter.tsx` maps active view identifiers to feature pages. `AppShell` owns sidebar navigation, workspace context, search, profile/sign-out controls, and the internal frame. This client routing is not a substitute for server-side authorization.
+`barracks-wa/app/utils/routes.ts` maps active view identifiers to canonical browser paths, while `barracks-wa/app/[...slug]/page.tsx` exposes those paths through the App Router. `barracks-wa/app/pages/PageRouter.tsx` maps active view identifiers to feature pages. `AppShell` owns sidebar navigation, workspace context, search, profile/sign-out controls, and the internal frame. This client routing is not a substitute for server-side authorization.
 
 ## Repository structure
 
@@ -227,7 +227,7 @@ The current sprint pages use the API for customers, barbers, inventory, supplier
 ├── README.md                         # Canonical product, design, system, and codebase guide
 ├── DEMO_README.md                    # Focused demo walkthrough and showcase accounts
 ├── running.md                        # Focused local setup and troubleshooting guide
-└── barracks-pwa/
+└── barracks-wa/
     ├── app/
     │   ├── api/                      # Next.js Route Handlers
     │   │   ├── auth/                 # login, signup, logout, current-user lookup
@@ -434,7 +434,7 @@ The backend uses raw parameterized SQL through `pg`. It does not use Prisma, Dri
 
 `server/db/pool.ts` creates the PostgreSQL pool from `DATABASE_URL` or `POSTGRES_URL`, optionally enables SSL through `DATABASE_SSL`, and uses `DATABASE_POOL_MAX`, defaulting to `3` on Vercel and `10` elsewhere. Migrations are stored in `server/db/migrations/001_user_management.sql` through `032_booking_approval.sql`, and run transactionally by `scripts/db-migrate.ts` through the shared migration runner, which records each applied file in `schema_migrations` and skips it on later runs. Migration 014 reports any existing simultaneous active queue entries for manual reconciliation before creating the unique index. Migration 015 rejects inconsistent existing queue states for manual reconciliation. Migration 017 preflights duplicate transactions per booking and aborts with transaction IDs before changing schema or data; the migration runner rolls back any failed migration. Migration 018 backfills queue service name/price snapshots, enforces visit identity consistency, and checks that each transaction has exactly one tender matching the header. Migration 019 records cash received and change on tenders, backfills earlier cash payments as exact payments, and enforces cash balance checks. Migration 020 adds append-only financial actions and rejects direct edits or deletion of finalized sales and tenders; deferred checks require a full-amount audit action for every new refunded/voided status. Migration 021 adds unique barber/date attendance, ordered clock times, and a dedicated correction log; attendance references restrict deletion of barbers with history. Database integration tests create and drop their own temporary schemas; they require an exported database URL and schema creation privilege. `npm test` runs test files sequentially to keep disposable-schema pools within PostgreSQL connection limits; the queue concurrency test still sends simultaneous requests inside its test.
 
-`npm test` also runs direct API authorization tests with Node's module-mock flag, checking 401/403 responses and representative allowed actions without a database. Migration 011 checks existing active barber and customer booking intervals before adding its exclusion constraints. If it finds an overlap, it reports the booking ID pairs and rolls back migration 011 without changing bookings or marking it applied. Run the read-only `barracks-pwa/scripts/booking-overlap-review.sql` against the affected database to list every pair in ID order. Staff must review the appointments, agree on an explicit time or lifecycle correction, and record that decision before rerunning `npm run db:migrate`. The application never chooses a booking to cancel automatically. Migrations 012 and 013 run after the conflict has been resolved and 011 succeeds.
+`npm test` also runs direct API authorization tests with Node's module-mock flag, checking 401/403 responses and representative allowed actions without a database. Migration 011 checks existing active barber and customer booking intervals before adding its exclusion constraints. If it finds an overlap, it reports the booking ID pairs and rolls back migration 011 without changing bookings or marking it applied. Run the read-only `barracks-wa/scripts/booking-overlap-review.sql` against the affected database to list every pair in ID order. Staff must review the appointments, agree on an explicit time or lifecycle correction, and record that decision before rerunning `npm run db:migrate`. The application never chooses a booking to cancel automatically. Migrations 012 and 013 run after the conflict has been resolved and 011 succeeds.
 
 Together these migrations create:
 
@@ -464,9 +464,9 @@ Important database constraints include case-insensitive unique user email, expli
 
 `scripts/seed-admin.ts` creates the initial administrator from `INITIAL_ADMIN_*` variables and is safe to rerun for the same administrator email. `scripts/seed-demo.ts` is a local Sprint 2 seed: it runs in one transaction, preserves administrator accounts, and loads the current supplier, inventory, restock, customer, booking, and transaction showcase records. It succeeds on a fresh disposable database; a repeat run is rejected once finalized financial records exist, preserving their history. Do not run it against production data.
 
-For an already seeded demo database, use `node --env-file=.env.local --import tsx scripts/refresh-demo.ts` from `barracks-pwa/`, or `npm run db:refresh-demo` with the intended environment already exported. The command runs `refresh-demo.sql` and `working-demo.sql` in one transaction. Apply all current migrations first. It requires the original supplier-linked demo inventory, roster, services, and active administrator. With the current branch schema, the four named satellite branches must already exist; the script resolves their IDs but does not create the directory. See [the demo prerequisites](DEMO_README.md#refresh-an-existing-demo). Do not use a demo refresh against real operating data.
+For an already seeded demo database, use `node --env-file=.env.local --import tsx scripts/refresh-demo.ts` from `barracks-wa/`, or `npm run db:refresh-demo` with the intended environment already exported. The command runs `refresh-demo.sql` and `working-demo.sql` in one transaction. Apply all current migrations first. It requires the original supplier-linked demo inventory, roster, services, and active administrator. With the current branch schema, the four named satellite branches must already exist; the script resolves their IDs but does not create the directory. See [the demo prerequisites](DEMO_README.md#refresh-an-existing-demo). Do not use a demo refresh against real operating data.
 
-For a complete working demo across all five branches, run `node --env-file=.env.local --import tsx scripts/seed-working-app.ts` from `barracks-pwa/` (or `npm run db:seed-working-app` with the intended database environment already exported). Apply all current migrations first, including the payroll foundation in 028. This additive command requires the original demo accounts, stock, and services, Main Branch plus the four named active satellite branches, and verified/unblocked demo Manager and Front Desk accounts assigned to all five. Missing prerequisites stop the run; it is not an empty-database installer. It expands satellite rosters to three demo barbers with shifts, fills the original product/supply catalog, adds eight clearly named walk-in profiles per branch, five weeks of paid walk-in history, today's completed/cancelled appointments, a week of upcoming reservations, attendance, and daily queues with completed visits awaiting checkout. Existing financial records, accounts, stock, attendance, and payroll are fingerprinted before writing and rechecked before commit; a mismatch rolls back the entire refresh. Stable fixture keys prevent duplicate visits, and reruns preserve staff progress.
+For a complete working demo across all five branches, run `node --env-file=.env.local --import tsx scripts/seed-working-app.ts` from `barracks-wa/` (or `npm run db:seed-working-app` with the intended database environment already exported). Apply all current migrations first, including the payroll foundation in 028. This additive command requires the original demo accounts, stock, and services, Main Branch plus the four named active satellite branches, and verified/unblocked demo Manager and Front Desk accounts assigned to all five. Missing prerequisites stop the run; it is not an empty-database installer. It expands satellite rosters to three demo barbers with shifts, fills the original product/supply catalog, adds eight clearly named walk-in profiles per branch, five weeks of paid walk-in history, today's completed/cancelled appointments, a week of upcoming reservations, attendance, and daily queues with completed visits awaiting checkout. Existing financial records, accounts, stock, attendance, and payroll are fingerprinted before writing and rechecked before commit; a mismatch rolls back the entire refresh. Stable fixture keys prevent duplicate visits, and reruns preserve staff progress.
 
 The working-app seed configures missing demo payroll calendars at 35 Manila calendar days before the first run, confirms rates only for documented synthetic fixtures, and creates two closed-period examples per demo barber: an older Paid record and a newer Draft, Pending Approval, or Approved record. Current-period earnings remain available in the overview. Existing calendars and payroll records are not reset. Demo approvals use the assigned `demo.manager@barracks.app`; audit reasons say **DEMO ONLY**, and payment references begin `DEMO-ONLY-NO-FUNDS`. These paid examples represent fictional demonstration disbursements, not actual funds. Unmarked historical services remain unresolved. This command deliberately adds synthetic sales and payroll to reports and must only target an environment intended to contain demo data.
 
@@ -496,7 +496,7 @@ The browser does not send an admin token. Private credentials, database URLs, an
 
 ## Environment variables
 
-The contract is documented in `barracks-pwa/.env.example`:
+The contract is documented in `barracks-wa/.env.example`:
 
 ```text
 DATABASE_URL
@@ -560,7 +560,7 @@ Never commit `.env.local` or real credentials. Obsolete variables from the forme
 - `tsx` runs TypeScript database scripts.
 - Tailwind's PostCSS integration is installed, but the UI is primarily authored in `app/globals.css`.
 
-Useful commands from `barracks-pwa/`:
+Useful commands from `barracks-wa/`:
 
 ```bash
 npm run dev
@@ -573,7 +573,7 @@ npm run start
 
 Run Git commands, including `git diff --check`, from the repository root.
 
-For Next.js-specific changes, read the repository guidance in `barracks-pwa/AGENTS.md` and the matching installed guide under `barracks-pwa/node_modules/next/dist/docs/` before editing routing, layouts, server/client boundaries, caching, or build configuration.
+For Next.js-specific changes, read the repository guidance in `barracks-wa/AGENTS.md` and the matching installed guide under `barracks-wa/node_modules/next/dist/docs/` before editing routing, layouts, server/client boundaries, caching, or build configuration.
 
 ## Current limitations and next steps
 
@@ -601,7 +601,7 @@ The recommended evolution is incremental: add later tender, item, discount, and 
 - Preserve accessible labels, keyboard focus, dialog semantics, and text status cues.
 - Use the existing neutral design language; do not reintroduce saturated decorative accents.
 - Update this root README whenever code, configuration, dependencies, database, API, or architecture behavior changes.
-- Follow `barracks-pwa/AGENTS.md` for check policy. Tests require an explicit request; choose permitted non-test checks proportional to the change and report only checks actually performed. Do not infer browser or hosted verification from source review or a local build.
+- Follow `barracks-wa/AGENTS.md` for check policy. Tests require an explicit request; choose permitted non-test checks proportional to the change and report only checks actually performed. Do not infer browser or hosted verification from source review or a local build.
 
 ### Dashboard surface finish
 
