@@ -56,12 +56,12 @@ BEGIN
         IF target_branch_id IS NOT NULL THEN
           INSERT INTO restock_requests(supplier_id,branch,branch_id,status,reference,notes,requested_by)
           VALUES(source_row.supplier_id,branch_row.name,target_branch_id,branch_row.request_status,branch_sku || '-RESTOCK',
-            'Demo branch stock replenishment; receiving remains a staff action.',actor_id)
+            'Branch stock replenishment; receiving remains a staff action.',actor_id)
           RETURNING id INTO request_id;
         ELSE
           INSERT INTO restock_requests(supplier_id,branch,status,reference,notes,requested_by)
           VALUES(source_row.supplier_id,branch_row.name,branch_row.request_status,branch_sku || '-RESTOCK',
-            'Demo branch stock replenishment; receiving remains a staff action.',actor_id)
+            'Branch stock replenishment; receiving remains a staff action.',actor_id)
           RETURNING id INTO request_id;
         END IF;
         INSERT INTO restock_request_items(restock_request_id,inventory_item_id,requested_quantity,unit_cost)

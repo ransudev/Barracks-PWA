@@ -103,7 +103,7 @@ This is `npm run db:seed-working-app` with the file loaded. It requires:
 
 Use Administrator **Branches** to prepare missing branches and memberships. The script checks these prerequisites and rolls back on failure; it is not a blank-database installer.
 
-It expands demo rosters and stock, adds synthetic customers, paid history, today's queue, upcoming reservations, attendance, and payroll examples. Existing accounts, stock, attendance, financial records, and payroll are fingerprinted and checked before commit. Existing passwords, calendars, and staff progress are retained. Missing demo payroll calendars are anchored relative to the first run; a date from an older deployment is not a universal default.
+It expands demo rosters (three named barbers per satellite branch) and stock, adds synthetic customers with realistic names, paid history, today's queue, upcoming reservations, attendance, and payroll examples. Existing accounts, stock, attendance, financial records, and payroll are fingerprinted and checked before commit. Existing passwords, calendars, and staff progress are retained. Missing demo payroll calendars are anchored relative to the first run; a date from an older deployment is not a universal default.
 
 Payroll examples include Draft, Pending Approval, Approved, and Paid records plus current-period earnings. Audit notes say **DEMO ONLY** and fictional disbursement references start `DEMO-ONLY-NO-FUNDS`. No funds are transferred. The original seed's four-barber/two-supplier showcase and the October 10, 2026 hosted expansion are historical baselines; current counts must be read from the selected database.
 

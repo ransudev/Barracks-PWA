@@ -77,8 +77,7 @@ try {
      SELECT s.id,CASE WHEN b.first_name='Miko' AND b.last_name='Reyes' THEN 45
        WHEN b.first_name='Paolo' AND b.last_name='Santos' THEN 50
        WHEN b.first_name='Andrei' AND b.last_name='Villanueva' THEN 55
-       WHEN b.first_name='Demo' AND b.last_name LIKE '% Assistant' THEN 42.5
-       WHEN b.first_name='Demo' AND b.last_name LIKE '% Stylist' THEN 45 ELSE 40 END,
+       ELSE b.commission_rate END,
        'DEMO ONLY: synthetic service; percentage comes from the documented demo fixture, not evidence of a real employment agreement.',$1
      FROM payroll_service_snapshots s JOIN barbers b ON b.id=s.barber_id
      LEFT JOIN bookings bk ON bk.id=s.booking_id LEFT JOIN queue_entries q ON q.id=s.queue_entry_id

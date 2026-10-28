@@ -10,6 +10,13 @@ DECLARE
   barber_id INTEGER; entry_id BIGINT; tx_id BIGINT; visit_date DATE;
   visit_time TIME; occurred_at TIMESTAMPTZ; completed_time TIMESTAMPTZ;
   fixture_key TEXT; method TEXT; queue_status TEXT; branch_sku TEXT; visit_status TEXT;
+  satellite_roster JSONB := '[
+    {"code":"BAJADA","fn":"Jomar","ln":"Villareal","rate":42.5},{"code":"BAJADA","fn":"Kevin","ln":"Abella","rate":45},{"code":"BAJADA","fn":"Ramon","ln":"Catacutan","rate":40},
+    {"code":"LANANG","fn":"Ely","ln":"Saldivar","rate":42.5},{"code":"LANANG","fn":"Bryan","ln":"Oliveros","rate":45},{"code":"LANANG","fn":"Teodoro","ln":"Lacson","rate":40},
+    {"code":"BANGKAL","fn":"Arnel","ln":"Quiambao","rate":42.5},{"code":"BANGKAL","fn":"Jayson","ln":"Pineda","rate":45},{"code":"BANGKAL","fn":"Romeo","ln":"Dagohoy","rate":40},
+    {"code":"MAA","fn":"Rey","ln":"Manalo","rate":42.5},{"code":"MAA","fn":"Christian","ln":"Uy","rate":45},{"code":"MAA","fn":"Dennis","ln":"Caballero","rate":40}]';
+  walkin_first TEXT[] := ARRAY['Miguel','Carlo','Adrian','Nico','Diego','Enzo','Gabriel','Rico','Jerome','Allan','Mark','Vince','Lester','Bong','Ivan','Patrick','Renz','Alvin','Kenneth','Rodel','Neil','Francis','Jun','Aldrin','Jericho','Ralph','Benedict','Arvin','Joel','Rommel','Dexter','Clarence','Harold','Nestor','Elmer','Gilbert','Raffy','Tristan','Victor','Lorenzo'];
+  walkin_last TEXT[] := ARRAY['Alvarez','Bernardo','Cabrera','Domingo','Espino','Fajardo','Gonzaga','Herrera','Ignacio','Jimenez','Lagman','Macaraeg','Nepomuceno','Ocampo','Pascual','Quijano','Rosales','Salazar','Tolentino','Umali','Valdez','Yap','Zamora','Agustin','Buenaventura','Cortez','Dimaculangan','Estrada','Francisco','Gatchalian','Hidalgo','Inocencio','Javier','Lumbao','Magbanua','Natividad','Olivar','Panganiban','Roque','Sison'];
 BEGIN
   SELECT u.id,concat_ws(' ',u.first_name,u.last_name) INTO STRICT actor_id,cashier
   FROM users u JOIN roles r ON r.id=u.role_id
@@ -20,21 +27,20 @@ BEGIN
     WHERE status='active' AND (code='MAIN' OR name IN
       ('Barracks Bajada HQ','Barracks Lanang HQ','Barracks Bangkal HQ','Barracks Maa HQ'))
     ORDER BY id LOOP
-    -- Add two distinct demo barbers in satellite branches; do not edit the roster.
+    -- Add the three-barber roster in satellite branches; do not edit the roster.
     IF branch_row.code<>'MAIN' THEN
-      FOR person IN 1..2 LOOP
-        INSERT INTO barbers(first_name,last_name,status,commission_rate,services_done,revenue,rating,branch_id)
-        SELECT 'Demo',branch_row.code || CASE person WHEN 1 THEN ' Assistant' ELSE ' Stylist' END,
-          'available',CASE person WHEN 1 THEN 42.5 ELSE 45 END,0,0,4.7,branch_row.id
-        WHERE NOT EXISTS(SELECT 1 FROM barbers b WHERE b.branch_id=branch_row.id AND b.first_name='Demo'
-          AND b.last_name=branch_row.code || CASE person WHEN 1 THEN ' Assistant' ELSE ' Stylist' END);
-      END LOOP;
+      INSERT INTO barbers(first_name,last_name,status,commission_rate,services_done,revenue,rating,branch_id)
+      SELECT n.fn,n.ln,'available',n.rate,0,0,4.7,branch_row.id
+      FROM jsonb_to_recordset(satellite_roster) n(code TEXT,fn TEXT,ln TEXT,rate NUMERIC)
+      WHERE n.code=branch_row.code AND NOT EXISTS(SELECT 1 FROM barbers b WHERE b.branch_id=branch_row.id
+        AND b.first_name=n.fn AND b.last_name=n.ln);
     END IF;
     SELECT array_agg(b.id ORDER BY b.id) INTO barber_ids FROM barbers b
     WHERE b.branch_id=branch_row.id AND
       ((branch_row.code='MAIN' AND (b.first_name,b.last_name) IN
         (('Miko','Reyes'),('Paolo','Santos'),('Andrei','Villanueva')))
-      OR (branch_row.code<>'MAIN' AND b.first_name='Demo'));
+      OR (branch_row.code<>'MAIN' AND (b.first_name,b.last_name) IN
+        (SELECT n.fn,n.ln FROM jsonb_to_recordset(satellite_roster) n(code TEXT,fn TEXT,ln TEXT) WHERE n.code=branch_row.code)));
     IF coalesce(array_length(barber_ids,1),0)<>3 THEN
       RAISE EXCEPTION 'Expected exactly three demo barbers in %',branch_row.name;
     END IF;
@@ -47,8 +53,7 @@ BEGIN
     -- Unique accountless profiles per branch keep simultaneous demos independent.
     FOR person IN 1..8 LOOP
       INSERT INTO customers(first_name,last_name,phone,preferred_barber_id,loyalty_points)
-      SELECT (ARRAY['Miguel','Carlo','Adrian','Nico','Diego','Enzo','Gabriel','Rico'])[person],
-        'Demo ' || branch_row.code,'+63 917 556 ' || lpad(branch_row.id::text,2,'0') || lpad(person::text,2,'0'),
+      SELECT walkin_first[(branch_row.id-1)*8+person],walkin_last[(branch_row.id-1)*8+person],'+63 917 556 ' || lpad(branch_row.id::text,2,'0') || lpad(person::text,2,'0'),
         barber_ids[1+(person-1)%3],person*15
       WHERE NOT EXISTS(SELECT 1 FROM customers c WHERE c.user_id IS NULL
         AND c.phone='+63 917 556 ' || lpad(branch_row.id::text,2,'0') || lpad(person::text,2,'0'));
