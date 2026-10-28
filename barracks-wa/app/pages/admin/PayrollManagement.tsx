@@ -112,7 +112,7 @@ function BranchPayroll({ currentUserRole, onToast, context }: { currentUserRole:
         {overview.rates.map(barber=><details className="payroll-rate-history" key={barber.id}><summary>{barber.first_name} {barber.last_name} · Rate history ({barber.history.length})</summary><ul>{barber.history.map(change=><li key={change.id}>{change.old_rate ?? 'Unconfigured'} → {change.commission_rate}% · {dateTime(change.effective_at)} · {change.actor_name || 'Payroll activation'}<p>{change.change_reason}</p></li>)}</ul></details>)}
       </Panel>
       {overview.unresolved.length>0 && <Panel><h2>Historical rates to confirm ({overview.unresolved.length})</h2><p className="payroll-muted">A manager must confirm the rate and evidence before these services accrue commission.</p><ResponsiveTable className="payroll-unresolved-table" headers={['Barber / service','Completed in Manila','Original price','Payment','Action']}>{overview.unresolved.map(service=><tr key={service.id}><td>{service.barber_name}<small>{service.service_name}</small></td><td>{dateTime(service.completed_at)}</td><td>{payrollMoney(service.original_price_centavos)}</td><td>{service.transaction_reference ?? 'Unpaid'}<small>{service.transaction_status}</small></td><td>{currentUserRole==='manager' ? <Button size="sm" variant="secondary" onClick={()=>edit({kind:'correct_snapshot',service})}>Confirm historical rate</Button> : 'Manager confirmation required'}</td></tr>)}</ResponsiveTable></Panel>}
-      {overview.corrections.length>0 && <Panel><h2>Historical correction approvals</h2><ul className="payroll-audit">{overview.corrections.map(c=><li key={c.id}><strong>{c.barber_name} · {c.service_name} · {c.rate}%</strong><p>Service completed {dateTime(c.completed_at)} · Approved by {c.approver_name} on {dateTime(c.approved_at)}</p><p>{c.reason}</p></li>)}</ul></Panel>}
+      {overview.corrections.length>0 && <CorrectionApprovals corrections={overview.corrections} />}
     </> : overview ? <>
       {tab==='overview' && overview.currentPeriod && <Panel><div className="payroll-section-head"><h2>Current period</h2><span className="payroll-period">{overview.currentPeriod.start} – {lastDay(overview.currentPeriod.end)}</span></div>{overview.currentEarnings.length ? <ResponsiveTable className="payroll-earnings-table" headers={['Barber','Completed paid services','Accrued commission']}>{overview.currentEarnings.map(e=><tr key={e.barber_id}><td>{e.barber_name}</td><td>{e.service_count}</td><td>{payrollMoney(e.gross_centavos)}</td></tr>)}</ResponsiveTable> : <p className="payroll-muted">No paid services in this period yet.</p>}{overview.unassigned.service_count > 0 && <p className="payroll-muted">{overview.unassigned.service_count} services · {payrollMoney(overview.unassigned.gross_centavos)} awaiting a draft.</p>}{overview.unassigned.before_calendar>0 && <p role="alert">{overview.unassigned.before_calendar} confirmed services predate the configured first period. Review their source evidence and handle them as explicit, referenced adjustments in a Draft; they are not silently moved to a different period.</p>}</Panel>}
       <Panel className="payroll-records-panel"><div className="payroll-section-head"><h2>{tab==='history' ? 'Payroll history' : 'Payroll records'}</h2>{!overview.settings && <Button variant="secondary" size="sm" onClick={()=>{setTab('settings');}}>Set up payroll calendar</Button>}</div>
@@ -137,6 +137,34 @@ function BranchPayroll({ currentUserRole, onToast, context }: { currentUserRole:
       {formError && <p className="form-error" role="alert">{formError}</p>}<div className="modal-actions"><Button variant="secondary" type="button" disabled={saving} onClick={()=>setEditor(null)}>Cancel</Button><Button type="submit" disabled={saving || !branch}>{saving ? 'Saving…' : editor?.kind==='approve' ? 'Approve and lock' : editor?.kind==='pay' ? 'Confirm paid' : 'Confirm'}</Button></div>
     </form></Modal>
   </div>;
+}
+
+const avatarTones = ['accent','blue','green','amber'] as const;
+const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join('').toUpperCase();
+const toneFor = (name: string) => avatarTones[[...name].reduce((sum,ch)=>sum+ch.charCodeAt(0),0)%avatarTones.length];
+
+function CorrectionApprovals({ corrections }: { corrections: PayrollOverview['corrections'] }) {
+  const [expanded,setExpanded]=useState(false);
+  const first=corrections[0];
+  // Bulk confirmations share one approval and reason; show them once instead of on every row.
+  const sharedReason=corrections.every(c=>c.reason===first.reason);
+  const sharedApproval=corrections.every(c=>c.approver_name===first.approver_name && c.approved_at===first.approved_at);
+  const visible=expanded ? corrections : corrections.slice(0,6);
+  return <Panel className="payroll-corrections">
+    <div className="payroll-section-head"><h2>Historical correction approvals <span className="payroll-count">{corrections.length}</span></h2>{sharedApproval && <span className="payroll-period">Approved by {first.approver_name} · {dateTime(first.approved_at)}</span>}</div>
+    {sharedReason && <p className="payroll-correction-note">{first.reason}</p>}
+    <ul className="payroll-corrections-list">{visible.map(c=><li key={c.id}>
+      <span className="payroll-avatar" data-tone={toneFor(c.barber_name)} aria-hidden="true">{initials(c.barber_name)}</span>
+      <div className="payroll-correction-body">
+        <strong>{c.barber_name}</strong>
+        <span>{c.service_name} · Completed {dateTime(c.completed_at)}</span>
+        {!sharedApproval && <small>Approved by {c.approver_name} · {dateTime(c.approved_at)}</small>}
+        {!sharedReason && <p>{c.reason}</p>}
+      </div>
+      <span className="payroll-rate" aria-label={`Commission rate ${c.rate}%`}>{c.rate}%</span>
+    </li>)}</ul>
+    {corrections.length>6 && <div className="payroll-corrections-more"><Button variant="ghost" size="sm" iconAfter={expanded ? undefined : 'chevronRight'} onClick={()=>setExpanded(value=>!value)}>{expanded ? 'Show fewer' : `Show all ${corrections.length}`}</Button></div>}
+  </Panel>;
 }
 
 export function PayrollSlip({ detail }: { detail: PayrollDetail }) {
